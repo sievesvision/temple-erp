@@ -75,7 +75,7 @@
                                 <div class="edc-date">{{ date('d M Y', strtotime($event->event_date)) }}</div>
                                 <h3>{{ $event->event_name }}</h3>
                                 <p>{{ Str::limit($event->description ?? ($event->location ?? $temple['name']), 110) }}</p>
-                                <a class="btn btn-temple" href="{{ route('events.show', \App\Models\Event::buildSlug($event)) }}">Donate for this event <i class="bi bi-arrow-up-right ms-1"></i></a>
+                                <a class="btn btn-temple" href="{{ route('events.show', $event->slug) }}">Donate for this event <i class="bi bi-arrow-up-right ms-1"></i></a>
                             </div>
                         </div>
                     </div>

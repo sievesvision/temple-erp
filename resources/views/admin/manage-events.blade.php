@@ -283,6 +283,11 @@
                                         <input type="text" name="event_name" class="form-control rounded-3" value="{{ $e->event_name }}" required>
                                     </div>
                                     <div class="mb-3">
+                                        <label class="form-label fw-semibold">URL Slug</label>
+                                        <input type="text" name="slug" class="form-control rounded-3" value="{{ $e->slug }}">
+                                        <div class="form-text">Public URL: <code>/events/{{ $e->slug }}</code>. Change this carefully — old links using the previous slug will stop working.</div>
+                                    </div>
+                                    <div class="mb-3">
                                         <label class="form-label fw-semibold">Description</label>
                                         <textarea name="description" class="form-control rounded-3" rows="3">{{ $e->description }}</textarea>
                                     </div>
@@ -366,6 +371,11 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Event Name</label>
                         <input type="text" name="event_name" class="form-control rounded-3" placeholder="e.g. Maha Shivaratri Utsav" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">URL Slug (optional)</label>
+                        <input type="text" name="slug" class="form-control rounded-3" placeholder="Leave blank to auto-generate from name + date">
+                        <div class="form-text">Shown in the public URL as <code>/events/&lt;slug&gt;</code>. Leave blank to auto-generate; set it yourself if you want a short, stable link that won't change even if you rename the event.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Description</label>

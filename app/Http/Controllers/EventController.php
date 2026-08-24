@@ -16,16 +16,9 @@ class EventController extends Controller
      */
     public function showPublic($slug)
     {
-        $id = Event::idFromSlug($slug);
-        if (!$id) {
+        $event = Event::where('slug', $slug)->first();
+        if (!$event) {
             abort(404);
-        }
-        $event = Event::findOrFail($id);
-
-        // Canonicalise: redirect bare-ID or stale-name links to the current slug.
-        $canonicalSlug = Event::buildSlug($event);
-        if ($slug !== $canonicalSlug) {
-            return redirect()->route('events.show', $canonicalSlug, 301);
         }
 
         $temple = Setting::templeBranding();
@@ -74,6 +67,7 @@ class EventController extends Controller
 
         $validated = $request->validate([
             'event_name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|regex:/^[A-Za-z0-9\-\s]*$/',
             'description' => 'nullable|string',
             'event_date' => 'required|date',
             'start_time' => 'required|string|max:10',
@@ -84,6 +78,7 @@ class EventController extends Controller
             'flyer_image' => 'nullable|string|max:255',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
+        $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date']);
 
         try {
             $event = Event::create($validated);
@@ -106,6 +101,7 @@ class EventController extends Controller
 
         $validated = $request->validate([
             'event_name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|regex:/^[A-Za-z0-9\-\s]*$/',
             'description' => 'nullable|string',
             'event_date' => 'required|date',
             'start_time' => 'required|string|max:10',
@@ -119,6 +115,7 @@ class EventController extends Controller
 
         try {
             $event = Event::findOrFail($id);
+            $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date'], $event->event_id);
             $event->update($validated);
             $this->saveDonationOptions($event, $request);
             return redirect()->back()->with('success', 'Event details and schedule updated successfully.');

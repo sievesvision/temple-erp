@@ -12,6 +12,7 @@ class Event extends Model
 
     protected $fillable = [
         'event_name',
+        'slug',
         'description',
         'event_date',
         'start_time',
@@ -33,25 +34,39 @@ class Event extends Model
     }
 
     /**
-     * Build a readable "event-name-date-id" URL slug so repeating events
-     * (yearly/monthly/weekly) are distinguishable at a glance. Works for
-     * both Event models and plain stdClass rows (e.g. from DB::table()).
-     * The trailing event_id keeps the URL unique and resolvable.
+     * Suggest a readable "event-name-date" slug base (no id) — used as the default
+     * when an admin leaves the slug field blank when creating/editing an event.
+     * The caller is responsible for resolving collisions against other events.
      */
-    public static function buildSlug($event): string
+    public static function suggestSlug(string $eventName, ?string $eventDate): string
     {
-        $datePart = $event->event_date ? date('Y-m-d', strtotime($event->event_date)) : '';
-        return Str::slug(trim($event->event_name . ' ' . $datePart)) . '-' . $event->event_id;
+        $datePart = $eventDate ? date('Y-m-d', strtotime($eventDate)) : '';
+        return Str::slug(trim($eventName . ' ' . $datePart));
     }
 
     /**
-     * Extract the numeric event_id from a "event-name-date-id" slug.
+     * Resolve a slug for a create/update request: honour a manually supplied slug
+     * (sanitised to be URL-safe), or fall back to suggestSlug(), then de-duplicate
+     * against any other event's slug by appending -2, -3, etc.
      */
-    public static function idFromSlug(string $slug): ?int
+    public static function resolveSlug(?string $requestedSlug, string $eventName, ?string $eventDate, ?int $ignoreEventId = null): string
     {
-        if (preg_match('/-(\d+)$/', $slug, $matches)) {
-            return (int) $matches[1];
+        $base = $requestedSlug ? Str::slug($requestedSlug) : self::suggestSlug($eventName, $eventDate);
+        if ($base === '') {
+            $base = self::suggestSlug($eventName, $eventDate);
         }
-        return ctype_digit($slug) ? (int) $slug : null;
+
+        $slug = $base;
+        $suffix = 2;
+        while (
+            self::where('slug', $slug)
+                ->when($ignoreEventId, fn ($q) => $q->where('event_id', '!=', $ignoreEventId))
+                ->exists()
+        ) {
+            $slug = $base . '-' . $suffix;
+            $suffix++;
+        }
+
+        return $slug;
     }
 }
