@@ -45,7 +45,7 @@
     </div>
     <div class="donate-method-info mb-4" data-method-info="Stripe" style="display:none;">
         <div class="donation-bank-card">
-            <p class="mb-0"><i class="bi bi-shield-check me-2"></i>Pay securely online in {{ $temple['currency'] }}. No UPI or bank transfer is requested through this website.</p>
+            <p class="mb-0"><i class="bi bi-shield-check me-2"></i>Pay securely online in {{ $temple['currency'] }}. Online payments are securely processed through Stripe. Your card details are handled directly by Stripe and are not stored on our website or systems.</p>
         </div>
     </div>
 
