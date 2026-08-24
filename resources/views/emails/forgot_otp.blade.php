@@ -19,7 +19,7 @@
     <!-- Body content -->
     <div style="padding: 40px 30px; text-align: center;">
       <h2 style="margin-top: 0; color: #17110a; font-size: 20px; font-weight: 600;">
-        Namaste,
+        Vanakkam, {{ $name ?? 'Devotee' }}
       </h2>
       <p style="color: #52473c; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
         You have requested to reset your password. Use the following One-Time Password (OTP) code to verify your identity and complete the process:

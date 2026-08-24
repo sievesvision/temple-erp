@@ -15,14 +15,16 @@ class ForgotPasswordMail extends Mailable
 
     public $otp;
     public $expiry;
+    public $name;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($otp, $expiry = '10 minutes')
+    public function __construct($otp, $expiry = '10 minutes', $name = null)
     {
         $this->otp = $otp;
         $this->expiry = $expiry;
+        $this->name = $name;
     }
 
     /**
@@ -31,7 +33,7 @@ class ForgotPasswordMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '🛕 ' . Setting::get('temple_name', 'SRI SELVA VINAYAKAR KOYIL (GANESHA TEMPLE)') . ' - Forgot Password OTP Verification',
+            subject: Setting::get('temple_name', 'SRI SELVA VINAYAKAR KOYIL (GANESHA TEMPLE)') . ' - Forgot Password OTP Verification',
         );
     }
 

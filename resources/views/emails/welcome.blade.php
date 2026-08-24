@@ -23,7 +23,7 @@
       </h2>
       
       <p style="color: #52473c; font-size: 16px; line-height: 1.6; margin-bottom: 20px;">
-        Hello {{ $name }},
+        Vanakkam, {{ $name }}
       </p>
 
       <p style="color: #52473c; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">

@@ -343,6 +343,21 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 
 ---
 
+Run this wherever you need the admin created (local: from this directory; Hostinger: after cd ~/domains/hasq.org/ssvk):
+
+php artisan tinker --execute="
+\App\Models\User::create([
+    'name' => 'Admin',
+    'email' => 'admin@hasq.org',
+    'mobile' => '0000000000',
+    'password' => 'ChangeThisPassword123!',
+    'role' => 'Admin',
+    'status' => 'Active',
+    'email_verified_at' => now(),
+]);
+echo 'Admin user created.';
+"
+
 # 📸 Screenshots
 Home Page:
 <img width="1919" height="907" alt="image" src="https://github.com/user-attachments/assets/52027a83-c232-460d-825e-9bc7c8585a30" />

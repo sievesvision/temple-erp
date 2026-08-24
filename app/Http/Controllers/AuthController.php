@@ -68,7 +68,7 @@ class AuthController extends Controller
 
         // Send verification mail
         try {
-            Mail::to($request->email)->send(new OtpMail($otp));
+            Mail::to($request->email)->send(new OtpMail($otp, '10 minutes', $request->name));
         } catch (\Exception $e) {
             // Clear session data if mail failed to send
             session()->forget([
@@ -226,7 +226,7 @@ class AuthController extends Controller
 
         try {
             $email = session('registration_email');
-            Mail::to($email)->send(new OtpMail($otp));
+            Mail::to($email)->send(new OtpMail($otp, '10 minutes', session('registration_data.name')));
             return response()->json([
                 'success' => true,
                 'message' => 'A new OTP has been sent to your email.'
@@ -375,7 +375,7 @@ class AuthController extends Controller
         ]);
 
         try {
-            Mail::to($request->email)->send(new \App\Mail\ForgotPasswordMail($otp));
+            Mail::to($request->email)->send(new \App\Mail\ForgotPasswordMail($otp, '10 minutes', $user->name));
         } catch (\Exception $e) {
             return redirect()->route('forgot-password')->withInput()->withErrors(['email' => 'Failed to send OTP email: ' . $e->getMessage()]);
         }
@@ -420,6 +420,16 @@ class AuthController extends Controller
         $hash = session('forgot_otp_hash');
         if (!Hash::check($request->otp, $hash)) {
             return redirect()->route('forgot-password.verify')->withErrors(['otp' => 'Invalid OTP. Please try again.']);
+        }
+
+        // Receiving and confirming this OTP already proves ownership of the email,
+        // so an account that was never verified (e.g. created by an admin) becomes
+        // verified here too — otherwise it would be locked out of login permanently
+        // with no way to complete verification.
+        $user = User::where('email', session('forgot_email'))->first();
+        if ($user && is_null($user->email_verified_at)) {
+            $user->email_verified_at = now();
+            $user->save();
         }
 
         session([
@@ -491,7 +501,8 @@ class AuthController extends Controller
         ]);
 
         try {
-            Mail::to($email)->send(new \App\Mail\ForgotPasswordMail($otp));
+            $user = User::where('email', $email)->first();
+            Mail::to($email)->send(new \App\Mail\ForgotPasswordMail($otp, '10 minutes', $user->name ?? null));
             return response()->json(['success' => true, 'message' => 'A new OTP has been sent to your email.']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Failed to send verification email: ' . $e->getMessage()], 500);
