@@ -477,7 +477,7 @@
                                 {{ $priest->specialization ?? 'N/A' }}
                             </span>
                         </td>
-                        <td>₹{{ number_format($priest->monthly_salary) }}</td>
+                        <td>{{ $temple['currency'] }} {{ number_format($priest->monthly_salary) }}</td>
                         <td>
                             @php
                                 $statusClass = 'active';
@@ -857,7 +857,7 @@
             $('#view_dob').val(data.dob);
             $('#view_specialization').val(data.specialization);
             $('#view_experience').val(data.experience + ' Years');
-            $('#view_salary').val('₹' + Number(data.salary).toLocaleString());
+            $('#view_salary').val('{{ $temple["currency"] }} ' + Number(data.salary).toLocaleString());
             $('#view_joining').val(data.joining);
             $('#view_status').val(data.status);
             $('#view_current').val(data.current);
@@ -866,7 +866,7 @@
             $('#view_bank').val(data.bank);
             $('#view_branch').val(data.branch);
             $('#view_ifsc').val(data.ifsc);
-            $('#view_wallet').val('₹' + Number(data.wallet).toLocaleString());
+            $('#view_wallet').val('{{ $temple["currency"] }} ' + Number(data.wallet).toLocaleString());
             $('#view_address').val(data.address);
         });
 

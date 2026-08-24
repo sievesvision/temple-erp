@@ -282,7 +282,7 @@
                                 <div class="pooja-card-body">
                                     <p class="text-muted small mb-3">{{ Str::limit($pooja->description, 100) }}</p>
                                     <div class="pooja-price-section d-flex justify-content-between align-items-center border-top pt-3">
-                                        <div class="fw-bold text-warning fs-5">₹{{ number_format($pooja->pooja_fee) }}</div>
+                                        <div class="fw-bold text-warning fs-5">{{ $temple['currency'] }} {{ number_format($pooja->pooja_fee) }}</div>
                                         <button type="button" 
                                                 id="selectBtn_{{ $pooja->pooja_id }}"
                                                 class="btn btn-outline-warning btn-select-pooja" 
@@ -391,20 +391,20 @@
                         <h5>Price Breakdown</h5>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Subtotal</span>
-                            <span id="summaryBasePrice">₹0.00</span>
+                            <span id="summaryBasePrice">{{ $temple['currency'] }} 0.00</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2 text-success">
                             <span>Discount</span>
-                            <span id="summaryDiscount">-₹0.00</span>
+                            <span id="summaryDiscount">-{{ $temple['currency'] }} 0.00</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Prasadam Shipping</span>
-                            <span id="summaryShipping">₹0.00</span>
+                            <span id="summaryShipping">{{ $temple['currency'] }} 0.00</span>
                         </div>
                         <hr>
                         <div class="d-flex justify-content-between fw-bold mb-4 fs-5">
                             <span>Total Price</span>
-                            <span id="summaryTotalPrice">₹0.00</span>
+                            <span id="summaryTotalPrice">{{ $temple['currency'] }} 0.00</span>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary w-50 rounded-pill fw-bold" onclick="navigateToStep(4)">Back</button>
@@ -468,6 +468,7 @@
 @section('page-js')
 <script>
     // State storage variables
+    const CURRENCY = @json($temple['currency']);
     let allSelectedPoojas = [];
     let membershipDiscountPercent = {{ $membership->discount_percentage ?? 0 }};
     let devoteeMembershipTier = "{{ $membership->membership_name ?? 'None' }}";
@@ -521,7 +522,7 @@
                 <li class="list-group-item d-flex justify-content-between align-items-center py-2 bg-transparent">
                     <div>
                         <strong class="text-dark">${p.pooja_name}</strong>
-                        <div class="small text-muted">₹${Number(p.pooja_fee).toLocaleString()}</div>
+                        <div class="small text-muted">${CURRENCY} ${Number(p.pooja_fee).toLocaleString()}</div>
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle" onclick='removePooja(${idx}, ${p.pooja_id})'>
                         <i class="bi bi-trash"></i>
@@ -779,7 +780,7 @@
                             <label class="form-label fw-semibold">Mode Option</label>
                             <select id="booking_type_${idx}" class="form-select rounded-3" onchange="toggleAddress(${idx}); saveDraftState();" required>
                                 <option value="Offline" ${p.booking_type === 'Offline' ? 'selected' : ''}>Temple Visit (Offline)</option>
-                                ${p.online_allowed ? `<option value="Online" ${p.booking_type === 'Online' ? 'selected' : ''}>Online Pooja (+ ₹200 Shipping)</option>` : ''}
+                                ${p.online_allowed ? `<option value="Online" ${p.booking_type === 'Online' ? 'selected' : ''}>Online Pooja (+ ${CURRENCY} 200 Shipping)</option>` : ''}
                             </select>
                         </div>
                         <div class="col-12" id="address_wrapper_${idx}" style="display: ${p.booking_type === 'Online' ? 'block' : 'none'}">
@@ -829,9 +830,9 @@
                             <div class="small text-muted"><i class="bi bi-geo-alt"></i> Mode: ${p.booking_type} | Priest Option: ${p.priest_option}</div>
                         </div>
                         <div class="text-end">
-                            <div class="fw-bold">₹${base.toLocaleString()}</div>
-                            ${disc > 0 ? `<div class="small text-success">-₹${disc.toLocaleString()}</div>` : ''}
-                            ${ship > 0 ? `<div class="small text-info">+₹${ship.toLocaleString()}</div>` : ''}
+                            <div class="fw-bold">${CURRENCY} ${base.toLocaleString()}</div>
+                            ${disc > 0 ? `<div class="small text-success">-${CURRENCY} ${disc.toLocaleString()}</div>` : ''}
+                            ${ship > 0 ? `<div class="small text-info">+${CURRENCY} ${ship.toLocaleString()}</div>` : ''}
                         </div>
                     </div>
                 </li>
@@ -842,10 +843,10 @@
 
         // Pricing Breakdown Updates
         const total = totalBase - totalDiscount + totalShipping;
-        $('#summaryBasePrice').text(`₹${totalBase.toLocaleString()}`);
-        $('#summaryDiscount').text(`-₹${totalDiscount.toLocaleString()}`);
-        $('#summaryShipping').text(`₹${totalShipping.toLocaleString()}`);
-        $('#summaryTotalPrice').text(`₹${total.toLocaleString()}`);
+        $('#summaryBasePrice').text(`${CURRENCY} ${totalBase.toLocaleString()}`);
+        $('#summaryDiscount').text(`-${CURRENCY} ${totalDiscount.toLocaleString()}`);
+        $('#summaryShipping').text(`${CURRENCY} ${totalShipping.toLocaleString()}`);
+        $('#summaryTotalPrice').text(`${CURRENCY} ${total.toLocaleString()}`);
 
         // Inject fields to form input for submission
         injectFormInputs();

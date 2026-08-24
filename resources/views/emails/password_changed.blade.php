@@ -2,14 +2,14 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Temple ERP Password Changed</title>
+  <title>{{ $temple['name'] }} · Password Changed</title>
 </head>
-<body style="background-color: #fdfbf7; margin: 0; padding: 20px; font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #2d2520;">
+<body style="background-color: #fbf8f1; margin: 0; padding: 20px; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #2d2520;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #ebdcc5; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
     <!-- Header banner -->
-    <div style="background: linear-gradient(135deg, #ff9e00 0%, #ff6f00 50%, #e65100 100%); padding: 30px; text-align: center;">
-      <h1 style="margin: 0; color: #ffffff; font-family: 'Cinzel', 'Georgia', serif; font-size: 24px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-        🛕 SHREE MANDIR ERP
+    <div style="background: linear-gradient(135deg, {{ $temple['accent_color'] }} 0%, {{ $temple['primary_color'] }} 50%, {{ $temple['dark_color'] }} 100%); padding: 30px; text-align: center;">
+      <h1 style="margin: 0; color: #ffffff; font-family: 'Playfair Display', 'Georgia', serif; font-size: 24px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+        🛕 {{ $temple['name'] }}
       </h1>
       <p style="margin: 5px 0 0 0; color: #ffd8bd; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">
         Security Notification
@@ -45,7 +45,7 @@
     <!-- Footer -->
     <div style="background-color: #17110a; color: #ffd8bd; text-align: center; padding: 20px; font-size: 12px;">
       <p style="margin: 0 0 5px 0; font-weight: 500;">
-        © 2026 Shree Mandir Trust. All rights reserved.
+        © {{ date('Y') }} {{ $temple['name'] }}. All rights reserved.
       </p>
       <p style="margin: 0; color: rgba(255, 255, 255, 0.45);">
         Secure Vedic Administration System

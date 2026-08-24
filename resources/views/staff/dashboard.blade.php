@@ -453,7 +453,7 @@
                 <tr>
                   <td><strong>#TXN{{ $txn->transaction_id }}</strong></td>
                   <td class="fw-bold text-{{ $txn->transaction_type === 'Credit' ? 'success' : 'danger' }}">
-                    {{ $txn->transaction_type === 'Credit' ? '+' : '-' }} ₹{{ number_format($txn->amount, 2) }}
+                    {{ $txn->transaction_type === 'Credit' ? '+' : '-' }} {{ $temple['currency'] }} {{ number_format($txn->amount, 2) }}
                   </td>
                   <td><span class="badge bg-{{ $txn->transaction_type === 'Credit' ? 'success' : 'danger' }}">{{ $txn->transaction_type }}</span></td>
                   <td>{{ $txn->remarks }}</td>
@@ -472,7 +472,7 @@
       <div class="col-lg-4">
         <div class="card border-0 shadow-sm rounded-4 p-4 text-center mb-4" style="background: white;">
           <h5 class="fw-bold mb-2">Wallet Balance</h5>
-          <h2 class="fw-bold text-warning mb-3">₹{{ number_format($staff->wallet_balance ?? 0, 2) }}</h2>
+          <h2 class="fw-bold text-warning mb-3">{{ $temple['currency'] }} {{ number_format($staff->wallet_balance ?? 0, 2) }}</h2>
           <p class="text-muted small mb-0">Commissions and deductions from penalty hours are adjusted here. Balance clears to 0 upon monthly salary payouts.</p>
         </div>
 
@@ -484,7 +484,7 @@
           </div>
           @if($onlineHoursToday < 10)
             <div class="alert alert-danger border-0 small py-2 px-3 mb-0" style="background: #fdf2f2; color: #9b1c1c;">
-              <i class="bi bi-exclamation-octagon-fill me-1"></i> Under 10 hours limit. Penalty: <strong>₹{{ $penaltyToday }}</strong> (₹100/hour penalty).
+              <i class="bi bi-exclamation-octagon-fill me-1"></i> Under 10 hours limit. Penalty: <strong>{{ $temple['currency'] }} {{ $penaltyToday }}</strong> ({{ $temple['currency'] }} 100/hour penalty).
             </div>
           @else
             <div class="alert alert-success border-0 small py-2 px-3 mb-0" style="background: #f3faf7; color: #03543f;">
@@ -517,11 +517,11 @@
                 @forelse($salaryPayouts as $payout)
                 <tr>
                   <td><strong>{{ date('F Y', strtotime($payout->salary_month . '-01')) }}</strong></td>
-                  <td>₹{{ number_format($payout->base_salary, 2) }}</td>
+                  <td>{{ $temple['currency'] }} {{ number_format($payout->base_salary, 2) }}</td>
                   <td class="text-{{ $payout->wallet_amount >= 0 ? 'success' : 'danger' }}">
-                    {{ $payout->wallet_amount >= 0 ? '+' : '' }}₹{{ number_format($payout->wallet_amount, 2) }}
+                    {{ $payout->wallet_amount >= 0 ? '+' : '' }}{{ $temple['currency'] }} {{ number_format($payout->wallet_amount, 2) }}
                   </td>
-                  <td class="fw-bold">₹{{ number_format($payout->total_paid, 2) }}</td>
+                  <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($payout->total_paid, 2) }}</td>
                   <td>{{ $payout->payment_date ? date('d M Y', strtotime($payout->payment_date)) : 'N/A' }}</td>
                   <td><span class="badge bg-success">{{ $payout->payment_status }}</span></td>
                 </tr>
@@ -540,18 +540,18 @@
           <h5 class="fw-bold mb-3"><i class="bi bi-cash-stack text-warning me-2"></i>Salary Breakdown</h5>
           <div class="d-flex justify-content-between mb-2">
             <span class="text-muted">Monthly Salary:</span>
-            <span class="fw-semibold">₹{{ number_format($staff->salary, 2) }}</span>
+            <span class="fw-semibold">{{ $temple['currency'] }} {{ number_format($staff->salary, 2) }}</span>
           </div>
           <div class="d-flex justify-content-between mb-2">
             <span class="text-muted">Wallet Balance:</span>
             <span class="fw-semibold text-{{ ($staff->wallet_balance ?? 0) >= 0 ? 'success' : 'danger' }}">
-              {{ ($staff->wallet_balance ?? 0) >= 0 ? '+' : '' }}₹{{ number_format($staff->wallet_balance ?? 0, 2) }}
+              {{ ($staff->wallet_balance ?? 0) >= 0 ? '+' : '' }}{{ $temple['currency'] }} {{ number_format($staff->wallet_balance ?? 0, 2) }}
             </span>
           </div>
           <hr>
           <div class="d-flex justify-content-between mb-3">
             <span class="fw-bold">Net Payout (Est.):</span>
-            <span class="fw-bold text-warning h4 mb-0">₹{{ number_format($staff->salary + ($staff->wallet_balance ?? 0), 2) }}</span>
+            <span class="fw-bold text-warning h4 mb-0">{{ $temple['currency'] }} {{ number_format($staff->salary + ($staff->wallet_balance ?? 0), 2) }}</span>
           </div>
           <p class="text-muted small mb-0">Monthly payouts are approved at the end of the month by the Administrator/Accountant. The current month's wallet balance is adjusted into the final salary.</p>
         </div>
@@ -866,7 +866,7 @@
                       <option value="" selected disabled>Select Pooja</option>
                       @foreach($activePoojas as $pj)
                         <option value="{{ $pj->pooja_id }}" data-price="{{ $pj->pooja_fee }}">
-                          {{ $pj->pooja_name }} — ₹{{ number_format($pj->pooja_fee, 2) }}
+                          {{ $pj->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pj->pooja_fee, 2) }}
                         </option>
                       @endforeach
                     </select>
@@ -952,9 +952,9 @@
                   </div>
 
                   <div class="mb-4">
-                    <label class="form-label fw-semibold text-secondary">Donation Amount (₹)</label>
+                    <label class="form-label fw-semibold text-secondary">Donation Amount ({{ $temple['currency'] }})</label>
                     <div class="input-group">
-                      <span class="input-group-text bg-light fw-bold">₹</span>
+                      <span class="input-group-text bg-light fw-bold">{{ $temple['currency'] }}</span>
                       <input type="number" id="donation_amount" class="form-control rounded-3" placeholder="Enter Amount" min="1" required>
                     </div>
                   </div>
@@ -1062,6 +1062,7 @@
 @section('page-js')
 <script>
   const BASE_URL = '{{ url("/") }}';
+  const CURRENCY = @json($temple['currency']);
   $(document).ready(function() {
     // Live shift timer
     const timerEl = document.getElementById('live-shift-timer');
@@ -1386,7 +1387,7 @@
                     <strong>Priest:</strong> <span class="float-end fw-bold text-success">${details.priest_name}</span>
                   </div>
                   <div class="mb-2">
-                    <strong>Amount Paid:</strong> <span class="float-end fw-bold">₹${details.amount}</span>
+                    <strong>Amount Paid:</strong> <span class="float-end fw-bold">${CURRENCY} ${details.amount}</span>
                   </div>
                   <div class="mb-2">
                     <strong>Payment Mode:</strong> <span class="float-end">Cash (Paid)</span>
@@ -1490,7 +1491,7 @@
                     <strong>Category:</strong> <span class="float-end">${details.purpose}</span>
                   </div>
                   <div class="mb-2">
-                    <strong>Amount Paid:</strong> <span class="float-end fw-bold">₹${details.amount}</span>
+                    <strong>Amount Paid:</strong> <span class="float-end fw-bold">${CURRENCY} ${details.amount}</span>
                   </div>
                   <div class="mb-2">
                     <strong>Payment Mode:</strong> <span class="float-end">Cash (Paid)</span>

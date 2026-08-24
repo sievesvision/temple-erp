@@ -779,7 +779,7 @@ class PriestController extends Controller
                     'created_at' => now()
                 ]);
 
-                $msg .= ' Penalty of ₹' . $penaltyAmount . ' applied for short shift.';
+                $msg .= ' Penalty of ' . Setting::get('currency_code', 'AUD') . ' ' . $penaltyAmount . ' applied for short shift.';
             }
 
             DB::commit();
@@ -855,7 +855,7 @@ class PriestController extends Controller
             ]);
 
             DB::commit();
-            return redirect()->back()->with('success', "Pooja marked as completed! ₹{$rewardAmount} credited to wallet.");
+            return redirect()->back()->with('success', "Pooja marked as completed! " . Setting::get('currency_code', 'AUD') . " {$rewardAmount} credited to wallet.");
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Failed to complete pooja: ' . $e->getMessage());

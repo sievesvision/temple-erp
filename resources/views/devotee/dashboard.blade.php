@@ -335,7 +335,7 @@
                 @php
                   $bRecord = DB::table('pooja_bookings')->where('booking_id', $booking->booking_id)->first();
                 @endphp
-                ₹{{ number_format($bRecord->total_amount ?? 0) }}
+                {{ $temple['currency'] }} {{ number_format($bRecord->total_amount ?? 0) }}
               </td>
               <td>
                 <span class="badge bg-{{ $booking->payment_status === 'Paid' ? 'success' : ($booking->payment_status === 'Refunded' ? 'info' : 'warning') }} text-white">
@@ -388,7 +388,7 @@
                 @forelse($recentDonations as $donation)
                 <tr>
                   <td><strong>DN{{ str_pad($donation->donation_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
-                  <td class="fw-bold">₹{{ number_format($donation->amount) }}</td>
+                  <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($donation->amount) }}</td>
                   <td>{{ $donation->payment_mode }}</td>
                   <td><code class="small">{{ $donation->transaction_id ?? 'N/A' }}</code></td>
                   <td>{{ date('d M Y h:i A', strtotime($donation->donation_date)) }}</td>
@@ -411,7 +411,7 @@
           <form action="{{ route('devotee.payment') }}" method="GET">
             <input type="hidden" name="type" value="donation">
             <div class="mb-3">
-              <label class="form-label fw-semibold">Amount (₹)</label>
+              <label class="form-label fw-semibold">Amount ({{ $temple['currency'] }})</label>
               <input type="number" name="amount" id="donAmt" class="form-control rounded-3" value="1000" min="10" required>
             </div>
             <div class="mb-3">
@@ -445,7 +445,7 @@
           <div class="text-center">
             <span class="fs-1">🥈</span>
             <h4 class="fw-bold mt-2">Silver Tier</h4>
-            <p class="text-muted">₹999 / month</p>
+            <p class="text-muted">{{ $temple['currency'] }} 999 / month</p>
           </div>
           <hr>
           <ul class="list-unstyled">
@@ -473,7 +473,7 @@
           <div class="text-center">
             <span class="fs-1">🥇</span>
             <h4 class="fw-bold mt-2">Gold Tier</h4>
-            <p class="text-muted">₹1,999 / month</p>
+            <p class="text-muted">{{ $temple['currency'] }} 1,999 / month</p>
           </div>
           <hr>
           <ul class="list-unstyled">
@@ -501,7 +501,7 @@
           <div class="text-center">
             <span class="fs-1">💎</span>
             <h4 class="fw-bold mt-2">Platinum Tier</h4>
-            <p class="text-muted">₹3,499 / month</p>
+            <p class="text-muted">{{ $temple['currency'] }} 3,499 / month</p>
           </div>
           <hr>
           <ul class="list-unstyled">
@@ -736,7 +736,7 @@
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
                                 <div class="text-muted small fw-semibold uppercase mb-1" style="font-size:0.75rem;">Total Donations</div>
-                                <h3 class="fw-bold mb-0 text-dark">₹{{ number_format($totalDonation) }}</h3>
+                                <h3 class="fw-bold mb-0 text-dark">{{ $temple['currency'] }} {{ number_format($totalDonation) }}</h3>
                             </div>
                             <div class="icon-box p-3 bg-danger bg-opacity-10 text-danger rounded-3"><i class="bi bi-wallet2 fs-3"></i></div>
                         </div>

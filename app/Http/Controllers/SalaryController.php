@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Setting;
 
 class SalaryController extends Controller
 {
@@ -179,7 +180,7 @@ class SalaryController extends Controller
                     'total_paid' => $totalPaid,
                     'payment_date' => date('Y-m-d'),
                     'payment_status' => 'Paid',
-                    'remarks' => "Salary sanctioned for {$monthName}. Wallet balance of ₹{$walletAmount} adjusted and cleared.",
+                    'remarks' => "Salary sanctioned for {$monthName}. Wallet balance of " . Setting::get('currency_code', 'AUD') . " {$walletAmount} adjusted and cleared.",
                     'created_at' => now()
                 ]);
 
@@ -217,7 +218,7 @@ class SalaryController extends Controller
                     'total_paid' => $totalPaid,
                     'payment_date' => date('Y-m-d'),
                     'payment_status' => 'Paid',
-                    'remarks' => "Salary sanctioned for {$monthName}. Wallet balance of ₹{$walletAmount} adjusted and cleared.",
+                    'remarks' => "Salary sanctioned for {$monthName}. Wallet balance of " . Setting::get('currency_code', 'AUD') . " {$walletAmount} adjusted and cleared.",
                     'created_at' => now()
                 ]);
 

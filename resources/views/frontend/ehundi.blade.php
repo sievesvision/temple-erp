@@ -877,8 +877,12 @@
   <nav class="navbar navbar-expand-lg navbar-custom py-3 fixed-top" id="mainNavbar">
     <div class="container">
       <a class="navbar-brand d-flex align-items-center" href="{{ route('home') }}">
-        <i class="bi bi-temple me-2"></i>
-        <span>SHREE MANDIR</span>
+        @if($temple['logo'])
+          <img src="{{ $temple['logo'] }}" alt="{{ $temple['name'] }} logo" style="width:32px;height:32px;object-fit:contain;" class="me-2">
+        @else
+          <i class="bi bi-temple me-2"></i>
+        @endif
+        <span>{{ $temple['brand_title'] ?: $temple['name'] }}</span>
       </a>
 
       <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"
@@ -976,20 +980,20 @@
         <div class="card-title">🌸 Make an Offering</div>
 
         <div class="amount-wrap">
-          <span class="currency-symbol">₹</span>
+          <span class="currency-symbol">{{ $temple['currency'] }}</span>
           <input type="number" id="donationAmount" placeholder="Enter donation amount" min="1" step="0.01" />
         </div>
 
         <div class="quick-label">Quick Select</div>
         <div class="quick-amounts" id="quickAmounts">
-          <button class="quick-btn" data-val="10">₹10</button>
-          <button class="quick-btn" data-val="20">₹20</button>
-          <button class="quick-btn" data-val="50">₹50</button>
-          <button class="quick-btn" data-val="100">₹100</button>
-          <button class="quick-btn" data-val="500">₹500</button>
-          <button class="quick-btn" data-val="1000">₹1000</button>
-          <button class="quick-btn" data-val="2000">₹2000</button>
-          <button class="quick-btn" data-val="5000">₹5000</button>
+          <button class="quick-btn" data-val="10">{{ $temple['currency'] }} 10</button>
+          <button class="quick-btn" data-val="20">{{ $temple['currency'] }} 20</button>
+          <button class="quick-btn" data-val="50">{{ $temple['currency'] }} 50</button>
+          <button class="quick-btn" data-val="100">{{ $temple['currency'] }} 100</button>
+          <button class="quick-btn" data-val="500">{{ $temple['currency'] }} 500</button>
+          <button class="quick-btn" data-val="1000">{{ $temple['currency'] }} 1000</button>
+          <button class="quick-btn" data-val="2000">{{ $temple['currency'] }} 2000</button>
+          <button class="quick-btn" data-val="5000">{{ $temple['currency'] }} 5000</button>
         </div>
 
         <button class="donate-btn" id="donateBtn" onclick="handleDonate(event)">
@@ -1137,6 +1141,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const CURRENCY = @json($temple['currency']);
+
     /* ══════════════════════════════════════════════════════
        SOUND HOOKS
     ══════════════════════════════════════════════════════ */
@@ -1312,11 +1318,11 @@
         <line x1="18" y1="${H-12}" x2="${W-18}" y2="${H-12}" stroke="${c.emblem}" stroke-width="0.5" opacity="0.4"/>
         <text x="${W/2}" y="${H/2+1}" text-anchor="middle" dominant-baseline="middle"
               font-family="'Cinzel',serif" font-size="20" font-weight="bold"
-              fill="${c.text}" letter-spacing="1">₹${denom}</text>
+              fill="${c.text}" letter-spacing="1">${CURRENCY} ${denom}</text>
         <text x="${W/2}" y="${H/2+15}" text-anchor="middle"
-              font-family="sans-serif" font-size="5.5" fill="${c.text}" opacity="0.6">भारत सरकार</text>
+              font-family="sans-serif" font-size="5.5" fill="${c.text}" opacity="0.6">{{ $temple['brand_title'] ?: 'TEMPLE' }}</text>
         <text x="${W-7}" y="${H/2+1}" text-anchor="middle" dominant-baseline="middle"
-              font-family="'Cinzel',serif" font-size="8" fill="${c.emblem}" opacity="0.5">₹${denom}</text>
+              font-family="'Cinzel',serif" font-size="8" fill="${c.emblem}" opacity="0.5">${CURRENCY} ${denom}</text>
         <rect x="18" y="2" width="${W-36}" height="18" rx="2" fill="rgba(255,255,255,0.08)"/>
       </svg>`;
     }
@@ -1325,8 +1331,8 @@
        INDIAN COIN SVG
     ══════════════════════════════════════════════════════ */
     function makeCoin(denom) {
-      const labelMap = { 5: '₹5', 2: '₹2', 1: '₹1', 0.5: '50p', 0.25: '25p' };
-      const label = labelMap[denom] || ('₹' + denom);
+      const labelMap = { 5: CURRENCY + '5', 2: CURRENCY + '2', 1: CURRENCY + '1', 0.5: '50c', 0.25: '25c' };
+      const label = labelMap[denom] || (CURRENCY + ' ' + denom);
       const id = 'c' + Math.random().toString(36).slice(2);
       const R = 30;
       return `<svg class="coin-svg" viewBox="0 0 ${R*2} ${R*2}" width="${R*2}" height="${R*2}" xmlns="http://www.w3.org/2000/svg">

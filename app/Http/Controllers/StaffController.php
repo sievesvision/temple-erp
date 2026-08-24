@@ -636,7 +636,7 @@ class StaffController extends Controller
                     'created_at' => now()
                 ]);
 
-                $msg .= ' Penalty of ₹' . $penaltyAmount . ' applied for short shift.';
+                $msg .= ' Penalty of ' . Setting::get('currency_code', 'AUD') . ' ' . $penaltyAmount . ' applied for short shift.';
             }
 
             DB::commit();

@@ -94,14 +94,14 @@
       <div class="col-md-6">
         <div class="card border-0 shadow-sm rounded-4 p-4 text-center" style="background: white;">
           <h5 class="fw-bold mb-2">Total Collections</h5>
-          <h2 class="fw-bold text-success">₹{{ number_format($totalIncome, 2) }}</h2>
+          <h2 class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($totalIncome, 2) }}</h2>
           <p class="text-muted small">Includes pooja bookings and direct donation funds.</p>
         </div>
       </div>
       <div class="col-md-6">
         <div class="card border-0 shadow-sm rounded-4 p-4 text-center" style="background: white;">
           <h5 class="fw-bold mb-2">Donation Collections</h5>
-          <h2 class="fw-bold text-warning">₹{{ number_format($totalDonations, 2) }}</h2>
+          <h2 class="fw-bold text-warning">{{ $temple['currency'] }} {{ number_format($totalDonations, 2) }}</h2>
           <p class="text-muted small">Represents the direct donation inflow.</p>
         </div>
       </div>
@@ -130,7 +130,7 @@
               <td>{{ $p->name }}</td>
               <td>{{ $p->role }}</td>
               <td>{{ $p->salary_month }}</td>
-              <td class="fw-bold text-danger">- ₹{{ number_format($p->total_paid) }}</td>
+              <td class="fw-bold text-danger">- {{ $temple['currency'] }} {{ number_format($p->total_paid) }}</td>
               <td><span class="badge bg-success">{{ $p->payment_status }}</span></td>
             </tr>
             @empty
@@ -166,9 +166,9 @@
                 <tr>
                   <td>{{ $p->name }} <span class="badge bg-light text-dark small">{{ $p->role }}</span></td>
                   <td>{{ $p->salary_month }}</td>
-                  <td>₹{{ number_format($p->base_salary) }}</td>
-                  <td>₹{{ number_format($p->wallet_amount) }}</td>
-                  <td class="fw-bold">₹{{ number_format($p->total_paid) }}</td>
+                  <td>{{ $temple['currency'] }} {{ number_format($p->base_salary) }}</td>
+                  <td>{{ $temple['currency'] }} {{ number_format($p->wallet_amount) }}</td>
+                  <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($p->total_paid) }}</td>
                   <td>{{ date('d M Y', strtotime($p->payment_date)) }}</td>
                 </tr>
                 @empty
@@ -191,7 +191,7 @@
               <input type="number" class="form-control rounded-3" required placeholder="User ID">
             </div>
             <div class="mb-3">
-              <label class="form-label fw-semibold">Base Salary (₹)</label>
+              <label class="form-label fw-semibold">Base Salary ({{ $temple['currency'] }})</label>
               <input type="number" class="form-control rounded-3" required value="20000">
             </div>
             <div class="mb-3">
@@ -222,7 +222,7 @@
             @forelse($donations as $don)
             <tr>
               <td><strong>{{ $don->source ?? 'Anonymous' }}</strong></td>
-              <td class="text-success fw-bold">₹{{ number_format($don->amount) }}</td>
+              <td class="text-success fw-bold">{{ $temple['currency'] }} {{ number_format($don->amount) }}</td>
               <td>{{ $don->payment_mode ?? 'UPI' }}</td>
               <td>{{ date('d M Y', strtotime($don->txn_date)) }}</td>
             </tr>
@@ -275,8 +275,8 @@
                 @forelse($myPayouts as $payout)
                 <tr>
                   <td><strong>{{ date('F Y', strtotime($payout->salary_month . '-01')) }}</strong></td>
-                  <td>₹{{ number_format($payout->base_salary, 2) }}</td>
-                  <td class="fw-bold">₹{{ number_format($payout->total_paid, 2) }}</td>
+                  <td>{{ $temple['currency'] }} {{ number_format($payout->base_salary, 2) }}</td>
+                  <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($payout->total_paid, 2) }}</td>
                   <td>{{ $payout->payment_date ? date('d M Y', strtotime($payout->payment_date)) : 'N/A' }}</td>
                   <td><span class="badge bg-success">{{ $payout->payment_status }}</span></td>
                 </tr>
@@ -295,12 +295,12 @@
           <h5 class="fw-bold mb-3"><i class="bi bi-cash-stack text-warning me-2"></i>Salary Breakdown</h5>
           <div class="d-flex justify-content-between mb-2">
             <span class="text-muted">Monthly Salary:</span>
-            <span class="fw-semibold">₹{{ number_format($accountant->salary, 2) }}</span>
+            <span class="fw-semibold">{{ $temple['currency'] }} {{ number_format($accountant->salary, 2) }}</span>
           </div>
           <hr>
           <div class="d-flex justify-content-between mb-3">
             <span class="fw-bold">Net Payout (Est.):</span>
-            <span class="fw-bold text-warning h4 mb-0">₹{{ number_format($accountant->salary, 2) }}</span>
+            <span class="fw-bold text-warning h4 mb-0">{{ $temple['currency'] }} {{ number_format($accountant->salary, 2) }}</span>
           </div>
           <p class="text-muted small mb-0">Monthly payouts are approved at the end of the month by the Administrator.</p>
         </div>
@@ -356,10 +356,10 @@
               <td><strong>BK{{ str_pad($inv->booking_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
               <td>{{ $inv->devotee_name }}</td>
               <td>{{ $inv->pooja_name }}</td>
-              <td>₹{{ number_format($inv->amount) }}</td>
-              <td>₹{{ number_format($inv->shipping_charge) }}</td>
-              <td>₹{{ number_format($inv->discount_amount) }}</td>
-              <td class="fw-bold">₹{{ number_format($inv->total_amount) }}</td>
+              <td>{{ $temple['currency'] }} {{ number_format($inv->amount) }}</td>
+              <td>{{ $temple['currency'] }} {{ number_format($inv->shipping_charge) }}</td>
+              <td>{{ $temple['currency'] }} {{ number_format($inv->discount_amount) }}</td>
+              <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($inv->total_amount) }}</td>
               <td><span class="badge bg-light text-dark">{{ $inv->payment_method ?? 'Cash' }}</span></td>
               <td><span class="badge bg-{{ $inv->payment_status === 'Paid' ? 'success' : 'warning' }}">{{ $inv->payment_status }}</span></td>
             </tr>
@@ -391,7 +391,7 @@
             @foreach($donations as $don)
             <tr>
               <td><strong>{{ $don->source ?? 'Anonymous' }}</strong></td>
-              <td class="text-success fw-bold">+ ₹{{ number_format($don->amount) }}</td>
+              <td class="text-success fw-bold">+ {{ $temple['currency'] }} {{ number_format($don->amount) }}</td>
               <td><span class="badge bg-success bg-opacity-10 text-success">Donation</span></td>
               <td>{{ date('d M Y', strtotime($don->txn_date)) }}</td>
             </tr>
@@ -399,7 +399,7 @@
             @foreach($payouts as $pay)
             <tr>
               <td><strong>{{ $pay->source }}</strong></td>
-              <td class="text-danger fw-bold">- ₹{{ number_format($pay->amount) }}</td>
+              <td class="text-danger fw-bold">- {{ $temple['currency'] }} {{ number_format($pay->amount) }}</td>
               <td><span class="badge bg-danger bg-opacity-10 text-danger">Salary Payout</span></td>
               <td>{{ date('d M Y', strtotime($pay->txn_date)) }}</td>
             </tr>
@@ -502,7 +502,7 @@
         <div class="stat-card d-flex align-items-center justify-content-between">
           <div>
             <div class="stat-label">Total Treasury Income</div>
-            <div class="stat-number">₹{{ number_format($totalIncome / 1000, 1) }}K</div>
+            <div class="stat-number">{{ $temple['currency'] }} {{ number_format($totalIncome / 1000, 1) }}K</div>
           </div>
           <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
         </div>
@@ -511,7 +511,7 @@
         <div class="stat-card d-flex align-items-center justify-content-between">
           <div>
             <div class="stat-label">Total Expenses</div>
-            <div class="stat-number">₹{{ number_format($totalExpenses / 1000, 1) }}K</div>
+            <div class="stat-number">{{ $temple['currency'] }} {{ number_format($totalExpenses / 1000, 1) }}K</div>
           </div>
           <div class="stat-icon"><i class="bi bi-cart3"></i></div>
         </div>
@@ -520,7 +520,7 @@
         <div class="stat-card d-flex align-items-center justify-content-between">
           <div>
             <div class="stat-label">Net Balance</div>
-            <div class="stat-number">₹{{ number_format(($totalIncome - $totalExpenses) / 1000, 1) }}K</div>
+            <div class="stat-number">{{ $temple['currency'] }} {{ number_format(($totalIncome - $totalExpenses) / 1000, 1) }}K</div>
           </div>
           <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
         </div>
@@ -545,7 +545,7 @@
               <tr>
                 <td><strong>BK{{ str_pad($inv->booking_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                 <td>{{ $inv->devotee_name }}</td>
-                <td class="fw-bold">₹{{ number_format($inv->total_amount) }}</td>
+                <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($inv->total_amount) }}</td>
               </tr>
               @empty
               <tr>
@@ -571,7 +571,7 @@
               @forelse($donations->take(4) as $don)
               <tr>
                 <td><strong>{{ $don->source ?? 'Anonymous' }}</strong></td>
-                <td class="text-success fw-bold">+ ₹{{ number_format($don->amount) }}</td>
+                <td class="text-success fw-bold">+ {{ $temple['currency'] }} {{ number_format($don->amount) }}</td>
                 <td>{{ date('d M Y', strtotime($don->txn_date)) }}</td>
               </tr>
               @empty

@@ -77,7 +77,7 @@
         <div class="col-md-6">
             <div class="salary-card bg-light border-start border-success border-4 mb-0">
                 <h5 class="fw-bold text-dark small"><i class="bi bi-currency-rupee text-success me-2"></i>Required Budget for {{ $prevMonthName }}</h5>
-                <p class="text-success fs-3 fw-bold mb-1">₹{{ number_format($totalRequiredPrevMonth, 2) }}</p>
+                <p class="text-success fs-3 fw-bold mb-1">{{ $temple['currency'] }} {{ number_format($totalRequiredPrevMonth, 2) }}</p>
                 <span class="text-muted small">Total estimated payout for all pending employee salaries</span>
             </div>
         </div>
@@ -117,7 +117,7 @@
                     @foreach($monthsList as $month)
                     <tr>
                         <td><strong>{{ $month['name'] }}</strong></td>
-                        <td class="fw-bold text-dark">₹{{ number_format($month['amount'], 2) }}</td>
+                        <td class="fw-bold text-dark">{{ $temple['currency'] }} {{ number_format($month['amount'], 2) }}</td>
                         <td>
                             @if($month['is_paid'])
                                 <span class="badge bg-success px-3 py-2 rounded-pill"><i class="bi bi-check-circle-fill me-1"></i> Sanctioned & Paid</span>
@@ -192,12 +192,12 @@
                                     @php $hasPriests = true; $isPaid = in_array($emp->user_id, $paidUserIds); @endphp
                                     <tr>
                                         <td><strong>{{ $emp->name }}</strong></td>
-                                        <td>₹{{ number_format($emp->base_salary, 2) }}</td>
+                                        <td>{{ $temple['currency'] }} {{ number_format($emp->base_salary, 2) }}</td>
                                         <td class="text-{{ $emp->wallet_balance >= 0 ? 'success' : 'danger' }} fw-semibold">
-                                            {{ $emp->wallet_balance >= 0 ? '+' : '' }}₹{{ number_format($emp->wallet_balance, 2) }}
+                                            {{ $emp->wallet_balance >= 0 ? '+' : '' }}{{ $temple['currency'] }} {{ number_format($emp->wallet_balance, 2) }}
                                         </td>
                                         <td class="fw-bold text-dark">
-                                            ₹{{ number_format(max(0.00, $emp->base_salary + $emp->wallet_balance), 2) }}
+                                            {{ $temple['currency'] }} {{ number_format(max(0.00, $emp->base_salary + $emp->wallet_balance), 2) }}
                                         </td>
                                         <td>
                                             <span class="badge bg-{{ $isPaid ? 'success' : 'warning text-dark' }} px-3 py-2 rounded-pill">
@@ -238,12 +238,12 @@
                                     @php $hasStaff = true; $isPaid = in_array($emp->user_id, $paidUserIds); @endphp
                                     <tr>
                                         <td><strong>{{ $emp->name }}</strong></td>
-                                        <td>₹{{ number_format($emp->base_salary, 2) }}</td>
+                                        <td>{{ $temple['currency'] }} {{ number_format($emp->base_salary, 2) }}</td>
                                         <td class="text-{{ $emp->wallet_balance >= 0 ? 'success' : 'danger' }} fw-semibold">
-                                            {{ $emp->wallet_balance >= 0 ? '+' : '' }}₹{{ number_format($emp->wallet_balance, 2) }}
+                                            {{ $emp->wallet_balance >= 0 ? '+' : '' }}{{ $temple['currency'] }} {{ number_format($emp->wallet_balance, 2) }}
                                         </td>
                                         <td class="fw-bold text-dark">
-                                            ₹{{ number_format(max(0.00, $emp->base_salary + $emp->wallet_balance), 2) }}
+                                            {{ $temple['currency'] }} {{ number_format(max(0.00, $emp->base_salary + $emp->wallet_balance), 2) }}
                                         </td>
                                         <td>
                                             <span class="badge bg-{{ $isPaid ? 'success' : 'warning text-dark' }} px-3 py-2 rounded-pill">
@@ -283,9 +283,9 @@
                                     @php $hasAcc = true; $isPaid = in_array($emp->user_id, $paidUserIds); @endphp
                                     <tr>
                                         <td><strong>{{ $emp->name }}</strong></td>
-                                        <td>₹{{ number_format($emp->base_salary, 2) }}</td>
+                                        <td>{{ $temple['currency'] }} {{ number_format($emp->base_salary, 2) }}</td>
                                         <td class="fw-bold text-dark">
-                                            ₹{{ number_format($emp->base_salary, 2) }}
+                                            {{ $temple['currency'] }} {{ number_format($emp->base_salary, 2) }}
                                         </td>
                                         <td>
                                             <span class="badge bg-{{ $isPaid ? 'success' : 'warning text-dark' }} px-3 py-2 rounded-pill">
@@ -328,11 +328,11 @@
                                 <td><strong>{{ $pay->name }}</strong></td>
                                 <td><span class="badge bg-light text-dark">{{ $pay->role }}</span></td>
                                 <td>{{ date('F Y', strtotime($pay->salary_month . '-01')) }}</td>
-                                <td>₹{{ number_format($pay->base_salary, 2) }}</td>
+                                <td>{{ $temple['currency'] }} {{ number_format($pay->base_salary, 2) }}</td>
                                 <td class="text-{{ $pay->wallet_amount >= 0 ? 'success' : 'danger' }}">
-                                    {{ $pay->wallet_amount >= 0 ? '+' : '' }}₹{{ number_format($pay->wallet_amount, 2) }}
+                                    {{ $pay->wallet_amount >= 0 ? '+' : '' }}{{ $temple['currency'] }} {{ number_format($pay->wallet_amount, 2) }}
                                 </td>
-                                <td class="fw-bold text-dark">₹{{ number_format($pay->total_paid, 2) }}</td>
+                                <td class="fw-bold text-dark">{{ $temple['currency'] }} {{ number_format($pay->total_paid, 2) }}</td>
                                 <td>{{ date('d M Y', strtotime($pay->payment_date)) }}</td>
                                 <td><span class="badge bg-success">Paid</span></td>
                             </tr>

@@ -170,6 +170,166 @@ http://127.0.0.1:8000
 
 ---
 
+# 🚀 Production Deployment (Hostinger Shared Hosting)
+
+This app runs on Laravel 12 / PHP 8.2+, uses `database` drivers for session/cache/queue (no Redis needed), and doesn't depend on a Vite build for any of its actual pages (Bootstrap/jQuery load from CDN) — so `npm run build` is not required to deploy.
+
+## 0. Commit everything first
+
+Before deploying, make sure **all** app code, migrations, and the `public/images/**` assets are committed and pushed — nothing in `.gitignore` should be load-bearing for the app to run.
+
+```bash
+git add -A
+git status   # sanity check what's staged
+git commit -m "Prepare for deployment"
+git push origin main
+```
+
+## 1. Create the site & database in hPanel
+
+1. **hPanel → Websites** — add your domain (or use a Hostinger subdomain).
+2. **hPanel → Advanced → PHP Configuration** — set PHP to **8.2 or 8.3**, and confirm `pdo_mysql` and `bcmath` extensions are enabled.
+3. **hPanel → Databases → MySQL Databases** — create a database + user with full privileges. Note the database name, username, password (host is almost always `localhost` on shared hosting).
+4. **hPanel → Advanced → SSH Access** — enable it and note the SSH host/port/username (Business plan and above).
+
+## 2. Get the code onto the server
+
+```bash
+ssh -p <port> u123456789@your-ssh-host
+cd domains/yourdomain.com
+git clone https://github.com/rohansserigar/Temple-Management.git ssvk
+cd ssvk
+```
+
+## 3. Point the domain at Laravel's `public/` folder
+
+Laravel's entry point is `public/index.php`, not the repo root, so the domain's document root must point there:
+
+- **Preferred:** hPanel → Websites → your domain → Manage → Advanced → Document Root → set it to `domains/yourdomain.com/ssvk/public`.
+- **Fallback**, if your plan won't let you change the document root: symlink it —
+  ```bash
+  rm -rf ~/domains/yourdomain.com/public_html
+  ln -s ~/domains/yourdomain.com/ssvk/public ~/domains/yourdomain.com/public_html
+  ```
+  Note: once `public_html` is a symlink, some File Manager / FTP clients handle it oddly (can't "see" it as a normal folder, refuse uploads directly into it). If you need to drop files in directly, upload into `ssvk/public` (or the relevant subfolder, e.g. `ssvk/public/images/events`) instead of `public_html`.
+
+## 4. Install dependencies
+
+```bash
+cd ~/domains/yourdomain.com/ssvk
+composer install --no-dev --optimize-autoloader
+```
+
+## 5. Configure `.env` for production
+
+```bash
+cp .env.example .env
+```
+
+Set at minimum:
+
+```env
+APP_NAME="Sri Selva Vinayakar Koyil"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://yourdomain.com
+
+DB_CONNECTION=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_DATABASE=<your db name>
+DB_USERNAME=<your db user>
+DB_PASSWORD=<your db password>
+
+SESSION_DRIVER=database
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+```
+
+```bash
+php artisan key:generate
+```
+
+**Real email for OTP:** the default `.env.example` has `MAIL_MAILER=log`, which only logs OTP codes instead of emailing them. Registration/forgot-password depend on real delivery, so create a mailbox in **hPanel → Emails** and set:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.hostinger.com
+MAIL_PORT=465
+MAIL_ENCRYPTION=ssl
+MAIL_USERNAME=noreply@yourdomain.com
+MAIL_PASSWORD=<mailbox password>
+MAIL_FROM_ADDRESS=noreply@yourdomain.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+## 6. Run migrations and cache config
+
+```bash
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+chmod -R 775 storage bootstrap/cache
+```
+
+## 7. Enable SSL
+
+**hPanel → SSL** — issue the free Let's Encrypt certificate, then keep `APP_URL=https://...` in `.env`.
+
+## 8. Smoke-test checklist
+
+- Homepage loads, donation section and Event Donations cards render.
+- An individual event page (e.g. `/events/vinyagar-chathurthi-2026-09-14-1`) loads its header image and flyer correctly.
+- Admin → Manage Events / Manage Donations pages load and save correctly.
+- A test donation through each payment tab (Bank / Cash / Online) lands in Manage Donations.
+- New devotee registration actually receives the OTP email.
+
+## 9. Deploying future updates (manual)
+
+```bash
+ssh -p <port> u123456789@your-ssh-host
+cd ~/domains/yourdomain.com/ssvk
+git pull origin main
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan config:cache && php artisan route:cache && php artisan view:cache
+```
+
+---
+
+# 🔁 CI/CD via GitHub Actions
+
+`.github/workflows/deploy.yml` automates the update step above. On every push to `main` (or a manual run from the Actions tab):
+
+1. **`test` job** — installs dependencies and runs the test suite (`tests/Feature`, `tests/Unit`) against an in-memory SQLite DB.
+2. **`deploy` job** — only runs if tests pass; SSHes into Hostinger and runs `git pull`, `composer install`, `migrate --force`, and re-caches config/routes/views.
+
+This assumes the one-time manual setup in steps 1–7 above has already been done on the server (cloned repo, working `.env`) — the workflow only pulls updates, it doesn't bootstrap a fresh install.
+
+## One-time setup
+
+**1. Generate a dedicated SSH deploy key** (don't reuse your personal key):
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
+```
+
+**2. Add the public key to Hostinger**: hPanel → Advanced → SSH Access → Manage SSH Keys → paste `deploy_key.pub`.
+
+**3. Add these repository secrets** (GitHub repo → Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `HOSTINGER_SSH_HOST` | SSH hostname from hPanel (e.g. `srv123.hostinger.com`) |
+| `HOSTINGER_SSH_PORT` | SSH port from hPanel (often not 22) |
+| `HOSTINGER_SSH_USERNAME` | SSH username (e.g. `u123456789`) |
+| `HOSTINGER_SSH_KEY` | full contents of the **private** key file (`deploy_key`) |
+| `HOSTINGER_APP_PATH` | absolute path to the app on the server, e.g. `/home/u123456789/domains/yourdomain.com/ssvk` |
+
+**4. Delete the local key files** once the public half is uploaded and the private half is pasted into GitHub secrets.
+
+---
+
 # 🔒 Security Features
 
 - Role-Based Authentication

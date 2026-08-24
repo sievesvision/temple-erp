@@ -37,7 +37,7 @@ class ChatController extends Controller
                 'session_id' => $sessionId,
                 'sender_type' => 'bot',
                 'sender_id' => null,
-                'message_text' => "Namaste! Welcome to the Shree Mandir Assistant. 🪔 How can I assist you today?",
+                'message_text' => "Namaste! Welcome to the " . Setting::get('temple_name', 'SRI SELVA VINAYAKAR KOYIL (GANESHA TEMPLE)') . " Assistant. 🪔 How can I assist you today?",
                 'metadata' => json_encode([
                     'options' => [
                         ['label' => '🛕 Temple Timings', 'value' => 'Temple Timings'],
@@ -358,11 +358,12 @@ class ChatController extends Controller
                     return;
                 }
 
+                $currencyCode = Setting::get('currency_code', 'AUD');
                 $options = [];
                 foreach ($poojas as $p) {
-                    $options[] = ['label' => "🙏 {$p->pooja_name} (₹{$p->pooja_fee})", 'value' => $p->pooja_id];
+                    $options[] = ['label' => "🙏 {$p->pooja_name} ({$currencyCode} {$p->pooja_fee})", 'value' => $p->pooja_id];
                 }
-                
+
                 session(['chatbot_booking_state' => ['step' => 'select_pooja']]);
 
                 $this->sendBotMessage($sessionId, "Please select the Pooja you would like to book:", [
@@ -411,9 +412,10 @@ class ChatController extends Controller
 
             if (!$pooja) {
                 $poojas = DB::table('poojas')->where('status', 'Active')->get();
+                $currencyCode = Setting::get('currency_code', 'AUD');
                 $options = [];
                 foreach ($poojas as $p) {
-                    $options[] = ['label' => "🙏 {$p->pooja_name} (₹{$p->pooja_fee})", 'value' => $p->pooja_id];
+                    $options[] = ['label' => "🙏 {$p->pooja_name} ({$currencyCode} {$p->pooja_fee})", 'value' => $p->pooja_id];
                 }
                 $options[] = ['label' => '❌ Cancel Booking', 'value' => 'Cancel Booking'];
                 $this->sendBotMessage($sessionId, "Pooja not found. Please select from the list below:", [
@@ -595,7 +597,8 @@ class ChatController extends Controller
         if ($state['booking_type'] === 'Online') {
             $summary .= "Address: *{$state['delivery_address']}*\n";
         }
-        $summary .= "\n**Payment Details**:\nPooja Fee: ₹" . number_format($poojaFee, 2) . "\nShipping Fee: ₹" . number_format($shipping, 2) . "\n**Total Amount: ₹" . number_format($totalAmount, 2) . "**\n\nPlease scan the QR code to complete the UPI payment:";
+        $currencyCode = Setting::get('currency_code', 'AUD');
+        $summary .= "\n**Payment Details**:\nPooja Fee: {$currencyCode} " . number_format($poojaFee, 2) . "\nShipping Fee: {$currencyCode} " . number_format($shipping, 2) . "\n**Total Amount: {$currencyCode} " . number_format($totalAmount, 2) . "**\n\nPlease scan the QR code to complete the UPI payment:";
 
         // Send payment details and QR trigger metadata
         $this->sendBotMessage($sessionId, $summary, [
@@ -677,7 +680,8 @@ class ChatController extends Controller
             NotificationService::notifyAdmin("New booking created via Chatbot (Booking ID #{$bookingId}).");
             AuditLogService::log("Pooja booking created via chatbot for Devotee ID {$devotee->devotee_id} (Booking ID #{$bookingId})");
 
-            $successMsg = "🎉 **Booking Confirmed!**\n\nYour Pooja booking has been successfully recorded!\n\nBooking ID: **#{$bookingId}**\nStatus: **Confirmed**\nPayment: **Paid**\n\nThank you for choosing Shree Mandir! seek blessings! 🙏";
+            $templeName = Setting::get('temple_name', 'SRI SELVA VINAYAKAR KOYIL (GANESHA TEMPLE)');
+            $successMsg = "🎉 **Booking Confirmed!**\n\nYour Pooja booking has been successfully recorded!\n\nBooking ID: **#{$bookingId}**\nStatus: **Confirmed**\nPayment: **Paid**\n\nThank you for choosing {$templeName}! Seek blessings! 🙏";
             
             session()->forget('chatbot_booking_state');
 

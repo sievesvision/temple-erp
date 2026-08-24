@@ -156,7 +156,7 @@
                 @foreach($recentDonations as $don)
                 <tr>
                   <td><strong>{{ $don->donor_name ?? 'Anonymous' }}</strong></td>
-                  <td class="text-success fw-bold">+ ₹{{ number_format($don->amount) }}</td>
+                  <td class="text-success fw-bold">+ {{ $temple['currency'] }} {{ number_format($don->amount) }}</td>
                   <td><span class="badge bg-success bg-opacity-10 text-success">Donation</span></td>
                   <td>{{ date('d M Y', strtotime($don->donation_date)) }}</td>
                 </tr>
@@ -164,7 +164,7 @@
                 @foreach($recentBookings as $bk)
                 <tr>
                   <td><strong>Pooja Booking #{{ $bk->booking_id }}</strong></td>
-                  <td class="text-success fw-bold">+ ₹{{ number_format($bk->total_amount) }}</td>
+                  <td class="text-success fw-bold">+ {{ $temple['currency'] }} {{ number_format($bk->total_amount) }}</td>
                   <td><span class="badge bg-info bg-opacity-10 text-info">Pooja Booking</span></td>
                   <td>{{ date('d M Y', strtotime($bk->created_at)) }}</td>
                 </tr>
@@ -177,7 +177,7 @@
       <div class="col-lg-4">
         <div class="card border-0 shadow-sm rounded-4 p-4 text-center" style="background: white;">
           <h5 class="fw-bold mb-2">Total Treasury Revenue</h5>
-          <h2 class="fw-bold text-success mb-3">₹{{ number_format($totalRevenue, 2) }}</h2>
+          <h2 class="fw-bold text-success mb-3">{{ $temple['currency'] }} {{ number_format($totalRevenue, 2) }}</h2>
           <p class="text-muted small">Aggregated revenue from all paid booking receipts and donations.</p>
         </div>
       </div>
@@ -448,11 +448,11 @@
             <div class="stat-label">Total Revenue</div>
             <div class="stat-number">
               @if($totalRevenue >= 100000)
-                ₹{{ number_format($totalRevenue / 100000, 2) }}L
+                {{ $temple['currency'] }} {{ number_format($totalRevenue / 100000, 2) }}L
               @elseif($totalRevenue >= 1000)
-                ₹{{ number_format($totalRevenue / 1000, 1) }}K
+                {{ $temple['currency'] }} {{ number_format($totalRevenue / 1000, 1) }}K
               @else
-                ₹{{ number_format($totalRevenue) }}
+                {{ $temple['currency'] }} {{ number_format($totalRevenue) }}
               @endif
             </div>
           </div>
@@ -505,14 +505,14 @@
               @foreach($recentDonations->take(2) as $don)
               <tr>
                 <td><strong>{{ $don->donor_name ?? 'Anonymous' }}</strong></td>
-                <td class="text-success fw-bold">+ ₹{{ number_format($don->amount) }}</td>
+                <td class="text-success fw-bold">+ {{ $temple['currency'] }} {{ number_format($don->amount) }}</td>
                 <td>{{ date('d M Y', strtotime($don->donation_date)) }}</td>
               </tr>
               @endforeach
               @foreach($recentBookings->take(2) as $bk)
               <tr>
                 <td><strong>Pooja Booking #{{ $bk->booking_id }}</strong></td>
-                <td class="text-success fw-bold">+ ₹{{ number_format($bk->total_amount) }}</td>
+                <td class="text-success fw-bold">+ {{ $temple['currency'] }} {{ number_format($bk->total_amount) }}</td>
                 <td>{{ date('d M Y', strtotime($bk->created_at)) }}</td>
               </tr>
               @endforeach
@@ -588,7 +588,7 @@
       document.getElementById('modalDevoteeName').textContent = pooja.devotee_name || 'N/A';
       document.getElementById('modalDevoteeContact').textContent = (pooja.devotee_email || '') + ' | ' + (pooja.devotee_mobile || '');
       document.getElementById('modalPriestName').textContent = pooja.priest_name || 'Not Assigned';
-      document.getElementById('modalPoojaAmount').textContent = '₹' + parseFloat(pooja.total_amount || 0).toLocaleString();
+      document.getElementById('modalPoojaAmount').textContent = '{{ $temple['currency'] }} ' + parseFloat(pooja.total_amount || 0).toLocaleString();
       
       const statusEl = document.getElementById('modalPoojaStatus');
       statusEl.textContent = pooja.booking_status;

@@ -200,7 +200,7 @@
         <div class="stat-card">
             <div>
                 <div class="stat-label">Total Donations Received</div>
-                <div class="stat-number">₹{{ number_format($grandTotal, 2) }}</div>
+                <div class="stat-number">{{ $temple['currency'] }} {{ number_format($grandTotal, 2) }}</div>
             </div>
             <div class="stat-icon gold"><i class="bi bi-cash-coin"></i></div>
         </div>
@@ -209,7 +209,7 @@
         <div class="stat-card">
             <div>
                 <div class="stat-label">Devotee Contributions</div>
-                <div class="stat-number">₹{{ number_format($devoteeTotal, 2) }}</div>
+                <div class="stat-number">{{ $temple['currency'] }} {{ number_format($devoteeTotal, 2) }}</div>
             </div>
             <div class="stat-icon green"><i class="bi bi-people-fill"></i></div>
         </div>
@@ -218,7 +218,7 @@
         <div class="stat-card">
             <div>
                 <div class="stat-label">Guest / Walk-In Donations</div>
-                <div class="stat-number">₹{{ number_format($guestTotal, 2) }}</div>
+                <div class="stat-number">{{ $temple['currency'] }} {{ number_format($guestTotal, 2) }}</div>
             </div>
             <div class="stat-icon blue"><i class="bi bi-person-heart"></i></div>
         </div>
@@ -227,7 +227,7 @@
         <div class="stat-card">
             <div>
                 <div class="stat-label">e-Hundi Collections</div>
-                <div class="stat-number">₹{{ number_format($ehundiTotal, 2) }}</div>
+                <div class="stat-number">{{ $temple['currency'] }} {{ number_format($ehundiTotal, 2) }}</div>
             </div>
             <div class="stat-icon purple"><i class="bi bi-box-seam-fill"></i></div>
         </div>
@@ -275,7 +275,7 @@
                                 <div class="fw-semibold text-dark">{{ $d->devotee_name }}</div>
                                 <div class="text-muted small">{{ $d->mobile ?? 'No mobile' }}</div>
                             </td>
-                            <td><span class="fw-bold text-success">₹{{ number_format($d->amount, 2) }}</span></td>
+                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($d->amount, 2) }}</span></td>
                             <td>{{ $d->event_name ?? 'General Fund' }}</td>
                             <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $d->payment_method }}</span></td>
                             <td><code class="small text-dark">{{ $d->transaction_id }}</code></td>
@@ -321,7 +321,7 @@
                                 <div class="small text-dark">{{ $g->mobile ?? 'No mobile' }}</div>
                                 <div class="small text-muted">{{ $g->email ?? 'No email' }}</div>
                             </td>
-                            <td><span class="fw-bold text-success">₹{{ number_format($g->amount, 2) }}</span></td>
+                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($g->amount, 2) }}</span></td>
                             <td>
                                 <div class="fw-semibold small">{{ $g->purpose }}</div>
                                 <div class="text-muted small text-truncate" style="max-width: 180px;">{{ $g->purpose_details }}</div>
@@ -378,7 +378,7 @@
                                     <span class="text-muted">N/A</span>
                                 @endif
                             </td>
-                            <td><span class="fw-bold text-success">₹{{ number_format($eh->amount, 2) }}</span></td>
+                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($eh->amount, 2) }}</span></td>
                             <td><span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">{{ $eh->payment_status }}</span></td>
                             <td>{{ date('d M Y h:i A', strtotime($eh->created_at)) }}</td>
                         </tr>
@@ -418,7 +418,7 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Donation Amount (₹)</label>
+                        <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
                         <input type="number" step="0.01" name="amount" class="form-control rounded-3" placeholder="e.g. 1000.00" required>
                     </div>
                     <div class="mb-3">
@@ -490,7 +490,7 @@
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Donation Amount (₹)</label>
+                            <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
                             <input type="number" step="0.01" name="amount" class="form-control rounded-3" placeholder="e.g. 500.00" required>
                         </div>
                         <div class="col-md-6">

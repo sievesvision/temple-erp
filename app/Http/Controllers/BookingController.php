@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use App\Services\AuditLogService;
 use App\Services\NotificationService;
+use App\Models\Setting;
 
 class BookingController extends Controller
 {
@@ -349,6 +350,7 @@ class BookingController extends Controller
         }
 
         // Generate Text Receipt
+        $currency = Setting::get('currency_code', 'AUD');
         $receipt = "==================================================\n";
         $receipt .= "            🛕 TEMPLE ERP POOJA RECEIPT           \n";
         $receipt .= "==================================================\n";
@@ -366,13 +368,13 @@ class BookingController extends Controller
         }
         $receipt .= "Assigned Priest: " . $booking->priest_name . "\n";
         $receipt .= "--------------------------------------------------\n";
-        $receipt .= "Pooja Base Price  : ₹" . number_format($booking->amount, 2) . "\n";
-        $receipt .= "Membership Discount: -₹" . number_format($booking->discount_amount, 2) . "\n";
+        $receipt .= "Pooja Base Price  : " . $currency . " " . number_format($booking->amount, 2) . "\n";
+        $receipt .= "Membership Discount: -" . $currency . " " . number_format($booking->discount_amount, 2) . "\n";
         if ($booking->booking_type === 'Online') {
-            $receipt .= "Shipping Fee      : ₹" . number_format($booking->shipping_charge, 2) . "\n";
+            $receipt .= "Shipping Fee      : " . $currency . " " . number_format($booking->shipping_charge, 2) . "\n";
         }
         $receipt .= "--------------------------------------------------\n";
-        $receipt .= "TOTAL PAID        : ₹" . number_format($booking->total_amount, 2) . "\n";
+        $receipt .= "TOTAL PAID        : " . $currency . " " . number_format($booking->total_amount, 2) . "\n";
         $receipt .= "Payment Method    : " . $booking->payment_method . "\n";
         $receipt .= "Payment Status    : " . $booking->payment_status . "\n";
         $receipt .= "==================================================\n";

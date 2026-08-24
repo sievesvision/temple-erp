@@ -23,37 +23,7 @@ Route::get('/', function () {
     $poojas = \Illuminate\Support\Facades\DB::table('poojas')->where('status', 'Active')->get();
     $events = \Illuminate\Support\Facades\DB::table('events')->where('status', 'Upcoming')->orderBy('event_date', 'asc')->get();
 
-    $temple = [
-        'name' => Setting::get('temple_name', 'SRI SELVA VINAYAKAR KOYIL (GANESHA TEMPLE)'),
-        'subtitle' => Setting::get('temple_subtitle', 'South Maclean'),
-        'eyebrow' => Setting::get('temple_eyebrow', 'A place for prayer, community and belonging'),
-        'description' => Setting::get('temple_description', 'A Tamil Hindu temple in South Maclean, Queensland, welcoming devotees to seek the blessings of Sri Selva Vinayakar.'),
-        'address' => Setting::get('temple_address', '4915-4923 Mount Lindesay Hwy, South Maclean QLD 4280'),
-        'phone' => Setting::get('temple_phone', '+61 7 5547 8064'),
-        'email' => Setting::get('temple_email', 'hasq.president@gmail.com'),
-        'donation_account_name' => Setting::get('donation_account_name', 'HINDU AHLAYA SANGAM QLD INC'),
-        'donation_bank_name' => Setting::get('donation_bank_name', 'Commonwealth Bank'),
-        'donation_bsb' => Setting::get('donation_bsb', '064 000'),
-        'donation_account_number' => Setting::get('donation_account_number', '00906257'),
-        'donation_receipt_email' => Setting::get('donation_receipt_email', 'hasq.president@gmail.com'),
-        'currency' => Setting::get('currency_code', 'AUD'),
-        'logo' => Setting::get('temple_logo', asset('images/logo.gif')),
-        'hero_image' => Setting::get('temple_hero_image', asset('images/temple_landing.png')),
-        'story_image' => Setting::get('temple_story_image', asset('images/about/ssvk.jpg')),
-        'worship_image' => Setting::get('temple_worship_image', asset('images/about/SELVA VINAYAHAR TEMPLE.jpg')),
-        'primary_color' => Setting::get('theme_primary_color', '#c45b2c'),
-        'accent_color' => Setting::get('theme_accent_color', '#e5ad45'),
-        'dark_color' => Setting::get('theme_dark_color', '#24382f'),
-        'theme_preset' => Setting::get('theme_preset', 'saffron-garden'),
-        'brand_title' => Setting::get('brand_title', 'SSVK'),
-        'brand_subtitle' => Setting::get('brand_subtitle', ''),
-        'hours_weekday_morning' => Setting::get('hours_weekday_morning', '7:30 am - 12:00 noon'),
-        'hours_weekday_morning_pooja' => Setting::get('hours_weekday_morning_pooja', '9:00 am - 9:30 am'),
-        'hours_weekday_evening' => Setting::get('hours_weekday_evening', '5:00 pm - 8:30 pm'),
-        'hours_weekday_evening_pooja' => Setting::get('hours_weekday_evening_pooja', '7:00 pm - 7:30 pm'),
-        'hours_weekend' => Setting::get('hours_weekend', '7:30 am - 1:00 pm'),
-        'hours_weekend_pooja' => Setting::get('hours_weekend_pooja', '9:00 am - 9:30 am'),
-    ];
+    $temple = Setting::templeBranding();
 
     return view('frontend.index', compact('poojas', 'events', 'temple'));
 })->name('home');
@@ -112,11 +82,11 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             + \Illuminate\Support\Facades\DB::table('donations_without_logins')->sum('amount');
 
         if ($totalDonationsSum >= 100000) {
-            $donationsDisplay = '₹' . round($totalDonationsSum / 100000, 2) . 'L';
+            $donationsDisplay = Setting::get('currency_code', 'AUD') . ' ' . round($totalDonationsSum / 100000, 2) . 'L';
         } elseif ($totalDonationsSum >= 1000) {
-            $donationsDisplay = '₹' . round($totalDonationsSum / 1000, 1) . 'K';
+            $donationsDisplay = Setting::get('currency_code', 'AUD') . ' ' . round($totalDonationsSum / 1000, 1) . 'K';
         } else {
-            $donationsDisplay = '₹' . number_format($totalDonationsSum);
+            $donationsDisplay = Setting::get('currency_code', 'AUD') . ' ' . number_format($totalDonationsSum);
         }
 
         // Events count

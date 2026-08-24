@@ -3,37 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🛕 Shree Mandir ERP · Email Verification</title>
+  <title>{{ $temple['name'] }} · Email Verification</title>
 
   <!-- Bootstrap 5.3 + Icons -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  
-  <!-- Google Fonts: Cinzel & Outfit -->
+
+  <!-- Google Fonts: matches the temple's public site (Playfair Display + DM Sans) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --primary-saffron: #ff6f00;
-      --saffron-dark: #e65100;
-      --primary-gold: #b8863a;
-      --gold-light: #e8d0a7;
-      --gold-dark: #9c6c28;
-      --dark-bg: #17110a;
-      --light-bg: #fdfbf7;
-      
-      --saffron-gradient: linear-gradient(135deg, #ff9e00 0%, #ff6f00 50%, #e65100 100%);
-      --gold-gradient: linear-gradient(135deg, #c9933b 0%, #b8863a 50%, #9c6c28 100%);
-      --overlay-gradient: linear-gradient(135deg, rgba(23, 17, 10, 0.9) 0%, rgba(230, 81, 0, 0.75) 100%);
+      --primary-saffron: {{ $temple['primary_color'] }};
+      --saffron-dark: {{ $temple['dark_color'] }};
+      --primary-gold: {{ $temple['accent_color'] }};
+      --gold-light: {{ $temple['accent_color'] }};
+      --gold-dark: {{ $temple['dark_color'] }};
+      --dark-bg: {{ $temple['dark_color'] }};
+      --light-bg: #fbf8f1;
+
+      --saffron-gradient: linear-gradient(135deg, {{ $temple['accent_color'] }} 0%, {{ $temple['primary_color'] }} 50%, {{ $temple['dark_color'] }} 100%);
+      --gold-gradient: linear-gradient(135deg, {{ $temple['accent_color'] }} 0%, {{ $temple['primary_color'] }} 50%, {{ $temple['dark_color'] }} 100%);
     }
 
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: 'Outfit', sans-serif;
+      font-family: 'DM Sans', sans-serif;
     }
 
     body {
@@ -46,7 +45,7 @@
     }
 
     .font-divine {
-      font-family: 'Cinzel', serif;
+      font-family: 'Playfair Display', serif;
       font-weight: 700;
     }
 
@@ -255,8 +254,12 @@
   <nav class="navbar navbar-expand-lg navbar-custom py-3 fixed-top" id="mainNavbar">
     <div class="container">
       <a class="navbar-brand d-flex align-items-center" href="{{ route('home') }}">
-        <i class="bi bi-temple me-2"></i>
-        <span>SHREE MANDIR</span>
+        @if($temple['logo'])
+          <img src="{{ $temple['logo'] }}" alt="{{ $temple['name'] }} logo" style="width:32px;height:32px;object-fit:contain;" class="me-2">
+        @else
+          <i class="bi bi-temple me-2"></i>
+        @endif
+        <span>{{ $temple['brand_title'] ?: $temple['name'] }}</span>
       </a>
 
       <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"

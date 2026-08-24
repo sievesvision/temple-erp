@@ -201,7 +201,7 @@
                         <td><strong>{{ $acc->name }}</strong></td>
                         <td>{{ $acc->email }}</td>
                         <td>{{ $acc->mobile }}</td>
-                        <td>₹{{ number_format($acc->salary, 2) }}</td>
+                        <td>{{ $temple['currency'] }} {{ number_format($acc->salary, 2) }}</td>
                         <td>
                             @if($acc->employment_status === 'Active')
                                 <span class="badge bg-success">Active</span>
@@ -274,7 +274,7 @@
                                 <div class="col-md-6">
                                     <div class="d-flex justify-content-between pb-2 border-bottom">
                                         <span class="text-muted">Monthly Salary:</span>
-                                        <span class="fw-bold">₹{{ number_format($acc->salary, 2) }}</span>
+                                        <span class="fw-bold">{{ $temple['currency'] }} {{ number_format($acc->salary, 2) }}</span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">

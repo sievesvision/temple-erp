@@ -28,18 +28,7 @@ class EventController extends Controller
             return redirect()->route('events.show', $canonicalSlug, 301);
         }
 
-        $temple = [
-            'name' => Setting::get('temple_name', 'SRI SELVA VINAYAKAR KOYIL (GANESHA TEMPLE)'),
-            'currency' => Setting::get('currency_code', 'AUD'),
-            'donation_account_name' => Setting::get('donation_account_name', 'HINDU AHLAYA SANGAM QLD INC'),
-            'donation_bank_name' => Setting::get('donation_bank_name', 'Commonwealth Bank'),
-            'donation_bsb' => Setting::get('donation_bsb', '064 000'),
-            'donation_account_number' => Setting::get('donation_account_number', '00906257'),
-            'donation_receipt_email' => Setting::get('donation_receipt_email', 'hasq.president@gmail.com'),
-            'primary_color' => Setting::get('theme_primary_color', '#c45b2c'),
-            'accent_color' => Setting::get('theme_accent_color', '#e5ad45'),
-            'dark_color' => Setting::get('theme_dark_color', '#24382f'),
-        ];
+        $temple = Setting::templeBranding();
 
         $raised = DB::table('donations_without_logins')->where('event_id', $event->event_id)->sum('amount')
             + DB::table('donations')->where('event_id', $event->event_id)->sum('amount');

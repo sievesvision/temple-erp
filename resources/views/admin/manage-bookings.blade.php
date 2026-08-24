@@ -278,13 +278,13 @@
         <div class="col-md-4">
             <div class="stat-card">
                 <div class="stat-label">Total Paid Revenue</div>
-                <div class="stat-number">₹{{ number_format($totalRevenue, 2) }}</div>
+                <div class="stat-number">{{ $temple['currency'] }} {{ number_format($totalRevenue, 2) }}</div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="stat-card">
                 <div class="stat-label">Membership Discounts Given</div>
-                <div class="stat-number">₹{{ number_format($totalDiscount, 2) }}</div>
+                <div class="stat-number">{{ $temple['currency'] }} {{ number_format($totalDiscount, 2) }}</div>
             </div>
         </div>
     </div>
@@ -372,8 +372,8 @@
                             <div><i class="bi bi-person-heart text-warning"></i> {{ $booking->priest_name }}</div>
                         </td>
                         <td>
-                            <div class="fw-bold">₹{{ number_format($booking->total_amount, 2) }}</div>
-                            <div class="small text-muted">Base: ₹{{ number_format($booking->amount) }}</div>
+                            <div class="fw-bold">{{ $temple['currency'] }} {{ number_format($booking->total_amount, 2) }}</div>
+                            <div class="small text-muted">Base: {{ $temple['currency'] }} {{ number_format($booking->amount) }}</div>
                         </td>
                         <td>
                             <span class="badge-status {{ strtolower($booking->booking_status) }}">{{ $booking->booking_status }}</span>

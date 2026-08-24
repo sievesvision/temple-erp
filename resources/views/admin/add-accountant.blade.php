@@ -84,7 +84,7 @@
 
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Monthly Salary <span class="text-danger">*</span></label>
-                    <input type="number" name="salary" class="form-control rounded-3 @error('salary') is-invalid @enderror" value="{{ old('salary') }}" placeholder="Salary amount in INR" required step="0.01">
+                    <input type="number" name="salary" class="form-control rounded-3 @error('salary') is-invalid @enderror" value="{{ old('salary') }}" placeholder="Salary amount" required step="0.01">
                     @error('salary')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror

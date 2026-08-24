@@ -254,7 +254,7 @@
                     <td>{{ $s->email }}</td>
                     <td>{{ $s->mobile }}</td>
                     <td><span class="badge px-3 py-2 rounded-pill" style="color: #ffffff; background-color: #b8863a;">{{ $s->designation }}</span></td>
-                    <td>₹{{ number_format($s->salary, 2) }}</td>
+                    <td>{{ $temple['currency'] }} {{ number_format($s->salary, 2) }}</td>
                     <td>
                         <span class="badge rounded-pill px-3 py-2 bg-{{ $s->employment_status === 'Active' ? 'success' : ($s->employment_status === 'On Leave' ? 'info' : 'danger') }} bg-opacity-10 text-{{ $s->employment_status === 'Active' ? 'success' : ($s->employment_status === 'On Leave' ? 'info' : 'danger') }}">
                             {{ $s->employment_status }}
@@ -317,7 +317,7 @@
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Monthly Salary:</span>
-                            <span class="fw-bold">₹{{ number_format($s->salary, 2) }}</span>
+                            <span class="fw-bold">{{ $temple['currency'] }} {{ number_format($s->salary, 2) }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Current Status:</span>
@@ -341,7 +341,7 @@
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Current Wallet Balance:</span>
-                            <span class="fw-bold text-{{ $s->wallet_balance >= 0 ? 'success' : 'danger' }}">{{ $s->wallet_balance >= 0 ? '+' : '' }}₹{{ number_format($s->wallet_balance, 2) }}</span>
+                            <span class="fw-bold text-{{ $s->wallet_balance >= 0 ? 'success' : 'danger' }}">{{ $s->wallet_balance >= 0 ? '+' : '' }}{{ $temple['currency'] }} {{ number_format($s->wallet_balance, 2) }}</span>
                         </div>
                         <div class="d-flex justify-content-between">
                             <span class="text-muted">Address:</span>

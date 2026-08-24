@@ -190,11 +190,11 @@
                             @forelse($salaryPayoutsSummary as $s)
                             <tr>
                                 <td><strong>{{ date('F Y', strtotime($s->salary_month . '-01')) }}</strong></td>
-                                <td>₹{{ number_format($s->total_base, 2) }}</td>
+                                <td>{{ $temple['currency'] }} {{ number_format($s->total_base, 2) }}</td>
                                 <td class="text-{{ $s->total_wallet >= 0 ? 'success' : 'danger' }}">
-                                    {{ $s->total_wallet >= 0 ? '+' : '' }}₹{{ number_format($s->total_wallet, 2) }}
+                                    {{ $s->total_wallet >= 0 ? '+' : '' }}{{ $temple['currency'] }} {{ number_format($s->total_wallet, 2) }}
                                 </td>
-                                <td class="fw-bold">₹{{ number_format($s->total_paid, 2) }}</td>
+                                <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($s->total_paid, 2) }}</td>
                             </tr>
                             @empty
                             <tr>
@@ -224,8 +224,8 @@
                                     @forelse($priestWalletTx as $tx)
                                     <tr>
                                         <td>{{ date('d M Y', strtotime($tx->date)) }}</td>
-                                        <td class="text-success fw-semibold">+₹{{ number_format($tx->credits, 2) }}</td>
-                                        <td class="text-danger fw-semibold">-₹{{ number_format($tx->debits, 2) }}</td>
+                                        <td class="text-success fw-semibold">+{{ $temple['currency'] }} {{ number_format($tx->credits, 2) }}</td>
+                                        <td class="text-danger fw-semibold">-{{ $temple['currency'] }} {{ number_format($tx->debits, 2) }}</td>
                                     </tr>
                                     @empty
                                     <tr>
@@ -251,8 +251,8 @@
                                     @forelse($staffWalletTx as $tx)
                                     <tr>
                                         <td>{{ date('d M Y', strtotime($tx->date)) }}</td>
-                                        <td class="text-success fw-semibold">+₹{{ number_format($tx->credits, 2) }}</td>
-                                        <td class="text-danger fw-semibold">-₹{{ number_format($tx->debits, 2) }}</td>
+                                        <td class="text-success fw-semibold">+{{ $temple['currency'] }} {{ number_format($tx->credits, 2) }}</td>
+                                        <td class="text-danger fw-semibold">-{{ $temple['currency'] }} {{ number_format($tx->debits, 2) }}</td>
                                     </tr>
                                     @empty
                                     <tr>
@@ -283,7 +283,7 @@
                             <tr>
                                 <td><strong>{{ $p->pooja_name }}</strong></td>
                                 <td>{{ $p->completed_count }} Completed</td>
-                                <td class="fw-bold text-success">₹{{ number_format($p->total_amount, 2) }}</td>
+                                <td class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($p->total_amount, 2) }}</td>
                             </tr>
                             @empty
                             <tr>
@@ -312,7 +312,7 @@
                                     @forelse($bookingsEarnings as $b)
                                     <tr>
                                         <td><strong>{{ date('F Y', strtotime($b->month . '-01')) }}</strong></td>
-                                        <td class="fw-bold text-success">₹{{ number_format($b->total_earnings, 2) }}</td>
+                                        <td class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($b->total_earnings, 2) }}</td>
                                     </tr>
                                     @empty
                                     <tr>
@@ -337,7 +337,7 @@
                                     @forelse($donationsEarnings as $d)
                                     <tr>
                                         <td><strong>{{ date('F Y', strtotime($d->month . '-01')) }}</strong></td>
-                                        <td class="fw-bold text-success">₹{{ number_format($d->total_earnings, 2) }}</td>
+                                        <td class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($d->total_earnings, 2) }}</td>
                                     </tr>
                                     @empty
                                     <tr>

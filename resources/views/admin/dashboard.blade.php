@@ -558,7 +558,7 @@
                             @forelse($recentDonations as $donation)
                             <tr>
                                 <td>{{ $donation->donor_name ?? 'Anonymous' }}</td>
-                                <td>₹{{ number_format($donation->amount) }}</td>
+                                <td>{{ $temple['currency'] }} {{ number_format($donation->amount) }}</td>
                                 <td>
                                     @if(date('Y-m-d', strtotime($donation->donation_date)) == date('Y-m-d'))
                                         <span class="badge-amount">today</span>

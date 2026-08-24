@@ -527,7 +527,7 @@ public function dashboard()
         }
 
         // Generate dynamic UPI payment URL
-        $upiString = "upi://pay?pa=rohandevadigapithrodi-1@oksbi&pn=" . urlencode("Shree Mandir") . "&am=" . number_format($amount, 2, '.', '') . "&cu=INR&tn=" . urlencode($remarks);
+        $upiString = "upi://pay?pa=rohandevadigapithrodi-1@oksbi&pn=" . urlencode(Setting::get('temple_name', 'SRI SELVA VINAYAKAR KOYIL (GANESHA TEMPLE)')) . "&am=" . number_format($amount, 2, '.', '') . "&cu=" . Setting::get('currency_code', 'AUD') . "&tn=" . urlencode($remarks);
         $qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" . urlencode($upiString);
 
         return view('devotee.payment', compact('user', 'devotee', 'type', 'amount', 'title', 'remarks', 'qrCodeUrl', 'request'));
@@ -609,7 +609,7 @@ public function dashboard()
 
                 DB::commit();
                 return redirect()->route('devotee.dashboard')
-                    ->with('success', 'Thank you! Your donation of ₹' . number_format($amount, 2) . ' has been received successfully.');
+                    ->with('success', 'Thank you! Your donation of ' . Setting::get('currency_code', 'AUD') . ' ' . number_format($amount, 2) . ' has been received successfully.');
             } elseif ($type === 'membership') {
                 $membershipId = $request->input('membership_id');
                 $membershipPlan = DB::table('memberships')->where('membership_id', $membershipId)->first();

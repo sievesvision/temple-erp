@@ -62,7 +62,7 @@
   <div class="payment-card">
     <div class="payment-header">
       <h4 class="fw-bold mb-1"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Secure UPI Payment</h4>
-      <p class="small text-white-50 mb-0">Shree Mandir Temple Management Portal</p>
+      <p class="small text-white-50 mb-0">{{ $temple['name'] }} Portal</p>
     </div>
     <div class="payment-body">
       <h5 class="fw-semibold text-muted mb-3">{{ $title }}</h5>
@@ -78,7 +78,7 @@
         </div>
         <div class="payment-detail-row">
           <span class="payment-detail-label">Total Amount</span>
-          <span class="payment-detail-value text-warning fs-5">₹{{ number_format($amount, 2) }}</span>
+          <span class="payment-detail-value text-warning fs-5">{{ $temple['currency'] }} {{ number_format($amount, 2) }}</span>
         </div>
       </div>
 

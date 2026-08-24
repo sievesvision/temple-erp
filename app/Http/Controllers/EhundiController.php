@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Setting;
 
 class EhundiController extends Controller
 {
@@ -46,7 +47,7 @@ class EhundiController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Your offering of ₹' . number_format($request->amount, 2) . ' was placed successfully.'
+            'message' => 'Your offering of ' . Setting::get('currency_code', 'AUD') . ' ' . number_format($request->amount, 2) . ' was placed successfully.'
         ]);
     }
 }

@@ -754,7 +754,7 @@
       <div class="chatbot-header-info">
         <i class="bi bi-robot"></i>
         <div>
-          <h6 class="chatbot-header-title">Shree Mandir Assistant</h6>
+          <h6 class="chatbot-header-title">{{ $temple['brand_title'] }} Assistant</h6>
           <p class="chatbot-header-subtitle">Chat Support & Booking</p>
         </div>
       </div>
@@ -780,6 +780,7 @@
 
   <!-- Chatbot Logic script -->
   <script>
+    const CURRENCY = @json($temple['currency']);
     $(document).ready(function() {
       const toggle = $('#chatbotToggle, #chatbotBadge');
       const win = $('#chatbotWindow');
@@ -904,9 +905,9 @@
               let qrHtml = `
                 <div class="chatbot-qr-card animate__animated animate__fadeIn">
                   <div class="fw-bold text-dark mb-1">Scan & Pay via UPI</div>
-                  <div class="small text-danger mb-2 fw-semibold">Amount: ₹${parseFloat(meta.qr_amount).toFixed(2)}</div>
+                  <div class="small text-danger mb-2 fw-semibold">Amount: ${CURRENCY} ${parseFloat(meta.qr_amount).toFixed(2)}</div>
                   <div class="chatbot-qr-image-container">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=2d1f0e&data=upi://pay?pa=rohandevadigapithrodi-1@oksbi%26pn=${encodeURIComponent(meta.qr_payee)}%26am=${meta.qr_amount}%26cu=INR" alt="UPI QR Code" style="width: 100%; height: 100%; object-fit: contain;" />
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&color=2d1f0e&data=upi://pay?pa=rohandevadigapithrodi-1@oksbi%26pn=${encodeURIComponent(meta.qr_payee)}%26am=${meta.qr_amount}%26cu=${CURRENCY}" alt="UPI QR Code" style="width: 100%; height: 100%; object-fit: contain;" />
                   </div>
                   <div class="small text-muted mb-1">Payee: ${meta.qr_payee}</div>
                 </div>
