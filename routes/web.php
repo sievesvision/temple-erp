@@ -378,6 +378,10 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         return redirect()->back()->with('success', 'System settings updated successfully.');
     })->name('admin.settings.update');
 
+    // Role Permissions (configurable access grid per role)
+    Route::get('/admin/role-permissions', [\App\Http\Controllers\RolePermissionController::class, 'index'])->name('admin.role-permissions.index');
+    Route::post('/admin/role-permissions/{role}', [\App\Http\Controllers\RolePermissionController::class, 'update'])->name('admin.role-permissions.update');
+
     // Leave Requests Route (Admin management)
     Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');
     Route::post('/admin/leaves/status/{id}', [PriestController::class, 'updateLeaveStatus'])->name('admin.leaves.status');

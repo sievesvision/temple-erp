@@ -65,16 +65,20 @@
         <i class="bi bi-wallet2"></i> Donations
       </a>
     </li>
+    @if(\App\Models\RolePermission::can('Devotee', 'ehundi', 'view'))
     <li class="nav-item">
       <a href="{{ route('ehundi.show') }}" class="nav-link {{ request()->routeIs('ehundi.show') ? 'active' : '' }}">
         <i class="bi bi-coin"></i> e-Hundi
       </a>
     </li>
+    @endif
+    @if(\App\Models\RolePermission::can('Devotee', 'membership', 'view'))
     <li class="nav-item">
       <a href="{{ route('devotee.dashboard') }}?tab=membership" class="nav-link {{ request()->get('tab') === 'membership' ? 'active' : '' }}">
         <i class="bi bi-gem"></i> Membership
       </a>
     </li>
+    @endif
     <li class="nav-item">
       <a href="{{ route('devotee.dashboard') }}?tab=events" class="nav-link {{ request()->get('tab') === 'events' ? 'active' : '' }}">
         <i class="bi bi-stars"></i> Events

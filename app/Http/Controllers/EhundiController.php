@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class EhundiController extends Controller
 {
@@ -14,9 +15,15 @@ class EhundiController extends Controller
      */
     public function show()
     {
-        if (Auth::check() && (session('active_role', Auth::user()->role) === 'Devotee' || Auth::user()->role === 'Devotee')) {
+        $role = Auth::check() ? session('active_role', Auth::user()->role) : null;
+
+        if ($role === 'Devotee') {
+            if (!RolePermission::can('Devotee', 'ehundi', 'view')) {
+                return redirect()->route('devotee.dashboard')->with('error', 'e-Hundi is not available for devotee accounts. Please contact the temple office.');
+            }
             return view('devotee.ehundi');
         }
+
         return view('frontend.ehundi');
     }
 
@@ -25,6 +32,15 @@ class EhundiController extends Controller
      */
     public function offer(Request $request)
     {
+        $role = Auth::check() ? session('active_role', Auth::user()->role) : null;
+
+        if ($role === 'Devotee' && !RolePermission::can('Devotee', 'ehundi', 'add')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'e-Hundi is not available for devotee accounts. Please contact the temple office.',
+            ], 403);
+        }
+
         $request->validate([
             'amount' => 'required|numeric|min:1'
         ]);

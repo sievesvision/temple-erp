@@ -61,6 +61,58 @@ Temple ERP is a comprehensive web-based Enterprise Resource Planning (ERP) syste
 
 ---
 
+# 👥 User Roles & Access
+
+There is no permissions package (Spatie, etc.) — roles are a plain string on `users.role`, and each dashboard is gated by its own middleware (`role.admin`, `role.devotee`, `role.priest`, `role.trustee`, `role.staff`, `role.accountant`, registered in `bootstrap/app.php`).
+
+| Role | What they can access |
+|---|---|
+| **Admin** | Everything: dashboard; manage Devotees, Priests, Trustees, Staff, Accountants; Events; Inventory; Donations; Pooja Bookings; Leave approvals; System Settings (branding, theme, currency, Stripe); admin chat support |
+| **Devotee** | Own dashboard; book/pay for poojas and view receipts; make donations; view events; own chatbot support. (e-Hundi and self-service Membership purchase are disabled by default for this role — configurable, see below) |
+| **Priest** | Own dashboard; daily schedule; attendance (start/end); mark poojas complete; request leave |
+| **Trustee** | Own dashboard only (read-only overview) |
+| **Staff** | Own dashboard; attendance; staff chat support; offline counter (book a pooja or record a donation for a walk-in devotee — auto-creates a Devotee account by mobile number if one doesn't exist) |
+| **Accountant** | Own dashboard |
+
+## How to create/assign a role
+
+- **Admin** — there is no self-service or admin-panel way to create the *first* admin account; it has to be created directly, once, via `php artisan tinker` (see below). After that, an existing admin can promote another user to Admin the same way any other role is promoted (see next point) — there's currently no "make this user an Admin" button in the UI either, so promoting to Admin also goes through tinker/DB.
+- **Priest / Trustee / Staff / Accountant** — an Admin creates these from their respective **Manage → Add [Role]** form. If the email or mobile entered already belongs to an existing user, that user's `role` is switched to the new role instead of creating a duplicate account — **this promotion-on-existing-match is currently the only way to change someone's role**, since none of the `manage-*` list pages have a direct "edit role" control.
+- **Devotee** — self-registers at `/register` (OTP email verification required before first login), or is auto-created when Staff records a walk-in booking/donation at the offline counter, or an Admin adds one directly via **Manage Devotees → Add Devotee**.
+
+### Creating the first Admin account
+
+```bash
+php artisan tinker --execute="
+\App\Models\User::create([
+    'name' => 'Admin',
+    'email' => 'admin@yourdomain.com',
+    'mobile' => '0000000000',
+    'password' => 'ChangeThisPassword123!',
+    'role' => 'Admin',
+    'status' => 'Active',
+    'email_verified_at' => now(),
+]);
+echo 'Admin user created.';
+"
+```
+`email_verified_at` must be set — login blocks any account where it's `null`, regardless of a correct password. `password` can be passed as plain text; the `User` model hashes it automatically on save.
+
+## Configurable section-level permissions (Role Management)
+
+Beyond the base role dashboards above, **Admin → Role Management** (sidebar) lets an Admin fine-tune access per role with a grid: rows are sections/resources (Devotees, Priests, Trustees, Staff, Accountants, Events, Donations, Pooja Bookings, Inventory, Leave Requests, System Settings, Reports, Salaries, e-Hundi, Membership), columns are `View` / `Add` / `Edit` / `Delete`. This sits **on top of** the base role middleware — it doesn't replace it: a Devotee still can't wander into the Admin dashboard shell, but within the areas a role already has some reach into, this grid controls the finer-grained CRUD actions.
+
+- Backed by the `role_permissions` table (migration `2026_08_25_000000_create_role_permissions_table.php`) and the `App\Models\RolePermission` model. `RolePermission::can($role, $resource, $action)` is the check to call anywhere new — `Admin` always returns `true` (superuser bypass), everyone else is looked up from the table.
+- Seeded defaults on migration mirror what the app already did in code before this system existed (e.g. Devotees could already view/add their own bookings and donations; Staff could already add bookings/donations via the offline counter) — turning this feature on didn't silently grant or revoke anything.
+- **Currently wired end-to-end for exactly one case**: Devotee access to e-Hundi and Membership (both `view` and `add`) — this was built as the concrete working example. Toggling either on in Role Management immediately re-enables the matching nav links (sidebar, topbar, dashboard cards) and unblocks the underlying routes; toggling off hides the links and blocks direct URL/form access again.
+- **Not yet wired into the other 13 resources/rows** (Devotees, Priests, Events, Donations, etc. for non-Admin roles) — the grid will happily save permissions for them, but no controller currently reads those particular rows yet. Those routes are still governed only by the original `role.admin`-style middleware described above. Wiring each one in is a real, separate piece of follow-up work (every relevant controller action needs a `RolePermission::can(...)` check added, similar to what was done for e-Hundi/Membership) — flagging this clearly rather than leaving the impression the whole grid is already live everywhere.
+
+## ⚠️ Known access gap
+
+Salary Management (`admin.salaries.*`) and System Reports (`admin.reports.index`) currently sit in a route group gated only by `auth` (must be logged in) — **not** actually restricted to Admin/Accountant despite what the surrounding code comments say. Any authenticated user, including a Devotee, can currently reach these URLs directly today. This wasn't part of the work requested when this was found, so it hasn't been fixed — worth tightening if these need to stay restricted to Admin/Accountant only (and would be a natural resource to wire into Role Management once that's underway).
+
+---
+
 # 🏗️ Technology Stack
 
 | Technology | Version |
@@ -416,22 +468,4 @@ Sancation Salary Page:
 Custom settings:
 <img width="1907" height="916" alt="image" src="https://github.com/user-attachments/assets/17f436b2-6a33-41ca-b68d-24c3f4f2bede" />
 
-
----
-
-# 👨‍💻 Developed By
-
-**Rohan**
-
-B.Tech Computer Science Engineering
-
-MIT Manipal
-
----
-
-# 📄 License
-
-This project is developed for educational and academic purposes.
-
----
 

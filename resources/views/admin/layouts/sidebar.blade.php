@@ -64,6 +64,9 @@
       <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}"><i class="bi bi-bar-chart-fill"></i> Reports</a>
     </li>
     <li class="nav-item">
+      <a href="{{ route('admin.role-permissions.index') }}" class="nav-link {{ request()->routeIs('admin.role-permissions.*') ? 'active' : '' }}"><i class="bi bi-shield-lock-fill"></i> Role Management</a>
+    </li>
+    <li class="nav-item">
       <a class="nav-link logout-link" id="sidebarLogoutBtn" href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#logoutModal" style="cursor: pointer;">
         <i class="bi bi-box-arrow-right"></i> Logout
       </a>

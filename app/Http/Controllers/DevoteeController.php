@@ -8,13 +8,18 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeMail;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 
 class DevoteeController extends Controller
 {
 
-public function dashboard()
+public function dashboard(Request $request)
 {
+    if ($request->get('tab') === 'membership' && !RolePermission::can('Devotee', 'membership', 'view')) {
+        return redirect()->route('devotee.dashboard')->with('error', 'Membership self-service is not available. Please contact the temple office.');
+    }
+
     $user = Auth::user();
 
 
@@ -494,6 +499,10 @@ public function dashboard()
             $title = 'Temple Donation';
             $remarks = 'Donation for ' . $purpose;
         } elseif ($type === 'membership') {
+            if (!RolePermission::can('Devotee', 'membership', 'add')) {
+                return redirect()->route('devotee.dashboard')->with('error', 'Membership self-service is not available. Please contact the temple office.');
+            }
+
             $membershipId = $request->get('membership_id');
             $membershipPlan = DB::table('memberships')->where('membership_id', $membershipId)->first();
             if (!$membershipPlan) {
@@ -611,6 +620,11 @@ public function dashboard()
                 return redirect()->route('devotee.dashboard')
                     ->with('success', 'Thank you! Your donation of ' . Setting::get('currency_code', 'AUD') . ' ' . number_format($amount, 2) . ' has been received successfully.');
             } elseif ($type === 'membership') {
+                if (!RolePermission::can('Devotee', 'membership', 'add')) {
+                    DB::rollBack();
+                    return redirect()->route('devotee.dashboard')->with('error', 'Membership self-service is not available. Please contact the temple office.');
+                }
+
                 $membershipId = $request->input('membership_id');
                 $membershipPlan = DB::table('memberships')->where('membership_id', $membershipId)->first();
                 if (!$membershipPlan) {
@@ -640,7 +654,7 @@ public function dashboard()
                 // Calculate dates
                 $months = $membershipPlan->duration_months ?? 1;
                 $startDate = date('Y-m-d');
-                
+
                 // If it is an upgrade (lower to higher level)
                 if ($activeLevel > 0 && $newLevel > $activeLevel) {
                     $endDate = date('Y-m-d', strtotime("+$months months +5 days"));

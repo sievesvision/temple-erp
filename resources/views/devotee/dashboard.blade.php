@@ -693,7 +693,7 @@
                 <span class="badge banner-badge rounded-pill px-3 py-2 mb-3">
                     <i class="bi bi-star-fill me-1 text-warning animate__animated animate__pulse animate__infinite"></i> Welcome to Devotee Portal
                 </span>
-                <h1 class="banner-title display-6 mb-2">Hare Krishna, {{ $user->name }} 🙏</h1>
+                <h1 class="banner-title display-6 mb-2">Vanakkam, {{ $user->name }} 🙏</h1>
                 <p class="banner-desc mb-0 opacity-90">Step into the divine workspace of Temple ERP. Schedule rituals, view upcoming temple events, and manage your contributions seamlessly.</p>
             </div>
             <div class="col-md-4 text-md-end mt-3 mt-md-0 banner-date-section">
@@ -757,9 +757,11 @@
                     <a href="{{ route('devotee.dashboard') }}?tab=bookings" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold">
                         <i class="bi bi-list-task me-1"></i> View My Bookings
                     </a>
+                    @if(\App\Models\RolePermission::can('Devotee', 'membership', 'view'))
                     <a href="{{ route('devotee.dashboard') }}?tab=membership" class="btn btn-outline-info rounded-pill px-4 fw-semibold">
                         <i class="bi bi-gem me-1"></i> Memberships
                     </a>
+                    @endif
                 </div>
             </div>
 
@@ -840,7 +842,11 @@
                             </ul>
                         </div>
                         <div class="mt-3">
-                            <a href="{{ route('devotee.dashboard') }}?tab=membership" class="btn btn-light btn-sm rounded-pill fw-semibold text-dark px-3">Upgrade Membership</a>
+                            @if(\App\Models\RolePermission::can('Devotee', 'membership', 'add'))
+                                <a href="{{ route('devotee.dashboard') }}?tab=membership" class="btn btn-light btn-sm rounded-pill fw-semibold text-dark px-3">Upgrade Membership</a>
+                            @else
+                                <small class="text-white-50"><i class="bi bi-info-circle me-1"></i>Contact the temple office to upgrade your membership.</small>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -857,7 +863,11 @@
                             </ul>
                         </div>
                         <div class="mt-3">
-                            <a href="{{ route('devotee.dashboard') }}?tab=membership" class="btn btn-warning btn-sm w-100 rounded-pill fw-semibold text-white px-3" style="background: linear-gradient(135deg, #b8863a, #f27a1a); border:none;">Explore Premium Plans</a>
+                            @if(\App\Models\RolePermission::can('Devotee', 'membership', 'add'))
+                                <a href="{{ route('devotee.dashboard') }}?tab=membership" class="btn btn-warning btn-sm w-100 rounded-pill fw-semibold text-white px-3" style="background: linear-gradient(135deg, #b8863a, #f27a1a); border:none;">Explore Premium Plans</a>
+                            @else
+                                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Contact the temple office to set up a membership.</small>
+                            @endif
                         </div>
                     </div>
                 </div>
