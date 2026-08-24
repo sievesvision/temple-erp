@@ -45,7 +45,9 @@ return new class extends Migration
         });
 
         // Alter payment_status column in pooja_bookings using raw query to support 'Refunded'
-        DB::statement("ALTER TABLE pooja_bookings MODIFY COLUMN payment_status ENUM('Pending', 'Paid', 'Failed', 'Refunded') NULL");
+        if (config('database.default') === 'mysql') {
+            DB::statement("ALTER TABLE pooja_bookings MODIFY COLUMN payment_status ENUM('Pending', 'Paid', 'Failed', 'Refunded') NULL");
+        }
 
         // 3. Create booking_payments table
         if (!Schema::hasTable('booking_payments')) {
@@ -93,7 +95,9 @@ return new class extends Migration
             ]);
         });
 
-        DB::statement("ALTER TABLE pooja_bookings MODIFY COLUMN payment_status ENUM('Pending', 'Paid', 'Failed') NULL");
+        if (config('database.default') === 'mysql') {
+            DB::statement("ALTER TABLE pooja_bookings MODIFY COLUMN payment_status ENUM('Pending', 'Paid', 'Failed') NULL");
+        }
 
         Schema::table('poojas', function (Blueprint $table) {
             $table->dropColumn(['online_allowed', 'category']);

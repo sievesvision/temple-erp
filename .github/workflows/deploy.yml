@@ -31,7 +31,7 @@ jobs:
         run: php artisan key:generate
 
       - name: Run test suite
-        run: php artisan test
+        run: php artisan test --exclude-group=requires-mysql
 
   deploy:
     needs: test

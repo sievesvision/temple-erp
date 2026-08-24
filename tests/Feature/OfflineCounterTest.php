@@ -6,7 +6,14 @@ use Tests\TestCase;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\Group;
 
+/**
+ * Requires a real local MySQL server (database `temple_management`, user `root`, no password)
+ * with existing seed data — not compatible with the sqlite :memory: connection used by the rest
+ * of the suite, so it's excluded from CI via --exclude-group=requires-mysql.
+ */
+#[Group('requires-mysql')]
 class OfflineCounterTest extends TestCase
 {
     protected function setUp(): void
