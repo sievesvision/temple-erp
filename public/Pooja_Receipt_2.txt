@@ -1,0 +1,23 @@
+==================================================
+            🛕 TEMPLE ERP POOJA RECEIPT           
+==================================================
+Receipt No   : REC000002
+Booking Date : 2026-06-23
+Booking Time : 11:15 AM
+Status       : Pending
+--------------------------------------------------
+Devotee Name : Rohan D
+Mobile       : 1234567891
+Pooja Name   : Satyanarayana Pooja
+Pooja Mode   : Offline
+Assigned Priest: manish bha
+--------------------------------------------------
+Pooja Base Price  : ₹2,500.00
+Membership Discount: -₹625.00
+--------------------------------------------------
+TOTAL PAID        : ₹1,875.00
+Payment Method    : UPI
+Payment Status    : Pending
+==================================================
+          Thank you for your devotion!            
+==================================================

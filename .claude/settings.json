@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(echo \"started pid $!\")",
+      "Bash(curl -sf -o /dev/null http://127.0.0.1:8123/)",
+      "Bash(break)",
+      "Bash(php artisan tinker '--execute= *)",
+      "Bash(lsof -ti:8123 -sTCP:LISTEN)",
+      "Bash(xargs -r kill)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" --max-time 3 http://127.0.0.1:8123/)",
+      "Bash(curl -sf -o /dev/null http://127.0.0.1:8125/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:8125/)",
+      "Bash(taskkill //PID 21780 //F)",
+      "Bash(php -l resources/views/frontend/event-donate.blade.php)",
+      "Bash(curl -sf -o /dev/null http://127.0.0.1:8126/)",
+      "Bash(grep -o '<img src=\"[^\"]*header_vinyagar[^\"]*\"[^>]*>' /tmp/vc3.html)",
+      "Read(//tmp/**)",
+      "Bash(curl -s http://127.0.0.1:8128/events/vinyagar-chathurthi-2026-09-14-1 -o /tmp/vc5.html)",
+      "Bash(php -v)"
+    ]
+  }
+}

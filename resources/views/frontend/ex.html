@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🛕 Devotee Dashboard</title>
+  <!-- Bootstrap 5 + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <!-- Google Font (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <!-- Animate.css for animations -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f8f4f0;
+      color: #1e1e2a;
+    }
+
+    /* ---------- SIDEBAR ---------- */
+    .sidebar {
+      width: 260px;
+      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 0;
+      background: #ffffff;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+      overflow-y: auto;
+      z-index: 1050;
+      padding: 0 0 24px 0;
+      border-right: 1px solid rgba(184, 134, 58, 0.08);
+      transition: transform 0.25s ease;
+    }
+
+    .logo-area {
+      padding: 24px 20px 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(0,0,0,0.03);
+    }
+    .logo-icon {
+      background: linear-gradient(135deg, #b8863a, #d4a05a);
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 22px;
+      box-shadow: 0 6px 12px rgba(184, 134, 58, 0.2);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .logo-text {
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: -0.3px;
+      color: #2d1f0e;
+    }
+    .logo-text span {
+      background: linear-gradient(135deg, #b8863a, #d4a05a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .sidebar .nav {
+      padding: 16px 12px 0 12px;
+    }
+    .sidebar .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 16px;
+      border-radius: 14px;
+      color: #3e3e4a;
+      font-weight: 500;
+      font-size: 15px;
+      transition: all 0.2s;
+      margin-bottom: 2px;
+      position: relative;
+    }
+    .sidebar .nav-link i {
+      font-size: 1.25rem;
+      width: 24px;
+      text-align: center;
+      color: #7b6b5a;
+      transition: color 0.2s;
+    }
+    .sidebar .nav-link:hover {
+      background: #f3ebe0;
+      color: #b8863a;
+    }
+    .sidebar .nav-link:hover i {
+      color: #b8863a;
+    }
+    .sidebar .nav-link.active {
+      background: linear-gradient(135deg, #b8863a, #d4a05a);
+      color: white;
+      box-shadow: 0 6px 16px rgba(184, 134, 58, 0.25);
+    }
+    .sidebar .nav-link.active i {
+      color: white;
+    }
+    .sidebar .nav-link.logout-link {
+      margin-top: 20px;
+      border-top: 1px solid #eeece7;
+      border-radius: 0;
+      padding-top: 20px;
+      color: #b34a4a;
+      cursor: pointer;
+    }
+    .sidebar .nav-link.logout-link i {
+      color: #b34a4a;
+    }
+    .sidebar .nav-link.logout-link:hover {
+      background: transparent;
+      color: #b34a4a;
+    }
+
+    /* ---------- MAIN CONTENT ---------- */
+    .main-content {
+      margin-left: 260px;
+      min-height: 100vh;
+      transition: margin 0.25s;
+    }
+
+    /* top bar */
+    .topbar {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 16px 32px;
+      border-bottom: 1px solid rgba(0,0,0,0.02);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+    }
+    .topbar h4 {
+      font-weight: 600;
+      font-size: 1.5rem;
+      letter-spacing: -0.3px;
+      color: #2d1f0e;
+      margin: 0;
+    }
+    .topbar h4 i {
+      color: #b8863a;
+      margin-right: 8px;
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .profile-toggle {
+      background: white;
+      border: none;
+      padding: 6px 16px 6px 12px;
+      border-radius: 40px;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: 0.2s;
+    }
+    .profile-toggle:hover {
+      background: #f3ebe0;
+    }
+    .profile-toggle i {
+      font-size: 1.4rem;
+      color: #b8863a;
+    }
+
+    /* Membership Badge Styles */
+    .membership-badge {
+      padding: 6px 18px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      animation: glow 2s ease-in-out infinite;
+    }
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,215,0,0.2); }
+      50% { box-shadow: 0 0 25px rgba(255,215,0,0.4); }
+    }
+    .membership-badge.gold {
+      background: linear-gradient(135deg, #ffd700, #f5a623);
+      color: #7c5c00;
+      box-shadow: 0 2px 12px rgba(255, 215, 0, 0.3);
+    }
+    .membership-badge.silver {
+      background: linear-gradient(135deg, #e8e8e8, #c0c0c0);
+      color: #4a4a4a;
+      box-shadow: 0 2px 12px rgba(192, 192, 192, 0.3);
+    }
+    .membership-badge.bronze {
+      background: linear-gradient(135deg, #cd7f32, #a05a2c);
+      color: #ffffff;
+      box-shadow: 0 2px 12px rgba(205, 127, 50, 0.3);
+    }
+    .membership-badge.platinum {
+      background: linear-gradient(135deg, #e5e4e2, #b8b8b8);
+      color: #2d2d2d;
+      box-shadow: 0 2px 12px rgba(181, 181, 181, 0.3);
+      border: 1px solid #d4d4d4;
+    }
+    .membership-badge i {
+      font-size: 0.9rem;
+    }
+
+    /* stat cards with animation */
+    .stat-card {
+      background: white;
+      border-radius: 24px;
+      padding: 22px 24px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.02);
+      border: 1px solid rgba(184, 134, 58, 0.06);
+      transition: all 0.3s;
+      height: 100%;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(184, 134, 58, 0.05), transparent);
+      transition: 0.5s;
+    }
+    .stat-card:hover::before {
+      left: 100%;
+    }
+    .stat-card:hover {
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 16px 32px rgba(184, 134, 58, 0.12);
+    }
+    .stat-card .stat-label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: #7b6b5a;
+      font-weight: 600;
+    }
+    .stat-card .stat-number {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #1e1e2a;
+      letter-spacing: -0.5px;
+      margin: 4px 0 0 0;
+    }
+    .stat-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .stat-icon.gold {
+      background: linear-gradient(135deg, #b8863a, #d4a05a);
+    }
+    .stat-icon.blue {
+      background: linear-gradient(135deg, #2a6fdb, #4a8fea);
+    }
+    .stat-icon.green {
+      background: linear-gradient(135deg, #1f9d6a, #3dbd8a);
+    }
+    .stat-icon.purple {
+      background: linear-gradient(135deg, #7c3aed, #a06bed);
+    }
+    .stat-icon.orange {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24);
+    }
+    .stat-icon.red {
+      background: linear-gradient(135deg, #ef4444, #f87171);
+    }
+
+    /* quick action cards */
+    .action-card {
+      background: white;
+      border-radius: 24px;
+      padding: 28px 24px;
+      border: 1px solid rgba(184, 134, 58, 0.06);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.02);
+      text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    .action-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #b8863a, #d4a05a, #b8863a);
+      transform: scaleX(0);
+      transition: 0.3s;
+    }
+    .action-card:hover::after {
+      transform: scaleX(1);
+    }
+    .action-card:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 16px 40px rgba(184, 134, 58, 0.15);
+      border-color: #b8863a;
+    }
+    .action-card .icon-circle {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #b8863a15, #d4a05a15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 32px;
+      color: #b8863a;
+      transition: 0.3s;
+    }
+    .action-card:hover .icon-circle {
+      background: linear-gradient(135deg, #b8863a, #d4a05a);
+      color: white;
+      transform: rotate(10deg) scale(1.1);
+    }
+    .action-card h5 {
+      font-weight: 600;
+      color: #2d1f0e;
+      margin-bottom: 8px;
+    }
+    .action-card p {
+      color: #7b6b5a;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    /* Hero Slideshow */
+    .hero-slideshow {
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+      position: relative;
+      height: 320px;
+    }
+    .carousel-item {
+      height: 320px;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+    }
+    .carousel-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.1));
+    }
+    .carousel-item .carousel-content {
+      position: absolute;
+      bottom: 40px;
+      left: 40px;
+      color: white;
+      z-index: 2;
+    }
+    .carousel-item .carousel-content h3 {
+      font-weight: 700;
+      font-size: 2rem;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    .carousel-item .carousel-content p {
+      font-size: 1.1rem;
+      opacity: 0.95;
+      text-shadow: 0 1px 5px rgba(0,0,0,0.3);
+    }
+    .carousel-item .carousel-content .btn-gold {
+      background: linear-gradient(135deg, #b8863a, #d4a05a);
+      border: none;
+      color: white;
+      padding: 10px 30px;
+      border-radius: 40px;
+      font-weight: 600;
+      transition: 0.3s;
+    }
+    .carousel-item .carousel-content .btn-gold:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 20px rgba(184, 134, 58, 0.4);
+    }
+
+    /* Membership Cards */
+    .membership-card {
+      background: white;
+      border-radius: 24px;
+      padding: 28px 24px;
+      border: 2px solid transparent;
+      transition: all 0.3s;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    .membership-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: conic-gradient(from 0deg, transparent, rgba(184, 134, 58, 0.03), transparent, rgba(184, 134, 58, 0.03), transparent);
+      animation: rotate 10s linear infinite;
+    }
+    @keyframes rotate {
+      100% { transform: rotate(360deg); }
+    }
+    .membership-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    }
+    .membership-card.platinum {
+      border-color: #c0c0c0;
+      background: linear-gradient(135deg, #ffffff, #f8f8f8);
+    }
+    .membership-card.gold {
+      border-color: #ffd700;
+      background: linear-gradient(135deg, #ffffff, #fff8e7);
+    }
+    .membership-card.silver {
+      border-color: #c0c0c0;
+      background: linear-gradient(135deg, #ffffff, #f5f5f5);
+    }
+    .membership-card.bronze {
+      border-color: #cd7f32;
+      background: linear-gradient(135deg, #ffffff, #fdf0e7);
+    }
+    .membership-card .tier-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+    .membership-card .tier-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .membership-card .tier-price {
+      font-size: 0.9rem;
+      color: #7b6b5a;
+      margin-bottom: 16px;
+    }
+    .membership-card .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0;
+    }
+    .membership-card .feature-list li {
+      padding: 6px 0;
+      color: #3e3e4a;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .membership-card .feature-list li i {
+      color: #b8863a;
+      font-size: 0.8rem;
+    }
+    .membership-card .btn-membership {
+      width: 100%;
+      padding: 12px;
+      border-radius: 40px;
+      font-weight: 600;
+      border: none;
+      transition: 0.3s;
+    }
+    .membership-card .btn-membership:hover {
+      transform: scale(1.02);
+    }
+    .btn-platinum {
+      background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
+      color: white;
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #ffd700, #f5a623);
+      color: #7c5c00;
+    }
+    .btn-silver {
+      background: linear-gradient(135deg, #e8e8e8, #b0b0b0);
+      color: #4a4a4a;
+    }
+    .btn-bronze {
+      background: linear-gradient(135deg, #cd7f32, #a05a2c);
+      color: white;
+    }
+
+    /* table cards */
+    .table-wrap {
+      background: white;
+      border-radius: 24px;
+      border: 1px solid rgba(184, 134, 58, 0.06);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.02);
+      overflow: hidden;
+      height: 100%;
+      transition: 0.3s;
+    }
+    .table-wrap:hover {
+      box-shadow: 0 12px 32px rgba(184, 134, 58, 0.08);
+    }
+    .table-wrap .card-header {
+      background: transparent;
+      border-bottom: 1px solid #f0ece6;
+      padding: 18px 24px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: #2d1f0e;
+    }
+    .table-wrap .table {
+      margin: 0;
+    }
+    .table-wrap .table th {
+      font-weight: 600;
+      color: #5a4e3e;
+      border-bottom: 1px solid #f0ece6;
+      padding: 14px 24px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .table-wrap .table td {
+      padding: 14px 24px;
+      border-bottom: 1px solid #f5f0ea;
+      color: #1e1e2a;
+      font-weight: 500;
+    }
+    .table-wrap .table tr:last-child td {
+      border-bottom: none;
+    }
+    .badge-status {
+      padding: 4px 14px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+    .badge-status.confirmed {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .badge-status.pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .badge-status.completed {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .badge-amount {
+      background: #f3ebe0;
+      color: #b8863a;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .badge-popular {
+      background: #ef4444;
+      color: white;
+      padding: 2px 12px;
+      border-radius: 40px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      animation: pulse 1.5s infinite;
+    }
+
+    /* responsive */
+    @media (max-width: 992px) {
+      .sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+      }
+      .sidebar.show {
+        transform: translateX(0);
+      }
+      .main-content {
+        margin-left: 0;
+      }
+      .topbar {
+        padding: 14px 20px;
+      }
+      .hero-slideshow {
+        height: 250px;
+      }
+      .carousel-item {
+        height: 250px;
+      }
+    }
+    .menu-toggle {
+      background: white;
+      border: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 40px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+    @media (max-width: 992px) {
+      .menu-toggle {
+        display: flex;
+      }
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: #d6cbbc;
+      border-radius: 12px;
+    }
+
+    /* logout modal */
+    .modal-content {
+      border-radius: 24px;
+      border: none;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.08);
+    }
+    .modal-footer .btn-danger {
+      background: #b34a4a;
+      border: none;
+      border-radius: 40px;
+      padding: 10px 24px;
+      font-weight: 600;
+    }
+    .modal-footer .btn-secondary {
+      border-radius: 40px;
+      padding: 10px 24px;
+      font-weight: 500;
+      background: #f0ece6;
+      border: none;
+      color: #1e1e2a;
+    }
+    .modal-footer .btn-danger:hover {
+      background: #9e3a3a;
+    }
+
+    /* welcome banner */
+    .welcome-banner {
+      background: linear-gradient(135deg, #b8863a15, #f3ebe0);
+      border-radius: 24px;
+      padding: 28px 32px;
+      border: 1px solid rgba(184, 134, 58, 0.12);
+      animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .welcome-banner h3 {
+      color: #2d1f0e;
+      font-weight: 700;
+    }
+    .welcome-banner p {
+      color: #5a4e3e;
+      margin: 0;
+    }
+
+    /* membership card in sidebar */
+    .membership-sidebar-card {
+      margin: 16px 16px 0;
+      padding: 16px;
+      background: linear-gradient(135deg, #faf6f0, #f3ebe0);
+      border-radius: 16px;
+      border: 1px solid rgba(184, 134, 58, 0.1);
+      text-align: center;
+      animation: pulse 2s infinite;
+    }
+    .membership-sidebar-card .membership-tier {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #7b6b5a;
+      font-weight: 600;
+    }
+    .membership-sidebar-card .tier-name {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin: 4px 0;
+    }
+    .membership-sidebar-card .tier-name.gold-text {
+      color: #b8863a;
+    }
+    .membership-sidebar-card .tier-name.silver-text {
+      color: #8a8a8a;
+    }
+    .membership-sidebar-card .tier-name.bronze-text {
+      color: #cd7f32;
+    }
+    .membership-sidebar-card .tier-name.platinum-text {
+      color: #6b6b6b;
+    }
+    .membership-sidebar-card .membership-benefits {
+      font-size: 0.75rem;
+      color: #7b6b5a;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="logo-area">
+    <div class="logo-icon">🛕</div>
+    <div class="logo-text">Temple<span>Connect</span></div>
+  </div>
+
+  <!-- Membership Card in Sidebar -->
+  <div class="membership-sidebar-card">
+    <div class="membership-tier">Your Membership</div>
+    <div class="tier-name gold-text">
+      <i class="bi bi-trophy-fill" style="color:#b8863a;"></i> Gold Member
+    </div>
+    <div class="membership-benefits">
+      <i class="bi bi-check-circle-fill" style="color:#b8863a; font-size:0.7rem;"></i> Priority Booking
+      <span class="mx-1">·</span>
+      <i class="bi bi-check-circle-fill" style="color:#b8863a; font-size:0.7rem;"></i> 10% Off
+    </div>
+  </div>
+
+  <ul class="nav flex-column">
+    <li class="nav-item"><a href="#" class="nav-link active"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+    <li class="nav-item"><a href="#" class="nav-link"><i class="bi bi-calendar-event"></i> Book Pooja</a></li>
+    <li class="nav-item"><a href="#" class="nav-link"><i class="bi bi-wallet2"></i> Donations</a></li>
+    <li class="nav-item"><a href="#" class="nav-link"><i class="bi bi-stars"></i> Events</a></li>
+    <li class="nav-item"><a href="#" class="nav-link"><i class="bi bi-clock-history"></i> My Bookings</a></li>
+    <li class="nav-item"><a href="#" class="nav-link"><i class="bi bi-person-circle"></i> My Profile</a></li>
+    <li class="nav-item"><a href="#" class="nav-link"><i class="bi bi-heart-fill"></i> Offerings</a></li>
+    <li class="nav-item"><a href="#" class="nav-link"><i class="bi bi-gem"></i> Membership</a></li>
+    <!-- Logout button -->
+    <li class="nav-item"><a class="nav-link logout-link" id="sidebarLogoutBtn"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+  </ul>
+</aside>
+
+<!-- MAIN CONTENT -->
+<div class="main-content">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="d-flex align-items-center gap-3">
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">
+        <i class="bi bi-list"></i>
+      </button>
+      <h4><i class="bi bi-grid-1x2-fill"></i> Devotee Dashboard</h4>
+    </div>
+    <div class="topbar-actions">
+      <!-- Membership Badge in Top Bar -->
+      <span class="membership-badge gold animate__animated animate__pulse animate__infinite">
+        <i class="bi bi-trophy-fill"></i> Gold Member
+      </span>
+      <div class="dropdown">
+        <button class="profile-toggle dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-person-circle"></i>
+          <span>Ravi Kumar</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="border-radius: 20px; padding: 8px;">
+          <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>My Profile</a></li>
+          <li><a class="dropdown-item" href="#"><i class="bi bi-gem me-2"></i>Membership</a></li>
+          <li><a class="dropdown-item" href="#"><i class="bi bi-clock-history me-2"></i>My Bookings</a></li>
+          <li><a class="dropdown-item" href="#"><i class="bi bi-key me-2"></i>Change Password</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item text-danger" id="topbarLogoutBtn" style="cursor:pointer;"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+        </ul>
+      </div>
+    </div>
+  </header>
+
+  <!-- DASHBOARD CONTENT -->
+  <div class="container-fluid px-4 py-4">
+
+    <!-- HERO SLIDESHOW -->
+    <div class="hero-slideshow mb-4">
+      <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel">
+        <div class="carousel-indicators">
+          <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="0" class="active"></button>
+          <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="1"></button>
+          <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="2"></button>
+        </div>
+        <div class="carousel-inner">
+          <div class="carousel-item active" style="background-image: url('images/pooja.webp');">
+            <div class="carousel-content">
+              <h3 class="animate__animated animate__fadeInUp">🙏 Book a Pooja Today</h3>
+              <p class="animate__animated animate__fadeInUp animate__delay-1s">Experience divine blessings with our special rituals</p>
+              <button class="btn-gold animate__animated animate__fadeInUp animate__delay-2s" onclick="alert('📅 Book Pooja form will open.')">
+                <i class="bi bi-calendar-plus me-2"></i>Book Now
+              </button>
+            </div>
+          </div>
+          <div class="carousel-item" style="background-image: url('/images/plati.jpg');">
+            <div class="carousel-content">
+              <h3 class="animate__animated animate__fadeInUp">✨ Platinum Membership</h3>
+              <p class="animate__animated animate__fadeInUp animate__delay-1s">Get prasadam home delivered, 25% off, VIP Darshana & more!</p>
+              <button class="btn-gold animate__animated animate__fadeInUp animate__delay-2s" onclick="document.getElementById('membershipSection').scrollIntoView({behavior: 'smooth'});">
+                <i class="bi bi-gem me-2"></i>View Plans
+              </button>
+            </div>
+          </div>
+          <div class="carousel-item" style="background-image: url('images/event.jpg');">
+            <div class="carousel-content">
+              <h3 class="animate__animated animate__fadeInUp">🎉 Upcoming Events</h3>
+              <p class="animate__animated animate__fadeInUp animate__delay-1s">Join us for Rath Yatra, Guru Purnima & more</p>
+              <button class="btn-gold animate__animated animate__fadeInUp animate__delay-2s" onclick="alert('📅 View all events.')">
+                <i class="bi bi-stars me-2"></i>View Events
+              </button>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+          <span class="carousel-control-prev-icon"></span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+          <span class="carousel-control-next-icon"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Welcome Banner -->
+    <div class="welcome-banner mb-4 animate__animated animate__fadeIn">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <h3>🙏 Namaste, Ravi Kumar!</h3>
+          <p>Welcome to your devotee dashboard. Book poojas, make donations, and explore membership benefits.</p>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+          <span class="membership-badge gold" style="font-size:0.9rem; padding:8px 24px;">
+            <i class="bi bi-trophy-fill"></i> Gold Member
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS ROW -->
+    <div class="row g-4 mb-4">
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card animate__animated animate__fadeInUp animate__delay-1s">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="stat-label">My Pooja Bookings</div>
+              <div class="stat-number">12</div>
+            </div>
+            <div class="stat-icon gold"><i class="bi bi-calendar-event"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card animate__animated animate__fadeInUp animate__delay-2s">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="stat-label">Total Donations</div>
+              <div class="stat-number">₹24,500</div>
+            </div>
+            <div class="stat-icon green"><i class="bi bi-wallet2"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card animate__animated animate__fadeInUp animate__delay-3s">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="stat-label">Upcoming Poojas</div>
+              <div class="stat-number">3</div>
+            </div>
+            <div class="stat-icon orange"><i class="bi bi-clock-fill"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card animate__animated animate__fadeInUp animate__delay-4s">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="stat-label">Membership Tier</div>
+              <div class="stat-number" style="font-size:1.8rem;">🏆 Gold</div>
+            </div>
+            <div class="stat-icon purple"><i class="bi bi-gem"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTION CARDS -->
+    <div class="row g-4 mb-4">
+      <div class="col-md-3 col-sm-6">
+        <div class="action-card animate__animated animate__fadeInUp animate__delay-1s" onclick="alert('📅 Book Pooja form will open here.')">
+          <div class="icon-circle"><i class="bi bi-calendar-plus"></i></div>
+          <h5>Book Pooja</h5>
+          <p>Schedule a pooja at the temple</p>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="action-card animate__animated animate__fadeInUp animate__delay-2s" onclick="alert('💰 Make a donation.')">
+          <div class="icon-circle"><i class="bi bi-coin"></i></div>
+          <h5>Make Donation</h5>
+          <p>Contribute to temple activities</p>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="action-card animate__animated animate__fadeInUp animate__delay-3s" onclick="alert('🎉 View upcoming events.')">
+          <div class="icon-circle"><i class="bi bi-stars"></i></div>
+          <h5>View Events</h5>
+          <p>Check upcoming temple events</p>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="action-card animate__animated animate__fadeInUp animate__delay-4s" onclick="alert('📋 View your booking history.')">
+          <div class="icon-circle"><i class="bi bi-clock-history"></i></div>
+          <h5>My Bookings</h5>
+          <p>View all your pooja bookings</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MEMBERSHIP SECTION -->
+    <div id="membershipSection" class="mb-4">
+      <h4 class="mb-3" style="font-weight:700; color:#2d1f0e;">
+        <i class="bi bi-gem me-2" style="color:#b8863a;"></i>Membership Plans
+        <span class="badge bg-danger ms-2" style="font-size:0.7rem; vertical-align:middle;">Limited Time</span>
+      </h4>
+      <div class="row g-4">
+        <!-- Bronze -->
+        <div class="col-md-3">
+          <div class="membership-card bronze animate__animated animate__fadeInUp animate__delay-1s">
+            <div class="tier-icon">🥉</div>
+            <div class="tier-name" style="color:#cd7f32;">Bronze</div>
+            <div class="tier-price">₹499 <span style="font-size:0.8rem; color:#7b6b5a;">/ month</span></div>
+            <ul class="feature-list">
+              <li><i class="bi bi-check-circle-fill"></i> 5% Off on Poojas</li>
+              <li><i class="bi bi-check-circle-fill"></i> Basic Event Notifications</li>
+              <li><i class="bi bi-check-circle-fill"></i> Temple Newsletter</li>
+            </ul>
+            <button class="btn-membership btn-bronze" onclick="alert('Bronze membership selected.')">Upgrade Now</button>
+          </div>
+        </div>
+        <!-- Silver -->
+        <div class="col-md-3">
+          <div class="membership-card silver animate__animated animate__fadeInUp animate__delay-2s">
+            <div class="tier-icon">🥈</div>
+            <div class="tier-name" style="color:#8a8a8a;">Silver</div>
+            <div class="tier-price">₹999 <span style="font-size:0.8rem; color:#7b6b5a;">/ month</span></div>
+            <ul class="feature-list">
+              <li><i class="bi bi-check-circle-fill"></i> 10% Off on Poojas</li>
+              <li><i class="bi bi-check-circle-fill"></i> Priority Booking</li>
+              <li><i class="bi bi-check-circle-fill"></i> Event Invitations</li>
+              <li><i class="bi bi-check-circle-fill"></i> Monthly Prasadam</li>
+            </ul>
+            <button class="btn-membership btn-silver" onclick="alert('Silver membership selected.')">Upgrade Now</button>
+          </div>
+        </div>
+        <!-- Gold -->
+        <div class="col-md-3">
+          <div class="membership-card gold animate__animated animate__fadeInUp animate__delay-3s" style="border-width:3px;">
+            <span class="badge-popular" style="position:absolute; top:12px; right:12px;">Popular</span>
+            <div class="tier-icon">🥇</div>
+            <div class="tier-name" style="color:#b8863a;">Gold</div>
+            <div class="tier-price">₹1,999 <span style="font-size:0.8rem; color:#7b6b5a;">/ month</span></div>
+            <ul class="feature-list">
+              <li><i class="bi bi-check-circle-fill"></i> 15% Off on Poojas</li>
+              <li><i class="bi bi-check-circle-fill"></i> VIP Darshana Access</li>
+              <li><i class="bi bi-check-circle-fill"></i> Weekly Prasadam Home Delivery</li>
+              <li><i class="bi bi-check-circle-fill"></i> Event Invitations to Home</li>
+              <li><i class="bi bi-check-circle-fill"></i> Free Temple Merchandise</li>
+            </ul>
+            <button class="btn-membership btn-gold" onclick="alert('Gold membership selected.')">Upgrade Now</button>
+          </div>
+        </div>
+        <!-- Platinum -->
+        <div class="col-md-3">
+          <div class="membership-card platinum animate__animated animate__fadeInUp animate__delay-4s" style="border-width:3px; border-color:#d4af37;">
+            <div class="tier-icon">💎</div>
+            <div class="tier-name" style="color:#6b6b6b;">Platinum</div>
+            <div class="tier-price">₹3,499 <span style="font-size:0.8rem; color:#7b6b5a;">/ month</span></div>
+            <ul class="feature-list">
+              <li><i class="bi bi-check-circle-fill" style="color:#d4af37;"></i> 25% Off on Poojas</li>
+              <li><i class="bi bi-check-circle-fill" style="color:#d4af37;"></i> VIP Quick Darshana</li>
+              <li><i class="bi bi-check-circle-fill" style="color:#d4af37;"></i> Prasadam Home Delivered Every Week <span style="font-size:0.7rem; color:#7b6b5a;">(FREE)</span></li>
+              <li><i class="bi bi-check-circle-fill" style="color:#d4af37;"></i> Receive Event Invitations to Home</li>
+              <li><i class="bi bi-check-circle-fill" style="color:#d4af37;"></i> Personal Temple Guide</li>
+              <li><i class="bi bi-check-circle-fill" style="color:#d4af37;"></i> Exclusive Rituals Access</li>
+            </ul>
+            <button class="btn-membership btn-platinum" onclick="alert('Platinum membership selected.')">Upgrade Now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPCOMING POOJAS & EVENTS TABLES -->
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="table-wrap animate__animated animate__fadeInLeft">
+          <div class="card-header"><i class="bi bi-calendar-check me-2" style="color:#b8863a;"></i>My Upcoming Poojas</div>
+          <table class="table align-middle">
+            <thead><tr><th>Pooja</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Maha Ganapathi</td>
+                <td>Jun 25, 2026</td>
+                <td><span class="badge-status confirmed">Confirmed</span></td>
+              </tr>
+              <tr>
+                <td>Navagraha</td>
+                <td>Jun 28, 2026</td>
+                <td><span class="badge-status pending">Pending</span></td>
+              </tr>
+              <tr>
+                <td>Satyanarayana</td>
+                <td>Jul 02, 2026</td>
+                <td><span class="badge-status confirmed">Confirmed</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="table-wrap animate__animated animate__fadeInRight">
+          <div class="card-header"><i class="bi bi-stars me-2" style="color:#b8863a;"></i>Upcoming Events</div>
+          <table class="table align-middle">
+            <thead><tr><th>Event</th><th>Date</th><th>Time</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Rath Yatra</td>
+                <td>Jul 10, 2026</td>
+                <td>6:00 AM</td>
+              </tr>
+              <tr>
+                <td>Guru Purnima</td>
+                <td>Jul 21, 2026</td>
+                <td>5:30 AM</td>
+              </tr>
+              <tr>
+                <td>Shravana Masa</td>
+                <td>Aug 05, 2026</td>
+                <td>All Day</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Donations -->
+    <div class="row g-4 mt-2">
+      <div class="col-12">
+        <div class="table-wrap animate__animated animate__fadeInUp">
+          <div class="card-header"><i class="bi bi-gift me-2" style="color:#b8863a;"></i>My Donation History</div>
+          <table class="table align-middle">
+            <thead><tr><th>Date</th><th>Purpose</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Jun 15, 2026</td>
+                <td>Annadanam</td>
+                <td>₹5,000</td>
+                <td><span class="badge-status completed">Completed</span></td>
+              </tr>
+              <tr>
+                <td>Jun 01, 2026</td>
+                <td>General Fund</td>
+                <td>₹2,500</td>
+                <td><span class="badge-status completed">Completed</span></td>
+              </tr>
+              <tr>
+                <td>May 20, 2026</td>
+                <td>Veda Patashala</td>
+                <td>₹10,000</td>
+                <td><span class="badge-status completed">Completed</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 text-muted-light small d-flex justify-content-end">
+      <i class="bi bi-droplet me-1"></i> Last updated: just now
+    </div>
+  </div>
+</div>
+
+<!-- LOGOUT CONFIRMATION MODAL -->
+<div class="modal fade" id="logoutModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-right me-2 text-danger"></i>Confirm Logout</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <p class="mb-0" style="font-weight: 450; color: #2d1f0e;">Are you sure you want to logout? You will be redirected to <strong>index.blade.php</strong>.</p>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmLogoutBtn">Logout</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  (function() {
+    // Mobile toggle
+    const toggleBtn = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    if (toggleBtn && sidebar) {
+      toggleBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        sidebar.classList.toggle('show');
+      });
+      document.addEventListener('click', function(e) {
+        if (window.innerWidth <= 992) {
+          if (!sidebar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+            sidebar.classList.remove('show');
+          }
+        }
+      });
+    }
+
+    // Auto-play carousel
+    const carousel = document.getElementById('heroCarousel');
+    if (carousel) {
+      new bootstrap.Carousel(carousel, {
+        interval: 5000,
+        wrap: true
+      });
+    }
+
+    // Logout flow
+    const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
+    const confirmBtn = document.getElementById('confirmLogoutBtn');
+
+    function showLogoutConfirmation(e) {
+      e.preventDefault();
+      logoutModal.show();
+    }
+
+    const sidebarLogout = document.getElementById('sidebarLogoutBtn');
+    if (sidebarLogout) {
+      sidebarLogout.addEventListener('click', showLogoutConfirmation);
+    }
+
+    const topbarLogout = document.getElementById('topbarLogoutBtn');
+    if (topbarLogout) {
+      topbarLogout.addEventListener('click', showLogoutConfirmation);
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function() {
+        window.location.href = 'index.blade.php';
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

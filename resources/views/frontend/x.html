@@ -1,0 +1,2051 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🛕 Shree Mandir · Divine Temple Portal</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+  <style>
+    /* ============================================================
+       TOKEN SYSTEM
+    ============================================================ */
+    :root {
+      --ink:        #0C0503;
+      --ink-mid:    #1A0A05;
+      --ink-muted:  #2C1508;
+      --gold:       #C9982A;
+      --gold-lt:    #E8C76A;
+      --gold-dk:    #8A6418;
+      --gold-pale:  #F5E9C8;
+      --crimson:    #8B1A1A;
+      --crimson-lt: #C22B2B;
+      --saffron:    #E8751A;
+      --saffron-lt: #FF9E4A;
+      --cream:      #FBF6EC;
+      --cream-dk:   #F0E7D4;
+      --ivory:      #FDFAF4;
+      --text-on-dark:  #EDE3D0;
+      --text-muted-dk: #9E8E7A;
+      --text-on-lt:  #1A0A05;
+
+      --g-gold:     linear-gradient(135deg, #E8C76A 0%, #C9982A 50%, #8A6418 100%);
+      --g-saffron:  linear-gradient(135deg, #FF9E4A 0%, #E8751A 55%, #BF4B0A 100%);
+      --g-crimson:  linear-gradient(135deg, #C22B2B 0%, #8B1A1A 60%, #5C0E0E 100%);
+      --g-dark:     linear-gradient(160deg, #1A0A05 0%, #0C0503 100%);
+      --g-hero:     radial-gradient(ellipse at 70% 40%, rgba(201,152,42,0.12) 0%, transparent 60%),
+                    radial-gradient(ellipse at 20% 80%, rgba(139,26,26,0.10) 0%, transparent 55%),
+                    linear-gradient(160deg, #180A04 0%, #0C0503 100%);
+
+      --radius-card: 20px;
+      --radius-pill: 50px;
+      --shadow-gold: 0 8px 32px rgba(201,152,42,0.22);
+      --shadow-card: 0 4px 24px rgba(12,5,3,0.18);
+      --shadow-deep: 0 24px 64px rgba(12,5,3,0.45);
+
+      --border-gold-faint: rgba(201,152,42,0.18);
+      --border-gold-mid:   rgba(201,152,42,0.38);
+      --border-gold-vivid: rgba(201,152,42,0.7);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text-on-lt);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4, h5, h6, .font-display {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 600;
+    }
+
+    .font-cinzel { font-family: 'Cinzel', serif; }
+
+    /* ============================================================
+       SCROLLBAR
+    ============================================================ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--ink); }
+    ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gold-lt); }
+
+    /* ============================================================
+       PAGE LOADER
+    ============================================================ */
+    #page-loader {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--ink);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 1.5rem;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+    #page-loader.hidden { opacity: 0; visibility: hidden; }
+
+    .loader-mandala {
+      width: 80px; height: 80px;
+      border: 2px solid rgba(201,152,42,0.15);
+      border-top: 2px solid var(--gold);
+      border-radius: 50%;
+      animation: spinLoader 1s linear infinite;
+    }
+    @keyframes spinLoader { to { transform: rotate(360deg); } }
+
+    .loader-text {
+      font-family: 'Cinzel', serif;
+      font-size: 0.75rem;
+      letter-spacing: 5px;
+      color: var(--gold);
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+
+    /* ============================================================
+       CANVAS PARTICLES
+    ============================================================ */
+    #particle-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      pointer-events: none;
+      opacity: 0.45;
+    }
+
+    /* ============================================================
+       TOP ANNOUNCEMENT BAR
+    ============================================================ */
+    .topbar {
+      background: var(--g-crimson);
+      padding: 0.55rem 0;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.5px;
+      position: relative;
+      z-index: 1001;
+      overflow: hidden;
+    }
+    .topbar::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 40px);
+    }
+    .topbar-ticker {
+      display: inline-flex; align-items: center; gap: 2rem;
+      white-space: nowrap;
+    }
+    .topbar-sep {
+      color: var(--gold-lt); font-size: 0.7rem; opacity: 0.7;
+    }
+
+    /* ============================================================
+       NAVBAR
+    ============================================================ */
+    .navbar-wrap {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      padding: 0; transition: top 0.3s ease;
+    }
+    .navbar-wrap.has-topbar { top: 34px; }
+
+    .navbar-inner {
+      margin: 12px 24px;
+      background: rgba(15, 7, 3, 0.55);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid var(--border-gold-faint);
+      border-radius: 60px;
+      padding: 0.55rem 1.6rem;
+      transition: all 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(201,152,42,0.1);
+    }
+    .scrolled .navbar-inner {
+      margin: 0;
+      border-radius: 0;
+      border-left: none; border-right: none; border-top: none;
+      background: rgba(12, 5, 3, 0.92);
+      border-bottom: 1px solid var(--border-gold-mid);
+      padding: 0.55rem 2rem;
+    }
+
+    .nav-brand {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: #fff !important;
+      text-decoration: none;
+      letter-spacing: 2px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .nav-brand-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--g-gold);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; color: var(--ink);
+      box-shadow: 0 0 12px rgba(201,152,42,0.45);
+      flex-shrink: 0;
+    }
+
+    .navbar-nav .nav-link {
+      color: rgba(237,227,208,0.8) !important;
+      font-size: 0.88rem;
+      font-weight: 500;
+      padding: 0.45rem 1.1rem !important;
+      border-radius: 40px;
+      transition: all 0.28s ease;
+      letter-spacing: 0.2px;
+      position: relative;
+    }
+    .navbar-nav .nav-link::after {
+      content: '';
+      position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+      width: 0; height: 1.5px;
+      background: var(--g-gold);
+      transition: width 0.3s ease;
+      border-radius: 1px;
+    }
+    .navbar-nav .nav-link:hover, .navbar-nav .nav-link.active {
+      color: #fff !important;
+      background: rgba(201,152,42,0.1);
+    }
+    .navbar-nav .nav-link:hover::after, .navbar-nav .nav-link.active::after { width: 55%; }
+
+    .nav-ehundi {
+      background: rgba(201,152,42,0.15) !important;
+      border: 1px solid rgba(201,152,42,0.4) !important;
+      color: var(--gold-lt) !important;
+      font-weight: 600 !important;
+      animation: pulseNav 2.8s ease-in-out infinite;
+      padding: 0.45rem 1.2rem !important;
+    }
+    .nav-ehundi:hover {
+      background: var(--g-gold) !important;
+      color: var(--ink) !important;
+      animation: none;
+      box-shadow: 0 4px 18px rgba(201,152,42,0.4);
+    }
+    .nav-ehundi::after { display: none; }
+
+    @keyframes pulseNav {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(201,152,42,0.5); }
+      50% { box-shadow: 0 0 0 7px rgba(201,152,42,0); }
+    }
+
+    .btn-nav-primary {
+      background: var(--g-saffron);
+      border: none;
+      color: #fff !important;
+      font-weight: 600;
+      padding: 0.5rem 1.4rem;
+      border-radius: var(--radius-pill);
+      font-size: 0.88rem;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+      box-shadow: 0 4px 14px rgba(232,117,26,0.3);
+    }
+    .btn-nav-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(232,117,26,0.45);
+      filter: brightness(1.1);
+    }
+
+    .btn-nav-outline {
+      background: transparent;
+      border: 1.5px solid rgba(201,152,42,0.5);
+      color: var(--gold-lt) !important;
+      font-weight: 600;
+      padding: 0.5rem 1.4rem;
+      border-radius: var(--radius-pill);
+      font-size: 0.88rem;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-nav-outline:hover {
+      background: var(--g-gold);
+      color: var(--ink) !important;
+      border-color: transparent;
+      transform: translateY(-1px);
+    }
+
+    .navbar-toggler {
+      border: 1px solid var(--border-gold-faint);
+      border-radius: 8px;
+      padding: 0.4rem 0.7rem;
+      background: rgba(201,152,42,0.08);
+    }
+    .navbar-toggler-icon {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(201,152,42,0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    }
+
+    /* ============================================================
+       RIPPLE EFFECT
+    ============================================================ */
+    .ripple-btn { position: relative; overflow: hidden; }
+    .ripple-btn .ripple-wave {
+      position: absolute; border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      transform: scale(0); animation: rippleAnim 0.6s linear;
+      pointer-events: none;
+    }
+    @keyframes rippleAnim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    /* ============================================================
+       BUTTONS (global)
+    ============================================================ */
+    .btn-gold {
+      background: var(--g-gold);
+      border: none;
+      color: var(--ink) !important;
+      font-weight: 700;
+      padding: 0.75rem 2rem;
+      border-radius: var(--radius-pill);
+      transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+      box-shadow: var(--shadow-gold);
+      font-size: 0.95rem;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-gold:hover { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(201,152,42,0.45); filter: brightness(1.08); }
+
+    .btn-saffron {
+      background: var(--g-saffron);
+      border: none;
+      color: #fff !important;
+      font-weight: 700;
+      padding: 0.75rem 2rem;
+      border-radius: var(--radius-pill);
+      transition: all 0.3s cubic-bezier(0.23,1,0.32,1);
+      box-shadow: 0 6px 20px rgba(232,117,26,0.3);
+      font-size: 0.95rem;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-saffron:hover { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(232,117,26,0.5); filter: brightness(1.1); }
+
+    .btn-outline-gold {
+      background: transparent;
+      border: 2px solid var(--gold);
+      color: var(--gold) !important;
+      font-weight: 600;
+      padding: 0.7rem 2rem;
+      border-radius: var(--radius-pill);
+      transition: all 0.3s ease;
+      font-size: 0.95rem;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-outline-gold:hover {
+      background: var(--g-gold); color: var(--ink) !important;
+      border-color: transparent; transform: translateY(-2px);
+      box-shadow: var(--shadow-gold);
+    }
+
+    .btn-crimson {
+      background: var(--g-crimson);
+      border: none;
+      color: #fff !important;
+      font-weight: 700;
+      padding: 0.75rem 2rem;
+      border-radius: var(--radius-pill);
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 20px rgba(139,26,26,0.3);
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-crimson:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(139,26,26,0.45); }
+
+    /* ============================================================
+       HERO SECTION
+    ============================================================ */
+    .hero-section {
+      min-height: 100vh;
+      background: var(--g-hero);
+      position: relative;
+      display: flex; align-items: center;
+      padding: 160px 0 100px;
+      overflow: hidden;
+      color: var(--text-on-dark);
+    }
+
+    /* Sacred geometry SVG background */
+    .hero-geo {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none; z-index: 0;
+    }
+    .hero-geo svg {
+      width: min(900px, 110vw); height: min(900px, 110vw);
+      opacity: 0.055;
+      animation: rotateGeo 90s linear infinite;
+    }
+    @keyframes rotateGeo { to { transform: rotate(360deg); } }
+
+    /* Light ray effect */
+    .light-ray {
+      position: absolute;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 1px; height: 120%;
+      background: linear-gradient(to bottom, transparent, rgba(201,152,42,0.15), transparent);
+      pointer-events: none; z-index: 0;
+    }
+    .light-ray:nth-child(2) { transform: translateX(-50%) rotate(-20deg); opacity: 0.6; }
+    .light-ray:nth-child(3) { transform: translateX(-50%) rotate(20deg); opacity: 0.6; }
+
+    .hero-orb {
+      position: absolute; border-radius: 50%;
+      pointer-events: none; z-index: 0;
+      filter: blur(80px);
+      animation: floatOrb 8s ease-in-out infinite alternate;
+    }
+    @keyframes floatOrb {
+      from { transform: translate(0,0) scale(1); }
+      to { transform: translate(20px,-20px) scale(1.06); }
+    }
+
+    .hero-content { position: relative; z-index: 2; }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 0.4rem 1.2rem;
+      border: 1px solid var(--border-gold-mid);
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold-lt);
+      background: rgba(201,152,42,0.08);
+      margin-bottom: 1.5rem;
+    }
+    .hero-eyebrow-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--gold);
+      animation: blinkDot 2s ease-in-out infinite;
+    }
+    @keyframes blinkDot {
+      0%,100% { opacity:1; transform: scale(1); }
+      50% { opacity:0.4; transform: scale(0.6); }
+    }
+
+    .hero-title {
+      font-size: clamp(3.2rem, 6vw, 6rem);
+      line-height: 1.05;
+      color: #fff;
+      margin-bottom: 1.6rem;
+      font-weight: 700;
+    }
+    .hero-title .accent-line {
+      display: block;
+      background: linear-gradient(90deg, #E8C76A 0%, var(--saffron-lt) 55%, #E8C76A 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-style: italic;
+    }
+
+    .hero-desc {
+      font-size: 1.1rem;
+      color: var(--text-muted-dk);
+      line-height: 1.75;
+      max-width: 500px;
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-stats-row {
+      display: flex; gap: 2.5rem; margin-top: 3rem;
+      padding-top: 2.5rem;
+      border-top: 1px solid var(--border-gold-faint);
+    }
+    .hero-stat-val {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--gold-lt);
+      line-height: 1;
+      display: block;
+    }
+    .hero-stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted-dk);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-top: 4px;
+    }
+
+    /* Hero image stack */
+    .hero-img-stack {
+      position: relative;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+    .hero-img-main {
+      border-radius: 50% 50% 24px 24px / 45% 45% 24px 24px;
+      overflow: hidden;
+      border: 3px solid rgba(201,152,42,0.5);
+      box-shadow: 0 40px 80px rgba(0,0,0,0.7),
+                  0 0 0 1px rgba(201,152,42,0.15),
+                  inset 0 0 40px rgba(201,152,42,0.05);
+      animation: floatImg 7s ease-in-out infinite alternate;
+      position: relative; z-index: 2;
+    }
+    @keyframes floatImg {
+      from { transform: translateY(0); }
+      to { transform: translateY(-16px); }
+    }
+    .hero-img-main img { width: 100%; height: 480px; object-fit: cover; display: block; }
+
+    .hero-img-glow {
+      position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+      width: 60%; height: 40px;
+      background: rgba(201,152,42,0.3);
+      filter: blur(30px);
+      border-radius: 50%;
+      z-index: 1;
+    }
+
+    .hero-float-card {
+      position: absolute;
+      background: rgba(20, 10, 5, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-gold-faint);
+      border-radius: 16px;
+      padding: 0.9rem 1.3rem;
+      display: flex; align-items: center; gap: 12px;
+      z-index: 5;
+      box-shadow: var(--shadow-deep);
+      animation: floatCard 5s ease-in-out infinite alternate;
+    }
+    .hero-float-card:nth-child(2) { animation-delay: -2s; animation-duration: 6s; }
+    @keyframes floatCard {
+      from { transform: translateY(0px); }
+      to { transform: translateY(-10px); }
+    }
+
+    .hero-float-card-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: rgba(232,117,26,0.15);
+      border: 1px solid rgba(232,117,26,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; color: var(--saffron);
+    }
+    .hero-float-card-title {
+      font-size: 0.82rem; font-weight: 600; color: #fff;
+      line-height: 1.2; margin-bottom: 2px;
+    }
+    .hero-float-card-sub { font-size: 0.72rem; color: var(--text-muted-dk); }
+
+    /* ============================================================
+       SECTION LAYOUT
+    ============================================================ */
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 4px; text-transform: uppercase;
+      color: var(--saffron);
+      margin-bottom: 1rem;
+    }
+    .section-label::before, .section-label::after {
+      content: ''; display: block; width: 24px; height: 1px;
+      background: var(--saffron); opacity: 0.5;
+    }
+
+    .section-title {
+      font-size: clamp(2.2rem, 4vw, 3.4rem);
+      line-height: 1.1;
+      color: inherit;
+      margin-bottom: 1.2rem;
+    }
+
+    .section-desc { font-size: 1rem; line-height: 1.75; color: inherit; opacity: 0.7; max-width: 520px; }
+
+    .divider-ornament {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      margin: 1.5rem 0;
+    }
+    .divider-ornament::before, .divider-ornament::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-gold-mid), transparent);
+      max-width: 180px;
+    }
+    .divider-ornament-center {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid var(--border-gold-mid);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem; color: var(--gold);
+    }
+
+    /* ============================================================
+       POOJA CARDS SECTION
+    ============================================================ */
+    .poojas-section {
+      padding: 7rem 0;
+      background: var(--cream);
+      position: relative;
+    }
+    .poojas-section::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), var(--saffron), var(--gold), transparent);
+    }
+
+    .pooja-card {
+      background: var(--ivory);
+      border: 1px solid rgba(201,152,42,0.14);
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.23,1,0.32,1);
+      height: 100%;
+      display: flex; flex-direction: column;
+      position: relative;
+      box-shadow: 0 2px 12px rgba(12,5,3,0.04);
+    }
+    .pooja-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--g-gold);
+      transform: scaleX(0); transform-origin: left;
+      transition: transform 0.4s ease;
+    }
+    .pooja-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(201,152,42,0.35);
+      box-shadow: 0 24px 48px rgba(12,5,3,0.1), 0 0 0 1px rgba(201,152,42,0.2);
+    }
+    .pooja-card:hover::before { transform: scaleX(1); }
+
+    .pooja-card-inner { padding: 2rem; display: flex; flex-direction: column; flex: 1; }
+
+    .pooja-chip {
+      display: inline-block;
+      padding: 0.3rem 0.9rem;
+      border-radius: var(--radius-pill);
+      background: rgba(201,152,42,0.1);
+      border: 1px solid rgba(201,152,42,0.22);
+      color: var(--gold-dk);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 1.1rem;
+    }
+
+    .pooja-name {
+      font-size: 1.5rem;
+      color: var(--text-on-lt);
+      margin-bottom: 0.7rem;
+    }
+
+    .pooja-desc {
+      font-size: 0.9rem;
+      color: #6B5744;
+      line-height: 1.7;
+      flex: 1;
+      margin-bottom: 1.5rem;
+    }
+
+    .pooja-footer {
+      border-top: 1px solid rgba(201,152,42,0.1);
+      padding-top: 1.3rem;
+      margin-top: auto;
+    }
+
+    .pooja-price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--saffron);
+      line-height: 1;
+    }
+    .pooja-duration-text {
+      font-size: 0.82rem;
+      color: #9E8070;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .pooja-duration-text i { color: var(--gold); }
+
+    /* ============================================================
+       EVENTS / TIMELINE SECTION
+    ============================================================ */
+    .events-section {
+      padding: 7rem 0;
+      background: var(--ink);
+      position: relative; overflow: hidden;
+      color: var(--text-on-dark);
+    }
+    .events-section::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(201,152,42,0.018) 0px, rgba(201,152,42,0.018) 1px,
+        transparent 1px, transparent 40px
+      );
+    }
+    .events-section::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), var(--crimson), var(--gold), transparent);
+    }
+
+    .timeline-wrap {
+      position: relative;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 0;
+    }
+    .timeline-spine {
+      position: absolute; top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 2px; height: 100%;
+      background: rgba(201,152,42,0.12);
+      border-radius: 1px; z-index: 1;
+    }
+    .timeline-spine-fill {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 0%;
+      background: linear-gradient(to bottom, var(--gold), var(--saffron));
+      box-shadow: 0 0 12px rgba(201,152,42,0.4);
+      border-radius: 1px; z-index: 2;
+      transition: height 0.1s linear;
+    }
+
+    .timeline-item {
+      display: flex;
+      width: 50%;
+      padding-bottom: 3.5rem;
+      position: relative; z-index: 3;
+      justify-content: flex-end;
+    }
+    .timeline-item:nth-child(even) {
+      margin-left: 50%;
+      justify-content: flex-start;
+    }
+    .timeline-item:nth-child(odd) { margin-right: 50%; }
+
+    .tl-node {
+      position: absolute; top: 12px;
+      right: -22px; width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--ink-mid);
+      border: 2px solid var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--gold); font-size: 1rem;
+      z-index: 10;
+      box-shadow: 0 0 16px rgba(201,152,42,0.35);
+      transition: all 0.3s ease;
+    }
+    .timeline-item:nth-child(even) .tl-node { left: -22px; }
+    .timeline-item:hover .tl-node {
+      background: var(--saffron); color: #fff;
+      border-color: var(--saffron);
+      box-shadow: 0 0 24px rgba(232,117,26,0.5);
+      transform: scale(1.15);
+    }
+
+    .tl-card {
+      width: 88%;
+      background: rgba(30,15,8,0.7);
+      border: 1px solid var(--border-gold-faint);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: var(--radius-card);
+      padding: 1.8rem;
+      box-shadow: var(--shadow-deep);
+      transition: all 0.35s ease;
+    }
+    .tl-card:hover {
+      border-color: rgba(232,117,26,0.35);
+      background: rgba(42,22,10,0.85);
+      box-shadow: 0 20px 50px rgba(232,117,26,0.12);
+    }
+    .tl-card:hover + .tl-node { background: var(--saffron); }
+
+    .event-date-tag {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 0.35rem 1rem;
+      background: rgba(232,117,26,0.15);
+      border: 1px solid rgba(232,117,26,0.25);
+      border-radius: var(--radius-pill);
+      color: var(--saffron-lt);
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .event-name-text {
+      font-size: 1.45rem;
+      color: #fff;
+      margin-bottom: 0.7rem;
+    }
+
+    .event-desc-text {
+      color: var(--text-muted-dk);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    .event-meta-row {
+      display: flex; flex-wrap: wrap; gap: 14px;
+      margin-top: 1.1rem;
+      font-size: 0.82rem;
+      color: #7A6A5A;
+    }
+    .event-meta-row i { color: var(--gold); margin-right: 5px; }
+
+    @media (max-width: 768px) {
+      .timeline-spine, .timeline-spine-fill { left: 16px; }
+      .timeline-item { width: 100%; margin-left: 0 !important; margin-right: 0 !important; padding-left: 50px; justify-content: flex-start !important; }
+      .tl-node { left: -5px !important; right: auto !important; }
+      .tl-card { width: 100%; }
+    }
+
+    /* ============================================================
+       FEATURES SECTION
+    ============================================================ */
+    .features-section {
+      padding: 7rem 0;
+      background: var(--cream-dk);
+      position: relative; overflow: hidden;
+    }
+
+    .feature-card {
+      background: var(--ivory);
+      border: 1px solid rgba(201,152,42,0.12);
+      border-radius: var(--radius-card);
+      padding: 2.8rem 2.2rem;
+      text-align: center;
+      transition: all 0.4s cubic-bezier(0.23,1,0.32,1);
+      height: 100%;
+      position: relative; overflow: hidden;
+      box-shadow: 0 2px 16px rgba(12,5,3,0.04);
+    }
+    .feature-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(201,152,42,0.04), transparent);
+      opacity: 0; transition: opacity 0.4s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(201,152,42,0.3);
+      box-shadow: 0 20px 48px rgba(12,5,3,0.1), 0 0 0 1px rgba(201,152,42,0.15);
+    }
+    .feature-card:hover::after { opacity: 1; }
+
+    .feature-icon-wrap {
+      width: 76px; height: 76px;
+      border-radius: 20px;
+      background: rgba(201,152,42,0.08);
+      border: 1px solid rgba(201,152,42,0.18);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.8rem;
+      font-size: 2rem; color: var(--gold);
+      transition: all 0.4s ease;
+      position: relative; z-index: 1;
+    }
+    .feature-card:hover .feature-icon-wrap {
+      background: var(--g-saffron);
+      color: #fff;
+      border-color: transparent;
+      transform: rotate(8deg) scale(1.08);
+      box-shadow: 0 10px 28px rgba(232,117,26,0.4);
+    }
+
+    .feature-title { font-size: 1.4rem; margin-bottom: 0.8rem; color: var(--text-on-lt); position: relative; z-index: 1; }
+    .feature-body { font-size: 0.9rem; color: #6B5744; line-height: 1.7; margin-bottom: 1.5rem; position: relative; z-index: 1; }
+
+    /* ============================================================
+       DONATIONS SECTION
+    ============================================================ */
+    .donations-section {
+      padding: 7rem 0;
+      background: var(--ink);
+      position: relative; overflow: hidden;
+      color: var(--text-on-dark);
+    }
+    .donations-section::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--crimson), var(--gold), var(--crimson), transparent);
+    }
+    .donations-section .section-label { color: var(--gold-lt); }
+    .donations-section .section-label::before, .donations-section .section-label::after { background: var(--gold-lt); }
+    .donations-section .section-title { color: #fff; }
+    .donations-section .section-desc { color: var(--text-muted-dk); opacity: 1; }
+
+    .counter-card {
+      background: linear-gradient(135deg, rgba(201,152,42,0.12) 0%, rgba(139,26,26,0.08) 100%);
+      border: 1px solid var(--border-gold-faint);
+      border-radius: 24px;
+      padding: 3rem 2.5rem;
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .counter-card::after {
+      content: '';
+      position: absolute; top: -60%; right: -20%;
+      width: 300px; height: 300px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,152,42,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .counter-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 3.8rem;
+      font-weight: 700;
+      color: var(--gold-lt);
+      text-shadow: 0 0 30px rgba(201,152,42,0.3);
+      line-height: 1;
+      display: block;
+    }
+    .counter-label { color: var(--text-muted-dk); font-size: 0.85rem; margin-top: 0.5rem; }
+
+    .login-cta-card {
+      background: rgba(30,15,8,0.6);
+      border: 1px solid var(--border-gold-faint);
+      border-radius: 20px;
+      padding: 2rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .login-cta-card h5 { color: #fff; font-size: 1.2rem; margin-bottom: 0.7rem; }
+    .login-cta-card p { color: var(--text-muted-dk); font-size: 0.88rem; line-height: 1.65; margin-bottom: 1.3rem; }
+
+    /* Donation Form */
+    .donation-form-card {
+      background: var(--ivory);
+      border: 1px solid rgba(201,152,42,0.2);
+      border-radius: 24px;
+      padding: 3rem;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.35);
+    }
+    .donation-form-card h3 { color: var(--text-on-lt); font-size: 1.8rem; margin-bottom: 0.5rem; }
+
+    .tab-pills {
+      display: inline-flex;
+      background: rgba(201,152,42,0.07);
+      border: 1px solid rgba(201,152,42,0.2);
+      border-radius: var(--radius-pill);
+      padding: 5px;
+      margin-bottom: 2rem;
+    }
+    .tab-pill-btn {
+      border: none; background: transparent;
+      padding: 0.55rem 1.8rem;
+      border-radius: var(--radius-pill);
+      font-size: 0.88rem; font-weight: 600;
+      color: #6B5744;
+      transition: all 0.28s ease; cursor: pointer;
+    }
+    .tab-pill-btn.active {
+      background: var(--g-saffron);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(232,117,26,0.3);
+    }
+
+    .form-control, .form-select {
+      border: 1.5px solid rgba(201,152,42,0.22);
+      border-radius: 12px;
+      height: calc(3.5rem + 2px);
+      background: var(--ivory);
+      color: var(--text-on-lt);
+      font-size: 0.9rem;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--saffron);
+      box-shadow: 0 0 0 3px rgba(232,117,26,0.12);
+      background: #fff;
+      color: var(--text-on-lt);
+    }
+    .form-floating label { color: #9E8070; font-size: 0.88rem; }
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label,
+    .form-floating > .form-select ~ label { color: var(--saffron); font-weight: 600; }
+
+    .preset-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+    .preset-pill {
+      padding: 0.4rem 1rem;
+      border-radius: 10px;
+      border: 1px solid rgba(201,152,42,0.28);
+      background: rgba(201,152,42,0.06);
+      color: var(--gold-dk);
+      font-size: 0.84rem; font-weight: 700;
+      cursor: pointer; transition: all 0.25s ease;
+    }
+    .preset-pill:hover { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+
+    .bank-card {
+      background: #FFF8EE;
+      border: 1.5px dashed rgba(201,152,42,0.35);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.2rem;
+    }
+    .bank-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(201,152,42,0.1);
+      font-size: 0.88rem;
+    }
+    .bank-row:last-child { border-bottom: none; }
+    .bank-row .label { color: #9E8070; }
+    .bank-row .val { font-weight: 700; color: var(--text-on-lt); }
+
+    .qr-wrap {
+      background: #FFF8EE;
+      border: 1.5px dashed rgba(201,152,42,0.35);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .qr-wrap img { border-radius: 10px; border: 2px solid rgba(201,152,42,0.15); }
+    .qr-upi-id { font-size: 0.72rem; color: #9E8070; word-break: break-all; margin-bottom: 0.8rem; }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    .footer-section {
+      background: #080302;
+      color: var(--text-muted-dk);
+      padding: 5rem 0 2rem;
+      position: relative;
+      border-top: 2px solid var(--gold);
+    }
+    .footer-brand-name {
+      font-family: 'Cinzel', serif;
+      font-size: 1.5rem; font-weight: 700;
+      color: #fff; display: flex; align-items: center; gap: 10px;
+      margin-bottom: 1.2rem;
+    }
+    .footer-brand-icon {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--g-gold);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; color: var(--ink);
+    }
+    .footer-body { font-size: 0.88rem; line-height: 1.75; margin-bottom: 1.5rem; }
+
+    .social-row { display: flex; gap: 10px; }
+    .social-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.6);
+      display: flex; align-items: center; justify-content: center;
+      text-decoration: none; font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+    .social-btn:hover { background: var(--g-saffron); color: #fff; border-color: transparent; transform: translateY(-3px); }
+
+    .footer-heading { font-size: 0.75rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-bottom: 1.2rem; }
+    .footer-links { list-style: none; padding: 0; }
+    .footer-links li { margin-bottom: 0.65rem; }
+    .footer-links a { color: var(--text-muted-dk); text-decoration: none; font-size: 0.88rem; transition: all 0.25s ease; display: inline-flex; align-items: center; gap: 6px; }
+    .footer-links a::before { content: ''; width: 0; height: 1px; background: var(--saffron); transition: width 0.25s ease; display: inline-block; }
+    .footer-links a:hover { color: var(--saffron); padding-left: 4px; }
+    .footer-links a:hover::before { width: 12px; }
+
+    .footer-contact-row { display: flex; align-items: flex-start; gap: 10px; font-size: 0.86rem; margin-bottom: 0.9rem; }
+    .footer-contact-row i { color: var(--gold); margin-top: 2px; flex-shrink: 0; }
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 1.5rem; margin-top: 3rem;
+      text-align: center; font-size: 0.8rem;
+      color: rgba(255,255,255,0.25);
+    }
+
+    /* ============================================================
+       SUCCESS MODAL
+    ============================================================ */
+    .donation-modal-overlay {
+      position: fixed; inset: 0; z-index: 9998;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .donation-modal-box {
+      background: var(--ivory);
+      border: 1px solid rgba(201,152,42,0.3);
+      border-radius: 28px;
+      padding: 3rem;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+      animation: modalIn 0.4s cubic-bezier(0.23,1,0.32,1);
+    }
+    @keyframes modalIn { from { opacity:0; transform: scale(0.85) translateY(20px); } to { opacity:1; transform: scale(1) translateY(0); } }
+
+    .modal-success-icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; color: #fff; margin: 0 auto 1.5rem;
+      box-shadow: 0 12px 32px rgba(34,197,94,0.3);
+    }
+
+    /* ============================================================
+       SCROLL REVEAL
+    ============================================================ */
+    .reveal { opacity: 0; transform: translateY(32px); transition: none; }
+    .reveal.visible { opacity: 1; transform: translateY(0); transition: opacity 0.8s ease, transform 0.8s ease; }
+    .reveal-left { opacity: 0; transform: translateX(-32px); }
+    .reveal-left.visible { opacity: 1; transform: translateX(0); transition: opacity 0.8s ease, transform 0.8s ease; }
+    .reveal-right { opacity: 0; transform: translateX(32px); }
+    .reveal-right.visible { opacity: 1; transform: translateX(0); transition: opacity 0.8s ease, transform 0.8s ease; }
+    .delay-1 { transition-delay: 0.1s !important; }
+    .delay-2 { transition-delay: 0.2s !important; }
+    .delay-3 { transition-delay: 0.3s !important; }
+    .delay-4 { transition-delay: 0.4s !important; }
+    .delay-5 { transition-delay: 0.5s !important; }
+
+    /* ============================================================
+       MISC UTILITIES
+    ============================================================ */
+    .text-gold { color: var(--gold) !important; }
+    .text-saffron { color: var(--saffron) !important; }
+
+    @media (max-width: 991px) {
+      .hero-section { padding: 140px 0 80px; }
+      .hero-stats-row { gap: 1.5rem; }
+      .hero-img-stack { margin-top: 3rem; }
+      .navbar-inner { margin: 10px 12px; }
+    }
+    @media (max-width: 576px) {
+      .hero-title { font-size: 2.6rem; }
+      .donation-form-card { padding: 2rem 1.3rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       PAGE LOADER
+  ============================================================ -->
+  <div id="page-loader">
+    <div class="loader-mandala"></div>
+    <div class="loader-text">Shree Mandir</div>
+  </div>
+
+  <!-- ============================================================
+       PARTICLES CANVAS
+  ============================================================ -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- ============================================================
+       TOP ANNOUNCEMENT BAR
+  ============================================================ -->
+  <div class="topbar" id="topbarEl">
+    <div class="topbar-ticker">
+      <span>🪔 Maha Shivaratri — Grand celebrations on Feb 26</span>
+      <span class="topbar-sep">✦</span>
+      <span>📿 Daily Abhishekam at 6:00 AM & 6:00 PM</span>
+      <span class="topbar-sep">✦</span>
+      <span>🙏 Book your pooja slot online — Instant confirmation</span>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       NAVBAR
+  ============================================================ -->
+  <div class="navbar-wrap has-topbar" id="navbarWrap">
+    <div class="navbar-inner">
+      <nav class="navbar navbar-expand-lg p-0">
+        <div class="container-fluid px-0">
+          <a class="nav-brand" href="{{ route('home') }}">
+            <div class="nav-brand-icon">🛕</div>
+            <span>SHREE MANDIR</span>
+          </a>
+
+          <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu" aria-controls="navMenu" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse" id="navMenu">
+            <ul class="navbar-nav mx-auto mb-2 mb-lg-0 align-items-center gap-1">
+              <li class="nav-item"><a class="nav-link active" href="{{ route('home') }}">Home</a></li>
+              <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+              <li class="nav-item"><a class="nav-link" href="#poojas">Book Pooja</a></li>
+              <li class="nav-item"><a class="nav-link" href="#donations">Donations</a></li>
+              <li class="nav-item">
+                <a class="nav-link nav-ehundi" href="{{ route('ehundi.show') }}">🪔 e-Hundi</a>
+              </li>
+            </ul>
+
+            <div class="d-flex gap-2 ms-lg-3 mt-3 mt-lg-0 align-items-center">
+              @auth
+                @php
+                  $role = auth()->user()->role;
+                  $dashboardRoute = 'login';
+                  if ($role === 'Admin') $dashboardRoute = 'admin.dashboard';
+                  elseif ($role === 'Devotee') $dashboardRoute = 'devotee.dashboard';
+                  elseif ($role === 'Priest') $dashboardRoute = 'priest.dashboard';
+                  elseif ($role === 'Trustee') $dashboardRoute = 'trustee.dashboard';
+                  elseif ($role === 'Staff') $dashboardRoute = 'staff.dashboard';
+                  elseif ($role === 'Accountant') $dashboardRoute = 'accountant.dashboard';
+                @endphp
+                <a class="btn-nav-primary ripple-btn" href="{{ route($dashboardRoute) }}">
+                  <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+                <a class="btn-nav-outline" href="{{ route('logout') }}">
+                  <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+              @else
+                <a class="btn-nav-primary ripple-btn" href="{{ route('login') }}">
+                  <i class="bi bi-box-arrow-in-right"></i> Login
+                </a>
+                <a class="btn-nav-outline" href="{{ route('register') }}">
+                  <i class="bi bi-person-plus"></i> Register
+                </a>
+              @endauth
+            </div>
+          </div>
+        </div>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       HERO SECTION
+  ============================================================ -->
+  <section class="hero-section" id="hero">
+    <!-- Sacred geometry background -->
+    <div class="hero-geo">
+      <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--gold)">
+        <!-- Concentric circles -->
+        <circle cx="250" cy="250" r="240" stroke-width="0.4" opacity="0.5"/>
+        <circle cx="250" cy="250" r="200" stroke-width="0.3" stroke-dasharray="3 3" opacity="0.6"/>
+        <circle cx="250" cy="250" r="160" stroke-width="0.4" opacity="0.5"/>
+        <circle cx="250" cy="250" r="120" stroke-width="0.3" stroke-dasharray="2 2" opacity="0.6"/>
+        <circle cx="250" cy="250" r="80" stroke-width="0.5" opacity="0.7"/>
+        <circle cx="250" cy="250" r="40" stroke-width="0.6" opacity="0.8"/>
+        <!-- 12-fold symmetry lines -->
+        <g stroke-width="0.25" opacity="0.5">
+          <line x1="250" y1="10" x2="250" y2="490"/>
+          <line x1="10" y1="250" x2="490" y2="250"/>
+          <line x1="250" y1="10" x2="250" y2="490" transform="rotate(30 250 250)"/>
+          <line x1="10" y1="250" x2="490" y2="250" transform="rotate(30 250 250)"/>
+          <line x1="250" y1="10" x2="250" y2="490" transform="rotate(60 250 250)"/>
+          <line x1="10" y1="250" x2="490" y2="250" transform="rotate(60 250 250)"/>
+          <line x1="250" y1="10" x2="250" y2="490" transform="rotate(90 250 250)"/>
+          <line x1="10" y1="250" x2="490" y2="250" transform="rotate(90 250 250)"/>
+          <line x1="250" y1="10" x2="250" y2="490" transform="rotate(120 250 250)"/>
+          <line x1="10" y1="250" x2="490" y2="250" transform="rotate(120 250 250)"/>
+          <line x1="250" y1="10" x2="250" y2="490" transform="rotate(150 250 250)"/>
+          <line x1="10" y1="250" x2="490" y2="250" transform="rotate(150 250 250)"/>
+        </g>
+        <!-- Petals -->
+        <g opacity="0.35" stroke-width="0.3">
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(0 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(30 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(60 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(90 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(120 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(150 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(180 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(210 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(240 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(270 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(300 250 250)"/>
+          <ellipse cx="250" cy="130" rx="40" ry="80" transform="rotate(330 250 250)"/>
+        </g>
+        <!-- Dots -->
+        <g fill="var(--gold)" opacity="0.6">
+          <circle cx="250" cy="12" r="2.5"/>
+          <circle cx="488" cy="250" r="2.5"/>
+          <circle cx="250" cy="488" r="2.5"/>
+          <circle cx="12" cy="250" r="2.5"/>
+          <circle cx="250" cy="12" r="1.5" transform="rotate(30 250 250)"/>
+          <circle cx="488" cy="250" r="1.5" transform="rotate(30 250 250)"/>
+          <circle cx="250" cy="12" r="1.5" transform="rotate(60 250 250)"/>
+          <circle cx="488" cy="250" r="1.5" transform="rotate(60 250 250)"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Light rays -->
+    <div class="light-ray"></div>
+    <div class="light-ray"></div>
+    <div class="light-ray"></div>
+
+    <!-- Ambient orbs -->
+    <div class="hero-orb" style="width:500px;height:500px;top:-15%;right:-8%;background:radial-gradient(circle,rgba(232,117,26,0.10) 0%,transparent 70%);"></div>
+    <div class="hero-orb" style="width:400px;height:400px;bottom:-10%;left:-5%;background:radial-gradient(circle,rgba(139,26,26,0.09) 0%,transparent 70%);animation-delay:-4s;"></div>
+    <div class="hero-orb" style="width:250px;height:250px;top:30%;left:30%;background:radial-gradient(circle,rgba(201,152,42,0.07) 0%,transparent 70%);animation-delay:-2s;animation-duration:11s;"></div>
+
+    <div class="container hero-content">
+      <div class="row align-items-center g-5">
+        <!-- Left -->
+        <div class="col-lg-6" id="heroLeft">
+          <div class="hero-eyebrow">
+            <div class="hero-eyebrow-dot"></div>
+            Divine Temple Portal
+            <div class="hero-eyebrow-dot"></div>
+          </div>
+          <h1 class="hero-title">
+            Where Faith<br/>
+            <span class="accent-line">Meets Devotion</span>
+          </h1>
+          <p class="hero-desc">
+            Experience spiritual peace, book personalized daily rituals, and support our temple trust. Manage your family poojas, secure slots with priests, and make secure donations — all from one sacred portal.
+          </p>
+          <div class="d-flex flex-wrap gap-3">
+            <a href="#poojas" class="btn-saffron ripple-btn">
+              <i class="bi bi-calendar-check"></i> Book Pooja Now
+            </a>
+            <a href="#donations" class="btn-outline-gold">
+              <i class="bi bi-gift"></i> Make Donation
+            </a>
+          </div>
+          <div class="hero-stats-row">
+            <div>
+              <span class="hero-stat-val">10+</span>
+              <div class="hero-stat-label">Daily Rituals</div>
+            </div>
+            <div>
+              <span class="hero-stat-val">15+</span>
+              <div class="hero-stat-label">Vedic Priests</div>
+            </div>
+            <div>
+              <span class="hero-stat-val">5000+</span>
+              <div class="hero-stat-label">Devotee Family</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right image -->
+        <div class="col-lg-6 text-center" id="heroRight">
+          <div class="hero-img-stack">
+            <!-- Float card top-left -->
+            <div class="hero-float-card" style="top:10%;left:-6%;">
+              <div class="hero-float-card-icon"><i class="bi bi-heart-fill"></i></div>
+              <div>
+                <div class="hero-float-card-title">Total Blessed</div>
+                <div class="hero-float-card-sub">10k+ Prasad Sent</div>
+              </div>
+            </div>
+
+            <!-- Float card bottom-right -->
+            <div class="hero-float-card" style="bottom:12%;right:-4%;">
+              <div class="hero-float-card-icon"><i class="bi bi-patch-check-fill"></i></div>
+              <div>
+                <div class="hero-float-card-title">Vedic Scholars</div>
+                <div class="hero-float-card-sub">Certified Priests</div>
+              </div>
+            </div>
+
+            <div class="hero-img-main">
+              <img src="https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=800&auto=format&fit=crop&q=80"
+                   alt="Illuminated Temple Gopuram" />
+            </div>
+            <div class="hero-img-glow"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       POOJA BOOKING SECTION
+  ============================================================ -->
+  <section class="poojas-section" id="poojas">
+    <div class="container">
+      <div class="text-center mb-5 reveal">
+        <div class="section-label">Sacred Services</div>
+        <h2 class="section-title text-dark">Available Poojas</h2>
+        <div class="divider-ornament"><div class="divider-ornament-center">🪔</div></div>
+        <p class="section-desc mx-auto text-center" style="color:#6B5744;">
+          Select from our curated daily and special rituals. Book online and receive a personalised blessing along with Prasad delivered to your door.
+        </p>
+      </div>
+
+      <div class="row g-4 justify-content-center">
+        @forelse($poojas as $pooja)
+          <div class="col-lg-4 col-md-6 reveal delay-{{ ($loop->index % 3) + 1 }}">
+            <div class="pooja-card">
+              <div class="pooja-card-inner">
+                <span class="pooja-chip">{{ $pooja->category }}</span>
+                <h3 class="pooja-name">{{ $pooja->pooja_name }}</h3>
+                <p class="pooja-desc">{{ Str::limit($pooja->description, 100) }}</p>
+                <div class="pooja-footer">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="pooja-price">₹{{ number_format($pooja->pooja_fee, 2) }}</span>
+                    <span class="pooja-duration-text"><i class="bi bi-clock"></i> {{ $pooja->duration_minutes }} mins</span>
+                  </div>
+                  <a href="{{ route('login') }}" class="btn-saffron w-100 justify-content-center ripple-btn" style="border-radius:12px;">
+                    <i class="bi bi-calendar2-plus"></i> Book Pooja
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        @empty
+          <div class="col-12 text-center py-5 reveal">
+            <div style="width:72px;height:72px;border-radius:50%;background:rgba(201,152,42,0.08);border:1px solid rgba(201,152,42,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2rem;color:var(--gold);">🙏</div>
+            <p class="text-muted fs-5">No active poojas available right now. Please check back soon.</p>
+          </div>
+        @endforelse
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       UPCOMING EVENTS / TIMELINE
+  ============================================================ -->
+  <section class="events-section" id="events">
+    <div class="container" style="position:relative;z-index:2;">
+      <div class="text-center mb-5 reveal">
+        <div class="section-label" style="color:var(--gold-lt);">Auspicious Days</div>
+        <h2 class="section-title" style="color:#fff;">Upcoming Festivals &amp; Events</h2>
+        <div class="divider-ornament">
+          <div class="divider-ornament-center" style="border-color:var(--border-gold-faint);color:var(--gold);">🎉</div>
+        </div>
+        <p class="section-desc mx-auto text-center" style="color:var(--text-muted-dk);opacity:1;">
+          Stay updated with our festival calendar and special events. Participate online or visit in person to receive blessings.
+        </p>
+      </div>
+
+      <div class="timeline-wrap">
+        <div class="timeline-spine">
+          <div class="timeline-spine-fill" id="timelineProgress"></div>
+        </div>
+
+        @forelse($events as $index => $event)
+          <div class="timeline-item reveal">
+            <div class="tl-node"><i class="bi bi-calendar-event"></i></div>
+            <div class="tl-card">
+              <div class="event-date-tag">
+                <i class="bi bi-calendar-check"></i>
+                {{ \Carbon\Carbon::parse($event->event_date)->format('M d, Y') }}
+              </div>
+              <h3 class="event-name-text">{{ $event->event_name }}</h3>
+              <p class="event-desc-text mb-0">{{ $event->description }}</p>
+              <div class="event-meta-row">
+                <span><i class="bi bi-clock"></i> {{ \Carbon\Carbon::parse($event->start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($event->end_time)->format('h:i A') }}</span>
+                <span><i class="bi bi-geo-alt"></i> {{ $event->location }}</span>
+              </div>
+            </div>
+          </div>
+        @empty
+          <div class="tl-card text-center mx-auto" style="max-width:560px;">
+            <div style="font-size:3rem;color:var(--gold);margin-bottom:0.8rem;">📅</div>
+            <h4 style="color:#fff;" class="font-display">No Festivals Listed Yet</h4>
+            <p style="color:var(--text-muted-dk);">Stay tuned — we are compiling auspicious festival details. Check back soon.</p>
+          </div>
+        @endforelse
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       FEATURES SECTION
+  ============================================================ -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="text-center mb-5 reveal">
+        <div class="section-label">Our Services</div>
+        <h2 class="section-title">Temple Features</h2>
+        <div class="divider-ornament"><div class="divider-ornament-center">✦</div></div>
+        <p class="section-desc mx-auto text-center" style="color:#6B5744;">
+          State-of-the-art facilities and services designed to help devotees connect with the temple administration from anywhere in the world.
+        </p>
+      </div>
+
+      <div class="row g-4 justify-content-center">
+        <div class="col-lg-4 col-md-6 reveal delay-1">
+          <div class="feature-card">
+            <div class="feature-icon-wrap">
+              <i class="bi bi-box2-heart"></i>
+            </div>
+            <h4 class="feature-title">Home Prasad Delivery</h4>
+            <p class="feature-body">Book poojas from anywhere. Rituals are performed with full Vedic traditions and holy Prasad is couriered directly to your home.</p>
+            <a href="{{ route('login') }}" class="btn-outline-gold" style="font-size:0.88rem;padding:0.6rem 1.6rem;">Learn More</a>
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6 reveal delay-2">
+          <div class="feature-card">
+            <div class="feature-icon-wrap">
+              <i class="bi bi-shield-check"></i>
+            </div>
+            <h4 class="feature-title">Devotee Membership</h4>
+            <p class="feature-body">Become a life member of the temple trust. Enjoy priority slot bookings, exclusive festival invitations, and complimentary stays.</p>
+            <a href="{{ route('login') }}" class="btn-outline-gold" style="font-size:0.88rem;padding:0.6rem 1.6rem;">Register Member</a>
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6 reveal delay-3">
+          <div class="feature-card">
+            <div class="feature-icon-wrap">
+              <i class="bi bi-person-video3"></i>
+            </div>
+            <h4 class="feature-title">Vedic Priest Services</h4>
+            <p class="feature-body">Arrange offline or online priest consultations for marriages, Griha Pravesh, naming ceremonies, and astro-ritual guidance.</p>
+            <a href="{{ route('login') }}" class="btn-outline-gold" style="font-size:0.88rem;padding:0.6rem 1.6rem;">Consult Priest</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       DONATIONS SECTION
+  ============================================================ -->
+  <section class="donations-section" id="donations">
+    <div class="container" style="position:relative;z-index:2;">
+      <div class="text-center mb-5 reveal">
+        <div class="section-label">Generous Support</div>
+        <h2 class="section-title">Support The Temple</h2>
+        <div class="divider-ornament">
+          <div class="divider-ornament-center" style="border-color:var(--border-gold-faint);color:var(--gold);">🙏</div>
+        </div>
+        <p class="section-desc mx-auto text-center">Your donations support our daily Annadanam (free meals), Gaushala (cow protection), and Vedic school maintenance.</p>
+      </div>
+
+      @if(isset($errors) && $errors->any())
+        <div class="row justify-content-center mb-4">
+          <div class="col-lg-8">
+            <div class="alert alert-danger alert-dismissible fade show" role="alert" style="border-radius:16px;">
+              <strong>Please fix the errors below:</strong>
+              <ul class="mb-0 mt-2 small">
+                @foreach($errors->all() as $error)
+                  <li>{{ $error }}</li>
+                @endforeach
+              </ul>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          </div>
+        </div>
+      @endif
+
+      <div class="row g-5 align-items-stretch">
+        <!-- Left: stats + login CTA -->
+        <div class="col-lg-5 d-flex flex-column gap-4 reveal-left">
+          <div class="counter-card">
+            <i class="bi bi-bank text-gold mb-3" style="font-size:2.5rem;display:block;"></i>
+            <div class="section-label justify-content-center" style="color:var(--gold-lt);">Overall Donations Received</div>
+            <div class="counter-value mt-2" id="donationCounter" data-target="{{ $totalDonations }}">₹0</div>
+            <div class="counter-label">Supporting temple renovation &amp; community service projects</div>
+          </div>
+
+          <div class="login-cta-card">
+            <h5><i class="bi bi-person-check text-gold me-2"></i>Donate with Account</h5>
+            <p>Log in to your devotee account for instant 80G tax-exemption receipts and a full donation history.</p>
+            <a href="{{ route('login') }}" class="btn-gold w-100 justify-content-center ripple-btn">
+              <i class="bi bi-box-arrow-in-right"></i> Log In &amp; Donate
+            </a>
+          </div>
+        </div>
+
+        <!-- Right: guest donation form -->
+        <div class="col-lg-7 reveal-right">
+          <div class="donation-form-card">
+            <h3 class="font-display text-center">Donate Without Login</h3>
+            <div class="divider-ornament mb-4"><div class="divider-ornament-center" style="border-color:rgba(201,152,42,0.25);color:var(--gold);">✦</div></div>
+
+            <div class="text-center">
+              <div class="tab-pills">
+                <button type="button" class="tab-pill-btn active" id="tabBank" onclick="switchDonationTab('Bank')">
+                  <i class="bi bi-credit-card me-2"></i>Bank Transfer
+                </button>
+                <button type="button" class="tab-pill-btn" id="tabUPI" onclick="switchDonationTab('UPI')">
+                  <i class="bi bi-qr-code me-2"></i>UPI Transfer
+                </button>
+              </div>
+            </div>
+
+            <form action="{{ route('donate.without.login') }}" method="POST" id="guestDonationForm">
+              @csrf
+              <input type="hidden" name="payment_method" id="inputPaymentMethod" value="Bank" />
+
+              <div class="row g-3 mb-3">
+                <div class="col-12">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" name="donor_name" id="donorName" placeholder="Devotee Name" required value="{{ old('donor_name') }}" />
+                    <label for="donorName">Devotee Full Name *</label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-floating">
+                    <input type="email" class="form-control" name="email" id="donorEmail" placeholder="Email" value="{{ old('email') }}" />
+                    <label for="donorEmail">Email Address (Optional)</label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" name="mobile" id="donorMobile" placeholder="Mobile" value="{{ old('mobile') }}" />
+                    <label for="donorMobile">Mobile Number (Optional)</label>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="form-floating">
+                    <input type="number" min="1" class="form-control" name="amount" id="donationAmount" placeholder="Amount" required value="{{ old('amount') }}" />
+                    <label for="donationAmount">Donation Amount (₹) *</label>
+                  </div>
+                  <div class="preset-grid">
+                    <button type="button" class="preset-pill ripple-btn" onclick="setPresetAmount(501)">₹501</button>
+                    <button type="button" class="preset-pill ripple-btn" onclick="setPresetAmount(1100)">₹1,100</button>
+                    <button type="button" class="preset-pill ripple-btn" onclick="setPresetAmount(2100)">₹2,100</button>
+                    <button type="button" class="preset-pill ripple-btn" onclick="setPresetAmount(5001)">₹5,001</button>
+                    <button type="button" class="preset-pill ripple-btn" onclick="setPresetAmount(11000)">₹11,000</button>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-floating">
+                    <select class="form-select" name="purpose" id="donationPurpose" required>
+                      <option value="Annadanam" {{ old('purpose')=='Annadanam'?'selected':'' }}>Annadanam (Free Meals)</option>
+                      <option value="Gaushala" {{ old('purpose')=='Gaushala'?'selected':'' }}>Gaushala (Cow Protection)</option>
+                      <option value="Temple Renovation" {{ old('purpose')=='Temple Renovation'?'selected':'' }}>Temple Renovation</option>
+                      <option value="Vedic School" {{ old('purpose')=='Vedic School'?'selected':'' }}>Vedic Gurukul School</option>
+                      <option value="General Puja & Festivals" {{ old('purpose')=='General Puja & Festivals'?'selected':'' }}>General Puja &amp; Festivals</option>
+                      <option value="Other" {{ old('purpose')=='Other'?'selected':'' }}>Other Purpose</option>
+                    </select>
+                    <label for="donationPurpose">Donation Purpose *</label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" name="purpose_details" id="purposeDetails" placeholder="Occasion" value="{{ old('purpose_details') }}" />
+                    <label for="purposeDetails">Occasion / Special Notes</label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bank Panel -->
+              <div id="bankDetailsPanel">
+                <div class="row g-3 mb-3">
+                  <div class="col-md-7">
+                    <div class="bank-card">
+                      <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-bank2 text-gold"></i>
+                        <span style="font-weight:700;font-size:0.88rem;color:var(--text-on-lt);">Temple Bank Account</span>
+                      </div>
+                      <div class="bank-row"><span class="label">Account Holder</span><span class="val" style="font-size:0.8rem;">SHREE TEMPLE RELIEF TRUST</span></div>
+                      <div class="bank-row"><span class="label">Bank Name</span><span class="val">BANK OF BARODA</span></div>
+                      <div class="bank-row"><span class="label">Account No</span><span class="val">98765432109</span></div>
+                      <div class="bank-row"><span class="label">IFSC Code</span><span class="val">BARB0TEMPLE</span></div>
+                      <div class="bank-row"><span class="label">Branch</span><span class="val" style="font-size:0.78rem;">SIDDHIVINAYAK, MUMBAI</span></div>
+                    </div>
+                  </div>
+                  <div class="col-md-5">
+                    <div class="qr-wrap h-100 d-flex flex-column align-items-center justify-content-center">
+                      <div style="font-weight:700;font-size:0.82rem;color:var(--text-on-lt);margin-bottom:0.5rem;"><i class="bi bi-qr-code-scan text-gold me-1"></i> Scan to Pay</div>
+                      <div class="qr-upi-id">UPI: rohandevadigapithrodi-1@oksbi</div>
+                      <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=rohandevadigapithrodi-1@oksbi%26pn=Temple%20Trust"
+                           alt="UPI QR" class="upi-qr-image mb-2" style="width:130px;height:130px;" />
+                      <p class="qr-instruction" style="font-size:0.72rem;color:#9E8070;margin:0;">Enter amount to update QR.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p style="font-size:0.82rem;color:#9E8070;margin-bottom:1rem;"><i class="bi bi-info-circle me-1"></i>Transfer to the account above or scan the QR, then enter your transaction details below.</p>
+
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <div class="form-floating">
+                      <input type="text" class="form-control" name="bank_name" id="bankName" placeholder="Your Bank" value="{{ old('bank_name') }}" />
+                      <label for="bankName">Your Bank Name *</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-floating">
+                      <input type="text" class="form-control" name="bank_account_no" id="bankAccount" placeholder="Account No" value="{{ old('bank_account_no') }}" />
+                      <label for="bankAccount">Your Account No *</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-floating">
+                      <input type="text" class="form-control" name="bank_ifsc" id="bankIfsc" placeholder="IFSC" value="{{ old('bank_ifsc') }}" />
+                      <label for="bankIfsc">Your IFSC Code *</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-floating">
+                      <input type="text" class="form-control" name="bank_branch" id="bankBranch" placeholder="Branch" value="{{ old('bank_branch') }}" />
+                      <label for="bankBranch">Your Bank Branch *</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- UPI Panel -->
+              <div id="upiPanel" style="display:none;">
+                <div class="qr-wrap text-center mb-3">
+                  <div style="font-weight:700;font-size:0.9rem;color:var(--text-on-lt);margin-bottom:0.5rem;"><i class="bi bi-qr-code-scan text-gold me-1"></i>Scan to Pay with Any UPI App</div>
+                  <div class="qr-upi-id">UPI ID: rohandevadigapithrodi-1@oksbi</div>
+                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=rohandevadigapithrodi-1@oksbi%26pn=Temple%20Trust"
+                       alt="UPI QR" class="upi-qr-image mb-2" style="width:180px;height:180px;" />
+                  <p class="qr-instruction" style="font-size:0.78rem;color:#9E8070;">Enter amount above to generate dynamic QR code.</p>
+                </div>
+              </div>
+
+              <!-- Transaction ID -->
+              <div class="mt-3 mb-4">
+                <div class="form-floating">
+                  <input type="text" class="form-control" name="transaction_id" id="txnId" placeholder="UTR" required value="{{ old('transaction_id') }}" />
+                  <label for="txnId">Transaction Reference ID / UTR Number *</label>
+                </div>
+                <small style="color:#9E8070;font-size:0.78rem;display:block;margin-top:6px;">
+                  <i class="bi bi-shield-lock-fill text-success me-1"></i>Your information is encrypted and securely stored.
+                </small>
+              </div>
+
+              <button type="submit" class="btn-saffron w-100 justify-content-center ripple-btn" style="border-radius:14px;padding:1rem;font-size:1.05rem;">
+                <i class="bi bi-heart-pulse"></i> Submit Donation Record
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       FOOTER
+  ============================================================ -->
+  <footer class="footer-section">
+    <div class="container">
+      <div class="row g-5 mb-4">
+        <div class="col-lg-4 col-md-6">
+          <div class="footer-brand-name">
+            <div class="footer-brand-icon">🛕</div>
+            SHREE MANDIR
+          </div>
+          <p class="footer-body">Dedicated to preserving ancient Vedic traditions, spreading spiritual wisdom, and rendering selfless humanitarian services to all devotees around the world.</p>
+          <div class="social-row">
+            <a href="#" class="social-btn"><i class="bi bi-facebook"></i></a>
+            <a href="#" class="social-btn"><i class="bi bi-instagram"></i></a>
+            <a href="#" class="social-btn"><i class="bi bi-youtube"></i></a>
+            <a href="#" class="social-btn"><i class="bi bi-twitter-x"></i></a>
+          </div>
+        </div>
+
+        <div class="col-lg-2 col-md-3 col-6">
+          <div class="footer-heading">Quick Links</div>
+          <ul class="footer-links">
+            <li><a href="#hero">Home</a></li>
+            <li><a href="#poojas">Book Pooja</a></li>
+            <li><a href="#events">Festivals</a></li>
+            <li><a href="#donations">Donations</a></li>
+          </ul>
+        </div>
+
+        <div class="col-lg-2 col-md-3 col-6">
+          <div class="footer-heading">Devotee Portal</div>
+          <ul class="footer-links">
+            <li><a href="{{ route('login') }}">Devotee Log In</a></li>
+            <li><a href="{{ route('register') }}">Create Account</a></li>
+            <li><a href="#features">Member Benefits</a></li>
+            <li><a href="{{ route('login') }}">Priest Schedule</a></li>
+          </ul>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+          <div class="footer-heading">Contact Info</div>
+          <div class="footer-contact-row"><i class="bi bi-geo-alt-fill"></i><span>Main Temple Complex, Srisailam, Andhra Pradesh, India</span></div>
+          <div class="footer-contact-row"><i class="bi bi-envelope-fill"></i><span>contact@shreemandir.org</span></div>
+          <div class="footer-contact-row"><i class="bi bi-telephone-fill"></i><span>+91 80 1234 5678</span></div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p class="mb-0">© 2026 Shree Mandir Trust — All Rights Reserved. Crafted with deep devotion and dedication.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       SUCCESS MODAL
+  ============================================================ -->
+  @if(session('success_donation'))
+    <div class="donation-modal-overlay" id="donationSuccessModal">
+      <div class="donation-modal-box">
+        <div class="modal-success-icon"><i class="bi bi-patch-check-fill"></i></div>
+        <h3 class="font-display" style="color:var(--saffron);font-size:2rem;margin-bottom:0.7rem;">Jai Shri Krishna!</h3>
+        <p style="color:#6B5744;margin-bottom:1.5rem;font-size:0.95rem;line-height:1.7;">{{ session('success_donation') }}</p>
+        <button class="btn-gold justify-content-center w-100 ripple-btn" onclick="document.getElementById('donationSuccessModal').style.display='none'">
+          <i class="bi bi-flower1"></i> Om Namah Shivaya
+        </button>
+      </div>
+    </div>
+  @endif
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    /* ============================================================
+       PAGE LOADER
+    ============================================================ */
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        document.getElementById('page-loader').classList.add('hidden');
+      }, 900);
+    });
+
+    /* ============================================================
+       PARTICLE CANVAS
+    ============================================================ */
+    (function() {
+      const canvas = document.getElementById('particle-canvas');
+      const ctx = canvas.getContext('2d');
+      let W, H, particles = [];
+
+      const COLORS = ['rgba(201,152,42,', 'rgba(232,117,26,', 'rgba(139,26,26,'];
+
+      function resize() {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+
+      function Particle() {
+        this.reset();
+      }
+      Particle.prototype.reset = function() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.r = Math.random() * 1.8 + 0.4;
+        this.alpha = Math.random() * 0.5 + 0.1;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = -Math.random() * 0.5 - 0.1;
+        this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        this.life = 0;
+        this.maxLife = Math.random() * 200 + 100;
+      };
+      Particle.prototype.update = function() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life++;
+        if (this.life > this.maxLife || this.y < -10) this.reset();
+      };
+      Particle.prototype.draw = function() {
+        const fade = this.life < 30 ? this.life / 30 : this.life > this.maxLife - 30 ? (this.maxLife - this.life) / 30 : 1;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fillStyle = this.color + (this.alpha * fade) + ')';
+        ctx.fill();
+      };
+
+      function init() {
+        particles = [];
+        for (let i = 0; i < 80; i++) {
+          const p = new Particle();
+          p.life = Math.floor(Math.random() * p.maxLife);
+          particles.push(p);
+        }
+      }
+
+      function loop() {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(loop);
+      }
+
+      window.addEventListener('resize', function() { resize(); init(); });
+      resize(); init(); loop();
+    })();
+
+    /* ============================================================
+       NAVBAR SCROLL
+    ============================================================ */
+    const navbarWrap = document.getElementById('navbarWrap');
+    const topbarEl = document.getElementById('topbarEl');
+    let lastScroll = 0;
+
+    window.addEventListener('scroll', function() {
+      const scrollY = window.scrollY;
+      // Collapse topbar offset
+      if (scrollY > 60) {
+        navbarWrap.classList.remove('has-topbar');
+        navbarWrap.classList.add('scrolled');
+        topbarEl.style.transform = 'translateY(-100%)';
+        topbarEl.style.opacity = '0';
+      } else {
+        navbarWrap.classList.add('has-topbar');
+        navbarWrap.classList.remove('scrolled');
+        topbarEl.style.transform = '';
+        topbarEl.style.opacity = '';
+      }
+      lastScroll = scrollY;
+    });
+
+    /* ============================================================
+       RIPPLE EFFECT
+    ============================================================ */
+    document.querySelectorAll('.ripple-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        const rect = this.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple-wave';
+        const size = Math.max(rect.width, rect.height);
+        ripple.style.cssText = `width:${size}px;height:${size}px;left:${x - size/2}px;top:${y - size/2}px;`;
+        this.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 700);
+      });
+    });
+
+    /* ============================================================
+       SCROLL REVEAL (IntersectionObserver)
+    ============================================================ */
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    document.querySelectorAll('.reveal, .reveal-left, .reveal-right').forEach(el => {
+      revealObserver.observe(el);
+    });
+
+    /* ============================================================
+       HERO ENTRANCE ANIMATION (GSAP)
+    ============================================================ */
+    document.addEventListener('DOMContentLoaded', function() {
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Hero
+      const heroLeft = document.getElementById('heroLeft');
+      if (heroLeft) {
+        gsap.from(heroLeft.children, { opacity: 0, y: 40, stagger: 0.15, duration: 1.1, ease: 'power3.out', delay: 0.9 });
+      }
+      const heroRight = document.getElementById('heroRight');
+      if (heroRight) {
+        gsap.from(heroRight, { opacity: 0, scale: 0.92, duration: 1.4, ease: 'power2.out', delay: 0.7 });
+      }
+
+      // Timeline spine fill
+      gsap.to('#timelineProgress', {
+        scrollTrigger: {
+          trigger: '.timeline-wrap',
+          start: 'top 65%',
+          end: 'bottom 80%',
+          scrub: true,
+        },
+        height: '100%',
+        ease: 'none'
+      });
+
+      // Donation counter
+      const counterEl = document.getElementById('donationCounter');
+      if (counterEl) {
+        const target = parseFloat(counterEl.getAttribute('data-target')) || 0;
+        const obj = { val: 0 };
+        ScrollTrigger.create({
+          trigger: '#donations',
+          start: 'top 75%',
+          once: true,
+          onEnter: () => {
+            gsap.to(obj, {
+              val: target, duration: 2.5, ease: 'power3.out',
+              onUpdate: () => {
+                counterEl.textContent = '₹' + Math.floor(obj.val).toLocaleString('en-IN');
+              }
+            });
+          }
+        });
+      }
+    });
+
+    /* ============================================================
+       DONATION FORM — PRESET AMOUNTS
+    ============================================================ */
+    function setPresetAmount(amount) {
+      const el = document.getElementById('donationAmount');
+      if (el) { el.value = amount; el.dispatchEvent(new Event('input')); }
+    }
+
+    /* ============================================================
+       DONATION FORM — TAB SWITCHING
+    ============================================================ */
+    function switchDonationTab(method) {
+      const bankBtn = document.getElementById('tabBank');
+      const upiBtn  = document.getElementById('tabUPI');
+      const bankPanel = document.getElementById('bankDetailsPanel');
+      const upiPanel  = document.getElementById('upiPanel');
+      const inputMethod = document.getElementById('inputPaymentMethod');
+      const bankFields = ['bankName','bankAccount','bankIfsc','bankBranch'];
+
+      if (method === 'Bank') {
+        bankBtn.classList.add('active');
+        upiBtn.classList.remove('active');
+        bankPanel.style.display = 'block';
+        upiPanel.style.display = 'none';
+        inputMethod.value = 'Bank';
+        bankFields.forEach(id => document.getElementById(id)?.setAttribute('required','required'));
+      } else {
+        upiBtn.classList.add('active');
+        bankBtn.classList.remove('active');
+        upiPanel.style.display = 'block';
+        bankPanel.style.display = 'none';
+        inputMethod.value = 'UPI';
+        bankFields.forEach(id => document.getElementById(id)?.removeAttribute('required'));
+      }
+    }
+    switchDonationTab('Bank');
+
+    /* ============================================================
+       DYNAMIC QR CODE
+    ============================================================ */
+    const amountInput = document.getElementById('donationAmount');
+    if (amountInput) {
+      amountInput.addEventListener('input', function() {
+        const val = parseFloat(this.value) || 0;
+        const payeeUPI = 'rohandevadigapithrodi-1@oksbi';
+        const payeeName = 'Shree Mandir Trust';
+
+        const qrImages = document.querySelectorAll('.upi-qr-image');
+        const qrInstructions = document.querySelectorAll('.qr-instruction');
+
+        let qrSrc, instruction, success = false;
+
+        if (val > 0) {
+          const upiUrl = `upi://pay?pa=${payeeUPI}&pn=${encodeURIComponent(payeeName)}&am=${val}&cu=INR&tn=TempleDonation`;
+          qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiUrl)}`;
+          instruction = `Dynamic QR for <strong style="color:var(--saffron);">₹${val.toLocaleString('en-IN')}</strong> — scan to pay.`;
+          success = true;
+        } else {
+          qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=${payeeUPI}%26pn=${encodeURIComponent(payeeName)}`;
+          instruction = 'Enter amount above to generate dynamic QR code.';
+        }
+
+        qrImages.forEach(img => img.src = qrSrc);
+        qrInstructions.forEach(el => {
+          el.innerHTML = instruction;
+          el.style.color = success ? 'var(--saffron)' : '#9E8070';
+        });
+      });
+    }
+
+    /* ============================================================
+       TOPBAR TRANSITION
+    ============================================================ */
+    topbarEl.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+  </script>
+</body>
+</html>

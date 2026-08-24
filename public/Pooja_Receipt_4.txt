@@ -1,0 +1,25 @@
+==================================================
+            🛕 TEMPLE ERP POOJA RECEIPT           
+==================================================
+Receipt No   : REC000004
+Booking Date : 2026-06-30
+Booking Time : 03:00 PM
+Status       : Pending
+--------------------------------------------------
+Devotee Name : Rohan D
+Mobile       : 1234567891
+Pooja Name   : Archana
+Pooja Mode   : Online
+Delivery Addr: udupi second cross
+Assigned Priest: batta kumar
+--------------------------------------------------
+Pooja Base Price  : ₹100.00
+Membership Discount: -₹25.00
+Shipping Fee      : ₹200.00
+--------------------------------------------------
+TOTAL PAID        : ₹275.00
+Payment Method    : UPI
+Payment Status    : Pending
+==================================================
+          Thank you for your devotion!            
+==================================================
