@@ -107,6 +107,15 @@ Beyond the base role dashboards above, **Admin → Role Management** (sidebar) l
 - **Currently wired end-to-end for exactly one case**: Devotee access to e-Hundi and Membership (both `view` and `add`) — this was built as the concrete working example. Toggling either on in Role Management immediately re-enables the matching nav links (sidebar, topbar, dashboard cards) and unblocks the underlying routes; toggling off hides the links and blocks direct URL/form access again.
 - **Not yet wired into the other 13 resources/rows** (Devotees, Priests, Events, Donations, etc. for non-Admin roles) — the grid will happily save permissions for them, but no controller currently reads those particular rows yet. Those routes are still governed only by the original `role.admin`-style middleware described above. Wiring each one in is a real, separate piece of follow-up work (every relevant controller action needs a `RolePermission::can(...)` check added, similar to what was done for e-Hundi/Membership) — flagging this clearly rather than leaving the impression the whole grid is already live everywhere.
 
+## QR Links (Admin → QR Links)
+
+Printable short URLs whose destination can be repointed later without reprinting anything. Scan `https://yourdomain.com/qr-<slug>` and it 302-redirects (always temporary, never 301 — a permanent redirect could get cached by phones/scanners and stick to the old target) to whatever `target_url` is currently set, tracking a scan count along the way.
+
+- Backed by the `qr_links` table and `App\Models\QrLink`. `target_url` accepts either a relative path (`/events/my-event`) or a full URL — relative paths resolve against the app's own domain via `resolvedTargetUrl()`.
+- The admin form includes an "event picker" dropdown that auto-fills the target field from any existing event's current slug — the intended yearly workflow: print the QR code once for a slug like `qr-vinyagar-chathurthi`, then each year just open **Edit** and repoint it at that year's event.
+- Each row also renders an actual scannable QR code image (via the same free QR API already used elsewhere in this app for UPI payment QR codes) so there's no separate QR-generation tool needed — screenshot it directly from the admin page for printing.
+- Deactivating a link (or deleting it) makes the short URL 404 immediately.
+
 ## ⚠️ Known access gap
 
 Salary Management (`admin.salaries.*`) and System Reports (`admin.reports.index`) currently sit in a route group gated only by `auth` (must be logged in) — **not** actually restricted to Admin/Accountant despite what the surrounding code comments say. Any authenticated user, including a Devotee, can currently reach these URLs directly today. This wasn't part of the work requested when this was found, so it hasn't been fixed — worth tightening if these need to stay restricted to Admin/Accountant only (and would be a natural resource to wire into Role Management once that's underway).

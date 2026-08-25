@@ -67,6 +67,9 @@
       <a href="{{ route('admin.role-permissions.index') }}" class="nav-link {{ request()->routeIs('admin.role-permissions.*') ? 'active' : '' }}"><i class="bi bi-shield-lock-fill"></i> Role Management</a>
     </li>
     <li class="nav-item">
+      <a href="{{ route('admin.qrlinks.index') }}" class="nav-link {{ request()->routeIs('admin.qrlinks.*') ? 'active' : '' }}"><i class="bi bi-qr-code"></i> QR Links</a>
+    </li>
+    <li class="nav-item">
       <a class="nav-link logout-link" id="sidebarLogoutBtn" href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#logoutModal" style="cursor: pointer;">
         <i class="bi bi-box-arrow-right"></i> Logout
       </a>

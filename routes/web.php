@@ -19,6 +19,8 @@ Route::post('/ehundi/offer', [EhundiController::class, 'offer'])->name('ehundi.o
 
 Route::get('/events/{slug}', [\App\Http\Controllers\EventController::class, 'showPublic'])->name('events.show')->where('slug', '[A-Za-z0-9-]+');
 
+Route::get('/qr-{slug}', [\App\Http\Controllers\QrLinkController::class, 'redirect'])->name('qr.redirect')->where('slug', '[A-Za-z0-9-]+');
+
 Route::get('/', function () {
     $poojas = \Illuminate\Support\Facades\DB::table('poojas')->where('status', 'Active')->get();
     $events = \Illuminate\Support\Facades\DB::table('events')->where('status', 'Upcoming')->orderBy('event_date', 'asc')->get();
@@ -385,6 +387,12 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     // Role Permissions (configurable access grid per role)
     Route::get('/admin/role-permissions', [\App\Http\Controllers\RolePermissionController::class, 'index'])->name('admin.role-permissions.index');
     Route::post('/admin/role-permissions/{role}', [\App\Http\Controllers\RolePermissionController::class, 'update'])->name('admin.role-permissions.update');
+
+    // QR Links (short, printable URLs that can be repointed to a new target later)
+    Route::get('/admin/manage-qr-links', [\App\Http\Controllers\QrLinkController::class, 'index'])->name('admin.qrlinks.index');
+    Route::post('/admin/qr-link/store', [\App\Http\Controllers\QrLinkController::class, 'store'])->name('admin.qrlinks.store');
+    Route::post('/admin/qr-link/update/{id}', [\App\Http\Controllers\QrLinkController::class, 'update'])->name('admin.qrlinks.update');
+    Route::delete('/admin/qr-link/delete/{id}', [\App\Http\Controllers\QrLinkController::class, 'destroy'])->name('admin.qrlinks.delete');
 
     // Leave Requests Route (Admin management)
     Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');
