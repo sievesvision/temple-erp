@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Models\Setting;
+use Stripe\StripeClient;
+use Stripe\Webhook;
+use Stripe\Exception\SignatureVerificationException;
 
 class DonationController extends Controller
 {
@@ -37,9 +41,10 @@ class DonationController extends Controller
             ->orderBy('donations_without_logins.created_at', 'desc')
             ->get();
 
-        // Calculate Totals
+        // Calculate Totals (guest total only counts settled donations — Stripe attempts that
+        // are still Pending, or ended up Cancelled/Failed, don't count as money received)
         $devoteeTotal = $devoteeDonations->sum('amount');
-        $guestTotal = $guestDonations->sum('amount');
+        $guestTotal = $guestDonations->where('payment_status', 'Paid')->sum('amount');
         $ehundiTotal = DB::table('ehundis')->sum('amount') ?: 0;
         $grandTotal = $devoteeTotal + $guestTotal + $ehundiTotal;
 
@@ -181,11 +186,15 @@ class DonationController extends Controller
             'email' => 'nullable|email|max:255',
             'mobile' => 'nullable|string|max:20',
             'amount' => 'required|numeric|min:1',
-            'purpose' => 'required|string|max:100',
+            'purpose' => 'required|string|max:255',
             'purpose_details' => 'nullable|string|max:255',
             'payment_method' => 'required|in:Bank,Cash,Stripe',
             'transaction_id' => 'nullable|string|max:100',
         ]);
+
+        if ($validated['payment_method'] === 'Stripe') {
+            return $this->startStripeCheckout($validated);
+        }
 
         DB::table('donations_without_logins')->insert([
             'donor_name' => $validated['donor_name'],
@@ -196,6 +205,7 @@ class DonationController extends Controller
             'purpose' => $validated['purpose'],
             'purpose_details' => $validated['purpose_details'] ?? null,
             'payment_method' => $validated['payment_method'],
+            'payment_status' => 'Paid',
             'transaction_id' => $validated['transaction_id'] ?? strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid()),
             'bank_name' => null,
             'bank_account_no' => null,
@@ -216,5 +226,162 @@ class DonationController extends Controller
         }
 
         return redirect()->back()->with('success_donation', $message);
+    }
+
+    /**
+     * Create a Stripe Checkout Session for an online donation and redirect the donor to it.
+     * A 'Pending' row is inserted first (keyed by the Checkout Session id) so the success
+     * callback and the webhook both have something to flip to 'Paid' — neither one inserts.
+     */
+    private function startStripeCheckout(array $validated)
+    {
+        if (!Setting::get('stripe_enabled', true) || !config('services.stripe.secret')) {
+            return redirect()->back()->with('error', 'Online payment is currently unavailable. Please choose Bank Transfer or Cash at Temple instead.')->withInput();
+        }
+
+        $donationId = DB::table('donations_without_logins')->insertGetId([
+            'donor_name' => $validated['donor_name'],
+            'event_id' => $validated['event_id'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'mobile' => $validated['mobile'] ?? null,
+            'amount' => $validated['amount'],
+            'purpose' => $validated['purpose'],
+            'purpose_details' => $validated['purpose_details'] ?? null,
+            'payment_method' => 'Stripe',
+            'payment_status' => 'Pending',
+            'transaction_id' => null,
+            'bank_name' => null,
+            'bank_account_no' => null,
+            'bank_ifsc' => null,
+            'bank_branch' => null,
+            'donation_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $currency = strtolower(Setting::get('currency_code', 'AUD'));
+        $templeName = Setting::get('temple_name', 'Temple Donation');
+
+        try {
+            $stripe = new StripeClient(config('services.stripe.secret'));
+            $session = $stripe->checkout->sessions->create([
+                'mode' => 'payment',
+                'payment_method_types' => ['card'],
+                'customer_email' => $validated['email'] ?? null,
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => $currency,
+                        'unit_amount' => (int) round($validated['amount'] * 100),
+                        'product_data' => [
+                            'name' => $validated['purpose'] . ' — ' . $templeName,
+                        ],
+                    ],
+                    'quantity' => 1,
+                ]],
+                'success_url' => route('donate.stripe.success') . '?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => route('donate.stripe.cancel', ['donation' => $donationId]),
+                'metadata' => ['donation_id' => (string) $donationId],
+            ]);
+        } catch (\Exception $e) {
+            DB::table('donations_without_logins')->where('id', $donationId)->update(['payment_status' => 'Failed', 'updated_at' => now()]);
+            Log::error('Stripe checkout session creation failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Unable to start the online payment right now. Please try Bank Transfer or Cash at Temple instead.')->withInput();
+        }
+
+        DB::table('donations_without_logins')->where('id', $donationId)->update([
+            'transaction_id' => $session->id,
+            'updated_at' => now(),
+        ]);
+
+        return redirect($session->url);
+    }
+
+    /**
+     * Stripe redirects the donor here after a successful Checkout Session.
+     */
+    public function stripeSuccess(Request $request)
+    {
+        $sessionId = $request->query('session_id');
+        if (!$sessionId) {
+            return redirect()->route('home')->with('error', 'Missing payment session.');
+        }
+
+        $donation = DB::table('donations_without_logins')->where('transaction_id', $sessionId)->first();
+        if (!$donation) {
+            return redirect()->route('home')->with('error', 'We could not find that donation.');
+        }
+
+        // The webhook may have already confirmed it — treat that as equally valid.
+        if ($donation->payment_status !== 'Paid') {
+            try {
+                $stripe = new StripeClient(config('services.stripe.secret'));
+                $session = $stripe->checkout->sessions->retrieve($sessionId);
+            } catch (\Exception $e) {
+                Log::error('Stripe session verification failed: ' . $e->getMessage());
+                return redirect()->route('home')->with('error', 'Could not verify your payment. Please contact the temple office if you were charged.');
+            }
+
+            if ($session->payment_status === 'paid') {
+                DB::table('donations_without_logins')->where('id', $donation->id)->update([
+                    'payment_status' => 'Paid',
+                    'updated_at' => now(),
+                ]);
+            } else {
+                return redirect()->route('home')->with('error', 'Payment was not completed.');
+            }
+        }
+
+        $currency = Setting::get('currency_code', 'AUD');
+        return redirect()->route('home')->with('success_donation', 'Thank you! Your donation of ' . $currency . ' ' . number_format($donation->amount, 2) . ' was received successfully via Stripe.');
+    }
+
+    /**
+     * Stripe redirects the donor here if they abandon Checkout without paying.
+     */
+    public function stripeCancel(Request $request)
+    {
+        $donationId = $request->query('donation');
+        if ($donationId) {
+            DB::table('donations_without_logins')
+                ->where('id', $donationId)
+                ->where('payment_status', 'Pending')
+                ->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
+        }
+
+        return redirect()->route('home')->with('error', 'Your donation was cancelled — no payment was taken.');
+    }
+
+    /**
+     * Authoritative confirmation from Stripe, independent of whether the donor's browser
+     * ever made it back to the success page. Excluded from CSRF verification (see
+     * bootstrap/app.php) since Stripe posts here directly, not via a browser form.
+     */
+    public function stripeWebhook(Request $request)
+    {
+        $payload = $request->getContent();
+        $sigHeader = $request->header('Stripe-Signature');
+        $webhookSecret = config('services.stripe.webhook_secret');
+
+        try {
+            if ($webhookSecret) {
+                $event = Webhook::constructEvent($payload, $sigHeader, $webhookSecret);
+            } else {
+                $event = json_decode($payload);
+                Log::warning('Stripe webhook received without STRIPE_WEBHOOK_SECRET configured — signature was not verified.');
+            }
+        } catch (SignatureVerificationException | \UnexpectedValueException $e) {
+            Log::warning('Stripe webhook signature verification failed: ' . $e->getMessage());
+            return response('Invalid signature', 400);
+        }
+
+        $sessionId = $event->data->object->id ?? null;
+        if (($event->type ?? null) === 'checkout.session.completed' && $sessionId) {
+            DB::table('donations_without_logins')
+                ->where('transaction_id', $sessionId)
+                ->where('payment_status', '!=', 'Paid')
+                ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
+        }
+
+        return response('OK', 200);
     }
 }

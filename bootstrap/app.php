@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('web', \App\Http\Middleware\RoleSwitchMiddleware::class);
+        $middleware->validateCsrfTokens(except: [
+            'stripe/webhook',
+        ]);
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'role.admin' => \App\Http\Middleware\AdminMiddleware::class,

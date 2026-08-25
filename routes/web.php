@@ -29,6 +29,9 @@ Route::get('/', function () {
 })->name('home');
 
 Route::post('/donate-without-login', [\App\Http\Controllers\DonationController::class, 'storePublic'])->name('donate.without.login');
+Route::get('/donate/stripe/success', [\App\Http\Controllers\DonationController::class, 'stripeSuccess'])->name('donate.stripe.success');
+Route::get('/donate/stripe/cancel', [\App\Http\Controllers\DonationController::class, 'stripeCancel'])->name('donate.stripe.cancel');
+Route::post('/stripe/webhook', [\App\Http\Controllers\DonationController::class, 'stripeWebhook'])->name('stripe.webhook');
 
 // ============================================
 // AUTHENTICATION ROUTES
@@ -78,8 +81,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             ->count();
 
         // Donations sum
-        $totalDonationsSum = \Illuminate\Support\Facades\DB::table('donations')->sum('amount') 
-            + \Illuminate\Support\Facades\DB::table('donations_without_logins')->sum('amount');
+        $totalDonationsSum = \Illuminate\Support\Facades\DB::table('donations')->sum('amount')
+            + \Illuminate\Support\Facades\DB::table('donations_without_logins')->where('payment_status', 'Paid')->sum('amount');
 
         if ($totalDonationsSum >= 100000) {
             $donationsDisplay = Setting::get('currency_code', 'AUD') . ' ' . round($totalDonationsSum / 100000, 2) . 'L';
@@ -112,6 +115,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
 
         // Recent Donations from guest donors
         $guestDonations = \Illuminate\Support\Facades\DB::table('donations_without_logins')
+            ->where('payment_status', 'Paid')
             ->select('donor_name', 'amount', 'donation_date', 'created_at')
             ->orderBy('donation_date', 'desc')
             ->orderBy('created_at', 'desc')

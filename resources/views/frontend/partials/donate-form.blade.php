@@ -81,30 +81,34 @@
 
                 @if($useTiers)
                     <div class="col-12">
-                        <label>Choose how you'd like to contribute</label>
+                        <label>Choose how you'd like to contribute (select as many as you like)</label>
                         <div class="donation-tier-options" id="{{ $formId }}-tiers">
                             @foreach($donationOptions as $option)
                                 <div class="donation-tier-option">
                                     <label class="tier-option-label">
-                                        <input type="radio" name="{{ $formId }}_tier_choice" value="{{ $option->id }}" data-amount="{{ $option->amount ?? '' }}" data-allow-qty="{{ $option->allow_quantity ? '1' : '0' }}" data-label="{{ $option->label }}" {{ $loop->first ? 'checked' : '' }}>
+                                        <input type="checkbox" name="{{ $formId }}_tier_choice[]" value="{{ $option->id }}" data-amount="{{ $option->amount ?? '' }}" data-allow-qty="{{ $option->allow_quantity ? '1' : '0' }}" data-label="{{ $option->label }}">
                                         <span class="tier-option-text">
                                             <strong>{{ $option->label }}</strong>
                                             <span class="tier-amount">@if($option->amount !== null){{ $temple['currency'] }} {{ number_format($option->amount, 2) }}@if($option->allow_quantity) each @endif @else Any amount @endif</span>
                                         </span>
                                     </label>
                                     @if($option->allow_quantity)
-                                        <div class="tier-qty-wrap">
+                                        <div class="tier-qty-wrap" style="display:none;">
                                             <label class="small mb-0 me-2">Qty</label>
                                             <input type="number" min="1" value="1" class="form-control form-control-sm tier-qty-input">
                                         </div>
                                     @elseif($option->amount === null)
-                                        <div class="tier-qty-wrap">
+                                        <div class="tier-qty-wrap" style="display:none;">
                                             <label class="small mb-0 me-2">{{ $temple['currency'] }}</label>
                                             <input type="number" min="1" step=".01" placeholder="Amount" class="form-control form-control-sm tier-free-amount-input">
                                         </div>
                                     @endif
                                 </div>
                             @endforeach
+                        </div>
+                        <div class="tier-total-row d-flex justify-content-between align-items-center mt-2">
+                            <span class="fw-bold">Total amount</span>
+                            <span class="fw-bold" id="{{ $formId }}-tier-total">{{ $temple['currency'] }} 0.00</span>
                         </div>
                         <input type="hidden" name="amount" id="{{ $formId }}-amount">
                         <input type="hidden" name="purpose" id="{{ $formId }}-purpose">
@@ -176,35 +180,52 @@
     wrap.dataset.bound = '1';
     var amountHidden = document.getElementById('{{ $formId }}-amount');
     var purposeHidden = document.getElementById('{{ $formId }}-purpose');
+    var totalDisplay = document.getElementById('{{ $formId }}-tier-total');
+    var submitBtn = document.querySelector('#{{ $formId }} button[type="submit"]');
+    var currency = @json($temple['currency']);
 
     function recalc() {
-        var checked = wrap.querySelector('input[type="radio"]:checked');
+        var total = 0;
+        var labels = [];
+
         wrap.querySelectorAll('.donation-tier-option').forEach(function (row) {
+            var checkbox = row.querySelector('input[type="checkbox"]');
             var extra = row.querySelector('.tier-qty-wrap');
-            var isChecked = row.querySelector('input[type="radio"]').checked;
+            var isChecked = checkbox.checked;
             if (extra) { extra.style.display = isChecked ? 'flex' : 'none'; }
             row.classList.toggle('selected', isChecked);
-        });
-        if (!checked) { return; }
-        var row = checked.closest('.donation-tier-option');
-        var baseAmountRaw = checked.getAttribute('data-amount');
-        var allowQty = checked.getAttribute('data-allow-qty') === '1';
-        var amount = 0;
-        if (baseAmountRaw !== '') {
-            var baseAmount = parseFloat(baseAmountRaw) || 0;
-            if (allowQty) {
-                var qtyInput = row.querySelector('.tier-qty-input');
-                var qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
-                amount = baseAmount * qty;
+            if (!isChecked) { return; }
+
+            var baseAmountRaw = checkbox.getAttribute('data-amount');
+            var allowQty = checkbox.getAttribute('data-allow-qty') === '1';
+            var label = checkbox.getAttribute('data-label');
+            var amount = 0;
+
+            if (baseAmountRaw !== '') {
+                var baseAmount = parseFloat(baseAmountRaw) || 0;
+                if (allowQty) {
+                    var qtyInput = row.querySelector('.tier-qty-input');
+                    var qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+                    amount = baseAmount * qty;
+                    if (qty > 1) { label = label + ' (x' + qty + ')'; }
+                } else {
+                    amount = baseAmount;
+                }
             } else {
-                amount = baseAmount;
+                var freeInput = row.querySelector('.tier-free-amount-input');
+                amount = freeInput ? (parseFloat(freeInput.value) || 0) : 0;
             }
-        } else {
-            var freeInput = row.querySelector('.tier-free-amount-input');
-            amount = freeInput ? (parseFloat(freeInput.value) || 0) : 0;
-        }
-        amountHidden.value = amount;
-        purposeHidden.value = checked.getAttribute('data-label');
+
+            if (amount > 0) {
+                total += amount;
+                labels.push(label);
+            }
+        });
+
+        amountHidden.value = total.toFixed(2);
+        purposeHidden.value = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
+        if (totalDisplay) { totalDisplay.textContent = currency + ' ' + total.toFixed(2); }
+        if (submitBtn) { submitBtn.disabled = total <= 0; }
     }
 
     wrap.addEventListener('change', recalc);

@@ -308,6 +308,7 @@
                             <th>Purpose</th>
                             <th>Event</th>
                             <th>Payment Method</th>
+                            <th>Status</th>
                             <th>Transaction ID</th>
                             <th>Date</th>
                         </tr>
@@ -328,12 +329,18 @@
                             </td>
                             <td>{{ $g->event_name ?? 'General Fund' }}</td>
                             <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $g->payment_method }}</span></td>
+                            <td>
+                                @php
+                                    $statusColor = ['Paid' => 'success', 'Pending' => 'warning', 'Cancelled' => 'secondary', 'Failed' => 'danger'][$g->payment_status] ?? 'secondary';
+                                @endphp
+                                <span class="badge bg-{{ $statusColor }} bg-opacity-10 text-{{ $statusColor }} px-3 py-2 rounded-pill">{{ $g->payment_status }}</span>
+                            </td>
                             <td><code class="small text-dark">{{ $g->transaction_id }}</code></td>
                             <td>{{ date('d M Y', strtotime($g->donation_date)) }}</td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-5">
+                            <td colspan="10" class="text-center text-muted py-5">
                                 <i class="bi bi-person-heart fs-1 d-block mb-2 text-warning"></i>
                                 No guest donations recorded.
                             </td>

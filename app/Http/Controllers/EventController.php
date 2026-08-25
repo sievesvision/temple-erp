@@ -23,7 +23,7 @@ class EventController extends Controller
 
         $temple = Setting::templeBranding();
 
-        $raised = DB::table('donations_without_logins')->where('event_id', $event->event_id)->sum('amount')
+        $raised = DB::table('donations_without_logins')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount')
             + DB::table('donations')->where('event_id', $event->event_id)->sum('amount');
 
         $donationOptions = $event->donationOptions;
