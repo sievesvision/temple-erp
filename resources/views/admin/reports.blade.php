@@ -101,7 +101,7 @@
                     <button class="nav-link" id="poojas-tab" data-bs-toggle="tab" data-bs-target="#poojas-pane" type="button" role="tab"><i class="bi bi-calendar-event text-warning me-1"></i>Pooja Completion</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="earnings-tab" data-bs-toggle="tab" data-bs-target="#earnings-pane" type="button" role="tab"><i class="bi bi-currency-rupee text-warning me-1"></i>Monthly Earnings</button>
+                    <button class="nav-link" id="earnings-tab" data-bs-toggle="tab" data-bs-target="#earnings-pane" type="button" role="tab"><i class="bi bi-cash-coin text-warning me-1"></i>Monthly Earnings</button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events-pane" type="button" role="tab"><i class="bi bi-stars text-warning me-1"></i>Events Report</button>

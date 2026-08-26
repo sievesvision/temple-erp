@@ -14,7 +14,7 @@
   @elseif(request()->get('tab') == 'leaves')
     <i class="bi bi-calendar-x text-warning"></i> Leave Requests
   @elseif(request()->get('tab') == 'earnings')
-    <i class="bi bi-currency-rupee text-warning"></i> My Earnings & Wallet
+    <i class="bi bi-cash-coin text-warning"></i> My Earnings & Wallet
   @elseif(request()->get('tab') == 'profile')
     <i class="bi bi-person-circle text-warning"></i> Profile & Bank Details
   @elseif(request()->get('tab') == 'notifications')

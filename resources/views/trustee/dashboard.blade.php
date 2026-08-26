@@ -456,7 +456,7 @@
               @endif
             </div>
           </div>
-          <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+          <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
         </div>
       </div>
     </div>

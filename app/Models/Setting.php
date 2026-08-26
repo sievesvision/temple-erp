@@ -63,6 +63,8 @@ class Setting extends Model
             'donation_receipt_email' => self::get('donation_receipt_email', 'hasq.president@gmail.com'),
             'currency' => self::get('currency_code', 'AUD'),
             'logo' => self::get('temple_logo', asset('images/logo.gif')),
+            'admin_logo_icon' => self::get('admin_logo_icon', asset('images/logo.gif')),
+            'admin_logo_text' => self::get('admin_logo_text', 'SSVK ERP'),
             'hero_image' => self::get('temple_hero_image', asset('images/temple_landing.png')),
             'story_image' => self::get('temple_story_image', asset('images/about/ssvk.jpg')),
             'worship_image' => self::get('temple_worship_image', asset('images/about/SELVA VINAYAHAR TEMPLE.jpg')),

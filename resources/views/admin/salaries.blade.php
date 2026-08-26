@@ -76,7 +76,7 @@
         </div>
         <div class="col-md-6">
             <div class="salary-card bg-light border-start border-success border-4 mb-0">
-                <h5 class="fw-bold text-dark small"><i class="bi bi-currency-rupee text-success me-2"></i>Required Budget for {{ $prevMonthName }}</h5>
+                <h5 class="fw-bold text-dark small"><i class="bi bi-cash-coin text-success me-2"></i>Required Budget for {{ $prevMonthName }}</h5>
                 <p class="text-success fs-3 fw-bold mb-1">{{ $temple['currency'] }} {{ number_format($totalRequiredPrevMonth, 2) }}</p>
                 <span class="text-muted small">Total estimated payout for all pending employee salaries</span>
             </div>

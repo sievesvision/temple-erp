@@ -229,6 +229,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $donationReceiptEmail = \App\Models\Setting::get('donation_receipt_email', 'hasq.president@gmail.com');
         $currencyCode = \App\Models\Setting::get('currency_code', 'AUD');
         $templeLogo = \App\Models\Setting::get('temple_logo', asset('images/logo.gif'));
+        $adminLogoIcon = \App\Models\Setting::get('admin_logo_icon', asset('images/logo.gif'));
+        $adminLogoText = \App\Models\Setting::get('admin_logo_text', 'SSVK ERP');
         $templeHeroImage = \App\Models\Setting::get('temple_hero_image', asset('images/temple_landing.png'));
         $templeStoryImage = \App\Models\Setting::get('temple_story_image', asset('images/about/ssvk.jpg'));
         $templeWorshipImage = \App\Models\Setting::get('temple_worship_image', asset('images/about/SELVA VINAYAHAR TEMPLE.jpg'));
@@ -268,6 +270,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'donationReceiptEmail',
             'currencyCode',
             'templeLogo',
+            'adminLogoIcon',
+            'adminLogoText',
             'templeHeroImage',
             'templeStoryImage',
             'templeWorshipImage',
@@ -310,6 +314,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'donation_receipt_email' => 'required|email|max:255',
             'currency_code' => 'required|string|size:3',
             'temple_logo' => 'nullable|string|max:500',
+            'admin_logo_icon' => 'nullable|string|max:500',
+            'admin_logo_text' => 'nullable|string|max:100',
             'temple_hero_image' => 'required|string|max:500',
             'temple_story_image' => 'required|string|max:500',
             'temple_worship_image' => 'required|string|max:500',
@@ -333,6 +339,23 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'online_pooja_shipping_charge' => 'required|numeric|min:0',
         ]);
 
+        // Image path settings should stay portable between environments (local vs production
+        // have different domains). If someone pastes a full URL that happens to match THIS
+        // request's own origin (an easy copy-paste-from-address-bar mistake), strip it down to
+        // a relative path so the same database row works correctly wherever it's loaded —
+        // a genuinely external URL (a real CDN/off-site image) is left untouched.
+        $normalizeImagePath = function (?string $value) use ($request) {
+            $value = trim((string) $value);
+            if ($value === '') {
+                return $value;
+            }
+            $ownOrigin = rtrim($request->getSchemeAndHttpHost(), '/');
+            if (str_starts_with($value, $ownOrigin . '/')) {
+                return substr($value, strlen($ownOrigin));
+            }
+            return $value;
+        };
+
         \App\Models\Setting::set('system_mode', $request->system_mode);
         if ($request->has('testing_email_handling')) {
             \App\Models\Setting::set('testing_email_handling', $request->testing_email_handling);
@@ -350,10 +373,12 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('donation_account_number', $request->donation_account_number);
         \App\Models\Setting::set('donation_receipt_email', $request->donation_receipt_email);
         \App\Models\Setting::set('currency_code', strtoupper($request->currency_code));
-        \App\Models\Setting::set('temple_logo', $request->temple_logo ?? '');
-        \App\Models\Setting::set('temple_hero_image', $request->temple_hero_image);
-        \App\Models\Setting::set('temple_story_image', $request->temple_story_image);
-        \App\Models\Setting::set('temple_worship_image', $request->temple_worship_image);
+        \App\Models\Setting::set('temple_logo', $normalizeImagePath($request->temple_logo));
+        \App\Models\Setting::set('admin_logo_icon', $normalizeImagePath($request->admin_logo_icon));
+        \App\Models\Setting::set('admin_logo_text', $request->admin_logo_text ?: 'SSVK ERP');
+        \App\Models\Setting::set('temple_hero_image', $normalizeImagePath($request->temple_hero_image));
+        \App\Models\Setting::set('temple_story_image', $normalizeImagePath($request->temple_story_image));
+        \App\Models\Setting::set('temple_worship_image', $normalizeImagePath($request->temple_worship_image));
         $themeColors = [
             'saffron-garden' => ['#c45b2c', '#e5ad45', '#24382f'],
             'lotus-teal' => ['#087f8c', '#e7b85b', '#123f4a'],
