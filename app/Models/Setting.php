@@ -13,12 +13,23 @@ class Setting extends Model
     protected $fillable = ['key', 'value'];
 
     /**
+     * All settings, loaded once per request. templeBranding() alone calls get() ~26 times
+     * (once per branding field) — without this, that's 26 separate DB round-trips on every
+     * single page load. Loading the whole table in one query and memoizing it here collapses
+     * that to exactly one query per request, no matter how many times get() is called.
+     */
+    protected static ?array $cache = null;
+
+    /**
      * Get a setting by key.
      */
     public static function get($key, $default = null)
     {
-        $setting = self::find($key);
-        return $setting ? $setting->value : $default;
+        if (self::$cache === null) {
+            self::$cache = self::query()->pluck('value', 'key')->all();
+        }
+
+        return self::$cache[$key] ?? $default;
     }
 
     /**
@@ -26,6 +37,8 @@ class Setting extends Model
      */
     public static function set($key, $value)
     {
+        self::$cache = null;
+
         return self::updateOrCreate(['key' => $key], ['value' => $value]);
     }
 
