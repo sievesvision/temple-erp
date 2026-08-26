@@ -27,7 +27,7 @@ class RolePermission extends Model
      */
     public static function roles(): array
     {
-        return ['Admin', 'Devotee', 'Priest', 'Trustee', 'Staff', 'Accountant'];
+        return ['Admin', 'Devotee', 'Priest', 'Trustee', 'Staff', 'Accountant', 'Committee'];
     }
 
     /**

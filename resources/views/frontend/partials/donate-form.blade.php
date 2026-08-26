@@ -6,6 +6,7 @@
     $events = $events ?? collect();
     $donationOptions = $donationOptions ?? collect();
     $useTiers = $lockedEvent && $donationOptions->isNotEmpty();
+    $stripeEnabled = $stripeEnabled ?? true;
 @endphp
 <div class="donate-tabs-card">
     <ul class="nav nav-pills donate-method-tabs mb-4" id="{{ $formId }}-tabs" role="tablist">
@@ -20,11 +21,17 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" data-method="Stripe" type="button" role="tab">
+            <button class="nav-link" data-method="Stripe" type="button" role="tab" @if(!$stripeEnabled) disabled title="Online payment is currently unavailable" style="opacity:0.5;cursor:not-allowed;" @endif>
                 <i class="bi bi-credit-card me-1"></i> Online Payment
+                @if(!$stripeEnabled)
+                    <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">Unavailable</span>
+                @endif
             </button>
         </li>
     </ul>
+    @if(!$stripeEnabled)
+        <div class="small text-muted mb-3"><i class="bi bi-info-circle me-1"></i>Online payment is temporarily unavailable. Please use Bank Transfer or Cash at Temple instead.</div>
+    @endif
 
     <div class="donate-method-info mb-4" data-method-info="Bank">
         <div class="donation-bank-card">

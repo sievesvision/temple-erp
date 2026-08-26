@@ -22,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         View::composer(
-            ['admin.*', 'devotee.*', 'priest.*', 'staff.*', 'trustee.*', 'accountant.*', 'auth.*', 'emails.*', 'frontend.ehundi'],
+            ['admin.*', 'devotee.*', 'priest.*', 'staff.*', 'trustee.*', 'accountant.*', 'committee.*', 'auth.*', 'emails.*', 'frontend.ehundi'],
             function ($view) {
                 $view->with('temple', Setting::templeBranding());
             }

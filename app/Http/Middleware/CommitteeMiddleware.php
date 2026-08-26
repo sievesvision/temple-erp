@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
-class AdminMiddleware
+class CommitteeMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
@@ -18,18 +18,17 @@ class AdminMiddleware
         $user = Auth::user();
         $activeRole = $request->session()->get('active_role', $user->role);
 
-        if ($activeRole === 'Admin' && $user->role === 'Admin') {
+        if ($activeRole === 'Committee' && $user->role === 'Committee') {
             return $next($request);
         }
 
-        // Redirect to dashboard of their active mode
         $redirectRoute = match ($activeRole) {
+            'Admin' => 'admin.dashboard',
             'Devotee' => 'devotee.dashboard',
             'Priest' => 'priest.dashboard',
             'Trustee' => 'trustee.dashboard',
             'Staff' => 'staff.dashboard',
             'Accountant' => 'accountant.dashboard',
-            'Committee' => 'committee.dashboard',
             default => 'login',
         };
 

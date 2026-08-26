@@ -116,9 +116,11 @@ Printable short URLs whose destination can be repointed later without reprinting
 - Each row also renders an actual scannable QR code image (via the same free QR API already used elsewhere in this app for UPI payment QR codes) so there's no separate QR-generation tool needed — screenshot it directly from the admin page for printing.
 - Deactivating a link (or deleting it) makes the short URL 404 immediately.
 
-## ⚠️ Known access gap
+## Access control notes
 
-Salary Management (`admin.salaries.*`) and System Reports (`admin.reports.index`) currently sit in a route group gated only by `auth` (must be logged in) — **not** actually restricted to Admin/Accountant despite what the surrounding code comments say. Any authenticated user, including a Devotee, can currently reach these URLs directly today. This wasn't part of the work requested when this was found, so it hasn't been fixed — worth tightening if these need to stay restricted to Admin/Accountant only (and would be a natural resource to wire into Role Management once that's underway).
+- Salary Management (`admin.salaries.*`) and System Reports (`admin.reports.index`) are restricted to Admin/Accountant via a `role:Admin,Accountant` middleware group. (Previously sat under a plain `auth`-only group with no role check — fixed.)
+- Donations, Pooja Bookings and Events management (`admin.donations.*`, `admin.bookings.*`, `admin.events.*`) are shared between Admin and the **Committee** role via a `role:Admin,Committee` middleware group. Committee accounts have no access to Devotees/Priests/Trustees/Staff/Accountants management, Inventory, Salaries, Reports, Settings, or Role Management.
+- Devotee accounts (`role.devotee` / `DevoteeMiddleware`) are limited to their own dashboard, booking a pooja, making a donation, and viewing their own bookings/donations — they cannot reach any `/admin/*` management route.
 
 ---
 

@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.staff' => \App\Http\Middleware\StaffMiddleware::class,
             'role.accountant' => \App\Http\Middleware\AccountantMiddleware::class,
             'role.devotee' => \App\Http\Middleware\DevoteeMiddleware::class,
+            'role.committee' => \App\Http\Middleware\CommitteeMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

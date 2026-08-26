@@ -523,6 +523,15 @@
                     <i class="bi bi-check-circle-fill text-saffron active-check d-none"></i>
                   </div>
 
+                  <!-- Committee Option -->
+                  <div class="role-list-item d-flex align-items-center justify-content-between p-2 rounded-3" data-role="Committee" style="cursor: pointer;">
+                    <div class="d-flex align-items-center gap-3">
+                      <i class="bi bi-people-fill fs-5 text-muted"></i>
+                      <span class="fw-medium text-dark" style="font-size: 0.9rem;">Committee</span>
+                    </div>
+                    <i class="bi bi-check-circle-fill text-saffron active-check d-none"></i>
+                  </div>
+
                   <!-- Admin Option -->
                   <div class="role-list-item d-flex align-items-center justify-content-between p-2 rounded-3" data-role="Admin" style="cursor: pointer;">
                     <div class="d-flex align-items-center gap-3">

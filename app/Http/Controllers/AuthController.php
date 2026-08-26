@@ -325,7 +325,10 @@ class AuthController extends Controller
             
             case 'Accountant':
                 return redirect()->route('accountant.dashboard');
-            
+
+            case 'Committee':
+                return redirect()->route('committee.dashboard');
+
             case 'Devotee':
             default:
                 return redirect()->route('devotee.dashboard');

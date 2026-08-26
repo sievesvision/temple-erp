@@ -22,13 +22,14 @@ class EventController extends Controller
         }
 
         $temple = Setting::templeBranding();
+        $stripeEnabled = (bool) Setting::get('stripe_enabled', true);
 
         $raised = DB::table('donations_without_logins')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount')
             + DB::table('donations')->where('event_id', $event->event_id)->sum('amount');
 
         $donationOptions = $event->donationOptions;
 
-        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions'));
+        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled'));
     }
 
     /**
@@ -37,7 +38,7 @@ class EventController extends Controller
     public function manageEvents(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -61,7 +62,7 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -95,7 +96,7 @@ class EventController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -157,7 +158,7 @@ class EventController extends Controller
     public function destroy($id)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

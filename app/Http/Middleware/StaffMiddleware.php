@@ -28,6 +28,7 @@ class StaffMiddleware
             'Priest' => 'priest.dashboard',
             'Trustee' => 'trustee.dashboard',
             'Accountant' => 'accountant.dashboard',
+            'Committee' => 'committee.dashboard',
             default => 'login',
         };
 

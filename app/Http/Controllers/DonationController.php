@@ -19,7 +19,7 @@ class DonationController extends Controller
     public function manageDonations(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -87,7 +87,7 @@ class DonationController extends Controller
     public function storeDevoteeDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -127,7 +127,7 @@ class DonationController extends Controller
     public function storeGuestDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

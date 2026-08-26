@@ -51,7 +51,7 @@
                             <a href="#give-form"><i class="bi bi-person-heart me-1"></i>Or donate below as a guest</a>
                         </div>
                         <div id="give-form">
-                            @include('frontend.partials.donate-form', ['temple' => $temple, 'events' => $events, 'formAction' => route('donate.without.login'), 'formId' => 'home-donate-form'])
+                            @include('frontend.partials.donate-form', ['temple' => $temple, 'events' => $events, 'formAction' => route('donate.without.login'), 'formId' => 'home-donate-form', 'stripeEnabled' => $stripeEnabled])
                         </div>
                     </div>
                     <div class="col-lg-5" id="event-donations">

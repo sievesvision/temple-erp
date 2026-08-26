@@ -37,6 +37,7 @@ class RoleMiddleware
             'Trustee' => 'trustee.dashboard',
             'Staff' => 'staff.dashboard',
             'Accountant' => 'accountant.dashboard',
+            'Committee' => 'committee.dashboard',
             default => 'home',
         };
 

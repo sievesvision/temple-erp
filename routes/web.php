@@ -8,6 +8,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\TrusteeController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\AccountantController;
+use App\Http\Controllers\CommitteeController;
 use App\Http\Controllers\EhundiController;
 use App\Models\Setting;
 
@@ -26,8 +27,9 @@ Route::get('/', function () {
     $events = \Illuminate\Support\Facades\DB::table('events')->where('status', 'Upcoming')->orderBy('event_date', 'asc')->get();
 
     $temple = Setting::templeBranding();
+    $stripeEnabled = (bool) Setting::get('stripe_enabled', true);
 
-    return view('frontend.index', compact('poojas', 'events', 'temple'));
+    return view('frontend.index', compact('poojas', 'events', 'temple', 'stripeEnabled'));
 })->name('home');
 
 Route::post('/donate-without-login', [\App\Http\Controllers\DonationController::class, 'storePublic'])->name('donate.without.login');
@@ -166,12 +168,6 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/devotee/update/{id}', [DevoteeController::class, 'updateDevotee'])->name('admin.devotees.update');
     Route::delete('/admin/devotee/delete/{id}', [DevoteeController::class, 'deleteDevotee'])->name('admin.devotees.delete');
 
-    // Admin Booking Management Routes
-    Route::get('/admin/manage-bookings', [BookingController::class, 'manageBookings'])->name('admin.bookings.index');
-    Route::post('/admin/bookings/override-priest/{id}', [BookingController::class, 'overridePriest'])->name('admin.bookings.override-priest');
-    Route::post('/admin/bookings/reschedule/{id}', [BookingController::class, 'reschedule'])->name('admin.bookings.reschedule');
-    Route::post('/admin/bookings/status/{id}', [BookingController::class, 'updateStatus'])->name('admin.bookings.update-status');
-
     // Trustee CRUD Routes (Admin management)
     Route::get('/admin/manage-trustees', [TrusteeController::class, 'manageTrustees'])->name('admin.trustees.index');
     Route::get('/admin/add-trustee', [TrusteeController::class, 'addTrusteePage'])->name('admin.trustees.create');
@@ -193,11 +189,12 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/accountant/update/{id}', [AccountantController::class, 'updateAccountant'])->name('admin.accountants.update');
     Route::delete('/admin/accountant/delete/{id}', [AccountantController::class, 'deleteAccountant'])->name('admin.accountants.delete');
 
-    // Event CRUD & Scheduling Routes (Admin management)
-    Route::get('/admin/manage-events', [\App\Http\Controllers\EventController::class, 'manageEvents'])->name('admin.events.index');
-    Route::post('/admin/event/store', [\App\Http\Controllers\EventController::class, 'store'])->name('admin.events.store');
-    Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
-    Route::delete('/admin/event/delete/{id}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('admin.events.delete');
+    // Committee CRUD Routes (Admin management)
+    Route::get('/admin/manage-committee', [CommitteeController::class, 'manageCommittee'])->name('admin.committee.index');
+    Route::get('/admin/add-committee', [CommitteeController::class, 'addCommitteePage'])->name('admin.committee.create');
+    Route::post('/admin/committee/store', [CommitteeController::class, 'storeCommittee'])->name('admin.committee.store');
+    Route::post('/admin/committee/update/{id}', [CommitteeController::class, 'updateCommittee'])->name('admin.committee.update');
+    Route::delete('/admin/committee/delete/{id}', [CommitteeController::class, 'deleteCommittee'])->name('admin.committee.delete');
 
     // Inventory CRUD & Stock Adjustment Routes (Admin management)
     Route::get('/admin/manage-inventory', [\App\Http\Controllers\InventoryController::class, 'index'])->name('admin.inventory.index');
@@ -205,11 +202,6 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/inventory/update/{id}', [\App\Http\Controllers\InventoryController::class, 'update'])->name('admin.inventory.update');
     Route::post('/admin/inventory/adjust/{id}', [\App\Http\Controllers\InventoryController::class, 'adjustStock'])->name('admin.inventory.adjust');
     Route::delete('/admin/inventory/delete/{id}', [\App\Http\Controllers\InventoryController::class, 'destroy'])->name('admin.inventory.delete');
-
-    // Donation Management Routes (Admin management)
-    Route::get('/admin/manage-donations', [\App\Http\Controllers\DonationController::class, 'manageDonations'])->name('admin.donations.index');
-    Route::post('/admin/donation/store-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.donations.storeDevotee');
-    Route::post('/admin/donation/store-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.donations.storeGuest');
 
     // Admin Settings Routes
     Route::get('/admin/settings', function () {
@@ -432,6 +424,35 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
 });
 
 // ============================================
+// DONATIONS / BOOKINGS / EVENTS MANAGEMENT (Admin + Committee)
+// ============================================
+Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
+    // Admin Booking Management Routes
+    Route::get('/admin/manage-bookings', [BookingController::class, 'manageBookings'])->name('admin.bookings.index');
+    Route::post('/admin/bookings/override-priest/{id}', [BookingController::class, 'overridePriest'])->name('admin.bookings.override-priest');
+    Route::post('/admin/bookings/reschedule/{id}', [BookingController::class, 'reschedule'])->name('admin.bookings.reschedule');
+    Route::post('/admin/bookings/status/{id}', [BookingController::class, 'updateStatus'])->name('admin.bookings.update-status');
+
+    // Event CRUD & Scheduling Routes
+    Route::get('/admin/manage-events', [\App\Http\Controllers\EventController::class, 'manageEvents'])->name('admin.events.index');
+    Route::post('/admin/event/store', [\App\Http\Controllers\EventController::class, 'store'])->name('admin.events.store');
+    Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
+    Route::delete('/admin/event/delete/{id}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('admin.events.delete');
+
+    // Donation Management Routes
+    Route::get('/admin/manage-donations', [\App\Http\Controllers\DonationController::class, 'manageDonations'])->name('admin.donations.index');
+    Route::post('/admin/donation/store-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.donations.storeDevotee');
+    Route::post('/admin/donation/store-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.donations.storeGuest');
+});
+
+// ============================================
+// COMMITTEE ROUTES (Restricted via RoleMiddleware)
+// ============================================
+Route::middleware(['auth', 'role.committee'])->group(function () {
+    Route::get('/committee/dashboard', [CommitteeController::class, 'dashboard'])->name('committee.dashboard');
+});
+
+// ============================================
 // DEVOTEE ROUTES (Restricted via RoleMiddleware)
 // ============================================
 Route::middleware(['auth', 'role.devotee'])->group(function () {
@@ -515,13 +536,6 @@ Route::middleware(['auth'])->group(function () {
 
     // Role Switcher Route removed (role switching inside dashboard is deprecated)
 
-    // Admin & Accountant - Salary Management & Payouts Sanctioning
-    Route::get('/admin/salaries', [\App\Http\Controllers\SalaryController::class, 'index'])->name('admin.salaries.index');
-    Route::post('/admin/salaries/sanction', [\App\Http\Controllers\SalaryController::class, 'sanction'])->name('admin.salaries.sanction');
-
-    // Admin & Accountant - System Reports Section
-    Route::get('/admin/reports', [\App\Http\Controllers\SalaryController::class, 'reports'])->name('admin.reports.index');
-
     // Admin - Notifications AJAX mark as read
     Route::post('/admin/notifications/mark-read', function () {
         $user = Auth::user();
@@ -533,4 +547,13 @@ Route::middleware(['auth'])->group(function () {
         }
         return response()->json(['success' => false], 401);
     })->name('admin.notifications.mark-read');
+});
+
+// Admin & Accountant only - Salary Management, Payouts and System Reports.
+// Previously sat under the plain 'auth' group above with no role check, meaning any
+// authenticated user (including a Devotee) could reach these URLs directly.
+Route::middleware(['auth', 'role:Admin,Accountant'])->group(function () {
+    Route::get('/admin/salaries', [\App\Http\Controllers\SalaryController::class, 'index'])->name('admin.salaries.index');
+    Route::post('/admin/salaries/sanction', [\App\Http\Controllers\SalaryController::class, 'sanction'])->name('admin.salaries.sanction');
+    Route::get('/admin/reports', [\App\Http\Controllers\SalaryController::class, 'reports'])->name('admin.reports.index');
 });
