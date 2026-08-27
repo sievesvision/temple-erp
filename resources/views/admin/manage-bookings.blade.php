@@ -349,7 +349,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($bookings as $booking)
+                    @foreach($bookings as $booking)
                     <tr>
                         <td><strong>BK{{ str_pad($booking->booking_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                         <td>
@@ -418,11 +418,7 @@
                             </a>
                         </td>
                     </tr>
-                    @empty
-                    <tr>
-                        <td colspan="9" class="text-center py-4 text-muted">No booking records found.</td>
-                    </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
@@ -584,7 +580,10 @@
             order: [[3, 'desc']],
             columnDefs: [
                 { orderable: false, targets: 8 }
-            ]
+            ],
+            language: {
+                emptyTable: "No booking records found."
+            }
         });
 
         // Auto-hide alerts

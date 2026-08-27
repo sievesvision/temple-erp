@@ -11,7 +11,7 @@
   <div class="logo-area">
     <div class="logo-icon">
         @if(!empty($temple['admin_logo_icon']))
-            <img src="{{ $temple['admin_logo_icon'] }}" alt="{{ $adminLogoText }} logo" style="width:26px;height:26px;object-fit:contain;">
+            <img src="{{ $temple['admin_logo_icon'] }}" alt="{{ $adminLogoText }} logo" style="width:44px;height:44px;object-fit:contain;">
         @else
             🛕
         @endif

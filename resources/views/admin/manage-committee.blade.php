@@ -57,6 +57,61 @@
         box-shadow: 0 8px 24px rgba(0,0,0,0.02);
         overflow: hidden;
     }
+    .table-card .table thead th {
+        font-weight: 600;
+        color: #5a4e3e;
+        border-bottom: 2px solid #f0ece6;
+        padding: 14px 16px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: #faf8f5;
+    }
+    .table-card .table tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f5f0ea;
+        color: #1e1e2a;
+        font-weight: 500;
+        vertical-align: middle;
+    }
+    .table-card .table tbody tr:hover {
+        background: #faf8f5;
+    }
+    .btn-action-edit {
+        background: rgba(184, 134, 58, 0.1);
+        color: #b8863a;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 40px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        transition: 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-action-edit:hover {
+        background: #b8863a;
+        color: white;
+    }
+    .btn-action-delete {
+        background: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 40px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        transition: 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-action-delete:hover {
+        background: #dc3545;
+        color: white;
+    }
 </style>
 @endsection
 
