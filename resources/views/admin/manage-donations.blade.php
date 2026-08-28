@@ -151,7 +151,7 @@
         font-weight: 600;
         background: transparent;
     }
-    .btn-action-edit, .btn-action-delete, .btn-action-resend {
+    .btn-action-edit, .btn-action-delete, .btn-action-resend, .btn-action-approve {
         border: none;
         padding: 6px 12px;
         border-radius: 40px;
@@ -186,6 +186,14 @@
     }
     .btn-action-resend:hover {
         background: #2a6fdb;
+        color: white;
+    }
+    .btn-action-approve {
+        background: rgba(31, 157, 106, 0.1);
+        color: #1f9d6a;
+    }
+    .btn-action-approve:hover {
+        background: #1f9d6a;
         color: white;
     }
 </style>
@@ -464,7 +472,15 @@
                             <td><code class="small text-dark">{{ $g->transaction_id }}</code></td>
                             <td>{{ date('d M Y', strtotime($g->donation_date)) }}</td>
                             <td class="text-end">
-                                @if($g->email)
+                                @if($canEditDonation && $g->payment_status === 'Pending' && in_array($g->payment_method, ['Bank', 'Cash']))
+                                <form action="{{ route('admin.donations.approveGuest', $g->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
+                                    @csrf
+                                    <button type="submit" class="btn-action-approve" title="Approve this donation as received">
+                                        <i class="bi bi-check-circle"></i> Approve
+                                    </button>
+                                </form>
+                                @endif
+                                @if($g->email && $g->payment_status === 'Paid')
                                 <form action="{{ route('admin.donations.resendReceipt', ['type' => 'guest', 'id' => $g->id]) }}" method="POST" class="d-inline">
                                     @csrf
                                     <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $g->email }}">

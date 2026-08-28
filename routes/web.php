@@ -459,6 +459,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant'])->group(function (
     Route::delete('/admin/donation/delete-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'deleteDevoteeDonation'])->name('admin.donations.deleteDevotee');
     Route::delete('/admin/donation/delete-guest/{id}', [\App\Http\Controllers\DonationController::class, 'deleteGuestDonation'])->name('admin.donations.deleteGuest');
     Route::post('/admin/donation/resend-receipt/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'resendReceipt'])->name('admin.donations.resendReceipt');
+    Route::post('/admin/donation/approve-guest/{id}', [\App\Http\Controllers\DonationController::class, 'approveGuestDonation'])->name('admin.donations.approveGuest');
 });
 
 // ============================================

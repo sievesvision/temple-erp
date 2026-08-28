@@ -3,8 +3,10 @@
 namespace App\Mail;
 
 use App\Models\Setting;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -60,10 +62,29 @@ class DonationReceiptMail extends Mailable
     }
 
     /**
-     * Get the attachments for the message.
+     * Get the attachments for the message — a PDF copy of the receipt, generated on
+     * the fly from the same data as the email body (not stored anywhere on disk).
      */
     public function attachments(): array
     {
-        return [];
+        $pdfData = [
+            'temple' => Setting::templeBranding(),
+            'donorName' => $this->donorName,
+            'amount' => $this->amount,
+            'currency' => $this->currency,
+            'paymentMethod' => $this->paymentMethod,
+            'purpose' => $this->purpose,
+            'eventName' => $this->eventName,
+            'donationDate' => $this->donationDate,
+            'transactionId' => $this->transactionId,
+        ];
+
+        $pdf = Pdf::loadView('emails.donation_receipt_pdf', $pdfData);
+        $filename = 'Donation-Receipt-' . date('Ymd', strtotime($this->donationDate)) . '.pdf';
+
+        return [
+            Attachment::fromData(fn () => $pdf->output(), $filename)
+                ->withMime('application/pdf'),
+        ];
     }
 }

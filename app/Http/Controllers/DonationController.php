@@ -402,6 +402,48 @@ class DonationController extends Controller
     }
 
     /**
+     * Approve/verify a self-service guest donation that was submitted as Bank Transfer or
+     * Cash at Temple — these sit as 'Pending' until an admin confirms the money was actually
+     * received, unlike Online Payment (Stripe) which is auto-verified via the payment gateway.
+     * Approving flips it to 'Paid' (so it counts in the totals) and sends the donation
+     * receipt for the first time, since it wasn't sent while still unconfirmed.
+     */
+    public function approveGuestDonation($id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $donation = DB::table('donations_without_logins')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if ($donation->payment_status !== 'Pending') {
+            return redirect()->back()->with('error', 'Only pending donations can be approved.');
+        }
+
+        DB::table('donations_without_logins')->where('id', $id)->update([
+            'payment_status' => 'Paid',
+            'updated_at' => now(),
+        ]);
+
+        DonationReceiptService::send([
+            'donor_name' => $donation->donor_name,
+            'donor_email' => $donation->email,
+            'amount' => $donation->amount,
+            'payment_method' => $donation->payment_method,
+            'purpose' => $donation->purpose_details ?? $donation->purpose,
+            'event_id' => $donation->event_id,
+            'donation_date' => $donation->donation_date,
+            'transaction_id' => $donation->transaction_id,
+        ]);
+
+        return redirect()->back()->with('success', 'Donation approved and marked as received.');
+    }
+
+    /**
      * Store a public donation (no login required) — general fund or tied to a specific event.
      * Covers all three donor-facing options: Bank Transfer, Cash at Temple, and Online Payment.
      */
@@ -423,6 +465,10 @@ class DonationController extends Controller
             return $this->startStripeCheckout($validated);
         }
 
+        // Bank Transfer and Cash at Temple are self-reported by the donor — nobody has
+        // actually confirmed the money changed hands yet, so these sit as 'Pending' until
+        // an admin approves them (see approveGuestDonation()). Online Payment (Stripe) is
+        // the only method that's auto-verified, since Stripe's own API confirms the charge.
         DB::table('donations_without_logins')->insert([
             'donor_name' => $validated['donor_name'],
             'event_id' => $validated['event_id'] ?? null,
@@ -432,7 +478,7 @@ class DonationController extends Controller
             'purpose' => $validated['purpose'],
             'purpose_details' => $validated['purpose_details'] ?? null,
             'payment_method' => $validated['payment_method'],
-            'payment_status' => 'Paid',
+            'payment_status' => 'Pending',
             'transaction_id' => $validated['transaction_id'] ?? strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid()),
             'bank_name' => null,
             'bank_account_no' => null,
@@ -444,25 +490,16 @@ class DonationController extends Controller
         ]);
 
         $currency = Setting::get('currency_code', 'AUD');
-        $message = 'Thank you! Your donation of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' has been recorded successfully.';
+        $message = 'Thank you! Your donation of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' has been recorded and is pending confirmation.';
 
         if ($validated['payment_method'] === 'Bank') {
-            $message = 'Thank you! Please complete your bank transfer using the details shown, and email your receipt so we can confirm your donation of ' . $currency . ' ' . number_format($validated['amount'], 2) . '.';
+            $message = 'Thank you! Please complete your bank transfer using the details shown. Your donation of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' will be confirmed once we verify the transfer, and a receipt will be emailed to you then.';
         } elseif ($validated['payment_method'] === 'Cash') {
-            $message = 'Thank you! Your pledge of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' has been recorded. Please hand your offering to the temple counter.';
+            $message = 'Thank you! Your pledge of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' has been recorded. Please hand your offering to the temple counter — a receipt will be emailed to you once it is confirmed.';
         }
 
-        DonationReceiptService::send([
-            'donor_name' => $validated['donor_name'],
-            'donor_email' => $validated['email'] ?? null,
-            'amount' => $validated['amount'],
-            'currency' => $currency,
-            'payment_method' => $validated['payment_method'],
-            'purpose' => $validated['purpose_details'] ?? $validated['purpose'],
-            'event_id' => $validated['event_id'] ?? null,
-            'donation_date' => now()->toDateString(),
-            'transaction_id' => $validated['transaction_id'] ?? null,
-        ]);
+        // No receipt is sent here — Bank/Cash donations are still unverified at this point.
+        // The receipt goes out from approveGuestDonation() once an admin confirms it.
 
         return redirect()->back()->with('success_donation', $message);
     }
