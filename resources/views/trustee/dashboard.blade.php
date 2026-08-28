@@ -27,7 +27,8 @@
 @endsection
 
 @section('page-css')
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+{{-- Note: FullCalendar v6 ships its CSS bundled inside the JS; this stylesheet URL
+     was a 404 in production already (v6 removed the standalone CSS file). Removed. --}}
 <style>
   .stat-card {
     background: white;
@@ -577,9 +578,9 @@
 @endsection
 
 @section('page-js')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- FullCalendar JS -->
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="{{ asset('vendor/chartjs/chart.min.js') }}"></script>
+<!-- FullCalendar JS (self-hosted) -->
+<script src="{{ asset('vendor/fullcalendar/index.global.min.js') }}"></script>
 <script>
   function showPoojaDetails(pooja) {
       document.getElementById('modalPoojaName').textContent = pooja.pooja_name;

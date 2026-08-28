@@ -65,7 +65,7 @@ class Setting extends Model
             'logo' => self::get('temple_logo', asset('images/logo.gif')),
             'admin_logo_icon' => self::get('admin_logo_icon', asset('images/logo.gif')),
             'admin_logo_text' => self::get('admin_logo_text', 'SSVK ERP'),
-            'hero_image' => self::get('temple_hero_image', asset('images/temple_landing.png')),
+            'hero_image' => self::get('temple_hero_image', asset('images/temple_landing.jpg')),
             'story_image' => self::get('temple_story_image', asset('images/about/ssvk.jpg')),
             'worship_image' => self::get('temple_worship_image', asset('images/about/SELVA VINAYAHAR TEMPLE.jpg')),
             'primary_color' => self::get('theme_primary_color', '#c45b2c'),

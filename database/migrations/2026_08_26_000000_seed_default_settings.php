@@ -34,7 +34,7 @@ return new class extends Migration
             'temple_logo' => '/images/logo.gif',
             'admin_logo_icon' => '/images/logo.gif',
             'admin_logo_text' => 'SSVK ERP',
-            'temple_hero_image' => '/images/temple_landing.png',
+            'temple_hero_image' => '/images/temple_landing.jpg',
             'temple_story_image' => '/images/about/ssvk.jpg',
             'temple_worship_image' => '/images/about/SELVA VINAYAHAR TEMPLE.jpg',
             'theme_primary_color' => '#c45b2c',

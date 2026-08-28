@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $temple['name'] }} | {{ $temple['subtitle'] }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700;800&family=Roboto:wght@700;900&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="icon" type="image/gif" href="{{ $temple['logo'] }}">
+    <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fonts/roboto/roboto.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
     <style>
         :root { --primary: {{ $temple['primary_color'] }}; --accent: {{ $temple['accent_color'] }}; --dark: {{ $temple['dark_color'] }}; --cream:#fbf8f1; --ink:#25231f; --muted:#716c64; --line:#e9e1d5; --serif:'Playfair Display',Georgia,serif; --sans:'DM Sans',sans-serif; }
         * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--cream); font-family:var(--sans); } h1,h2,h3,h4 { font-family:var(--serif); } a { text-decoration:none; }
@@ -82,7 +82,7 @@
         <section id="newsletters" class="bg-white py-5"><div class="container"><div class="row align-items-center"><div class="col-lg-6"><div class="section-kicker">Stay connected</div><h2 class="section-title">Newsletters.</h2></div><div class="col-lg-6"><p class="body-copy mb-0">Temple updates, festival notices and community news will be published here.</p></div></div></div></section>
     </main>
     <footer id="contact" class="py-5"><div class="container"><div class="row g-4 justify-content-between"><div class="col-lg-5"><div class="d-flex align-items-center gap-2 mb-3">@if($temple['logo'])<img class="brand-mark" src="{{ $temple['logo'] }}" alt="">@else<span class="brand-om">ॐ</span>@endif<span><strong class="d-block" style="font-family:var(--serif)">{{ $temple['name'] }}</strong><small>{{ $temple['subtitle'] }}</small></span></div><p>{{ $temple['address'] }}<br>{{ $temple['phone'] }} · {{ $temple['email'] }}</p></div><div class="col-lg-5"><div class="row g-2"><div class="col-6"><a class="footer-link d-block" href="#calendar">Events</a><a class="footer-link d-block" href="#event-donations">Event Donations</a><a class="footer-link d-block" href="#worship">Pooja Bookings</a><a class="footer-link d-block" href="#projects">Projects</a></div><div class="col-6"><a class="footer-link d-block" href="#newsletters">Newsletters</a><a class="footer-link d-block" href="#give">Donate</a><a class="footer-link d-block" href="{{ route('login') }}">Priest / Committee Login</a></div></div></div></div><hr class="border-secondary my-4"><small>© {{ date('Y') }} {{ $temple['name'] }}. A place for prayer and community.</small></div></footer>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script>$(function(){ $('a[href^="#"]').on('click',function(e){var target=$($(this).attr('href'));if(target.length){e.preventDefault();$('html,body').animate({scrollTop:target.offset().top-76},450);$('.navbar-collapse').collapse('hide');}}); });</script>
+    <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script><script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script><script>$(function(){ $('a[href^="#"]').on('click',function(e){var target=$($(this).attr('href'));if(target.length){e.preventDefault();$('html,body').animate({scrollTop:target.offset().top-76},450);$('.navbar-collapse').collapse('hide');}}); });</script>
 <script>
     $(function () {
         $('.brand-title').text(@json($temple['brand_title']));

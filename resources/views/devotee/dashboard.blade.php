@@ -22,6 +22,8 @@
 
 @section('page-css')
 <style>
+  @import url('{{ asset('vendor/fonts/cinzel-devotee/cinzel-devotee.css') }}');
+
   /* Premium dashboard components */
   body {
     background-color: transparent !important;
@@ -158,8 +160,6 @@
     padding: 12px 24px;
     border-bottom: 1px solid #f8f4f0;
   }
-
-  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&display=swap');
 
   /* Redesigned Devotee Welcome Banner */
   .devotee-welcome-banner {

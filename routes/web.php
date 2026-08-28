@@ -223,7 +223,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $templeLogo = \App\Models\Setting::get('temple_logo', asset('images/logo.gif'));
         $adminLogoIcon = \App\Models\Setting::get('admin_logo_icon', asset('images/logo.gif'));
         $adminLogoText = \App\Models\Setting::get('admin_logo_text', 'SSVK ERP');
-        $templeHeroImage = \App\Models\Setting::get('temple_hero_image', asset('images/temple_landing.png'));
+        $templeHeroImage = \App\Models\Setting::get('temple_hero_image', asset('images/temple_landing.jpg'));
         $templeStoryImage = \App\Models\Setting::get('temple_story_image', asset('images/about/ssvk.jpg'));
         $templeWorshipImage = \App\Models\Setting::get('temple_worship_image', asset('images/about/SELVA VINAYAHAR TEMPLE.jpg'));
         $themePrimaryColor = \App\Models\Setting::get('theme_primary_color', '#c45b2c');
