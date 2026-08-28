@@ -312,6 +312,11 @@
                                         <input type="text" name="location" class="form-control rounded-3" value="{{ $e->location }}" required>
                                     </div>
                                     <div class="mb-3">
+                                        <label class="form-label fw-semibold">Coordinator Emails (optional)</label>
+                                        <input type="text" name="coordinator_emails" class="form-control rounded-3" placeholder="coordinator1@example.com, coordinator2@example.com" value="{{ $e->coordinator_emails }}">
+                                        <div class="form-text">Comma-separated. These are CC'd on every donation receipt for this event.</div>
+                                    </div>
+                                    <div class="mb-3">
                                         <label class="form-label fw-semibold">Status</label>
                                         <select name="status" class="form-select rounded-3" required>
                                             <option value="Upcoming" {{ $e->status === 'Upcoming' ? 'selected' : '' }}>Upcoming</option>
@@ -400,6 +405,11 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Location / Venue</label>
                         <input type="text" name="location" class="form-control rounded-3" placeholder="e.g. Main Temple Hall" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Coordinator Emails (optional)</label>
+                        <input type="text" name="coordinator_emails" class="form-control rounded-3" placeholder="coordinator1@example.com, coordinator2@example.com">
+                        <div class="form-text">Comma-separated. These are CC'd on every donation receipt for this event.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Initial Status</label>

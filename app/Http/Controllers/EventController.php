@@ -77,6 +77,7 @@ class EventController extends Controller
             'status' => 'required|string|in:Upcoming,Ongoing,Completed,Cancelled',
             'header_image' => 'nullable|string|max:255',
             'flyer_image' => 'nullable|string|max:255',
+            'coordinator_emails' => 'nullable|string|max:1000',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
         $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date']);
@@ -111,6 +112,7 @@ class EventController extends Controller
             'status' => 'required|string|in:Upcoming,Ongoing,Completed,Cancelled',
             'header_image' => 'nullable|string|max:255',
             'flyer_image' => 'nullable|string|max:255',
+            'coordinator_emails' => 'nullable|string|max:1000',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
 

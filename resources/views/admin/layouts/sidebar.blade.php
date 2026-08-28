@@ -5,7 +5,12 @@
     $adminLogoMain = $adminLogoSplitAt !== false ? substr($adminLogoText, 0, $adminLogoSplitAt) : $adminLogoText;
     $adminLogoAccent = $adminLogoSplitAt !== false ? substr($adminLogoText, $adminLogoSplitAt + 1) : '';
     $isFullAdmin = auth()->check() && auth()->user()->role === 'Admin';
-    $dashboardRoute = $isFullAdmin ? 'admin.dashboard' : 'committee.dashboard';
+    $dashboardRoute = match (auth()->user()->role ?? null) {
+        'Admin' => 'admin.dashboard',
+        'Committee' => 'committee.dashboard',
+        'Accountant' => 'accountant.dashboard',
+        default => 'login',
+    };
 @endphp
 <aside class="sidebar" id="sidebar">
   <div class="logo-area">
@@ -62,17 +67,21 @@
       <a href="{{ route('admin.committee.index') }}" class="nav-link {{ request()->routeIs('admin.committee.*') ? 'active' : '' }}"><i class="bi bi-people-fill"></i> Committee</a>
     </li>
     @endif
+    @if($isFullAdmin || auth()->user()->role === 'Committee')
     <li class="nav-item">
       <a href="{{ route('admin.bookings.index') }}" class="nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
         <i class="bi bi-calendar-event"></i> Pooja Bookings
       </a>
     </li>
+    @endif
     <li class="nav-item">
       <a href="{{ route('admin.donations.index') }}" class="nav-link {{ request()->routeIs('admin.donations.*') ? 'active' : '' }}"><i class="bi bi-wallet2"></i> Donations</a>
     </li>
+    @if($isFullAdmin || auth()->user()->role === 'Committee')
     <li class="nav-item">
       <a href="{{ route('admin.events.index') }}" class="nav-link {{ request()->routeIs('admin.events.*') ? 'active' : '' }}"><i class="bi bi-stars"></i> Events</a>
     </li>
+    @endif
     @if($isFullAdmin)
     <li class="nav-item">
       <a href="{{ route('admin.inventory.index') }}" class="nav-link {{ request()->routeIs('admin.inventory.*') ? 'active' : '' }}"><i class="bi bi-box-seam"></i> Inventory</a>

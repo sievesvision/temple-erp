@@ -22,6 +22,7 @@ class Event extends Model
         'header_image',
         'flyer_image',
         'show_donation_summary',
+        'coordinator_emails',
     ];
 
     protected $casts = [
@@ -31,6 +32,24 @@ class Event extends Model
     public function donationOptions()
     {
         return $this->hasMany(EventDonationOption::class, 'event_id', 'event_id')->orderBy('sort_order');
+    }
+
+    /**
+     * Parse the comma-separated coordinator_emails field into a clean array of valid
+     * addresses — invalid entries and blanks are silently dropped rather than erroring,
+     * since this is a free-text admin field.
+     */
+    public function coordinatorEmailList(): array
+    {
+        if (!$this->coordinator_emails) {
+            return [];
+        }
+
+        return collect(explode(',', $this->coordinator_emails))
+            ->map(fn ($email) => trim($email))
+            ->filter(fn ($email) => $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->values()
+            ->all();
     }
 
     /**

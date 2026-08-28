@@ -341,6 +341,11 @@
                                     <label class="form-label fw-semibold text-dark">Currency Code</label>
                                     <input type="text" name="currency_code" class="form-control rounded-3" value="{{ $currencyCode }}" maxlength="3" required><div class="form-text">Use a three-letter code such as AUD.</div>
                                 </div>
+                                <div class="col-md-12">
+                                    <label class="form-label fw-semibold text-dark">Donation Coordinator Email(s)</label>
+                                    <input type="text" name="donation_coordinator_emails" class="form-control rounded-3" placeholder="coordinator1@example.com, coordinator2@example.com" value="{{ $donationCoordinatorEmails }}">
+                                    <div class="form-text">Comma-separated. CC'd on donation receipts that aren't tied to an event with its own coordinator emails (set per-event on the Events page).</div>
+                                </div>
                             </div>
                         </div>
 

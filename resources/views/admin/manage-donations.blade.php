@@ -151,6 +151,43 @@
         font-weight: 600;
         background: transparent;
     }
+    .btn-action-edit, .btn-action-delete, .btn-action-resend {
+        border: none;
+        padding: 6px 12px;
+        border-radius: 40px;
+        font-weight: 600;
+        font-size: 0.72rem;
+        transition: 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+    .btn-action-edit {
+        background: rgba(184, 134, 58, 0.1);
+        color: #b8863a;
+    }
+    .btn-action-edit:hover {
+        background: #b8863a;
+        color: white;
+    }
+    .btn-action-delete {
+        background: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+    .btn-action-delete:hover {
+        background: #dc3545;
+        color: white;
+    }
+    .btn-action-resend {
+        background: rgba(42, 111, 219, 0.1);
+        color: #2a6fdb;
+    }
+    .btn-action-resend:hover {
+        background: #2a6fdb;
+        color: white;
+    }
 </style>
 @endsection
 
@@ -160,6 +197,7 @@
         <h1><i class="bi bi-wallet2"></i>Manage Donations</h1>
         <div class="subtitle">Log, view, and audit donations received from registered devotees and guest donors</div>
     </div>
+    @if($canAddDonation)
     <div class="d-flex gap-2">
         <button class="btn-add" data-bs-toggle="modal" data-bs-target="#recordDevoteeDonationModal">
             <i class="bi bi-person-check-fill"></i> Log Devotee Donation
@@ -168,6 +206,7 @@
             <i class="bi bi-person-heart"></i> Log Guest Donation
         </button>
     </div>
+    @endif
 </div>
 
 @if(session('success'))
@@ -265,6 +304,7 @@
                             <th>Transaction ID</th>
                             <th>Date</th>
                             <th>Remarks</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -281,10 +321,34 @@
                             <td><code class="small text-dark">{{ $d->transaction_id }}</code></td>
                             <td>{{ date('d M Y', strtotime($d->donation_date)) }}</td>
                             <td><span class="text-muted small">{{ $d->remarks ?? 'N/A' }}</span></td>
+                            <td class="text-end">
+                                @if($d->email)
+                                <form action="{{ route('admin.donations.resendReceipt', ['type' => 'devotee', 'id' => $d->id]) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $d->email }}">
+                                        <i class="bi bi-envelope-arrow-up"></i> Resend
+                                    </button>
+                                </form>
+                                @endif
+                                @if($canEditDonation)
+                                <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editDevoteeDonationModal{{ $d->id }}">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </button>
+                                @endif
+                                @if($canDeleteDonation)
+                                <form action="{{ route('admin.donations.deleteDevotee', $d->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn-action-delete">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </form>
+                                @endif
+                            </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-5">
+                            <td colspan="9" class="text-center text-muted py-5">
                                 <i class="bi bi-cash fs-1 d-block mb-2 text-warning"></i>
                                 No devotee donations found.
                             </td>
@@ -293,6 +357,67 @@
                     </tbody>
                 </table>
             </div>
+
+            @if($canEditDonation)
+            @foreach($devoteeDonations as $d)
+            <div class="modal fade" id="editDevoteeDonationModal{{ $d->id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg rounded-4">
+                        <form action="{{ route('admin.donations.updateDevotee', $d->id) }}" method="POST">
+                            @csrf
+                            <div class="modal-header border-0 pb-0">
+                                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square text-warning me-2"></i>Edit Devotee Donation</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body py-3">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Devotee</label>
+                                    <input type="text" class="form-control rounded-3" value="{{ $d->devotee_name }}" disabled>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
+                                    <input type="number" step="0.01" name="amount" class="form-control rounded-3" value="{{ $d->amount }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Event (Optional)</label>
+                                    <select name="event_id" class="form-select rounded-3">
+                                        <option value="">-- General Fund --</option>
+                                        @foreach($events as $event)
+                                            <option value="{{ $event->event_id }}" {{ $d->event_id == $event->event_id ? 'selected' : '' }}>{{ $event->event_name }} ({{ date('d M Y', strtotime($event->event_date)) }})</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Payment Mode</label>
+                                    <select name="payment_mode" class="form-select rounded-3" required>
+                                        @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque'] as $mode)
+                                            <option value="{{ $mode }}" {{ $d->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Transaction ID / Reference</label>
+                                    <input type="text" name="transaction_id" class="form-control rounded-3" value="{{ $d->transaction_id }}">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Donation Date</label>
+                                    <input type="date" name="donation_date" class="form-control rounded-3" value="{{ $d->donation_date }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Remarks</label>
+                                    <input type="text" name="remarks" class="form-control rounded-3" value="{{ $d->remarks }}">
+                                </div>
+                            </div>
+                            <div class="modal-footer border-0 pt-0">
+                                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
+                                <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #b8863a, #d4a05a); border:none;">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+            @endif
         </div>
 
         <!-- Guest Donations Pane -->
@@ -311,6 +436,7 @@
                             <th>Status</th>
                             <th>Transaction ID</th>
                             <th>Date</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -337,10 +463,34 @@
                             </td>
                             <td><code class="small text-dark">{{ $g->transaction_id }}</code></td>
                             <td>{{ date('d M Y', strtotime($g->donation_date)) }}</td>
+                            <td class="text-end">
+                                @if($g->email)
+                                <form action="{{ route('admin.donations.resendReceipt', ['type' => 'guest', 'id' => $g->id]) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $g->email }}">
+                                        <i class="bi bi-envelope-arrow-up"></i> Resend
+                                    </button>
+                                </form>
+                                @endif
+                                @if($canEditDonation)
+                                <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editGuestDonationModal{{ $g->id }}">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </button>
+                                @endif
+                                @if($canDeleteDonation)
+                                <form action="{{ route('admin.donations.deleteGuest', $g->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn-action-delete">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                </form>
+                                @endif
+                            </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="text-center text-muted py-5">
+                            <td colspan="11" class="text-center text-muted py-5">
                                 <i class="bi bi-person-heart fs-1 d-block mb-2 text-warning"></i>
                                 No guest donations recorded.
                             </td>
@@ -349,6 +499,93 @@
                     </tbody>
                 </table>
             </div>
+
+            @if($canEditDonation)
+            @foreach($guestDonations as $g)
+            <div class="modal fade" id="editGuestDonationModal{{ $g->id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg rounded-4">
+                        <form action="{{ route('admin.donations.updateGuest', $g->id) }}" method="POST">
+                            @csrf
+                            <div class="modal-header border-0 pb-0">
+                                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square text-primary me-2"></i>Edit Guest Donation</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body py-3">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Donor Full Name</label>
+                                    <input type="text" name="donor_name" class="form-control rounded-3" value="{{ $g->donor_name }}" required>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Email</label>
+                                        <input type="email" name="email" class="form-control rounded-3" value="{{ $g->email }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Mobile</label>
+                                        <input type="text" name="mobile" class="form-control rounded-3" value="{{ $g->mobile }}">
+                                    </div>
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
+                                        <input type="number" step="0.01" name="amount" class="form-control rounded-3" value="{{ $g->amount }}" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Donation Date</label>
+                                        <input type="date" name="donation_date" class="form-control rounded-3" value="{{ $g->donation_date }}" required>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Purpose</label>
+                                    <input type="text" name="purpose" class="form-control rounded-3" value="{{ $g->purpose }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Event (Optional)</label>
+                                    <select name="event_id" class="form-select rounded-3">
+                                        <option value="">-- General Fund --</option>
+                                        @foreach($events as $event)
+                                            <option value="{{ $event->event_id }}" {{ $g->event_id == $event->event_id ? 'selected' : '' }}>{{ $event->event_name }} ({{ date('d M Y', strtotime($event->event_date)) }})</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Purpose Details / Notes</label>
+                                    <input type="text" name="purpose_details" class="form-control rounded-3" value="{{ $g->purpose_details }}">
+                                </div>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Payment Method</label>
+                                        <select name="payment_method" class="form-select rounded-3" required>
+                                            @foreach(['Cash', 'UPI', 'Bank', 'Stripe'] as $method)
+                                                <option value="{{ $method }}" {{ $g->payment_method === $method ? 'selected' : '' }}>{{ $method }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Payment Status</label>
+                                        <select name="payment_status" class="form-select rounded-3" required>
+                                            @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
+                                                <option value="{{ $status }}" {{ $g->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Transaction ID / Reference</label>
+                                    <input type="text" name="transaction_id" class="form-control rounded-3" value="{{ $g->transaction_id }}">
+                                </div>
+                            </div>
+                            <div class="modal-footer border-0 pt-0">
+                                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
+                                <button type="submit" class="btn btn-primary text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #2a6fdb, #548ee8); border:none;">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+            @endif
         </div>
 
         <!-- e-Hundi Offerings Pane -->

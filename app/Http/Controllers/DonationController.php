@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Setting;
+use App\Models\RolePermission;
+use App\Services\DonationReceiptService;
 use Stripe\StripeClient;
 use Stripe\Webhook;
 use Stripe\Exception\SignatureVerificationException;
@@ -19,9 +21,13 @@ class DonationController extends Controller
     public function manageDonations(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
+        if (!$user || !RolePermission::can($user->role, 'donations', 'view')) {
             abort(403, 'Unauthorized access.');
         }
+
+        $canAddDonation = RolePermission::can($user->role, 'donations', 'add');
+        $canEditDonation = RolePermission::can($user->role, 'donations', 'edit');
+        $canDeleteDonation = RolePermission::can($user->role, 'donations', 'delete');
 
         // Fetch Devotee Donations
         $devoteeDonations = DB::table('donations')
@@ -77,7 +83,10 @@ class DonationController extends Controller
             'ehundiTotal',
             'grandTotal',
             'devotees',
-            'events'
+            'events',
+            'canAddDonation',
+            'canEditDonation',
+            'canDeleteDonation'
         ));
     }
 
@@ -87,7 +96,7 @@ class DonationController extends Controller
     public function storeDevoteeDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
+        if (!$user || !RolePermission::can($user->role, 'donations', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -115,6 +124,23 @@ class DonationController extends Controller
                 'updated_at' => now(),
             ]);
 
+            $devoteeUser = DB::table('devotees')
+                ->join('users', 'devotees.user_id', '=', 'users.id')
+                ->where('devotees.devotee_id', $validated['devotee_id'])
+                ->select('users.name', 'users.email')
+                ->first();
+
+            DonationReceiptService::send([
+                'donor_name' => $devoteeUser->name ?? 'Devotee',
+                'donor_email' => $devoteeUser->email ?? null,
+                'amount' => $validated['amount'],
+                'payment_method' => $validated['payment_mode'],
+                'purpose' => $validated['remarks'] ?? 'General Temple Fund',
+                'event_id' => $validated['event_id'] ?? null,
+                'donation_date' => $validated['donation_date'],
+                'transaction_id' => $validated['transaction_id'] ?? null,
+            ]);
+
             return redirect()->back()->with('success', 'Devotee donation recorded successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to record donation: ' . $e->getMessage())->withInput();
@@ -127,7 +153,7 @@ class DonationController extends Controller
     public function storeGuestDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
+        if (!$user || !RolePermission::can($user->role, 'donations', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -168,10 +194,211 @@ class DonationController extends Controller
                 'updated_at' => now(),
             ]);
 
+            DonationReceiptService::send([
+                'donor_name' => $validated['donor_name'],
+                'donor_email' => $validated['email'] ?? null,
+                'amount' => $validated['amount'],
+                'payment_method' => $validated['payment_method'],
+                'purpose' => $validated['purpose_details'] ?? $validated['purpose'],
+                'event_id' => $validated['event_id'] ?? null,
+                'donation_date' => $validated['donation_date'],
+                'transaction_id' => $validated['transaction_id'] ?? null,
+            ]);
+
             return redirect()->back()->with('success', 'Guest donation recorded successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to record guest donation: ' . $e->getMessage())->withInput();
         }
+    }
+
+    /**
+     * Update a devotee-linked donation record.
+     */
+    public function updateDevoteeDonation(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'event_id' => 'nullable|exists:events,event_id',
+            'amount' => 'required|numeric|min:1',
+            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque',
+            'transaction_id' => 'nullable|string|max:100',
+            'remarks' => 'nullable|string|max:255',
+            'donation_date' => 'required|date',
+        ]);
+
+        $donation = DB::table('donations')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        DB::table('donations')->where('id', $id)->update([
+            'event_id' => $validated['event_id'] ?? null,
+            'amount' => $validated['amount'],
+            'payment_method' => $validated['payment_mode'],
+            'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
+            'remarks' => $validated['remarks'] ?? null,
+            'donation_date' => $validated['donation_date'],
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Devotee donation updated successfully.');
+    }
+
+    /**
+     * Delete a devotee-linked donation record.
+     */
+    public function deleteDevoteeDonation($id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $donation = DB::table('donations')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        DB::table('donations')->where('id', $id)->delete();
+
+        return redirect()->back()->with('success', 'Devotee donation deleted successfully.');
+    }
+
+    /**
+     * Update a guest donation record.
+     */
+    public function updateGuestDonation(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'donor_name' => 'required|string|max:255',
+            'event_id' => 'nullable|exists:events,event_id',
+            'email' => 'nullable|email|max:255',
+            'mobile' => 'nullable|string|max:20',
+            'amount' => 'required|numeric|min:1',
+            'purpose' => 'required|string|max:100',
+            'purpose_details' => 'nullable|string|max:255',
+            'payment_method' => 'required|string|in:Cash,UPI,Bank,Stripe',
+            'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
+            'transaction_id' => 'nullable|string|max:100',
+            'donation_date' => 'required|date',
+        ]);
+
+        $donation = DB::table('donations_without_logins')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        DB::table('donations_without_logins')->where('id', $id)->update([
+            'donor_name' => $validated['donor_name'],
+            'event_id' => $validated['event_id'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'mobile' => $validated['mobile'] ?? null,
+            'amount' => $validated['amount'],
+            'purpose' => $validated['purpose'],
+            'purpose_details' => $validated['purpose_details'] ?? null,
+            'payment_method' => $validated['payment_method'],
+            'payment_status' => $validated['payment_status'],
+            'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
+            'donation_date' => $validated['donation_date'],
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Guest donation updated successfully.');
+    }
+
+    /**
+     * Delete a guest donation record.
+     */
+    public function deleteGuestDonation($id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $donation = DB::table('donations_without_logins')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        DB::table('donations_without_logins')->where('id', $id)->delete();
+
+        return redirect()->back()->with('success', 'Guest donation deleted successfully.');
+    }
+
+    /**
+     * Manually resend the donation receipt email for an existing donation record
+     * (devotee-linked or guest) — e.g. if the original send failed or the donor
+     * asks for another copy.
+     */
+    public function resendReceipt(Request $request, $type, $id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'view')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        if ($type === 'devotee') {
+            $donation = DB::table('donations')
+                ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
+                ->join('users', 'devotees.user_id', '=', 'users.id')
+                ->where('donations.id', $id)
+                ->select('donations.*', 'users.name as donor_name', 'users.email')
+                ->first();
+
+            if (!$donation) {
+                return redirect()->back()->with('error', 'Donation not found.');
+            }
+
+            if (!$donation->email) {
+                return redirect()->back()->with('error', 'This devotee has no email address on file — cannot resend a receipt.');
+            }
+
+            DonationReceiptService::send([
+                'donor_name' => $donation->donor_name,
+                'donor_email' => $donation->email,
+                'amount' => $donation->amount,
+                'payment_method' => $donation->payment_method,
+                'purpose' => $donation->remarks ?? 'General Temple Fund',
+                'event_id' => $donation->event_id,
+                'donation_date' => $donation->donation_date,
+                'transaction_id' => $donation->transaction_id,
+            ]);
+        } elseif ($type === 'guest') {
+            $donation = DB::table('donations_without_logins')->where('id', $id)->first();
+
+            if (!$donation) {
+                return redirect()->back()->with('error', 'Donation not found.');
+            }
+
+            if (!$donation->email) {
+                return redirect()->back()->with('error', 'This donor has no email address on file — cannot resend a receipt.');
+            }
+
+            DonationReceiptService::send([
+                'donor_name' => $donation->donor_name,
+                'donor_email' => $donation->email,
+                'amount' => $donation->amount,
+                'payment_method' => $donation->payment_method,
+                'purpose' => $donation->purpose_details ?? $donation->purpose,
+                'event_id' => $donation->event_id,
+                'donation_date' => $donation->donation_date,
+                'transaction_id' => $donation->transaction_id,
+            ]);
+        } else {
+            return redirect()->back()->with('error', 'Invalid donation type.');
+        }
+
+        return redirect()->back()->with('success', 'Receipt email resent successfully.');
     }
 
     /**
@@ -224,6 +451,18 @@ class DonationController extends Controller
         } elseif ($validated['payment_method'] === 'Cash') {
             $message = 'Thank you! Your pledge of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' has been recorded. Please hand your offering to the temple counter.';
         }
+
+        DonationReceiptService::send([
+            'donor_name' => $validated['donor_name'],
+            'donor_email' => $validated['email'] ?? null,
+            'amount' => $validated['amount'],
+            'currency' => $currency,
+            'payment_method' => $validated['payment_method'],
+            'purpose' => $validated['purpose_details'] ?? $validated['purpose'],
+            'event_id' => $validated['event_id'] ?? null,
+            'donation_date' => now()->toDateString(),
+            'transaction_id' => $validated['transaction_id'] ?? null,
+        ]);
 
         return redirect()->back()->with('success_donation', $message);
     }
@@ -322,10 +561,26 @@ class DonationController extends Controller
             }
 
             if ($session->payment_status === 'paid') {
-                DB::table('donations_without_logins')->where('id', $donation->id)->update([
-                    'payment_status' => 'Paid',
-                    'updated_at' => now(),
-                ]);
+                // Guarded by payment_status != 'Paid' so that if the webhook already flipped
+                // this donation to Paid a moment earlier, this update (and therefore the
+                // receipt email below) is skipped — avoids sending the receipt twice.
+                $justConfirmed = DB::table('donations_without_logins')
+                    ->where('id', $donation->id)
+                    ->where('payment_status', '!=', 'Paid')
+                    ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
+
+                if ($justConfirmed) {
+                    DonationReceiptService::send([
+                        'donor_name' => $donation->donor_name,
+                        'donor_email' => $donation->email,
+                        'amount' => $donation->amount,
+                        'payment_method' => 'Stripe',
+                        'purpose' => $donation->purpose_details ?? $donation->purpose,
+                        'event_id' => $donation->event_id,
+                        'donation_date' => $donation->donation_date,
+                        'transaction_id' => $donation->transaction_id,
+                    ]);
+                }
             } else {
                 return redirect()->route('home')->with('error', 'Payment was not completed.');
             }
@@ -376,10 +631,28 @@ class DonationController extends Controller
 
         $sessionId = $event->data->object->id ?? null;
         if (($event->type ?? null) === 'checkout.session.completed' && $sessionId) {
-            DB::table('donations_without_logins')
+            // Guarded by payment_status != 'Paid' so that if the donor's own browser already
+            // confirmed via stripeSuccess(), this update (and the receipt email) is skipped.
+            $justConfirmed = DB::table('donations_without_logins')
                 ->where('transaction_id', $sessionId)
                 ->where('payment_status', '!=', 'Paid')
                 ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
+
+            if ($justConfirmed) {
+                $donation = DB::table('donations_without_logins')->where('transaction_id', $sessionId)->first();
+                if ($donation) {
+                    DonationReceiptService::send([
+                        'donor_name' => $donation->donor_name,
+                        'donor_email' => $donation->email,
+                        'amount' => $donation->amount,
+                        'payment_method' => 'Stripe',
+                        'purpose' => $donation->purpose_details ?? $donation->purpose,
+                        'event_id' => $donation->event_id,
+                        'donation_date' => $donation->donation_date,
+                        'transaction_id' => $donation->transaction_id,
+                    ]);
+                }
+            }
         }
 
         return response('OK', 200);

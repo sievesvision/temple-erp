@@ -219,6 +219,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $donationBsb = \App\Models\Setting::get('donation_bsb', '064 000');
         $donationAccountNumber = \App\Models\Setting::get('donation_account_number', '00906257');
         $donationReceiptEmail = \App\Models\Setting::get('donation_receipt_email', 'hasq.president@gmail.com');
+        $donationCoordinatorEmails = \App\Models\Setting::get('donation_coordinator_emails', '');
         $currencyCode = \App\Models\Setting::get('currency_code', 'AUD');
         $templeLogo = \App\Models\Setting::get('temple_logo', asset('images/logo.gif'));
         $adminLogoIcon = \App\Models\Setting::get('admin_logo_icon', asset('images/logo.gif'));
@@ -260,6 +261,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'donationBsb',
             'donationAccountNumber',
             'donationReceiptEmail',
+            'donationCoordinatorEmails',
             'currencyCode',
             'templeLogo',
             'adminLogoIcon',
@@ -304,6 +306,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'donation_bsb' => 'required|string|max:20',
             'donation_account_number' => 'required|string|max:30',
             'donation_receipt_email' => 'required|email|max:255',
+            'donation_coordinator_emails' => 'nullable|string|max:1000',
             'currency_code' => 'required|string|size:3',
             'temple_logo' => 'nullable|string|max:500',
             'admin_logo_icon' => 'nullable|string|max:500',
@@ -364,6 +367,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('donation_bsb', $request->donation_bsb);
         \App\Models\Setting::set('donation_account_number', $request->donation_account_number);
         \App\Models\Setting::set('donation_receipt_email', $request->donation_receipt_email);
+        \App\Models\Setting::set('donation_coordinator_emails', $request->donation_coordinator_emails ?? '');
         \App\Models\Setting::set('currency_code', strtoupper($request->currency_code));
         \App\Models\Setting::set('temple_logo', $normalizeImagePath($request->temple_logo));
         \App\Models\Setting::set('admin_logo_icon', $normalizeImagePath($request->admin_logo_icon));
@@ -424,7 +428,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
 });
 
 // ============================================
-// DONATIONS / BOOKINGS / EVENTS MANAGEMENT (Admin + Committee)
+// BOOKINGS / EVENTS MANAGEMENT (Admin + Committee)
 // ============================================
 Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     // Admin Booking Management Routes
@@ -438,11 +442,23 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/event/store', [\App\Http\Controllers\EventController::class, 'store'])->name('admin.events.store');
     Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
     Route::delete('/admin/event/delete/{id}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('admin.events.delete');
+});
 
-    // Donation Management Routes
+// ============================================
+// DONATIONS MANAGEMENT (Admin + Committee + Accountant)
+// Route access is intentionally broader than the actual view/add/edit/delete
+// capability — the Role Permissions grid ("Donations" resource) decides what
+// each of these roles can actually do once inside; see DonationController.
+// ============================================
+Route::middleware(['auth', 'role:Admin,Committee,Accountant'])->group(function () {
     Route::get('/admin/manage-donations', [\App\Http\Controllers\DonationController::class, 'manageDonations'])->name('admin.donations.index');
     Route::post('/admin/donation/store-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.donations.storeDevotee');
     Route::post('/admin/donation/store-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.donations.storeGuest');
+    Route::post('/admin/donation/update-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'updateDevoteeDonation'])->name('admin.donations.updateDevotee');
+    Route::post('/admin/donation/update-guest/{id}', [\App\Http\Controllers\DonationController::class, 'updateGuestDonation'])->name('admin.donations.updateGuest');
+    Route::delete('/admin/donation/delete-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'deleteDevoteeDonation'])->name('admin.donations.deleteDevotee');
+    Route::delete('/admin/donation/delete-guest/{id}', [\App\Http\Controllers\DonationController::class, 'deleteGuestDonation'])->name('admin.donations.deleteGuest');
+    Route::post('/admin/donation/resend-receipt/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'resendReceipt'])->name('admin.donations.resendReceipt');
 });
 
 // ============================================
