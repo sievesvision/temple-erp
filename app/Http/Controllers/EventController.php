@@ -25,7 +25,7 @@ class EventController extends Controller
         $stripeEnabled = (bool) Setting::get('stripe_enabled', true);
 
         $raised = DB::table('donations_without_logins')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount')
-            + DB::table('donations')->where('event_id', $event->event_id)->sum('amount');
+            + DB::table('donations')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount');
 
         $donationOptions = $event->donationOptions;
 

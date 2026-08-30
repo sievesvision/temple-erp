@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeMail;
 use App\Models\Setting;
 use App\Models\RolePermission;
-use App\Services\DonationReceiptService;
 
 
 class DevoteeController extends Controller
@@ -71,6 +70,7 @@ public function dashboard(Request $request)
 
     $totalDonation = DB::table('donations')
         ->where('devotee_id',$devotee->devotee_id)
+        ->where('payment_status', 'Paid')
         ->sum('amount');
 
 
@@ -491,14 +491,6 @@ public function dashboard(Request $request)
             $amount = $bookings->sum('total_amount');
             $title = 'Pooja Booking Payment';
             $remarks = 'Pooja Booking #' . implode(', #', $bookingIds);
-        } elseif ($type === 'donation') {
-            $amount = floatval($request->get('amount', 0));
-            $purpose = $request->get('purpose', 'General Temple Fund');
-            if ($amount <= 0) {
-                return redirect()->route('devotee.dashboard')->with('error', 'Invalid donation amount.');
-            }
-            $title = 'Temple Donation';
-            $remarks = 'Donation for ' . $purpose;
         } elseif ($type === 'membership') {
             if (!RolePermission::can('Devotee', 'membership', 'add')) {
                 return redirect()->route('devotee.dashboard')->with('error', 'Membership self-service is not available. Please contact the temple office.');
@@ -602,38 +594,6 @@ public function dashboard(Request $request)
                 DB::commit();
                 return redirect()->route('devotee.dashboard')
                     ->with('success', 'Payment successful! Your bookings have been paid and confirmed.');
-            } elseif ($type === 'donation') {
-                $amount = floatval($request->input('amount'));
-                $purpose = $request->input('purpose');
-                $transactionId = 'TXN' . strtoupper(uniqid());
-
-                DB::table('donations')->insert([
-                    'devotee_id' => $devotee->devotee_id,
-                    'amount' => $amount,
-                    'purpose' => $purpose,
-                    'payment_method' => 'UPI',
-                    'payment_status' => 'Paid',
-                    'transaction_id' => $transactionId,
-                    'remarks' => 'Donation for ' . $purpose . ' (UPI QR)',
-                    'donation_date' => now(),
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-
-                DB::commit();
-
-                DonationReceiptService::send([
-                    'donor_name' => $user->name,
-                    'donor_email' => $user->email,
-                    'amount' => $amount,
-                    'payment_method' => 'UPI',
-                    'purpose' => $purpose,
-                    'donation_date' => now()->toDateString(),
-                    'transaction_id' => $transactionId,
-                ]);
-
-                return redirect()->route('devotee.dashboard')
-                    ->with('success', 'Thank you! Your donation of ' . Setting::get('currency_code', 'AUD') . ' ' . number_format($amount, 2) . ' has been received successfully.');
             } elseif ($type === 'membership') {
                 if (!RolePermission::can('Devotee', 'membership', 'add')) {
                     DB::rollBack();

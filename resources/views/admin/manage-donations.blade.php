@@ -312,6 +312,7 @@
                             <th>Transaction ID</th>
                             <th>Date</th>
                             <th>Remarks</th>
+                            <th>Status</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
@@ -329,8 +330,22 @@
                             <td><code class="small text-dark">{{ $d->transaction_id }}</code></td>
                             <td>{{ date('d M Y', strtotime($d->donation_date)) }}</td>
                             <td><span class="text-muted small">{{ $d->remarks ?? 'N/A' }}</span></td>
+                            <td>
+                                @php
+                                    $devoteeStatusColor = ['Paid' => 'success', 'Pending' => 'warning', 'Cancelled' => 'secondary', 'Failed' => 'danger'][$d->payment_status] ?? 'secondary';
+                                @endphp
+                                <span class="badge bg-{{ $devoteeStatusColor }} bg-opacity-10 text-{{ $devoteeStatusColor }} px-3 py-2 rounded-pill">{{ $d->payment_status }}</span>
+                            </td>
                             <td class="text-end">
-                                @if($d->email)
+                                @if($canEditDonation && $d->payment_status === 'Pending' && in_array($d->payment_method, ['Bank Transfer', 'Bank', 'Cash']))
+                                <form action="{{ route('admin.donations.approveDevotee', $d->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
+                                    @csrf
+                                    <button type="submit" class="btn-action-approve" title="Approve this donation as received">
+                                        <i class="bi bi-check-circle"></i> Approve
+                                    </button>
+                                </form>
+                                @endif
+                                @if($d->email && $d->payment_status === 'Paid')
                                 <form action="{{ route('admin.donations.resendReceipt', ['type' => 'devotee', 'id' => $d->id]) }}" method="POST" class="d-inline">
                                     @csrf
                                     <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $d->email }}">
@@ -356,7 +371,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center text-muted py-5">
+                            <td colspan="10" class="text-center text-muted py-5">
                                 <i class="bi bi-cash fs-1 d-block mb-2 text-warning"></i>
                                 No devotee donations found.
                             </td>
@@ -395,13 +410,23 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Payment Mode</label>
-                                    <select name="payment_mode" class="form-select rounded-3" required>
-                                        @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque'] as $mode)
-                                            <option value="{{ $mode }}" {{ $d->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
-                                        @endforeach
-                                    </select>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Payment Mode</label>
+                                        <select name="payment_mode" class="form-select rounded-3" required>
+                                            @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $mode)
+                                                <option value="{{ $mode }}" {{ $d->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Payment Status</label>
+                                        <select name="payment_status" class="form-select rounded-3" required>
+                                            @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
+                                                <option value="{{ $status }}" {{ $d->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Transaction ID / Reference</label>

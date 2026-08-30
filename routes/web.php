@@ -460,6 +460,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant'])->group(function (
     Route::delete('/admin/donation/delete-guest/{id}', [\App\Http\Controllers\DonationController::class, 'deleteGuestDonation'])->name('admin.donations.deleteGuest');
     Route::post('/admin/donation/resend-receipt/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'resendReceipt'])->name('admin.donations.resendReceipt');
     Route::post('/admin/donation/approve-guest/{id}', [\App\Http\Controllers\DonationController::class, 'approveGuestDonation'])->name('admin.donations.approveGuest');
+    Route::post('/admin/donation/approve-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'approveDevoteeDonation'])->name('admin.donations.approveDevotee');
 });
 
 // ============================================
@@ -485,6 +486,10 @@ Route::middleware(['auth', 'role.devotee'])->group(function () {
     // Devotee Payment Routes
     Route::get('/devotee/payment', [DevoteeController::class, 'showPaymentPage'])->name('devotee.payment');
     Route::post('/devotee/payment/process', [DevoteeController::class, 'processPayment'])->name('devotee.payment.process');
+
+    // Devotee Donation Routes (same Bank/Cash/Online flow as the public donation pages)
+    Route::get('/devotee/donate', [\App\Http\Controllers\DonationController::class, 'showDevoteeDonatePage'])->name('devotee.donate');
+    Route::post('/devotee/donate', [\App\Http\Controllers\DonationController::class, 'storeDevoteeSelfDonation'])->name('devotee.donate.post');
 
     // Devotee Chatbot Routes
     Route::get('/devotee/chat/session', [\App\Http\Controllers\ChatController::class, 'getSession'])->name('devotee.chat.session');

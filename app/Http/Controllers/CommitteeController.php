@@ -19,7 +19,7 @@ class CommitteeController extends Controller
      */
     public function dashboard()
     {
-        $donationsTotal = DB::table('donations')->sum('amount') + DB::table('donations_without_logins')->where('payment_status', 'Paid')->sum('amount');
+        $donationsTotal = DB::table('donations')->where('payment_status', 'Paid')->sum('amount') + DB::table('donations_without_logins')->where('payment_status', 'Paid')->sum('amount');
         $bookingsCount = DB::table('pooja_bookings')->count();
         $upcomingEventsCount = DB::table('events')->where('event_date', '>=', now()->toDateString())->count();
 

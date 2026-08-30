@@ -387,12 +387,17 @@
               <tbody>
                 @forelse($recentDonations as $donation)
                 <tr>
-                  <td><strong>DN{{ str_pad($donation->donation_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                  <td><strong>DN{{ str_pad($donation->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                   <td class="fw-bold">{{ $temple['currency'] }} {{ number_format($donation->amount) }}</td>
-                  <td>{{ $donation->payment_mode }}</td>
+                  <td>{{ $donation->payment_method }}</td>
                   <td><code class="small">{{ $donation->transaction_id ?? 'N/A' }}</code></td>
                   <td>{{ date('d M Y h:i A', strtotime($donation->donation_date)) }}</td>
-                  <td><span class="badge bg-success">Completed</span></td>
+                  <td>
+                    @php
+                        $donationStatusColor = ['Paid' => 'success', 'Pending' => 'warning', 'Cancelled' => 'secondary', 'Failed' => 'danger'][$donation->payment_status] ?? 'success';
+                    @endphp
+                    <span class="badge bg-{{ $donationStatusColor }}">{{ $donation->payment_status === 'Paid' ? 'Completed' : $donation->payment_status }}</span>
+                  </td>
                 </tr>
                 @empty
                 <tr>
@@ -407,24 +412,10 @@
       <div class="col-lg-4">
         <div class="card border-0 shadow-sm rounded-4 p-4 border-start border-warning border-3" style="background: white;">
           <h5 class="fw-bold mb-3"><i class="bi bi-heart-pulse-fill text-danger me-2"></i>Make a Donation</h5>
-          <p class="text-muted small">Contribute generously to the maintenance of the temple and ongoing development programs.</p>
-          <form action="{{ route('devotee.payment') }}" method="GET">
-            <input type="hidden" name="type" value="donation">
-            <div class="mb-3">
-              <label class="form-label fw-semibold">Amount ({{ $temple['currency'] }})</label>
-              <input type="number" name="amount" id="donAmt" class="form-control rounded-3" value="1000" min="10" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label fw-semibold">Purpose</label>
-              <select name="purpose" class="form-select rounded-3">
-                <option value="General Temple Fund">General Temple Fund</option>
-                <option value="Annadhanam (Free Meals)">Annadhanam (Free Meals)</option>
-                <option value="Goshala (Cow Shelter)">Goshala (Cow Shelter)</option>
-                <option value="Festival Celebrations">Festival Celebrations</option>
-              </select>
-            </div>
-            <button type="submit" class="btn btn-warning w-100 rounded-pill fw-semibold">Donate Now</button>
-          </form>
+          <p class="text-muted small">Contribute generously to the maintenance of the temple and ongoing development programs — by Bank Transfer, Cash at Temple, or Online Payment.</p>
+          <a href="{{ route('devotee.donate') }}" class="btn btn-warning w-100 rounded-pill fw-semibold">
+            <i class="bi bi-heart-fill me-1"></i> Make a Donation
+          </a>
         </div>
       </div>
     </div>

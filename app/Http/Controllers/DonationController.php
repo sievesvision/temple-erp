@@ -47,9 +47,11 @@ class DonationController extends Controller
             ->orderBy('donations_without_logins.created_at', 'desc')
             ->get();
 
-        // Calculate Totals (guest total only counts settled donations — Stripe attempts that
-        // are still Pending, or ended up Cancelled/Failed, don't count as money received)
-        $devoteeTotal = $devoteeDonations->sum('amount');
+        // Calculate Totals — both only count settled donations. Bank/Cash sit as 'Pending'
+        // until an admin approves them (see approveGuestDonation()/approveDevoteeDonation()),
+        // and Stripe attempts that are still Pending or ended up Cancelled/Failed don't count
+        // as money received either.
+        $devoteeTotal = $devoteeDonations->where('payment_status', 'Paid')->sum('amount');
         $guestTotal = $guestDonations->where('payment_status', 'Paid')->sum('amount');
         $ehundiTotal = DB::table('ehundis')->sum('amount') ?: 0;
         $grandTotal = $devoteeTotal + $guestTotal + $ehundiTotal;
@@ -224,7 +226,8 @@ class DonationController extends Controller
         $validated = $request->validate([
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
-            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque',
+            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,Stripe',
+            'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'remarks' => 'nullable|string|max:255',
             'donation_date' => 'required|date',
@@ -239,6 +242,7 @@ class DonationController extends Controller
             'event_id' => $validated['event_id'] ?? null,
             'amount' => $validated['amount'],
             'payment_method' => $validated['payment_mode'],
+            'payment_status' => $validated['payment_status'],
             'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
             'remarks' => $validated['remarks'] ?? null,
             'donation_date' => $validated['donation_date'],
@@ -444,6 +448,125 @@ class DonationController extends Controller
     }
 
     /**
+     * Approve/verify a devotee's own Bank Transfer or Cash at Temple donation — the same
+     * confirm-before-it-counts rule as approveGuestDonation(), just for the devotee-linked
+     * 'donations' table instead of the guest table.
+     */
+    public function approveDevoteeDonation($id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $donation = DB::table('donations')
+            ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
+            ->join('users', 'devotees.user_id', '=', 'users.id')
+            ->where('donations.id', $id)
+            ->select('donations.*', 'users.name as donor_name', 'users.email')
+            ->first();
+
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if ($donation->payment_status !== 'Pending') {
+            return redirect()->back()->with('error', 'Only pending donations can be approved.');
+        }
+
+        DB::table('donations')->where('id', $id)->update([
+            'payment_status' => 'Paid',
+            'updated_at' => now(),
+        ]);
+
+        DonationReceiptService::send([
+            'donor_name' => $donation->donor_name,
+            'donor_email' => $donation->email,
+            'amount' => $donation->amount,
+            'payment_method' => $donation->payment_method,
+            'purpose' => $donation->remarks ?: $donation->purpose,
+            'event_id' => $donation->event_id,
+            'donation_date' => $donation->donation_date,
+            'transaction_id' => $donation->transaction_id,
+        ]);
+
+        return redirect()->back()->with('success', 'Donation approved and marked as received.');
+    }
+
+    /**
+     * The logged-in devotee's own donation page — same Bank/Cash/Online tabs used on the
+     * homepage and event pages, so the experience matches everywhere donations are made.
+     */
+    public function showDevoteeDonatePage(Request $request)
+    {
+        $user = Auth::user();
+        $devotee = DB::table('devotees')->where('user_id', $user->id)->first();
+        if (!$devotee) {
+            return redirect()->route('devotee.dashboard')->with('error', 'Devotee profile not found.');
+        }
+
+        $temple = Setting::templeBranding();
+        $stripeEnabled = (bool) Setting::get('stripe_enabled', true);
+        $events = DB::table('events')->where('status', 'Upcoming')->orderBy('event_date', 'asc')->get();
+
+        return view('devotee.donate', compact('temple', 'stripeEnabled', 'events', 'user'));
+    }
+
+    /**
+     * Store a donation made by a logged-in devotee — same Bank/Cash/Online options as the
+     * public donation form, but linked to the devotee's own account (devotee_id) rather than
+     * recorded as a guest. Bank/Cash sit as 'Pending' until an admin approves them, same as
+     * the guest flow; Online Payment goes through the same Stripe Checkout as everywhere else.
+     */
+    public function storeDevoteeSelfDonation(Request $request)
+    {
+        $user = Auth::user();
+        $devotee = DB::table('devotees')->where('user_id', $user->id)->first();
+        if (!$devotee) {
+            return redirect()->route('devotee.dashboard')->with('error', 'Devotee profile not found.');
+        }
+
+        $validated = $request->validate([
+            'event_id' => 'nullable|exists:events,event_id',
+            'amount' => 'required|numeric|min:1',
+            'purpose' => 'required|string|max:255',
+            'purpose_details' => 'nullable|string|max:255',
+            'payment_method' => 'required|in:Bank,Cash,Stripe',
+        ]);
+
+        if ($validated['payment_method'] === 'Stripe') {
+            $validated['email'] = $user->email;
+            return $this->startStripeCheckout($validated, $devotee->devotee_id);
+        }
+
+        // Same 'Pending until approved' rule as the guest donation flow — see storePublic().
+        DB::table('donations')->insert([
+            'devotee_id' => $devotee->devotee_id,
+            'event_id' => $validated['event_id'] ?? null,
+            'amount' => $validated['amount'],
+            'purpose' => $validated['purpose'],
+            'payment_method' => $validated['payment_method'],
+            'payment_status' => 'Pending',
+            'remarks' => $validated['purpose_details'] ?? null,
+            'transaction_id' => strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid()),
+            'donation_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $currency = Setting::get('currency_code', 'AUD');
+        $message = 'Thank you! Your donation of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' has been recorded and is pending confirmation.';
+
+        if ($validated['payment_method'] === 'Bank') {
+            $message = 'Thank you! Please complete your bank transfer using the details shown. Your donation will be confirmed once we verify the transfer, and a receipt will be emailed to you then.';
+        } elseif ($validated['payment_method'] === 'Cash') {
+            $message = 'Thank you! Your pledge has been recorded. Please hand your offering to the temple counter — a receipt will be emailed to you once it is confirmed.';
+        }
+
+        return redirect()->route('devotee.dashboard')->with('success', $message);
+    }
+
+    /**
      * Store a public donation (no login required) — general fund or tied to a specific event.
      * Covers all three donor-facing options: Bank Transfer, Cash at Temple, and Online Payment.
      */
@@ -508,32 +631,54 @@ class DonationController extends Controller
      * Create a Stripe Checkout Session for an online donation and redirect the donor to it.
      * A 'Pending' row is inserted first (keyed by the Checkout Session id) so the success
      * callback and the webhook both have something to flip to 'Paid' — neither one inserts.
+     *
+     * Pass $devoteeId when this is a logged-in devotee's own donation — the pending row goes
+     * into the devotee-linked 'donations' table instead of the guest 'donations_without_logins'
+     * table, so it's correctly attributed to their account from the start.
      */
-    private function startStripeCheckout(array $validated)
+    private function startStripeCheckout(array $validated, ?int $devoteeId = null)
     {
         if (!Setting::get('stripe_enabled', true) || !config('services.stripe.secret')) {
             return redirect()->back()->with('error', 'Online payment is currently unavailable. Please choose Bank Transfer or Cash at Temple instead.')->withInput();
         }
 
-        $donationId = DB::table('donations_without_logins')->insertGetId([
-            'donor_name' => $validated['donor_name'],
-            'event_id' => $validated['event_id'] ?? null,
-            'email' => $validated['email'] ?? null,
-            'mobile' => $validated['mobile'] ?? null,
-            'amount' => $validated['amount'],
-            'purpose' => $validated['purpose'],
-            'purpose_details' => $validated['purpose_details'] ?? null,
-            'payment_method' => 'Stripe',
-            'payment_status' => 'Pending',
-            'transaction_id' => null,
-            'bank_name' => null,
-            'bank_account_no' => null,
-            'bank_ifsc' => null,
-            'bank_branch' => null,
-            'donation_date' => now()->toDateString(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $table = $devoteeId ? 'donations' : 'donations_without_logins';
+
+        if ($devoteeId) {
+            $donationId = DB::table('donations')->insertGetId([
+                'devotee_id' => $devoteeId,
+                'event_id' => $validated['event_id'] ?? null,
+                'amount' => $validated['amount'],
+                'purpose' => $validated['purpose'],
+                'payment_method' => 'Stripe',
+                'payment_status' => 'Pending',
+                'remarks' => $validated['purpose_details'] ?? null,
+                'transaction_id' => null,
+                'donation_date' => now()->toDateString(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } else {
+            $donationId = DB::table('donations_without_logins')->insertGetId([
+                'donor_name' => $validated['donor_name'],
+                'event_id' => $validated['event_id'] ?? null,
+                'email' => $validated['email'] ?? null,
+                'mobile' => $validated['mobile'] ?? null,
+                'amount' => $validated['amount'],
+                'purpose' => $validated['purpose'],
+                'purpose_details' => $validated['purpose_details'] ?? null,
+                'payment_method' => 'Stripe',
+                'payment_status' => 'Pending',
+                'transaction_id' => null,
+                'bank_name' => null,
+                'bank_account_no' => null,
+                'bank_ifsc' => null,
+                'bank_branch' => null,
+                'donation_date' => now()->toDateString(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         $currency = strtolower(Setting::get('currency_code', 'AUD'));
         $templeName = Setting::get('temple_name', 'Temple Donation');
@@ -555,21 +700,77 @@ class DonationController extends Controller
                     'quantity' => 1,
                 ]],
                 'success_url' => route('donate.stripe.success') . '?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url' => route('donate.stripe.cancel', ['donation' => $donationId]),
-                'metadata' => ['donation_id' => (string) $donationId],
+                'cancel_url' => route('donate.stripe.cancel', ['donation' => $donationId, 'table' => $table]),
+                'metadata' => ['donation_id' => (string) $donationId, 'table' => $table],
             ]);
         } catch (\Exception $e) {
-            DB::table('donations_without_logins')->where('id', $donationId)->update(['payment_status' => 'Failed', 'updated_at' => now()]);
+            DB::table($table)->where('id', $donationId)->update(['payment_status' => 'Failed', 'updated_at' => now()]);
             Log::error('Stripe checkout session creation failed: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Unable to start the online payment right now. Please try Bank Transfer or Cash at Temple instead.')->withInput();
         }
 
-        DB::table('donations_without_logins')->where('id', $donationId)->update([
+        DB::table($table)->where('id', $donationId)->update([
             'transaction_id' => $session->id,
             'updated_at' => now(),
         ]);
 
         return redirect($session->url);
+    }
+
+    /**
+     * Find a Stripe-initiated donation by its Checkout Session id across both donation
+     * tables (guest and devotee-linked) — returns [tableName, row] or [null, null].
+     */
+    private function findStripeDonationByTransactionId(string $sessionId): array
+    {
+        $donation = DB::table('donations_without_logins')->where('transaction_id', $sessionId)->first();
+        if ($donation) {
+            return ['donations_without_logins', $donation];
+        }
+
+        $donation = DB::table('donations')->where('transaction_id', $sessionId)->first();
+        if ($donation) {
+            return ['donations', $donation];
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * Build the DonationReceiptService payload for a confirmed Stripe row, accounting for
+     * the different column shapes between the guest and devotee-linked donation tables.
+     */
+    private function receiptPayloadForRow(string $table, $donation): array
+    {
+        if ($table === 'donations') {
+            $devoteeUser = DB::table('devotees')
+                ->join('users', 'devotees.user_id', '=', 'users.id')
+                ->where('devotees.devotee_id', $donation->devotee_id)
+                ->select('users.name', 'users.email')
+                ->first();
+
+            return [
+                'donor_name' => $devoteeUser->name ?? 'Devotee',
+                'donor_email' => $devoteeUser->email ?? null,
+                'amount' => $donation->amount,
+                'payment_method' => 'Stripe',
+                'purpose' => $donation->remarks ?: $donation->purpose,
+                'event_id' => $donation->event_id,
+                'donation_date' => $donation->donation_date,
+                'transaction_id' => $donation->transaction_id,
+            ];
+        }
+
+        return [
+            'donor_name' => $donation->donor_name,
+            'donor_email' => $donation->email,
+            'amount' => $donation->amount,
+            'payment_method' => 'Stripe',
+            'purpose' => $donation->purpose_details ?? $donation->purpose,
+            'event_id' => $donation->event_id,
+            'donation_date' => $donation->donation_date,
+            'transaction_id' => $donation->transaction_id,
+        ];
     }
 
     /**
@@ -582,10 +783,15 @@ class DonationController extends Controller
             return redirect()->route('home')->with('error', 'Missing payment session.');
         }
 
-        $donation = DB::table('donations_without_logins')->where('transaction_id', $sessionId)->first();
+        [$table, $donation] = $this->findStripeDonationByTransactionId($sessionId);
         if (!$donation) {
             return redirect()->route('home')->with('error', 'We could not find that donation.');
         }
+
+        // Devotee-linked donations land back on their own dashboard; guest donations
+        // land back on the homepage, matching where each donation started.
+        $redirectRoute = $table === 'donations' ? 'devotee.dashboard' : 'home';
+        $flashKey = $table === 'donations' ? 'success' : 'success_donation';
 
         // The webhook may have already confirmed it — treat that as equally valid.
         if ($donation->payment_status !== 'Paid') {
@@ -594,37 +800,28 @@ class DonationController extends Controller
                 $session = $stripe->checkout->sessions->retrieve($sessionId);
             } catch (\Exception $e) {
                 Log::error('Stripe session verification failed: ' . $e->getMessage());
-                return redirect()->route('home')->with('error', 'Could not verify your payment. Please contact the temple office if you were charged.');
+                return redirect()->route($redirectRoute)->with('error', 'Could not verify your payment. Please contact the temple office if you were charged.');
             }
 
             if ($session->payment_status === 'paid') {
                 // Guarded by payment_status != 'Paid' so that if the webhook already flipped
                 // this donation to Paid a moment earlier, this update (and therefore the
                 // receipt email below) is skipped — avoids sending the receipt twice.
-                $justConfirmed = DB::table('donations_without_logins')
+                $justConfirmed = DB::table($table)
                     ->where('id', $donation->id)
                     ->where('payment_status', '!=', 'Paid')
                     ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
 
                 if ($justConfirmed) {
-                    DonationReceiptService::send([
-                        'donor_name' => $donation->donor_name,
-                        'donor_email' => $donation->email,
-                        'amount' => $donation->amount,
-                        'payment_method' => 'Stripe',
-                        'purpose' => $donation->purpose_details ?? $donation->purpose,
-                        'event_id' => $donation->event_id,
-                        'donation_date' => $donation->donation_date,
-                        'transaction_id' => $donation->transaction_id,
-                    ]);
+                    DonationReceiptService::send($this->receiptPayloadForRow($table, $donation));
                 }
             } else {
-                return redirect()->route('home')->with('error', 'Payment was not completed.');
+                return redirect()->route($redirectRoute)->with('error', 'Payment was not completed.');
             }
         }
 
         $currency = Setting::get('currency_code', 'AUD');
-        return redirect()->route('home')->with('success_donation', 'Thank you! Your donation of ' . $currency . ' ' . number_format($donation->amount, 2) . ' was received successfully via Stripe.');
+        return redirect()->route($redirectRoute)->with($flashKey, 'Thank you! Your donation of ' . $currency . ' ' . number_format($donation->amount, 2) . ' was received successfully via Stripe.');
     }
 
     /**
@@ -633,14 +830,18 @@ class DonationController extends Controller
     public function stripeCancel(Request $request)
     {
         $donationId = $request->query('donation');
+        $table = $request->query('table') === 'donations' ? 'donations' : 'donations_without_logins';
+
         if ($donationId) {
-            DB::table('donations_without_logins')
+            DB::table($table)
                 ->where('id', $donationId)
                 ->where('payment_status', 'Pending')
                 ->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
         }
 
-        return redirect()->route('home')->with('error', 'Your donation was cancelled — no payment was taken.');
+        $redirectRoute = $table === 'donations' ? 'devotee.dashboard' : 'home';
+
+        return redirect()->route($redirectRoute)->with('error', 'Your donation was cancelled — no payment was taken.');
     }
 
     /**
@@ -668,26 +869,19 @@ class DonationController extends Controller
 
         $sessionId = $event->data->object->id ?? null;
         if (($event->type ?? null) === 'checkout.session.completed' && $sessionId) {
-            // Guarded by payment_status != 'Paid' so that if the donor's own browser already
-            // confirmed via stripeSuccess(), this update (and the receipt email) is skipped.
-            $justConfirmed = DB::table('donations_without_logins')
-                ->where('transaction_id', $sessionId)
-                ->where('payment_status', '!=', 'Paid')
-                ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
+            [$table, $donation] = $this->findStripeDonationByTransactionId($sessionId);
 
-            if ($justConfirmed) {
-                $donation = DB::table('donations_without_logins')->where('transaction_id', $sessionId)->first();
-                if ($donation) {
-                    DonationReceiptService::send([
-                        'donor_name' => $donation->donor_name,
-                        'donor_email' => $donation->email,
-                        'amount' => $donation->amount,
-                        'payment_method' => 'Stripe',
-                        'purpose' => $donation->purpose_details ?? $donation->purpose,
-                        'event_id' => $donation->event_id,
-                        'donation_date' => $donation->donation_date,
-                        'transaction_id' => $donation->transaction_id,
-                    ]);
+            if ($table && $donation) {
+                // Guarded by payment_status != 'Paid' so that if the donor's own browser
+                // already confirmed via stripeSuccess(), this update (and the receipt email)
+                // is skipped.
+                $justConfirmed = DB::table($table)
+                    ->where('id', $donation->id)
+                    ->where('payment_status', '!=', 'Paid')
+                    ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
+
+                if ($justConfirmed) {
+                    DonationReceiptService::send($this->receiptPayloadForRow($table, $donation));
                 }
             }
         }

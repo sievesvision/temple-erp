@@ -1,8 +1,20 @@
 <!-- SIDEBAR -->
+@php
+    $adminLogoText = $temple['admin_logo_text'] ?? 'SSVK ERP';
+    $adminLogoSplitAt = strrpos($adminLogoText, ' ');
+    $adminLogoMain = $adminLogoSplitAt !== false ? substr($adminLogoText, 0, $adminLogoSplitAt) : $adminLogoText;
+    $adminLogoAccent = $adminLogoSplitAt !== false ? substr($adminLogoText, $adminLogoSplitAt + 1) : '';
+@endphp
 <aside class="sidebar" id="sidebar">
   <div class="logo-area">
-    <div class="logo-icon">🛕</div>
-    <div class="logo-text">Temple<span>Connect</span></div>
+    <div class="logo-icon">
+        @if(!empty($temple['admin_logo_icon']))
+            <img src="{{ $temple['admin_logo_icon'] }}" alt="{{ $adminLogoText }} logo" style="width:44px;height:44px;object-fit:contain;">
+        @else
+            🛕
+        @endif
+    </div>
+    <div class="logo-text">{{ $adminLogoMain }}@if($adminLogoAccent) <span>{{ $adminLogoAccent }}</span>@endif</div>
   </div>
 
   @php

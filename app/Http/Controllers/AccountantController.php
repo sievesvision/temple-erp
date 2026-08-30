@@ -18,7 +18,7 @@ class AccountantController extends Controller
         $user = Auth::user();
 
         // Income, Expenses, Payouts totals
-        $totalDonations = DB::table('donations')->sum('amount') + DB::table('donations_without_logins')->where('payment_status', 'Paid')->sum('amount');
+        $totalDonations = DB::table('donations')->where('payment_status', 'Paid')->sum('amount') + DB::table('donations_without_logins')->where('payment_status', 'Paid')->sum('amount');
         $totalBookingsRevenue = DB::table('pooja_bookings')->where('payment_status', 'Paid')->sum('total_amount');
         $totalIncome = $totalDonations + $totalBookingsRevenue;
         

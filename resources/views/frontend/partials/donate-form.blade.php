@@ -7,6 +7,9 @@
     $donationOptions = $donationOptions ?? collect();
     $useTiers = $lockedEvent && $donationOptions->isNotEmpty();
     $stripeEnabled = $stripeEnabled ?? true;
+    $prefillName = $prefillName ?? null;
+    $prefillEmail = $prefillEmail ?? null;
+    $lockContactFields = $lockContactFields ?? false;
 @endphp
 <div class="donate-tabs-card">
     <ul class="nav nav-pills donate-method-tabs mb-4" id="{{ $formId }}-tabs" role="tablist">
@@ -62,11 +65,11 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label for="{{ $formId }}-donor_name">Your name</label>
-                <input class="form-control" id="{{ $formId }}-donor_name" name="donor_name" required>
+                <input class="form-control" id="{{ $formId }}-donor_name" name="donor_name" value="{{ $prefillName ?? old('donor_name') }}" @if($lockContactFields) readonly @endif required>
             </div>
             <div class="col-md-6">
                 <label for="{{ $formId }}-email">Email for receipt</label>
-                <input class="form-control" id="{{ $formId }}-email" name="email" type="email">
+                <input class="form-control" id="{{ $formId }}-email" name="email" type="email" value="{{ $prefillEmail ?? old('email') }}" @if($lockContactFields) readonly @endif>
             </div>
             <div class="col-md-6">
                 <label for="{{ $formId }}-mobile">Mobile (optional)</label>

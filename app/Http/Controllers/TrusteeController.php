@@ -23,7 +23,7 @@ class TrusteeController extends Controller
         $totalPriests = DB::table('priests')->count();
         $totalBookings = DB::table('pooja_bookings')->count();
         $totalRevenue = DB::table('pooja_bookings')->where('payment_status', 'Paid')->sum('total_amount')
-            + DB::table('donations')->sum('amount')
+            + DB::table('donations')->where('payment_status', 'Paid')->sum('amount')
             + DB::table('donations_without_logins')->where('payment_status', 'Paid')->sum('amount');
 
         $today = date('Y-m-d');

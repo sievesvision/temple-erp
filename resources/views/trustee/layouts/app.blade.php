@@ -50,16 +50,17 @@
       border-bottom: 1px solid rgba(0,0,0,0.03);
     }
     .logo-icon {
-      background: linear-gradient(135deg, #b8863a, #d4a05a);
-      width: 40px;
-      height: 40px;
+      background: #fffaf2;
+      width: 52px;
+      height: 52px;
       border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-size: 22px;
+      color: #b8863a;
+      font-size: 26px;
       box-shadow: 0 6px 12px rgba(184, 134, 58, 0.2);
+      border: 1px solid rgba(184, 134, 58, 0.15);
     }
     .logo-text {
       font-weight: 700;

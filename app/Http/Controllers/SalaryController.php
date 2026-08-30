@@ -337,6 +337,7 @@ class SalaryController extends Controller
         $donationsEarnings = [];
         if (\Illuminate\Support\Facades\Schema::hasTable('donations')) {
             $donationsEarnings = DB::table('donations')
+                ->where('payment_status', 'Paid')
                 ->select(DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"), DB::raw("SUM(amount) as total_earnings"))
                 ->groupBy('month')
                 ->get();
