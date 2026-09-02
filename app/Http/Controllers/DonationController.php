@@ -58,6 +58,27 @@ class DonationController extends Controller
         $ehundiTotal = DB::table('ehundis')->sum('amount') ?: 0;
         $grandTotal = $devoteeTotal + $guestTotal + $ehundiTotal;
 
+        // Normalize both donation sources into one shape so the admin panel can list them
+        // in a single table/filter set, while $devoteeDonations/$guestDonations above are
+        // still passed through as-is for their type-specific edit modals.
+        $devoteeDonations->each(function ($d) {
+            $d->donation_type = 'devotee';
+            $d->display_id = 'DN' . str_pad($d->id, 5, '0', STR_PAD_LEFT);
+            $d->display_name = $d->devotee_name;
+            $d->display_purpose = $d->event_name ?? ($d->remarks ?: 'General Temple Fund');
+        });
+
+        $guestDonations->each(function ($g) {
+            $g->donation_type = 'guest';
+            $g->display_id = 'GD' . str_pad($g->id, 5, '0', STR_PAD_LEFT);
+            $g->display_name = $g->donor_name;
+            $g->display_purpose = $g->event_name ?? ($g->purpose_details ?: $g->purpose);
+        });
+
+        $allDonations = $devoteeDonations->concat($guestDonations)
+            ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
+            ->values();
+
         // Fetch e-Hundi Donations
         $ehundiDonations = DB::table('ehundis')
             ->leftJoin('devotees', 'ehundis.devotee_id', '=', 'devotees.devotee_id')
@@ -81,6 +102,7 @@ class DonationController extends Controller
         return view('admin.manage-donations', compact(
             'devoteeDonations',
             'guestDonations',
+            'allDonations',
             'ehundiDonations',
             'devoteeTotal',
             'guestTotal',

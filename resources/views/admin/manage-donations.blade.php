@@ -196,6 +196,25 @@
         background: #1f9d6a;
         color: white;
     }
+    .quick-filter-btn {
+        background: #faf8f5;
+        border: 1px solid #f0ece6;
+        color: #7b6b5a;
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 8px 18px;
+        border-radius: 40px;
+        transition: 0.2s;
+    }
+    .quick-filter-btn:hover {
+        background: #f0ece6;
+        color: #5a4e3e;
+    }
+    .quick-filter-btn.active {
+        background: linear-gradient(135deg, #b8863a, #d4a05a);
+        color: white;
+        border-color: transparent;
+    }
 </style>
 @endsection
 
@@ -286,10 +305,7 @@
     <div class="px-4 pt-3 border-bottom">
         <ul class="nav nav-tabs border-0" id="donationTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="devotee-tab" data-bs-toggle="tab" data-bs-target="#devotee-pane" type="button" role="tab"><i class="bi bi-people-fill text-warning me-1"></i>Devotee Donations</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="guest-tab" data-bs-toggle="tab" data-bs-target="#guest-pane" type="button" role="tab"><i class="bi bi-person-heart text-warning me-1"></i>Guest Donations</button>
+                <button class="nav-link active" id="all-donations-tab" data-bs-toggle="tab" data-bs-target="#all-donations-pane" type="button" role="tab"><i class="bi bi-wallet2 text-warning me-1"></i>All Donations</button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="ehundi-tab" data-bs-toggle="tab" data-bs-target="#ehundi-pane" type="button" role="tab"><i class="bi bi-coin text-warning me-1"></i>e-Hundi Offerings</button>
@@ -298,82 +314,139 @@
     </div>
 
     <div class="tab-content p-4" id="donationTabsContent">
-        <!-- Devotee Donations Pane -->
-        <div class="tab-pane fade show active" id="devotee-pane" role="tabpanel">
+        <!-- All Donations Pane -->
+        <div class="tab-pane fade show active" id="all-donations-pane" role="tabpanel">
+            <div class="d-flex flex-wrap gap-2 mb-3" id="donationQuickFilters">
+                <button type="button" class="quick-filter-btn active" data-filter="all">All</button>
+                <button type="button" class="quick-filter-btn" data-filter="type:devotee">Devotee Donations</button>
+                <button type="button" class="quick-filter-btn" data-filter="type:guest">Guest Donations</button>
+                <button type="button" class="quick-filter-btn" data-filter="status:pending">Pending</button>
+                <button type="button" class="quick-filter-btn" data-filter="status:paid">Approved</button>
+                <button type="button" class="quick-filter-btn" data-filter="status:cancelled">Stripe Cancelled</button>
+                <button type="button" class="quick-filter-btn" data-filter="status:failed">Stripe Failed</button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                <label class="small text-muted mb-0 fw-semibold">Date</label>
+                <input type="date" id="donationDateFrom" class="form-control form-control-sm rounded-3" style="width:150px;" title="From date">
+                <span class="text-muted small">to</span>
+                <input type="date" id="donationDateTo" class="form-control form-control-sm rounded-3" style="width:150px;" title="To date">
+                <button type="button" id="donationDateClear" class="btn btn-sm btn-outline-secondary rounded-3">Clear dates</button>
+            </div>
             <div class="table-responsive">
-                <table class="table align-middle">
+                <table class="table align-middle" id="allDonationsTable">
                     <thead>
                         <tr>
-                            <th>Donation ID</th>
-                            <th>Devotee Name</th>
+                            <th>Type</th>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Contact</th>
                             <th>Amount</th>
-                            <th>Event</th>
-                            <th>Payment Mode</th>
+                            <th>Event / Purpose</th>
+                            <th>Payment Method</th>
                             <th>Transaction ID</th>
                             <th>Date</th>
-                            <th>Remarks</th>
                             <th>Status</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($devoteeDonations as $d)
-                        <tr>
-                            <td><strong>DN{{ str_pad($d->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
+                        @forelse($allDonations as $row)
+                        <tr data-type="{{ $row->donation_type }}" data-status="{{ strtolower($row->payment_status) }}" data-method="{{ strtolower($row->payment_method) }}" data-date="{{ $row->donation_date }}">
                             <td>
-                                <div class="fw-semibold text-dark">{{ $d->devotee_name }}</div>
-                                <div class="text-muted small">{{ $d->mobile ?? 'No mobile' }}</div>
+                                @if($row->donation_type === 'devotee')
+                                    <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill"><i class="bi bi-people-fill me-1"></i>Devotee</span>
+                                @else
+                                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill"><i class="bi bi-person-heart me-1"></i>Guest</span>
+                                @endif
                             </td>
-                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($d->amount, 2) }}</span></td>
-                            <td>{{ $d->event_name ?? 'General Fund' }}</td>
-                            <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $d->payment_method }}</span></td>
-                            <td><code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $d->transaction_id }}">{{ $d->transaction_id }}</code></td>
-                            <td>{{ date('d M Y', strtotime($d->donation_date)) }}</td>
-                            <td><span class="text-muted small">{{ $d->remarks ?? 'N/A' }}</span></td>
+                            <td><strong>{{ $row->display_id }}</strong></td>
+                            <td><span class="fw-semibold text-dark">{{ $row->display_name }}</span></td>
+                            <td>
+                                <div class="small text-dark">{{ $row->mobile ?? 'No mobile' }}</div>
+                                <div class="small text-muted">{{ $row->email ?? 'No email' }}</div>
+                            </td>
+                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($row->amount, 2) }}</span></td>
+                            <td>{{ $row->display_purpose }}</td>
+                            <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $row->payment_method }}</span></td>
+                            <td><code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $row->transaction_id }}">{{ $row->transaction_id }}</code></td>
+                            <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
                             <td>
                                 @php
-                                    $devoteeStatusColor = ['Paid' => 'success', 'Pending' => 'warning', 'Cancelled' => 'secondary', 'Failed' => 'danger'][$d->payment_status] ?? 'secondary';
+                                    $rowStatusColor = ['Paid' => 'success', 'Pending' => 'warning', 'Cancelled' => 'secondary', 'Failed' => 'danger'][$row->payment_status] ?? 'secondary';
                                 @endphp
-                                <span class="badge bg-{{ $devoteeStatusColor }} bg-opacity-10 text-{{ $devoteeStatusColor }} px-3 py-2 rounded-pill">{{ $d->payment_status }}</span>
+                                <span class="badge bg-{{ $rowStatusColor }} bg-opacity-10 text-{{ $rowStatusColor }} px-3 py-2 rounded-pill">{{ $row->payment_status }}</span>
                             </td>
                             <td class="text-end">
-                                @if($canEditDonation && $d->payment_status === 'Pending' && in_array($d->payment_method, ['Bank Transfer', 'Bank', 'Cash']))
-                                <form action="{{ route('admin.donations.approveDevotee', $d->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
-                                    @csrf
-                                    <button type="submit" class="btn-action-approve" title="Approve this donation as received">
-                                        <i class="bi bi-check-circle"></i> Approve
+                                @if($row->donation_type === 'devotee')
+                                    @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank Transfer', 'Bank', 'Cash']))
+                                    <form action="{{ route('admin.donations.approveDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
+                                        @csrf
+                                        <button type="submit" class="btn-action-approve" title="Approve this donation as received">
+                                            <i class="bi bi-check-circle"></i> Approve
+                                        </button>
+                                    </form>
+                                    @endif
+                                    @if($row->email && $row->payment_status === 'Paid')
+                                    <form action="{{ route('admin.donations.resendReceipt', ['type' => 'devotee', 'id' => $row->id]) }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $row->email }}">
+                                            <i class="bi bi-envelope-arrow-up"></i> Resend
+                                        </button>
+                                    </form>
+                                    @endif
+                                    @if($canEditDonation)
+                                    <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editDevoteeDonationModal{{ $row->id }}">
+                                        <i class="bi bi-pencil-square"></i> Edit
                                     </button>
-                                </form>
-                                @endif
-                                @if($d->email && $d->payment_status === 'Paid')
-                                <form action="{{ route('admin.donations.resendReceipt', ['type' => 'devotee', 'id' => $d->id]) }}" method="POST" class="d-inline">
-                                    @csrf
-                                    <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $d->email }}">
-                                        <i class="bi bi-envelope-arrow-up"></i> Resend
+                                    @endif
+                                    @if($canDeleteDonation)
+                                    <form action="{{ route('admin.donations.deleteDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn-action-delete">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                    @endif
+                                @else
+                                    @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank', 'Cash']))
+                                    <form action="{{ route('admin.donations.approveGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
+                                        @csrf
+                                        <button type="submit" class="btn-action-approve" title="Approve this donation as received">
+                                            <i class="bi bi-check-circle"></i> Approve
+                                        </button>
+                                    </form>
+                                    @endif
+                                    @if($row->email && $row->payment_status === 'Paid')
+                                    <form action="{{ route('admin.donations.resendReceipt', ['type' => 'guest', 'id' => $row->id]) }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $row->email }}">
+                                            <i class="bi bi-envelope-arrow-up"></i> Resend
+                                        </button>
+                                    </form>
+                                    @endif
+                                    @if($canEditDonation)
+                                    <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editGuestDonationModal{{ $row->id }}">
+                                        <i class="bi bi-pencil-square"></i> Edit
                                     </button>
-                                </form>
-                                @endif
-                                @if($canEditDonation)
-                                <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editDevoteeDonationModal{{ $d->id }}">
-                                    <i class="bi bi-pencil-square"></i> Edit
-                                </button>
-                                @endif
-                                @if($canDeleteDonation)
-                                <form action="{{ route('admin.donations.deleteDevotee', $d->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn-action-delete">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </button>
-                                </form>
+                                    @endif
+                                    @if($canDeleteDonation)
+                                    <form action="{{ route('admin.donations.deleteGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn-action-delete">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </form>
+                                    @endif
                                 @endif
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="text-center text-muted py-5">
-                                <i class="bi bi-cash fs-1 d-block mb-2 text-warning"></i>
-                                No devotee donations found.
+                            <td colspan="11" class="text-center text-muted py-5">
+                                <i class="bi bi-wallet2 fs-1 d-block mb-2 text-warning"></i>
+                                No donations found.
                             </td>
                         </tr>
                         @endforelse
@@ -450,98 +523,6 @@
                 </div>
             </div>
             @endforeach
-            @endif
-        </div>
-
-        <!-- Guest Donations Pane -->
-        <div class="tab-pane fade" id="guest-pane" role="tabpanel">
-            <div class="table-responsive">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Donor Name</th>
-                            <th>Contact Details</th>
-                            <th>Amount</th>
-                            <th>Purpose</th>
-                            <th>Event</th>
-                            <th>Payment Method</th>
-                            <th>Status</th>
-                            <th>Transaction ID</th>
-                            <th>Date</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($guestDonations as $g)
-                        <tr>
-                            <td><strong>GD{{ str_pad($g->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
-                            <td><span class="fw-semibold text-dark">{{ $g->donor_name }}</span></td>
-                            <td>
-                                <div class="small text-dark">{{ $g->mobile ?? 'No mobile' }}</div>
-                                <div class="small text-muted">{{ $g->email ?? 'No email' }}</div>
-                            </td>
-                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($g->amount, 2) }}</span></td>
-                            <td>
-                                <div class="fw-semibold small">{{ $g->purpose }}</div>
-                                <div class="text-muted small text-truncate" style="max-width: 180px;">{{ $g->purpose_details }}</div>
-                            </td>
-                            <td>{{ $g->event_name ?? 'General Fund' }}</td>
-                            <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $g->payment_method }}</span></td>
-                            <td>
-                                @php
-                                    $statusColor = ['Paid' => 'success', 'Pending' => 'warning', 'Cancelled' => 'secondary', 'Failed' => 'danger'][$g->payment_status] ?? 'secondary';
-                                @endphp
-                                <span class="badge bg-{{ $statusColor }} bg-opacity-10 text-{{ $statusColor }} px-3 py-2 rounded-pill">{{ $g->payment_status }}</span>
-                            </td>
-                            <td><code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $g->transaction_id }}">{{ $g->transaction_id }}</code></td>
-                            <td>{{ date('d M Y', strtotime($g->donation_date)) }}</td>
-                            <td class="text-end">
-                                @if($canEditDonation && $g->payment_status === 'Pending' && in_array($g->payment_method, ['Bank', 'Cash']))
-                                <form action="{{ route('admin.donations.approveGuest', $g->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
-                                    @csrf
-                                    <button type="submit" class="btn-action-approve" title="Approve this donation as received">
-                                        <i class="bi bi-check-circle"></i> Approve
-                                    </button>
-                                </form>
-                                @endif
-                                @if($g->email && $g->payment_status === 'Paid')
-                                <form action="{{ route('admin.donations.resendReceipt', ['type' => 'guest', 'id' => $g->id]) }}" method="POST" class="d-inline">
-                                    @csrf
-                                    <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $g->email }}">
-                                        <i class="bi bi-envelope-arrow-up"></i> Resend
-                                    </button>
-                                </form>
-                                @endif
-                                @if($canEditDonation)
-                                <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editGuestDonationModal{{ $g->id }}">
-                                    <i class="bi bi-pencil-square"></i> Edit
-                                </button>
-                                @endif
-                                @if($canDeleteDonation)
-                                <form action="{{ route('admin.donations.deleteGuest', $g->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn-action-delete">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </button>
-                                </form>
-                                @endif
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="11" class="text-center text-muted py-5">
-                                <i class="bi bi-person-heart fs-1 d-block mb-2 text-warning"></i>
-                                No guest donations recorded.
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-            @if($canEditDonation)
             @foreach($guestDonations as $g)
             <div class="modal fade" id="editGuestDonationModal{{ $g->id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
@@ -880,6 +861,68 @@
 
         paymentSelect.addEventListener('change', toggleBankFields);
         toggleBankFields(); // Initial check
+    });
+</script>
+<script>
+    $(function () {
+        let activeDonationFilter = 'all';
+
+        // Combined quick-filter (type/status) + date-range filter for the unified
+        // donations table. Runs alongside DataTables' own built-in search box, which
+        // already covers name/email/mobile since those are visible table columns.
+        $.fn.dataTable.ext.search.push(function (settings, searchData, index, rowData, counter) {
+            if (settings.nTable.id !== 'allDonationsTable') {
+                return true;
+            }
+
+            const $row = $(settings.aoData[index].nTr);
+            const type = $row.data('type');
+            const status = String($row.data('status'));
+            const date = String($row.data('date'));
+
+            if (activeDonationFilter !== 'all') {
+                const [key, value] = activeDonationFilter.split(':');
+                if (key === 'type' && type !== value) return false;
+                if (key === 'status' && status !== value) return false;
+            }
+
+            const from = $('#donationDateFrom').val();
+            const to = $('#donationDateTo').val();
+            if (from && date < from) return false;
+            if (to && date > to) return false;
+
+            return true;
+        });
+
+        const donationsTable = $('#allDonationsTable').DataTable({
+            pageLength: 25,
+            order: [],
+            language: {
+                emptyTable: 'No donations found.',
+                search: '',
+                searchPlaceholder: 'Search by name, email or mobile...'
+            },
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ]
+        });
+
+        $('#donationQuickFilters .quick-filter-btn').on('click', function () {
+            $('#donationQuickFilters .quick-filter-btn').removeClass('active');
+            $(this).addClass('active');
+            activeDonationFilter = $(this).data('filter');
+            donationsTable.draw();
+        });
+
+        $('#donationDateFrom, #donationDateTo').on('change', function () {
+            donationsTable.draw();
+        });
+
+        $('#donationDateClear').on('click', function () {
+            $('#donationDateFrom').val('');
+            $('#donationDateTo').val('');
+            donationsTable.draw();
+        });
     });
 </script>
 @endsection
