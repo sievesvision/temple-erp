@@ -541,6 +541,8 @@ class DonationController extends Controller
         }
 
         // Same 'Pending until approved' rule as the guest donation flow — see storePublic().
+        $transactionId = strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid());
+
         DB::table('donations')->insert([
             'devotee_id' => $devotee->devotee_id,
             'event_id' => $validated['event_id'] ?? null,
@@ -549,10 +551,21 @@ class DonationController extends Controller
             'payment_method' => $validated['payment_method'],
             'payment_status' => 'Pending',
             'remarks' => $validated['purpose_details'] ?? null,
-            'transaction_id' => strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid()),
+            'transaction_id' => $transactionId,
             'donation_date' => now()->toDateString(),
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+
+        DonationReceiptService::sendPendingNotice([
+            'donor_name' => $user->name,
+            'donor_email' => $user->email,
+            'amount' => $validated['amount'],
+            'payment_method' => $validated['payment_method'],
+            'purpose' => $validated['purpose_details'] ?? $validated['purpose'],
+            'event_id' => $validated['event_id'] ?? null,
+            'donation_date' => now()->toDateString(),
+            'transaction_id' => $transactionId,
         ]);
 
         $currency = Setting::get('currency_code', 'AUD');
@@ -593,6 +606,8 @@ class DonationController extends Controller
         // actually confirmed the money changed hands yet, so these sit as 'Pending' until
         // an admin approves them (see approveGuestDonation()). Online Payment (Stripe) is
         // the only method that's auto-verified, since Stripe's own API confirms the charge.
+        $transactionId = $validated['transaction_id'] ?? strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid());
+
         DB::table('donations_without_logins')->insert([
             'donor_name' => $validated['donor_name'],
             'event_id' => $validated['event_id'] ?? null,
@@ -603,7 +618,7 @@ class DonationController extends Controller
             'purpose_details' => $validated['purpose_details'] ?? null,
             'payment_method' => $validated['payment_method'],
             'payment_status' => 'Pending',
-            'transaction_id' => $validated['transaction_id'] ?? strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid()),
+            'transaction_id' => $transactionId,
             'bank_name' => null,
             'bank_account_no' => null,
             'bank_ifsc' => null,
@@ -611,6 +626,17 @@ class DonationController extends Controller
             'donation_date' => now()->toDateString(),
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+
+        DonationReceiptService::sendPendingNotice([
+            'donor_name' => $validated['donor_name'],
+            'donor_email' => $validated['email'] ?? null,
+            'amount' => $validated['amount'],
+            'payment_method' => $validated['payment_method'],
+            'purpose' => $validated['purpose_details'] ?? $validated['purpose'],
+            'event_id' => $validated['event_id'] ?? null,
+            'donation_date' => now()->toDateString(),
+            'transaction_id' => $transactionId,
         ]);
 
         $currency = Setting::get('currency_code', 'AUD');
@@ -622,8 +648,9 @@ class DonationController extends Controller
             $message = 'Thank you! Your pledge of ' . $currency . ' ' . number_format($validated['amount'], 2) . ' has been recorded. Please hand your offering to the temple counter — a receipt will be emailed to you once it is confirmed.';
         }
 
-        // No receipt is sent here — Bank/Cash donations are still unverified at this point.
-        // The receipt goes out from approveGuestDonation() once an admin confirms it.
+        // The official receipt is not sent here — Bank/Cash donations are still unverified
+        // at this point. It goes out from approveGuestDonation() once an admin confirms it;
+        // sendPendingNotice() above only sent the "here's what to do next" reminder.
 
         return redirect()->back()->with('success_donation', $message);
     }
