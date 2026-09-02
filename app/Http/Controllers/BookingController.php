@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Response;
 use App\Services\AuditLogService;
 use App\Services\NotificationService;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class BookingController extends Controller
 {
@@ -394,6 +395,11 @@ class BookingController extends Controller
      */
     public function manageBookings(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'bookings', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $query = DB::table('pooja_bookings')
             ->join('poojas', 'pooja_bookings.pooja_id', '=', 'poojas.pooja_id')
             ->join('devotees', 'pooja_bookings.devotee_id', '=', 'devotees.devotee_id')
@@ -467,6 +473,11 @@ class BookingController extends Controller
      */
     public function overridePriest(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'bookings', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'priest_id' => 'required|exists:priests,priest_id'
         ]);
@@ -534,6 +545,11 @@ class BookingController extends Controller
      */
     public function reschedule(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'bookings', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'booking_date' => 'required|date|after_or_equal:today',
             'booking_time' => 'required'
@@ -611,6 +627,11 @@ class BookingController extends Controller
      */
     public function updateStatus(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'bookings', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'booking_status' => 'nullable|in:Pending,Confirmed,Completed,Cancelled',
             'payment_status' => 'nullable|in:Pending,Paid,Failed,Refunded',

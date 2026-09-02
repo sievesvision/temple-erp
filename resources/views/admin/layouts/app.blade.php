@@ -79,6 +79,18 @@
     .sidebar .nav {
       padding: 16px 12px 0 12px;
     }
+    .sidebar .nav-section-label {
+      color: #b8863a;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 16px 16px 6px;
+      margin: 0;
+    }
+    .sidebar .nav-section-label:first-of-type {
+      padding-top: 6px;
+    }
     .sidebar .nav-link {
       display: flex;
       align-items: center;

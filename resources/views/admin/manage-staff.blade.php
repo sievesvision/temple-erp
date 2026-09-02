@@ -193,11 +193,13 @@
         <h1><i class="bi bi-person-lines-fill"></i>Manage Staff</h1>
         <div class="subtitle">Add, modify, and manage temple administration staff members</div>
     </div>
+    @if($canAdd)
     <div>
         <a href="{{ route('admin.staff.create') }}" class="btn-add">
             <i class="bi bi-plus-lg"></i> Add Staff Member
         </a>
     </div>
+    @endif
 </div>
 
 @if(session('success'))
@@ -265,9 +267,12 @@
                         <button class="btn-action-view me-1" data-bs-toggle="modal" data-bs-target="#viewModal{{ $s->staff_id }}">
                             <i class="bi bi-eye"></i> View
                         </button>
+                        @if($canEdit)
                         <button class="btn-action-edit me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ $s->staff_id }}">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
+                        @endif
+                        @if($canDelete)
                         <form action="{{ route('admin.staff.delete', $s->staff_id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this staff member?')">
                             @csrf
                             @method('DELETE')
@@ -275,6 +280,7 @@
                                 <i class="bi bi-trash"></i> Delete
                             </button>
                         </form>
+                        @endif
                     </td>
                 </tr>
                 @endforeach

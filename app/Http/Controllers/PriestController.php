@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeMail;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class PriestController extends Controller
 {
@@ -194,6 +195,14 @@ class PriestController extends Controller
 
     public function managePriests(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'priests', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+        $canAdd = RolePermission::can($user->role, 'priests', 'add');
+        $canEdit = RolePermission::can($user->role, 'priests', 'edit');
+        $canDelete = RolePermission::can($user->role, 'priests', 'delete');
+
         $status = $request->get('verification_status');
 
         $query = DB::table('priests')
@@ -214,16 +223,24 @@ class PriestController extends Controller
 
         $priests = $query->get();
 
-        return view('admin.manage-priests', compact('priests', 'status'));
+        return view('admin.manage-priests', compact('priests', 'status', 'canAdd', 'canEdit', 'canDelete'));
     }
 
     public function addPriestPage()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'priests', 'add')) {
+            abort(403, 'Unauthorized access.');
+        }
         return view('admin.add-priest');
     }
 
     public function viewPriest($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'priests', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
         $priest = DB::table('priests')
             ->join('users', 'priests.user_id', '=', 'users.id')
             ->where('priests.priest_id', $id) // Fixed: Added table name
@@ -240,6 +257,10 @@ class PriestController extends Controller
 
     public function editPriest($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'priests', 'edit')) {
+            abort(403, 'Unauthorized access.');
+        }
         $priest = DB::table('priests')
             ->join('users', 'priests.user_id', '=', 'users.id')
             ->where('priests.priest_id', $id) // Fixed: Added table name
@@ -256,6 +277,11 @@ class PriestController extends Controller
 
     public function updatePriest(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'priests', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|string|max:15',
@@ -333,6 +359,11 @@ class PriestController extends Controller
 
     public function deletePriest($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'priests', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         DB::beginTransaction();
 
         try {
@@ -371,8 +402,15 @@ class PriestController extends Controller
             return redirect()->back()
                 ->with('error', $msg);
         }
-    }    public function storePriest(Request $request)
+    }
+
+    public function storePriest(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'priests', 'add')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -894,6 +932,11 @@ class PriestController extends Controller
 
     public function updateLeaveStatus(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'leaves', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'status' => 'required|in:Approved,Rejected'
         ]);

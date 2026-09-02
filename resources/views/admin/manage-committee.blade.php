@@ -129,11 +129,13 @@
         <h1><i class="bi bi-people-fill"></i>Manage Committee</h1>
         <div class="subtitle">Committee members who can manage donations, pooja bookings and events.</div>
     </div>
+    @if($canAdd)
     <div>
         <a href="{{ route('admin.committee.create') }}" class="btn-add">
             <i class="bi bi-plus-lg"></i> Add Committee Member
         </a>
     </div>
+    @endif
 </div>
 
 @if(session('success'))
@@ -191,9 +193,12 @@
                         @endif
                     </td>
                     <td class="text-end">
+                        @if($canEdit)
                         <button class="btn-action-edit me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ $member->id }}">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
+                        @endif
+                        @if($canDelete)
                         <form action="{{ route('admin.committee.delete', $member->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to remove this committee member?')">
                             @csrf
                             @method('DELETE')
@@ -201,6 +206,7 @@
                                 <i class="bi bi-trash"></i> Delete
                             </button>
                         </form>
+                        @endif
                     </td>
                 </tr>
                 @endforeach

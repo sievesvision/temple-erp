@@ -51,6 +51,8 @@ class RolePermission extends Model
             'salaries' => 'Salaries',
             'ehundi' => 'e-Hundi',
             'membership' => 'Membership',
+            'committee' => 'Committee',
+            'chats' => 'Support Chats',
         ];
     }
 

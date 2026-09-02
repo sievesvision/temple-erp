@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Services\AuditLogService;
 use App\Mail\WelcomeMail;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class CommitteeController extends Controller
 {
@@ -32,6 +33,14 @@ class CommitteeController extends Controller
 
     public function manageCommittee()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'committee', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+        $canAdd = RolePermission::can($user->role, 'committee', 'add');
+        $canEdit = RolePermission::can($user->role, 'committee', 'edit');
+        $canDelete = RolePermission::can($user->role, 'committee', 'delete');
+
         $committeeList = DB::table('users')
             ->leftJoin('committees', 'committees.user_id', '=', 'users.id')
             ->where('users.role', 'Committee')
@@ -39,16 +48,25 @@ class CommitteeController extends Controller
             ->orderBy('users.name')
             ->get();
 
-        return view('admin.manage-committee', compact('committeeList'));
+        return view('admin.manage-committee', compact('committeeList', 'canAdd', 'canEdit', 'canDelete'));
     }
 
     public function addCommitteePage()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'committee', 'add')) {
+            abort(403, 'Unauthorized access.');
+        }
         return view('admin.add-committee');
     }
 
     public function storeCommittee(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'committee', 'add')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -127,6 +145,11 @@ class CommitteeController extends Controller
 
     public function updateCommittee(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'committee', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|string|max:15',
@@ -179,6 +202,11 @@ class CommitteeController extends Controller
 
     public function deleteCommittee($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'committee', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $member = DB::table('users')->where('id', $id)->where('role', 'Committee')->first();
         if (!$member) {
             return redirect()->back()->with('error', 'Committee member not found.');

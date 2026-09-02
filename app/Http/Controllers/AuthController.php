@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use App\Mail\OtpMail;
 
 class AuthController extends Controller
@@ -308,6 +309,7 @@ class AuthController extends Controller
 
         // Login the user
         Auth::login($user);
+        $user->update(['last_login_at' => now()]);
 
         // Redirect based on selected role
         switch ($request->role) {
@@ -475,6 +477,7 @@ class AuthController extends Controller
         }
 
         $user->password = Hash::make($request->password);
+        $user->password_changed_at = now();
         $user->save();
 
         try {
@@ -486,6 +489,51 @@ class AuthController extends Controller
         session()->forget(['forgot_email', 'forgot_otp_hash', 'forgot_otp_expires_at', 'forgot_otp_attempts', 'forgot_step', 'forgot_otp_verified']);
 
         return redirect()->route('login')->with('success', 'Password updated successfully. Please login.');
+    }
+
+    /**
+     * Landing page for the link an admin sends via SystemUserController::sendResetLink() —
+     * distinct from the self-service OTP flow above. Uses Laravel's built-in password
+     * broker (token hashed/expired/throttled/single-use for free), not the OTP session flow.
+     */
+    public function showResetPasswordLink(Request $request, string $token)
+    {
+        return view('auth.set-new-password', [
+            'token' => $token,
+            'email' => $request->query('email'),
+        ]);
+    }
+
+    public function resetPasswordLink(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|confirmed|min:6',
+        ], [
+            'password.required' => 'New Password is required.',
+            'password.confirmed' => 'Confirm Password does not match.',
+            'password.min' => 'Password must be at least 6 characters.',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->password = Hash::make($password);
+                $user->password_changed_at = now();
+                $user->save();
+
+                try {
+                    Mail::to($user->email)->send(new \App\Mail\PasswordChangedMail($user->name));
+                } catch (\Exception $e) {
+                    // Ignore mail errors
+                }
+            }
+        );
+
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('login')->with('success', 'Password updated successfully. Please login.')
+            : back()->withErrors(['email' => __($status)])->withInput($request->only('email'));
     }
 
     public function forgotPasswordResend(Request $request)

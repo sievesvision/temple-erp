@@ -406,9 +406,11 @@
                 <span class="count-badge ms-2"><i class="bi bi-shield-check"></i> Verified: <strong>{{ $devotees->where('verified', 1)->count() }}</strong></span>
             </div>
         </div>
+        @if($canAdd)
         <a href="{{ route('admin.devotees.create') }}" class="btn-add-devotee animate__animated animate__pulse animate__infinite">
             <i class="bi bi-person-plus-fill"></i> Add Devotee
         </a>
+        @endif
     </div>
 
     <!-- Table Card -->
@@ -484,6 +486,7 @@
                                 <i class="bi bi-eye"></i> View
                             </button>
 
+                            @if($canEdit)
                             <button class="btn-action edit editBtn"
                                 data-bs-toggle="modal"
                                 data-bs-target="#editDevoteeModal"
@@ -500,14 +503,17 @@
                                 data-address="{{ $devotee->address ?? '' }}">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
+                            @endif
 
-                            <button class="btn-action delete" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#deleteModal" 
-                                data-devotee-id="{{ $devotee->devotee_id }}" 
+                            @if($canDelete)
+                            <button class="btn-action delete"
+                                data-bs-toggle="modal"
+                                data-bs-target="#deleteModal"
+                                data-devotee-id="{{ $devotee->devotee_id }}"
                                 data-devotee-name="{{ $devotee->name }}">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
+                            @endif
                         </td>
                     </tr>
                     @endforeach

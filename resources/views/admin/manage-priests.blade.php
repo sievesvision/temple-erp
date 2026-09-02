@@ -437,9 +437,11 @@
                 <span class="count-badge ms-2"><i class="bi bi-person-check"></i> Active: <strong>{{ $priests->where('employment_status', 'Active')->count() }}</strong></span>
             </div>
         </div>
+        @if($canAdd)
         <a href="{{ url('/admin/add-priest') }}" class="btn-add-priest animate__animated animate__pulse animate__infinite">
             <i class="bi bi-person-plus-fill"></i> Add Priest
         </a>
+        @endif
     </div>
 
     <!-- Table Card -->
@@ -516,6 +518,7 @@
                                 <i class="bi bi-eye"></i> View
                             </button>
 
+                            @if($canEdit)
                             <button class="btn-action edit editBtn"
                                 data-bs-toggle="modal"
                                 data-bs-target="#editPriestModal"
@@ -536,10 +539,13 @@
                                 data-branch_name="{{ $priest->branch_name }}">
                                 <i class="bi bi-pencil"></i> Edit
                             </button>
+                            @endif
 
+                            @if($canDelete)
                             <button class="btn-action delete" data-bs-toggle="modal" data-bs-target="#deleteModal" data-priest-id="{{ $priest->priest_id }}" data-priest-name="{{ $priest->name }}">
                                 <i class="bi bi-trash"></i> Delete
                             </button>
+                            @endif
                         </td>
                     </tr>
                     @endforeach

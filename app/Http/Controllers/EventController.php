@@ -8,6 +8,7 @@ use App\Models\EventDonationOption;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Models\RolePermission;
 
 class EventController extends Controller
 {
@@ -38,7 +39,7 @@ class EventController extends Controller
     public function manageEvents(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
+        if (!$user || !RolePermission::can($user->role, 'events', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -62,7 +63,7 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
+        if (!$user || !RolePermission::can($user->role, 'events', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -97,7 +98,7 @@ class EventController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
+        if (!$user || !RolePermission::can($user->role, 'events', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -160,7 +161,7 @@ class EventController extends Controller
     public function destroy($id)
     {
         $user = Auth::user();
-        if (!$user || !in_array($user->role, ['Admin', 'Committee'])) {
+        if (!$user || !RolePermission::can($user->role, 'events', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

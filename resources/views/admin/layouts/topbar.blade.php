@@ -87,7 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
         <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2" style="border-radius: 20px; padding: 8px;">
           <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}?tab=profile"><i class="bi bi-person me-2"></i>My Profile</a></li>
           <li><a class="dropdown-item" href="#"><i class="bi bi-key me-2"></i>Change Password</a></li>
-          <li><a class="dropdown-item" href="{{ route('admin.settings') }}"><i class="bi bi-gear me-2"></i>Settings</a></li>
           <li><hr class="dropdown-divider"></li>
           <li><a class="dropdown-item text-danger" id="topbarLogoutBtn" href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#logoutModal" style="cursor:pointer;"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
         </ul>

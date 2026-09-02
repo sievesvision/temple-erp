@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Services\AuditLogService;
 use App\Mail\WelcomeMail;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class AccountantController extends Controller
 {
@@ -84,6 +85,14 @@ class AccountantController extends Controller
 
     public function manageAccountants(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'accountants', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+        $canAdd = RolePermission::can($user->role, 'accountants', 'add');
+        $canEdit = RolePermission::can($user->role, 'accountants', 'edit');
+        $canDelete = RolePermission::can($user->role, 'accountants', 'delete');
+
         $status = $request->get('verification_status');
 
         $query = DB::table('accountants')
@@ -98,16 +107,25 @@ class AccountantController extends Controller
 
         $accountantList = $query->get();
 
-        return view('admin.manage-accountants', compact('accountantList', 'status'));
+        return view('admin.manage-accountants', compact('accountantList', 'status', 'canAdd', 'canEdit', 'canDelete'));
     }
 
     public function addAccountantPage()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'accountants', 'add')) {
+            abort(403, 'Unauthorized access.');
+        }
         return view('admin.add-accountant');
     }
 
     public function storeAccountant(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'accountants', 'add')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -231,6 +249,11 @@ class AccountantController extends Controller
 
     public function updateAccountant(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'accountants', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|string|max:15',
@@ -301,6 +324,11 @@ class AccountantController extends Controller
 
     public function deleteAccountant($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'accountants', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         DB::beginTransaction();
         try {
             $accountant = DB::table('accountants')->where('accountant_id', $id)->first();

@@ -193,11 +193,13 @@
         <h1><i class="bi bi-person-workspace"></i>Manage Trustees</h1>
         <div class="subtitle">Add, modify, and manage the board of trustees</div>
     </div>
+    @if($canAdd)
     <div>
         <a href="{{ route('admin.trustees.create') }}" class="btn-add">
             <i class="bi bi-plus-lg"></i> Add Trustee
         </a>
     </div>
+    @endif
 </div>
 
 @if(session('success'))
@@ -257,9 +259,12 @@
                         <button class="btn-action-view me-1" data-bs-toggle="modal" data-bs-target="#viewModal{{ $t->trustee_id }}">
                             <i class="bi bi-eye"></i> View
                         </button>
+                        @if($canEdit)
                         <button class="btn-action-edit me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ $t->trustee_id }}">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
+                        @endif
+                        @if($canDelete)
                         <form action="{{ route('admin.trustees.delete', $t->trustee_id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to remove this trustee? This will delete their login credentials too.')">
                             @csrf
                             @method('DELETE')
@@ -267,6 +272,7 @@
                                 <i class="bi bi-trash"></i> Delete
                             </button>
                         </form>
+                        @endif
                     </td>
                 </tr>
                 @endforeach

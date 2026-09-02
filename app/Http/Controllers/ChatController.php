@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Setting;
 use App\Services\AuditLogService;
 use App\Services\NotificationService;
+use App\Models\RolePermission;
 
 class ChatController extends Controller
 {
@@ -162,6 +163,11 @@ class ChatController extends Controller
      */
     public function staffGetActiveSessions()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'chats', 'view')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
         $sessions = DB::table('chat_sessions')
             ->join('users', 'chat_sessions.devotee_id', '=', 'users.id')
             ->where('chat_sessions.status', 'active')
@@ -189,6 +195,11 @@ class ChatController extends Controller
      */
     public function staffGetEndedSessions()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'chats', 'view')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
         $sessions = DB::table('chat_sessions')
             ->join('users', 'chat_sessions.devotee_id', '=', 'users.id')
             ->where('chat_sessions.status', 'ended')
@@ -215,6 +226,11 @@ class ChatController extends Controller
      */
     public function staffGetMessages($sessionId)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'chats', 'view')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
         $session = DB::table('chat_sessions')
             ->where('session_id', $sessionId)
             ->first();
@@ -245,6 +261,11 @@ class ChatController extends Controller
      */
     public function staffSendReply(Request $request, $sessionId)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'chats', 'add')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
         $request->validate([
             'message' => 'required|string|max:1000'
         ]);
@@ -282,6 +303,11 @@ class ChatController extends Controller
      */
     public function staffEndSession($sessionId)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'chats', 'delete')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
         DB::table('chat_sessions')
             ->where('session_id', $sessionId)
             ->update([

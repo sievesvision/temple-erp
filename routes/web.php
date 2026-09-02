@@ -58,6 +58,11 @@ Route::post('/forgot-password/resend', [AuthController::class, 'forgotPasswordRe
 Route::get('/forgot-password/reset', [AuthController::class, 'showResetPassword'])->name('forgot-password.reset');
 Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword'])->name('forgot-password.reset.post');
 
+// Admin-triggered password reset link (System Users page) — distinct from the OTP flow
+// above; uses Laravel's built-in password broker via Password::sendResetLink()/reset().
+Route::get('/set-new-password/{token}', [AuthController::class, 'showResetPasswordLink'])->name('admin-reset.form');
+Route::post('/set-new-password', [AuthController::class, 'resetPasswordLink'])->name('admin-reset.post');
+
 // ============================================
 // ADMIN ROUTES (Restricted via RoleMiddleware)
 // ============================================
@@ -152,50 +157,6 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         ));
     })->name('admin.dashboard');
 
-    // Priest Routes (Admin management)
-    Route::get('/admin/manage-priests', [PriestController::class, 'managePriests'])->name('admin.priests.index');
-    Route::get('/admin/add-priest', [PriestController::class, 'addPriestPage'])->name('admin.priests.create');
-    Route::post('/admin/priest/store', [PriestController::class, 'storePriest'])->name('admin.priests.store');
-    Route::get('/admin/priest/view/{id}', [PriestController::class, 'viewPriest'])->name('admin.priests.view');
-    Route::get('/admin/priest/edit/{id}', [PriestController::class, 'editPriest'])->name('admin.priests.edit');
-    Route::post('/admin/priest/update/{id}', [PriestController::class, 'updatePriest'])->name('admin.priests.update');
-    Route::delete('/admin/priest/delete/{id}', [PriestController::class, 'deletePriest'])->name('admin.priests.delete');
-
-    // Devotee Routes (Admin management)
-    Route::get('/admin/manage-devotees', [DevoteeController::class, 'manageDevotees'])->name('admin.devotees.index');
-    Route::get('/admin/add-devotee', [DevoteeController::class, 'addDevoteePage'])->name('admin.devotees.create');
-    Route::post('/admin/devotee/store', [DevoteeController::class, 'storeDevotee'])->name('admin.devotees.store');
-    Route::post('/admin/devotee/update/{id}', [DevoteeController::class, 'updateDevotee'])->name('admin.devotees.update');
-    Route::delete('/admin/devotee/delete/{id}', [DevoteeController::class, 'deleteDevotee'])->name('admin.devotees.delete');
-
-    // Trustee CRUD Routes (Admin management)
-    Route::get('/admin/manage-trustees', [TrusteeController::class, 'manageTrustees'])->name('admin.trustees.index');
-    Route::get('/admin/add-trustee', [TrusteeController::class, 'addTrusteePage'])->name('admin.trustees.create');
-    Route::post('/admin/trustee/store', [TrusteeController::class, 'storeTrustee'])->name('admin.trustees.store');
-    Route::post('/admin/trustee/update/{id}', [TrusteeController::class, 'updateTrustee'])->name('admin.trustees.update');
-    Route::delete('/admin/trustee/delete/{id}', [TrusteeController::class, 'deleteTrustee'])->name('admin.trustees.delete');
-
-    // Staff CRUD Routes (Admin management)
-    Route::get('/admin/manage-staff', [StaffController::class, 'manageStaff'])->name('admin.staff.index');
-    Route::get('/admin/add-staff', [StaffController::class, 'addStaffPage'])->name('admin.staff.create');
-    Route::post('/admin/staff/store', [StaffController::class, 'storeStaff'])->name('admin.staff.store');
-    Route::post('/admin/staff/update/{id}', [StaffController::class, 'updateStaff'])->name('admin.staff.update');
-    Route::delete('/admin/staff/delete/{id}', [StaffController::class, 'deleteStaff'])->name('admin.staff.delete');
-
-    // Accountant CRUD Routes (Admin management)
-    Route::get('/admin/manage-accountants', [AccountantController::class, 'manageAccountants'])->name('admin.accountants.index');
-    Route::get('/admin/add-accountant', [AccountantController::class, 'addAccountantPage'])->name('admin.accountants.create');
-    Route::post('/admin/accountant/store', [AccountantController::class, 'storeAccountant'])->name('admin.accountants.store');
-    Route::post('/admin/accountant/update/{id}', [AccountantController::class, 'updateAccountant'])->name('admin.accountants.update');
-    Route::delete('/admin/accountant/delete/{id}', [AccountantController::class, 'deleteAccountant'])->name('admin.accountants.delete');
-
-    // Committee CRUD Routes (Admin management)
-    Route::get('/admin/manage-committee', [CommitteeController::class, 'manageCommittee'])->name('admin.committee.index');
-    Route::get('/admin/add-committee', [CommitteeController::class, 'addCommitteePage'])->name('admin.committee.create');
-    Route::post('/admin/committee/store', [CommitteeController::class, 'storeCommittee'])->name('admin.committee.store');
-    Route::post('/admin/committee/update/{id}', [CommitteeController::class, 'updateCommittee'])->name('admin.committee.update');
-    Route::delete('/admin/committee/delete/{id}', [CommitteeController::class, 'deleteCommittee'])->name('admin.committee.delete');
-
     // Inventory CRUD & Stock Adjustment Routes (Admin management)
     Route::get('/admin/manage-inventory', [\App\Http\Controllers\InventoryController::class, 'index'])->name('admin.inventory.index');
     Route::post('/admin/inventory/store', [\App\Http\Controllers\InventoryController::class, 'store'])->name('admin.inventory.store');
@@ -205,6 +166,11 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
 
     // Admin Settings Routes
     Route::get('/admin/settings', function () {
+        $currentUser = \Illuminate\Support\Facades\Auth::user();
+        if (!$currentUser || !\App\Models\RolePermission::can($currentUser->role, 'settings', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $systemMode = \App\Models\Setting::get('system_mode', 'Testing Mode');
         $emailHandling = \App\Models\Setting::get('testing_email_handling', 'Do Not Send Emails');
         $templeName = \App\Models\Setting::get('temple_name', 'Golden Temple');
@@ -293,6 +259,11 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     })->name('admin.settings');
 
     Route::post('/admin/settings', function (\Illuminate\Http\Request $request) {
+        $currentUser = \Illuminate\Support\Facades\Auth::user();
+        if (!$currentUser || !\App\Models\RolePermission::can($currentUser->role, 'settings', 'edit')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $validated = $request->validate([
             'system_mode' => 'required|in:Testing Mode,Live Mode',
             'testing_email_handling' => 'required_if:system_mode,Testing Mode|nullable|in:Send Emails,Do Not Send Emails',
@@ -419,16 +390,13 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/qr-link/update/{id}', [\App\Http\Controllers\QrLinkController::class, 'update'])->name('admin.qrlinks.update');
     Route::delete('/admin/qr-link/delete/{id}', [\App\Http\Controllers\QrLinkController::class, 'destroy'])->name('admin.qrlinks.delete');
 
+    // System Users (cross-role account list + admin-triggered password reset)
+    Route::get('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'index'])->name('admin.users.index');
+    Route::post('/admin/users/{targetUser}/send-reset-link', [\App\Http\Controllers\SystemUserController::class, 'sendResetLink'])->name('admin.users.send-reset-link');
+
     // Leave Requests Route (Admin management)
     Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');
     Route::post('/admin/leaves/status/{id}', [PriestController::class, 'updateLeaveStatus'])->name('admin.leaves.status');
-
-    // Admin Chat Support Routes
-    Route::get('/admin/chats/active', [\App\Http\Controllers\ChatController::class, 'staffGetActiveSessions'])->name('admin.chats.active');
-    Route::get('/admin/chats/history', [\App\Http\Controllers\ChatController::class, 'staffGetEndedSessions'])->name('admin.chats.history');
-    Route::get('/admin/chats/{session}/messages', [\App\Http\Controllers\ChatController::class, 'staffGetMessages'])->name('admin.chats.messages');
-    Route::post('/admin/chats/{session}/reply', [\App\Http\Controllers\ChatController::class, 'staffSendReply'])->name('admin.chats.reply');
-    Route::post('/admin/chats/{session}/end', [\App\Http\Controllers\ChatController::class, 'staffEndSession'])->name('admin.chats.end');
 });
 
 // ============================================
@@ -446,6 +414,60 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/event/store', [\App\Http\Controllers\EventController::class, 'store'])->name('admin.events.store');
     Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
     Route::delete('/admin/event/delete/{id}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('admin.events.delete');
+
+    // Priest Routes (Admin management) — route access is intentionally broader than
+    // capability; the Role Permissions grid ("Priests" resource) decides what Committee
+    // can actually do once inside (view-only by default; see PriestController).
+    Route::get('/admin/manage-priests', [PriestController::class, 'managePriests'])->name('admin.priests.index');
+    Route::get('/admin/add-priest', [PriestController::class, 'addPriestPage'])->name('admin.priests.create');
+    Route::post('/admin/priest/store', [PriestController::class, 'storePriest'])->name('admin.priests.store');
+    Route::get('/admin/priest/view/{id}', [PriestController::class, 'viewPriest'])->name('admin.priests.view');
+    Route::get('/admin/priest/edit/{id}', [PriestController::class, 'editPriest'])->name('admin.priests.edit');
+    Route::post('/admin/priest/update/{id}', [PriestController::class, 'updatePriest'])->name('admin.priests.update');
+    Route::delete('/admin/priest/delete/{id}', [PriestController::class, 'deletePriest'])->name('admin.priests.delete');
+
+    // Devotee Routes (Admin management) — see PriestController comment above.
+    Route::get('/admin/manage-devotees', [DevoteeController::class, 'manageDevotees'])->name('admin.devotees.index');
+    Route::get('/admin/add-devotee', [DevoteeController::class, 'addDevoteePage'])->name('admin.devotees.create');
+    Route::post('/admin/devotee/store', [DevoteeController::class, 'storeDevotee'])->name('admin.devotees.store');
+    Route::post('/admin/devotee/update/{id}', [DevoteeController::class, 'updateDevotee'])->name('admin.devotees.update');
+    Route::delete('/admin/devotee/delete/{id}', [DevoteeController::class, 'deleteDevotee'])->name('admin.devotees.delete');
+
+    // Trustee CRUD Routes (Admin management) — see PriestController comment above.
+    Route::get('/admin/manage-trustees', [TrusteeController::class, 'manageTrustees'])->name('admin.trustees.index');
+    Route::get('/admin/add-trustee', [TrusteeController::class, 'addTrusteePage'])->name('admin.trustees.create');
+    Route::post('/admin/trustee/store', [TrusteeController::class, 'storeTrustee'])->name('admin.trustees.store');
+    Route::post('/admin/trustee/update/{id}', [TrusteeController::class, 'updateTrustee'])->name('admin.trustees.update');
+    Route::delete('/admin/trustee/delete/{id}', [TrusteeController::class, 'deleteTrustee'])->name('admin.trustees.delete');
+
+    // Staff CRUD Routes (Admin management) — see PriestController comment above.
+    Route::get('/admin/manage-staff', [StaffController::class, 'manageStaff'])->name('admin.staff.index');
+    Route::get('/admin/add-staff', [StaffController::class, 'addStaffPage'])->name('admin.staff.create');
+    Route::post('/admin/staff/store', [StaffController::class, 'storeStaff'])->name('admin.staff.store');
+    Route::post('/admin/staff/update/{id}', [StaffController::class, 'updateStaff'])->name('admin.staff.update');
+    Route::delete('/admin/staff/delete/{id}', [StaffController::class, 'deleteStaff'])->name('admin.staff.delete');
+
+    // Accountant CRUD Routes (Admin management) — see PriestController comment above.
+    Route::get('/admin/manage-accountants', [AccountantController::class, 'manageAccountants'])->name('admin.accountants.index');
+    Route::get('/admin/add-accountant', [AccountantController::class, 'addAccountantPage'])->name('admin.accountants.create');
+    Route::post('/admin/accountant/store', [AccountantController::class, 'storeAccountant'])->name('admin.accountants.store');
+    Route::post('/admin/accountant/update/{id}', [AccountantController::class, 'updateAccountant'])->name('admin.accountants.update');
+    Route::delete('/admin/accountant/delete/{id}', [AccountantController::class, 'deleteAccountant'])->name('admin.accountants.delete');
+
+    // Committee CRUD Routes (Admin management) — see PriestController comment above.
+    Route::get('/admin/manage-committee', [CommitteeController::class, 'manageCommittee'])->name('admin.committee.index');
+    Route::get('/admin/add-committee', [CommitteeController::class, 'addCommitteePage'])->name('admin.committee.create');
+    Route::post('/admin/committee/store', [CommitteeController::class, 'storeCommittee'])->name('admin.committee.store');
+    Route::post('/admin/committee/update/{id}', [CommitteeController::class, 'updateCommittee'])->name('admin.committee.update');
+    Route::delete('/admin/committee/delete/{id}', [CommitteeController::class, 'deleteCommittee'])->name('admin.committee.delete');
+
+    // Admin Chat Support Routes — see PriestController comment above (Committee gets
+    // view + reply via the "Support Chats" resource, not end-session).
+    Route::get('/admin/chats/active', [\App\Http\Controllers\ChatController::class, 'staffGetActiveSessions'])->name('admin.chats.active');
+    Route::get('/admin/chats/history', [\App\Http\Controllers\ChatController::class, 'staffGetEndedSessions'])->name('admin.chats.history');
+    Route::get('/admin/chats/{session}/messages', [\App\Http\Controllers\ChatController::class, 'staffGetMessages'])->name('admin.chats.messages');
+    Route::post('/admin/chats/{session}/reply', [\App\Http\Controllers\ChatController::class, 'staffSendReply'])->name('admin.chats.reply');
+    Route::post('/admin/chats/{session}/end', [\App\Http\Controllers\ChatController::class, 'staffEndSession'])->name('admin.chats.end');
 });
 
 // ============================================

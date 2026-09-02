@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Services\AuditLogService;
 use App\Mail\WelcomeMail;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class StaffController extends Controller
 {
@@ -163,6 +164,14 @@ class StaffController extends Controller
 
     public function manageStaff(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'staff', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+        $canAdd = RolePermission::can($user->role, 'staff', 'add');
+        $canEdit = RolePermission::can($user->role, 'staff', 'edit');
+        $canDelete = RolePermission::can($user->role, 'staff', 'delete');
+
         $status = $request->get('verification_status');
 
         $query = DB::table('staff')
@@ -177,16 +186,25 @@ class StaffController extends Controller
 
         $staffList = $query->get();
 
-        return view('admin.manage-staff', compact('staffList', 'status'));
+        return view('admin.manage-staff', compact('staffList', 'status', 'canAdd', 'canEdit', 'canDelete'));
     }
 
     public function addStaffPage()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'staff', 'add')) {
+            abort(403, 'Unauthorized access.');
+        }
         return view('admin.add-staff');
     }
 
     public function storeStaff(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'staff', 'add')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -312,6 +330,11 @@ class StaffController extends Controller
 
     public function updateStaff(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'staff', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|string|max:15',
@@ -384,6 +407,11 @@ class StaffController extends Controller
 
     public function deleteStaff($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'staff', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         DB::beginTransaction();
         try {
             $staff = DB::table('staff')->where('staff_id', $id)->first();

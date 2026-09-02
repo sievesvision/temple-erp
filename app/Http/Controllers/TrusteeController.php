@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Services\AuditLogService;
 use App\Mail\WelcomeMail;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class TrusteeController extends Controller
 {
@@ -156,6 +157,14 @@ class TrusteeController extends Controller
 
     public function manageTrustees(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'trustees', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+        $canAdd = RolePermission::can($user->role, 'trustees', 'add');
+        $canEdit = RolePermission::can($user->role, 'trustees', 'edit');
+        $canDelete = RolePermission::can($user->role, 'trustees', 'delete');
+
         $status = $request->get('verification_status');
 
         $query = DB::table('trustees')
@@ -170,16 +179,25 @@ class TrusteeController extends Controller
 
         $trustees = $query->get();
 
-        return view('admin.manage-trustees', compact('trustees', 'status'));
+        return view('admin.manage-trustees', compact('trustees', 'status', 'canAdd', 'canEdit', 'canDelete'));
     }
 
     public function addTrusteePage()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'trustees', 'add')) {
+            abort(403, 'Unauthorized access.');
+        }
         return view('admin.add-trustee');
     }
 
     public function storeTrustee(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'trustees', 'add')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -288,6 +306,11 @@ class TrusteeController extends Controller
 
     public function updateTrustee(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'trustees', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|string|max:15',
@@ -344,6 +367,11 @@ class TrusteeController extends Controller
 
     public function deleteTrustee($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'trustees', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         DB::beginTransaction();
         try {
             $trustee = DB::table('trustees')->where('trustee_id', $id)->first();
@@ -370,6 +398,11 @@ class TrusteeController extends Controller
     // ============================================
     public function manageLeaves()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'leaves', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+
         $leaves = DB::table('leave_requests')
             ->join('priests', 'leave_requests.priest_id', '=', 'priests.priest_id')
             ->join('users', 'priests.user_id', '=', 'users.id')

@@ -141,6 +141,14 @@ public function dashboard(Request $request)
 
     public function manageDevotees(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'devotees', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+        $canAdd = RolePermission::can($user->role, 'devotees', 'add');
+        $canEdit = RolePermission::can($user->role, 'devotees', 'edit');
+        $canDelete = RolePermission::can($user->role, 'devotees', 'delete');
+
         $status = $request->get('verification_status');
 
         $query = DB::table('devotees')
@@ -165,17 +173,26 @@ public function dashboard(Request $request)
 
         $memberships = DB::table('memberships')->where('status', 'Active')->get();
 
-        return view('admin.manage-devotees', compact('devotees', 'memberships', 'status'));
+        return view('admin.manage-devotees', compact('devotees', 'memberships', 'status', 'canAdd', 'canEdit', 'canDelete'));
     }
 
     public function addDevoteePage()
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'devotees', 'add')) {
+            abort(403, 'Unauthorized access.');
+        }
         $memberships = DB::table('memberships')->where('status', 'Active')->get();
         return view('admin.add-devotee', compact('memberships'));
     }
 
     public function storeDevotee(Request $request)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'devotees', 'add')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -314,6 +331,11 @@ public function dashboard(Request $request)
 
     public function updateDevotee(Request $request, $id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'devotees', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'mobile' => 'required|string|max:15',
@@ -402,6 +424,11 @@ public function dashboard(Request $request)
 
     public function deleteDevotee($id)
     {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'devotees', 'delete')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
         DB::beginTransaction();
 
         try {

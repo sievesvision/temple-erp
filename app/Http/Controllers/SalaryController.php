@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Setting;
+use App\Models\RolePermission;
 
 class SalaryController extends Controller
 {
@@ -15,7 +16,7 @@ class SalaryController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        if (!$user || ($user->role !== 'Admin' && $user->role !== 'Accountant')) {
+        if (!$user || !RolePermission::can($user->role, 'salaries', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -120,7 +121,7 @@ class SalaryController extends Controller
     public function sanction(Request $request)
     {
         $user = Auth::user();
-        if (!$user || ($user->role !== 'Admin' && $user->role !== 'Accountant')) {
+        if (!$user || !RolePermission::can($user->role, 'salaries', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -272,7 +273,7 @@ class SalaryController extends Controller
     public function reports(Request $request)
     {
         $user = Auth::user();
-        if (!$user || ($user->role !== 'Admin' && $user->role !== 'Accountant')) {
+        if (!$user || !RolePermission::can($user->role, 'reports', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
