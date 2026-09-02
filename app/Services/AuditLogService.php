@@ -14,12 +14,16 @@ class AuditLogService
             $userId = Auth::user()->id;
         }
 
-        DB::table('audit_logs')->insert([
-            'action' => $action,
-            'performed_by' => $userId,
-            'ip_address' => Request::ip(),
-            'created_at' => now(),
-            'updated_at' => now()
-        ]);
+        try {
+            DB::table('audit_logs')->insert([
+                'action' => $action,
+                'performed_by' => $userId,
+                'ip_address' => Request::ip(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        } catch (\Exception $e) {
+            // Audit logging must never block the action it's logging.
+        }
     }
 }

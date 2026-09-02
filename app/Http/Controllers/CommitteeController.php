@@ -32,7 +32,12 @@ class CommitteeController extends Controller
 
     public function manageCommittee()
     {
-        $committeeList = DB::table('users')->where('role', 'Committee')->orderBy('name')->get();
+        $committeeList = DB::table('users')
+            ->leftJoin('committees', 'committees.user_id', '=', 'users.id')
+            ->where('users.role', 'Committee')
+            ->select('users.*', 'committees.position')
+            ->orderBy('users.name')
+            ->get();
 
         return view('admin.manage-committee', compact('committeeList'));
     }
@@ -48,12 +53,14 @@ class CommitteeController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'mobile' => 'required|string|max:15|unique:users,mobile',
+            'position' => 'required|string|max:100',
         ]);
 
         $password = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
+        DB::beginTransaction();
         try {
-            DB::table('users')->insert([
+            $userId = DB::table('users')->insertGetId([
                 'name' => $request->name,
                 'email' => $request->email,
                 'mobile' => $request->mobile,
@@ -66,7 +73,15 @@ class CommitteeController extends Controller
                 'updated_at' => now(),
             ]);
 
+            DB::table('committees')->insert([
+                'user_id' => $userId,
+                'position' => $request->position,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             AuditLogService::log("Created Committee User: {$request->email}");
+            DB::commit();
 
             $systemMode = Setting::get('system_mode', 'Testing Mode');
             $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
@@ -105,6 +120,7 @@ class CommitteeController extends Controller
             return redirect()->route('admin.committee.index')->with('success', 'Committee Member Added Successfully!');
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return redirect()->back()->with('error', 'Failed to add committee member: ' . $e->getMessage())->withInput();
         }
     }
@@ -116,6 +132,7 @@ class CommitteeController extends Controller
             'mobile' => 'required|string|max:15',
             'email' => 'required|email',
             'status' => 'required|in:Active,Inactive',
+            'position' => 'required|string|max:100',
         ]);
 
         $member = DB::table('users')->where('id', $id)->where('role', 'Committee')->first();
@@ -140,6 +157,20 @@ class CommitteeController extends Controller
             'status' => $request->status,
             'updated_at' => now(),
         ]);
+
+        if (DB::table('committees')->where('user_id', $id)->exists()) {
+            DB::table('committees')->where('user_id', $id)->update([
+                'position' => $request->position,
+                'updated_at' => now(),
+            ]);
+        } else {
+            DB::table('committees')->insert([
+                'user_id' => $id,
+                'position' => $request->position,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         AuditLogService::log("Updated Committee User ID: {$id}");
 

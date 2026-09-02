@@ -83,6 +83,14 @@
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Position <span class="text-danger">*</span></label>
+                    <input type="text" name="position" class="form-control rounded-3 @error('position') is-invalid @enderror" value="{{ old('position') }}" placeholder="e.g. Secretary, Treasurer" required>
+                    @error('position')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
             </div>
 
             <div class="text-end">

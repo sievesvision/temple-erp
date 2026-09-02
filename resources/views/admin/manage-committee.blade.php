@@ -158,6 +158,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Position</th>
                     <th>Email</th>
                     <th>Mobile</th>
                     <th>Status</th>
@@ -168,6 +169,7 @@
                 @foreach($committeeList as $member)
                 <tr>
                     <td><strong>{{ $member->name }}</strong></td>
+                    <td>{{ $member->position ?? 'Committee Member' }}</td>
                     <td>{{ $member->email }}</td>
                     <td>{{ $member->mobile }}</td>
                     <td>
@@ -211,6 +213,10 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Full Name</label>
                                 <input type="text" name="name" class="form-control rounded-3" value="{{ $member->name }}" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Position</label>
+                                <input type="text" name="position" class="form-control rounded-3" value="{{ $member->position }}" placeholder="e.g. Secretary, Treasurer" required>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Email Address</label>
@@ -293,7 +299,7 @@
             responsive: true,
             order: [[0, 'asc']],
             columnDefs: [
-                { orderable: false, targets: 4 }
+                { orderable: false, targets: 5 }
             ]
         });
     });
