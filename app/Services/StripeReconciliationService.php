@@ -18,11 +18,21 @@ class StripeReconciliationService
 {
     public static function reconcile(string $table, object $row, bool $dryRun = false): array
     {
-        if ($row->payment_method !== 'Stripe' || !$row->transaction_id || !str_starts_with((string) $row->transaction_id, 'cs_')) {
+        $transactionId = (string) $row->transaction_id;
+
+        if ($row->payment_method !== 'Stripe' || !$transactionId || !str_starts_with($transactionId, 'cs_')) {
             return ['outcome' => 'skipped', 'message' => 'This donation has no Stripe Checkout session to check.'];
         }
 
-        $stripe = new StripeClient(StripeConfigService::secret());
+        // The session's own id says which mode it was created under — a row can predate the
+        // account's *current* stripe_mode setting, so the active mode's key is not reliable
+        // here; Stripe rejects a test-mode session id under a live key (and vice versa) with
+        // a generic "No such checkout.session" error that looks identical to "truly gone".
+        $secret = str_starts_with($transactionId, 'cs_test_')
+            ? config('services.stripe.test_secret')
+            : config('services.stripe.live_secret');
+
+        $stripe = new StripeClient($secret);
 
         try {
             $session = $stripe->checkout->sessions->retrieve($row->transaction_id);
