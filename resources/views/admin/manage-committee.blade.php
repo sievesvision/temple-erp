@@ -57,6 +57,14 @@
         box-shadow: 0 8px 24px rgba(0,0,0,0.02);
         overflow: hidden;
     }
+    .table-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid #f0ece6;
+        padding: 18px 24px;
+        font-weight: 600;
+        font-size: 1.05rem;
+        color: #2d1f0e;
+    }
     .table-card .table thead th {
         font-weight: 600;
         color: #5a4e3e;
@@ -153,6 +161,9 @@
 @endif
 
 <div class="table-card">
+    <div class="card-header">
+        <span>Committee Members List</span>
+    </div>
     <div class="table-responsive">
         <table class="table align-middle" id="committeeTable">
             <thead>
