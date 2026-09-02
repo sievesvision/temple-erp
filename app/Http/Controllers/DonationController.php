@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Setting;
 use App\Models\RolePermission;
 use App\Services\DonationReceiptService;
+use App\Services\StripeConfigService;
 use Stripe\StripeClient;
 use Stripe\Webhook;
 use Stripe\Exception\SignatureVerificationException;
@@ -638,7 +639,7 @@ class DonationController extends Controller
      */
     private function startStripeCheckout(array $validated, ?int $devoteeId = null)
     {
-        if (!Setting::get('stripe_enabled', true) || !config('services.stripe.secret')) {
+        if (!Setting::get('stripe_enabled', true) || !StripeConfigService::secret()) {
             return redirect()->back()->with('error', 'Online payment is currently unavailable. Please choose Bank Transfer or Cash at Temple instead.')->withInput();
         }
 
@@ -684,7 +685,7 @@ class DonationController extends Controller
         $templeName = Setting::get('temple_name', 'Temple Donation');
 
         try {
-            $stripe = new StripeClient(config('services.stripe.secret'));
+            $stripe = new StripeClient(StripeConfigService::secret());
             $session = $stripe->checkout->sessions->create([
                 'mode' => 'payment',
                 'payment_method_types' => ['card'],
@@ -796,7 +797,7 @@ class DonationController extends Controller
         // The webhook may have already confirmed it — treat that as equally valid.
         if ($donation->payment_status !== 'Paid') {
             try {
-                $stripe = new StripeClient(config('services.stripe.secret'));
+                $stripe = new StripeClient(StripeConfigService::secret());
                 $session = $stripe->checkout->sessions->retrieve($sessionId);
             } catch (\Exception $e) {
                 Log::error('Stripe session verification failed: ' . $e->getMessage());
@@ -853,7 +854,7 @@ class DonationController extends Controller
     {
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
-        $webhookSecret = config('services.stripe.webhook_secret');
+        $webhookSecret = StripeConfigService::webhookSecret();
 
         try {
             if ($webhookSecret) {

@@ -85,7 +85,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             ->count();
 
         // Donations sum
-        $totalDonationsSum = \Illuminate\Support\Facades\DB::table('donations')->sum('amount')
+        $totalDonationsSum = \Illuminate\Support\Facades\DB::table('donations')->where('payment_status', 'Paid')->sum('amount')
             + \Illuminate\Support\Facades\DB::table('donations_without_logins')->where('payment_status', 'Paid')->sum('amount');
 
         if ($totalDonationsSum >= 100000) {
@@ -240,6 +240,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $hoursWeekend = \App\Models\Setting::get('hours_weekend', '7:30 am - 1:00 pm');
         $hoursWeekendPooja = \App\Models\Setting::get('hours_weekend_pooja', '9:00 am - 9:30 am');
         $stripeEnabled = (bool) \App\Models\Setting::get('stripe_enabled', true);
+        $stripeMode = \App\Models\Setting::get('stripe_mode', 'test');
         $templeOpeningTime = \App\Models\Setting::get('temple_opening_time', '06:00');
         $templeClosingTime = \App\Models\Setting::get('temple_closing_time', '21:00');
         $lowStockThreshold = \App\Models\Setting::get('low_stock_threshold', '10.00');
@@ -282,6 +283,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'hoursWeekend',
             'hoursWeekendPooja',
             'stripeEnabled',
+            'stripeMode',
             'templeOpeningTime',
             'templeClosingTime',
             'lowStockThreshold',
@@ -327,6 +329,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'hours_weekend' => 'required|string|max:100',
             'hours_weekend_pooja' => 'required|string|max:100',
             'stripe_enabled' => 'nullable|boolean',
+            'stripe_mode' => 'nullable|string|in:test,live',
             'temple_opening_time' => 'required|string|max:10',
             'temple_closing_time' => 'required|string|max:10',
             'low_stock_threshold' => 'required|numeric|min:0',
@@ -396,6 +399,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('hours_weekend', $request->hours_weekend);
         \App\Models\Setting::set('hours_weekend_pooja', $request->hours_weekend_pooja);
         \App\Models\Setting::set('stripe_enabled', $request->boolean('stripe_enabled') ? '1' : '0');
+        \App\Models\Setting::set('stripe_mode', $request->stripe_mode === 'live' ? 'live' : 'test');
         \App\Models\Setting::set('temple_opening_time', $request->temple_opening_time);
         \App\Models\Setting::set('temple_closing_time', $request->temple_closing_time);
         \App\Models\Setting::set('low_stock_threshold', $request->low_stock_threshold);

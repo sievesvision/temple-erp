@@ -355,7 +355,22 @@
                                 <input class="form-check-input" type="checkbox" role="switch" name="stripe_enabled" value="1" id="stripe_enabled" {{ $stripeEnabled ? 'checked' : '' }}>
                                 <label class="form-check-label fw-semibold" for="stripe_enabled">Enable Stripe donations</label>
                             </div>
-                            <div class="form-text">The Stripe keys and Checkout integration still need to be configured in the application environment before accepting live payments.</div>
+                            <div class="form-text mb-3">The Stripe keys are configured in the server environment (.env), not here — this only enables/disables the Stripe option on donation forms.</div>
+
+                            <label class="form-label fw-semibold text-dark d-block">Stripe Mode</label>
+                            <div class="d-flex gap-3 flex-wrap">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stripe_mode" value="test" id="stripe_mode_test" {{ $stripeMode !== 'live' ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="stripe_mode_test">Test mode <span class="text-muted">(no real charges)</span></label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stripe_mode" value="live" id="stripe_mode_live" {{ $stripeMode === 'live' ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="stripe_mode_live">Live mode <span class="text-danger">(real charges will be processed)</span></label>
+                                </div>
+                            </div>
+                            <div id="stripe_live_warning" class="alert alert-danger mt-2 py-2 px-3 mb-0" style="{{ $stripeMode === 'live' ? '' : 'display:none;' }}">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Live mode is active — donations will charge real cards using the live Stripe keys.
+                            </div>
                         </div>
                     </div>
 
@@ -443,6 +458,15 @@
         testingRadio.addEventListener('change', toggleEmailSection);
         liveRadio.addEventListener('change', toggleEmailSection);
         toggleEmailSection(); // initial call
+
+        const stripeModeTest = document.getElementById('stripe_mode_test');
+        const stripeModeLive = document.getElementById('stripe_mode_live');
+        const stripeLiveWarning = document.getElementById('stripe_live_warning');
+        function toggleStripeLiveWarning() {
+            stripeLiveWarning.style.display = stripeModeLive.checked ? '' : 'none';
+        }
+        stripeModeTest.addEventListener('change', toggleStripeLiveWarning);
+        stripeModeLive.addEventListener('change', toggleStripeLiveWarning);
 
         const themeSelect = document.getElementById('theme_preset');
         const colourInputs = {

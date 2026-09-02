@@ -35,10 +35,17 @@ return [
         ],
     ],
 
+    // Test and Live key pairs both live here side by side; which one is actually used
+    // is decided at runtime by the "stripe_mode" Setting (Admin > Settings > Donations
+    // & Payments), resolved via App\Services\StripeConfigService — see that class rather
+    // than reading config('services.stripe.*') directly anywhere in application code.
     'stripe' => [
-        'key' => env('STRIPE_KEY'),
-        'secret' => env('STRIPE_SECRET'),
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'test_key' => env('STRIPE_TEST_KEY'),
+        'test_secret' => env('STRIPE_TEST_SECRET'),
+        'test_webhook_secret' => env('STRIPE_TEST_WEBHOOK_SECRET'),
+        'live_key' => env('STRIPE_LIVE_KEY'),
+        'live_secret' => env('STRIPE_LIVE_SECRET'),
+        'live_webhook_secret' => env('STRIPE_LIVE_WEBHOOK_SECRET'),
     ],
 
 ];
