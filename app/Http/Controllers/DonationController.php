@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Setting;
 use App\Models\RolePermission;
+use App\Models\Event;
 use App\Services\DonationReceiptService;
 use App\Services\StripeConfigService;
 use Stripe\StripeClient;
@@ -710,6 +711,17 @@ class DonationController extends Controller
 
         $currency = strtolower(Setting::get('currency_code', 'AUD'));
         $templeName = Setting::get('temple_name', 'Temple Donation');
+        $heroImageUrl = url(Setting::get('temple_hero_image', '/images/temple_landing.jpg'));
+
+        $eventName = null;
+        if (!empty($validated['event_id'])) {
+            $eventName = Event::find($validated['event_id'])?->event_name;
+        }
+
+        $descriptionParts = array_filter([$eventName, $validated['purpose_details'] ?? null]);
+        $description = $descriptionParts
+            ? implode(' — ', $descriptionParts)
+            : 'Thank you for supporting ' . $templeName . '.';
 
         try {
             $stripe = new StripeClient(StripeConfigService::secret());
@@ -717,16 +729,24 @@ class DonationController extends Controller
                 'mode' => 'payment',
                 'payment_method_types' => ['card'],
                 'customer_email' => $validated['email'] ?? null,
+                'submit_type' => 'donate',
                 'line_items' => [[
                     'price_data' => [
                         'currency' => $currency,
                         'unit_amount' => (int) round($validated['amount'] * 100),
                         'product_data' => [
                             'name' => $validated['purpose'] . ' — ' . $templeName,
+                            'description' => $description,
+                            'images' => [$heroImageUrl],
                         ],
                     ],
                     'quantity' => 1,
                 ]],
+                'custom_text' => [
+                    'submit' => [
+                        'message' => 'Your generosity supports ' . $templeName . ' and the community it serves. A receipt will be emailed to you once confirmed.',
+                    ],
+                ],
                 'success_url' => route('donate.stripe.success') . '?session_id={CHECKOUT_SESSION_ID}',
                 'cancel_url' => route('donate.stripe.cancel', ['donation' => $donationId, 'table' => $table]),
                 'metadata' => ['donation_id' => (string) $donationId, 'table' => $table],
