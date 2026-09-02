@@ -465,6 +465,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant'])->group(function (
     Route::post('/admin/donation/resend-receipt/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'resendReceipt'])->name('admin.donations.resendReceipt');
     Route::post('/admin/donation/approve-guest/{id}', [\App\Http\Controllers\DonationController::class, 'approveGuestDonation'])->name('admin.donations.approveGuest');
     Route::post('/admin/donation/approve-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'approveDevoteeDonation'])->name('admin.donations.approveDevotee');
+    Route::post('/admin/donation/check-stripe-status/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'checkStripeStatus'])->name('admin.donations.checkStripeStatus');
 });
 
 // ============================================

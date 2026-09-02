@@ -151,7 +151,7 @@
         font-weight: 600;
         background: transparent;
     }
-    .btn-action-edit, .btn-action-delete, .btn-action-resend, .btn-action-approve {
+    .btn-action-edit, .btn-action-delete, .btn-action-resend, .btn-action-approve, .btn-action-checkstatus {
         border: none;
         padding: 6px 12px;
         border-radius: 40px;
@@ -194,6 +194,14 @@
     }
     .btn-action-approve:hover {
         background: #1f9d6a;
+        color: white;
+    }
+    .btn-action-checkstatus {
+        background: rgba(139, 92, 246, 0.1);
+        color: #8b5cf6;
+    }
+    .btn-action-checkstatus:hover {
+        background: #8b5cf6;
         color: white;
     }
     .quick-filter-btn {
@@ -322,8 +330,7 @@
                 <button type="button" class="quick-filter-btn" data-filter="type:guest">Guest Donations</button>
                 <button type="button" class="quick-filter-btn" data-filter="status:pending">Pending</button>
                 <button type="button" class="quick-filter-btn" data-filter="status:paid">Approved</button>
-                <button type="button" class="quick-filter-btn" data-filter="status:cancelled">Stripe Cancelled</button>
-                <button type="button" class="quick-filter-btn" data-filter="status:failed">Stripe Failed</button>
+                <button type="button" class="quick-filter-btn" data-filter="stripe:issues">Stripe Issues</button>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                 <label class="small text-muted mb-0 fw-semibold">Date</label>
@@ -378,6 +385,14 @@
                             </td>
                             <td class="text-end">
                                 @if($row->donation_type === 'devotee')
+                                    @if($canEditDonation && $row->payment_method === 'Stripe' && in_array($row->payment_status, ['Pending', 'Cancelled']))
+                                    <form action="{{ route('admin.donations.checkStripeStatus', ['type' => 'devotee', 'id' => $row->id]) }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn-action-checkstatus" title="Ask Stripe for this session's real status">
+                                            <i class="bi bi-arrow-repeat"></i> Check Status
+                                        </button>
+                                    </form>
+                                    @endif
                                     @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank Transfer', 'Bank', 'Cash']))
                                     <form action="{{ route('admin.donations.approveDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
                                         @csrf
@@ -409,6 +424,14 @@
                                     </form>
                                     @endif
                                 @else
+                                    @if($canEditDonation && $row->payment_method === 'Stripe' && in_array($row->payment_status, ['Pending', 'Cancelled']))
+                                    <form action="{{ route('admin.donations.checkStripeStatus', ['type' => 'guest', 'id' => $row->id]) }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="btn-action-checkstatus" title="Ask Stripe for this session's real status">
+                                            <i class="bi bi-arrow-repeat"></i> Check Status
+                                        </button>
+                                    </form>
+                                    @endif
                                     @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank', 'Cash']))
                                     <form action="{{ route('admin.donations.approveGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
                                         @csrf
@@ -878,12 +901,16 @@
             const $row = $(settings.aoData[index].nTr);
             const type = $row.data('type');
             const status = String($row.data('status'));
+            const method = String($row.data('method'));
             const date = String($row.data('date'));
 
             if (activeDonationFilter !== 'all') {
                 const [key, value] = activeDonationFilter.split(':');
                 if (key === 'type' && type !== value) return false;
                 if (key === 'status' && status !== value) return false;
+                if (key === 'stripe' && value === 'issues') {
+                    if (method !== 'stripe' || !['pending', 'cancelled', 'failed'].includes(status)) return false;
+                }
             }
 
             const from = $('#donationDateFrom').val();

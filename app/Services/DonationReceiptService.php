@@ -6,10 +6,50 @@ use App\Mail\DonationPendingMail;
 use App\Mail\DonationReceiptMail;
 use App\Models\Event;
 use App\Models\Setting;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class DonationReceiptService
 {
+    /**
+     * Build the send()/sendPendingNotice() payload for a Stripe row, accounting for the
+     * different column shapes between the guest ('donations_without_logins') and
+     * devotee-linked ('donations') tables. Shared by the checkout success/webhook
+     * handlers and the stale-pending reconciliation command.
+     */
+    public static function payloadForRow(string $table, $donation): array
+    {
+        if ($table === 'donations') {
+            $devoteeUser = DB::table('devotees')
+                ->join('users', 'devotees.user_id', '=', 'users.id')
+                ->where('devotees.devotee_id', $donation->devotee_id)
+                ->select('users.name', 'users.email')
+                ->first();
+
+            return [
+                'donor_name' => $devoteeUser->name ?? 'Devotee',
+                'donor_email' => $devoteeUser->email ?? null,
+                'amount' => $donation->amount,
+                'payment_method' => 'Stripe',
+                'purpose' => $donation->remarks ?: $donation->purpose,
+                'event_id' => $donation->event_id,
+                'donation_date' => $donation->donation_date,
+                'transaction_id' => $donation->transaction_id,
+            ];
+        }
+
+        return [
+            'donor_name' => $donation->donor_name,
+            'donor_email' => $donation->email,
+            'amount' => $donation->amount,
+            'payment_method' => 'Stripe',
+            'purpose' => $donation->purpose_details ?? $donation->purpose,
+            'event_id' => $donation->event_id,
+            'donation_date' => $donation->donation_date,
+            'transaction_id' => $donation->transaction_id,
+        ];
+    }
+
     /**
      * Send the official donation receipt/notification email — used once a donation is
      * confirmed 'Paid' (immediately for Stripe, or once an admin approves a Bank/Cash

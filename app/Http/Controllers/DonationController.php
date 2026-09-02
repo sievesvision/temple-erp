@@ -430,6 +430,35 @@ class DonationController extends Controller
     }
 
     /**
+     * Manually re-check a Stripe donation's real status against Stripe — for a donation
+     * stuck as 'Pending' (donor abandoned the checkout tab without completing or clicking
+     * back) or 'Cancelled', this asks Stripe directly rather than waiting on a webhook that
+     * will never come. See StripeReconciliationService for how the result is resolved.
+     */
+    public function checkStripeStatus($type, $id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $table = $type === 'devotee' ? 'donations' : 'donations_without_logins';
+        $row = DB::table($table)->where('id', $id)->first();
+
+        if (!$row) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if ($row->payment_method !== 'Stripe' || !in_array($row->payment_status, ['Pending', 'Cancelled'])) {
+            return redirect()->back()->with('error', 'This action only applies to Stripe donations that are Pending or Cancelled.');
+        }
+
+        $result = \App\Services\StripeReconciliationService::reconcile($table, $row);
+
+        return redirect()->back()->with($result['outcome'] === 'error' ? 'error' : 'success', $result['message']);
+    }
+
+    /**
      * Approve/verify a self-service guest donation that was submitted as Bank Transfer or
      * Cash at Temple — these sit as 'Pending' until an admin confirms the money was actually
      * received, unlike Online Payment (Stripe) which is auto-verified via the payment gateway.
@@ -807,43 +836,6 @@ class DonationController extends Controller
     }
 
     /**
-     * Build the DonationReceiptService payload for a confirmed Stripe row, accounting for
-     * the different column shapes between the guest and devotee-linked donation tables.
-     */
-    private function receiptPayloadForRow(string $table, $donation): array
-    {
-        if ($table === 'donations') {
-            $devoteeUser = DB::table('devotees')
-                ->join('users', 'devotees.user_id', '=', 'users.id')
-                ->where('devotees.devotee_id', $donation->devotee_id)
-                ->select('users.name', 'users.email')
-                ->first();
-
-            return [
-                'donor_name' => $devoteeUser->name ?? 'Devotee',
-                'donor_email' => $devoteeUser->email ?? null,
-                'amount' => $donation->amount,
-                'payment_method' => 'Stripe',
-                'purpose' => $donation->remarks ?: $donation->purpose,
-                'event_id' => $donation->event_id,
-                'donation_date' => $donation->donation_date,
-                'transaction_id' => $donation->transaction_id,
-            ];
-        }
-
-        return [
-            'donor_name' => $donation->donor_name,
-            'donor_email' => $donation->email,
-            'amount' => $donation->amount,
-            'payment_method' => 'Stripe',
-            'purpose' => $donation->purpose_details ?? $donation->purpose,
-            'event_id' => $donation->event_id,
-            'donation_date' => $donation->donation_date,
-            'transaction_id' => $donation->transaction_id,
-        ];
-    }
-
-    /**
      * Stripe redirects the donor here after a successful Checkout Session.
      */
     public function stripeSuccess(Request $request)
@@ -883,7 +875,7 @@ class DonationController extends Controller
                     ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
 
                 if ($justConfirmed) {
-                    DonationReceiptService::send($this->receiptPayloadForRow($table, $donation));
+                    DonationReceiptService::send(DonationReceiptService::payloadForRow($table, $donation));
                 }
             } else {
                 return redirect()->route($redirectRoute)->with('error', 'Payment was not completed.');
@@ -951,7 +943,7 @@ class DonationController extends Controller
                     ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
 
                 if ($justConfirmed) {
-                    DonationReceiptService::send($this->receiptPayloadForRow($table, $donation));
+                    DonationReceiptService::send(DonationReceiptService::payloadForRow($table, $donation));
                 }
             }
         }
