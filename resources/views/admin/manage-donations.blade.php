@@ -327,7 +327,7 @@
                             <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($d->amount, 2) }}</span></td>
                             <td>{{ $d->event_name ?? 'General Fund' }}</td>
                             <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $d->payment_method }}</span></td>
-                            <td><code class="small text-dark">{{ $d->transaction_id }}</code></td>
+                            <td><code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $d->transaction_id }}">{{ $d->transaction_id }}</code></td>
                             <td>{{ date('d M Y', strtotime($d->donation_date)) }}</td>
                             <td><span class="text-muted small">{{ $d->remarks ?? 'N/A' }}</span></td>
                             <td>
@@ -494,7 +494,7 @@
                                 @endphp
                                 <span class="badge bg-{{ $statusColor }} bg-opacity-10 text-{{ $statusColor }} px-3 py-2 rounded-pill">{{ $g->payment_status }}</span>
                             </td>
-                            <td><code class="small text-dark">{{ $g->transaction_id }}</code></td>
+                            <td><code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $g->transaction_id }}">{{ $g->transaction_id }}</code></td>
                             <td>{{ date('d M Y', strtotime($g->donation_date)) }}</td>
                             <td class="text-end">
                                 @if($canEditDonation && $g->payment_status === 'Pending' && in_array($g->payment_method, ['Bank', 'Cash']))
