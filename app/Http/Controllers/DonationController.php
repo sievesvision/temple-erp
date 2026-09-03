@@ -23,13 +23,13 @@ class DonationController extends Controller
     public function manageDonations(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
-        $canAddDonation = RolePermission::can($user->role, 'donations', 'add');
-        $canEditDonation = RolePermission::can($user->role, 'donations', 'edit');
-        $canDeleteDonation = RolePermission::can($user->role, 'donations', 'delete');
+        $canAddDonation = RolePermission::can(session('active_role', $user->role), 'donations', 'add');
+        $canEditDonation = RolePermission::can(session('active_role', $user->role), 'donations', 'edit');
+        $canDeleteDonation = RolePermission::can(session('active_role', $user->role), 'donations', 'delete');
 
         // Fetch Devotee Donations
         $devoteeDonations = DB::table('donations')
@@ -122,7 +122,7 @@ class DonationController extends Controller
     public function storeDevoteeDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -179,7 +179,7 @@ class DonationController extends Controller
     public function storeGuestDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -243,7 +243,7 @@ class DonationController extends Controller
     public function updateDevoteeDonation(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -282,7 +282,7 @@ class DonationController extends Controller
     public function deleteDevoteeDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -302,7 +302,7 @@ class DonationController extends Controller
     public function updateGuestDonation(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -349,7 +349,7 @@ class DonationController extends Controller
     public function deleteGuestDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -371,7 +371,7 @@ class DonationController extends Controller
     public function resendReceipt(Request $request, $type, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'view')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -438,7 +438,7 @@ class DonationController extends Controller
     public function checkStripeStatus($type, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -468,7 +468,7 @@ class DonationController extends Controller
     public function approveGuestDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -508,7 +508,7 @@ class DonationController extends Controller
     public function approveDevoteeDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'donations', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

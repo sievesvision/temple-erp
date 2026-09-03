@@ -396,7 +396,7 @@ class BookingController extends Controller
     public function manageBookings(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'bookings', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'bookings', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -474,7 +474,7 @@ class BookingController extends Controller
     public function overridePriest(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'bookings', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'bookings', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -546,7 +546,7 @@ class BookingController extends Controller
     public function reschedule(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'bookings', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'bookings', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -628,7 +628,7 @@ class BookingController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'bookings', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'bookings', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

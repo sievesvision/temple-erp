@@ -19,18 +19,21 @@ class RoleMiddleware
         }
 
         $user = Auth::user();
+        $activeRole = $request->session()->get('active_role', $user->role);
 
-        // Admin can access everything
-        if ($user->role === 'Admin') {
+        // Admin bypasses everything, but only while *actively* Admin — an Admin who has
+        // switched to e.g. Committee should be gated exactly as Committee, not silently
+        // retain full Admin power while the UI shows a restricted role.
+        if ($activeRole === 'Admin') {
             return $next($request);
         }
 
-        if (in_array($user->role, $roles)) {
+        if (in_array($activeRole, $roles)) {
             return $next($request);
         }
 
         // If not authorized, redirect to their home role dashboard
-        $redirectRoute = match ($user->role) {
+        $redirectRoute = match ($activeRole) {
             'Admin' => 'admin.dashboard',
             'Devotee' => 'devotee.dashboard',
             'Priest' => 'priest.dashboard',

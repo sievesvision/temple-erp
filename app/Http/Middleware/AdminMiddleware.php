@@ -18,7 +18,10 @@ class AdminMiddleware
         $user = Auth::user();
         $activeRole = $request->session()->get('active_role', $user->role);
 
-        if ($activeRole === 'Admin' && $user->role === 'Admin') {
+        // Admin has no pivot/grant table (see User::grantTables()) — active_role can only
+        // ever be 'Admin' if users.role already is, so checking it alone is both correct
+        // and consistent with the other role middlewares' simplified pattern.
+        if ($activeRole === 'Admin') {
             return $next($request);
         }
 

@@ -17,7 +17,7 @@ class InventoryController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'inventory', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'inventory', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -64,7 +64,7 @@ class InventoryController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'inventory', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'inventory', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -112,7 +112,7 @@ class InventoryController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'inventory', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'inventory', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -138,7 +138,7 @@ class InventoryController extends Controller
     public function adjustStock(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'inventory', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'inventory', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -202,7 +202,7 @@ class InventoryController extends Controller
     public function destroy($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'inventory', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'inventory', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

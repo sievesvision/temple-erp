@@ -270,13 +270,23 @@ class AuthController extends Controller
                 ->withInput();
         }
 
-        // Check role matches (except for Devotee - anyone can login as Devotee)
-        if ($request->role != 'Devotee') {
-            if ($user->role !== $request->role) {
-                return back()
-                    ->withErrors(['role' => 'This account is not registered as ' . $request->role . '.'])
-                    ->withInput();
-            }
+        // Check the requested role is one this account actually holds — either their
+        // primary role, Devotee (universal, auto-provisioned below), or a role explicitly
+        // granted via the relevant "Add X" page / RoleGrantService::grant() (see
+        // User::grantedRoles()). The level check is defense-in-depth: a user can never log
+        // in as a role more authoritative than the most-authoritative role they hold.
+        $grantedRoles = $user->grantedRoles();
+        if (!in_array($request->role, $grantedRoles, true)) {
+            return back()
+                ->withErrors(['role' => 'This account is not authorised for the ' . $request->role . ' role.'])
+                ->withInput();
+        }
+
+        $requestedLevel = \App\Models\RolePermission::levels()[$request->role] ?? PHP_INT_MAX;
+        if ($requestedLevel < $user->authorisedLevel()) {
+            return back()
+                ->withErrors(['role' => 'You are not authorised for that role.'])
+                ->withInput();
         }
 
         // Email Verification Protection

@@ -18,7 +18,11 @@ class TrusteeMiddleware
         $user = Auth::user();
         $activeRole = $request->session()->get('active_role', $user->role);
 
-        if ($activeRole === 'Trustee' && $user->role === 'Trustee') {
+        // active_role can only be 'Trustee' via AuthController::login()'s validated
+        // grantedRoles() check (primary role or an explicit RoleGrantService grant), so
+        // checking it alone is sufficient — no need to also require users.role === 'Trustee'
+        // (that's exactly what blocked a legitimately granted, non-primary Trustee login).
+        if ($activeRole === 'Trustee') {
             return $next($request);
         }
 

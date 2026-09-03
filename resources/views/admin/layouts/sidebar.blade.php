@@ -4,7 +4,7 @@
     $adminLogoSplitAt = strrpos($adminLogoText, ' ');
     $adminLogoMain = $adminLogoSplitAt !== false ? substr($adminLogoText, 0, $adminLogoSplitAt) : $adminLogoText;
     $adminLogoAccent = $adminLogoSplitAt !== false ? substr($adminLogoText, $adminLogoSplitAt + 1) : '';
-    $sidebarRole = auth()->user()->role ?? null;
+    $sidebarRole = session('active_role', auth()->user()->role ?? null);
     $can = fn (string $resource, string $action = 'view') => \App\Models\RolePermission::can($sidebarRole, $resource, $action);
     $dashboardRoute = match ($sidebarRole) {
         'Admin' => 'admin.dashboard',

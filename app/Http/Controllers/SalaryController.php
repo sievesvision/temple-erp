@@ -16,7 +16,7 @@ class SalaryController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'salaries', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'salaries', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -121,7 +121,7 @@ class SalaryController extends Controller
     public function sanction(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'salaries', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'salaries', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -273,7 +273,7 @@ class SalaryController extends Controller
     public function reports(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'reports', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'reports', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 

@@ -165,12 +165,12 @@ class StaffController extends Controller
     public function manageStaff(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'staff', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'staff', 'view')) {
             abort(403, 'Unauthorized access.');
         }
-        $canAdd = RolePermission::can($user->role, 'staff', 'add');
-        $canEdit = RolePermission::can($user->role, 'staff', 'edit');
-        $canDelete = RolePermission::can($user->role, 'staff', 'delete');
+        $canAdd = RolePermission::can(session('active_role', $user->role), 'staff', 'add');
+        $canEdit = RolePermission::can(session('active_role', $user->role), 'staff', 'edit');
+        $canDelete = RolePermission::can(session('active_role', $user->role), 'staff', 'delete');
 
         $status = $request->get('verification_status');
 
@@ -192,7 +192,7 @@ class StaffController extends Controller
     public function addStaffPage()
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'staff', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'staff', 'add')) {
             abort(403, 'Unauthorized access.');
         }
         return view('admin.add-staff');
@@ -201,14 +201,17 @@ class StaffController extends Controller
     public function storeStaff(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'staff', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'staff', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'mobile' => 'required|string|max:15|unique:users,mobile',
+            // Deliberately no unique:users rule on email/mobile — a duplicate is the signal
+            // to grant an existing user this role too (see the $existingUser branch below),
+            // not an error. Uniqueness among *Staff specifically* is checked there instead.
+            'email' => 'required|email',
+            'mobile' => 'required|string|max:15',
             'designation' => 'required|string|max:100',
             'salary' => 'required|numeric|min:0',
             'employment_status' => 'required|in:Active,On Leave,Inactive',
@@ -239,12 +242,8 @@ class StaffController extends Controller
                     return redirect()->back()->with('error', 'User is already registered as a Staff member.')->withInput();
                 }
 
-                DB::table('users')->where('id', $existingUser->id)->update([
-                    'role' => 'Staff',
-                    'status' => 'Active',
-                    'email_verified_at' => now(),
-                    'updated_at' => now()
-                ]);
+                // Grant Staff access without touching their existing role/status/identity —
+                // they keep whichever role brought them here and simply gain another.
                 $userId = $existingUser->id;
             } else {
                 $userId = DB::table('users')->insertGetId([
@@ -283,6 +282,15 @@ class StaffController extends Controller
             AuditLogService::log("Created Staff User ID: {$userId}");
             DB::commit();
 
+            // An existing user's real password is never touched (see the $existingUser
+            // branch above) — $password here was only ever generated for a brand-new
+            // account, so it must never be emailed or flashed for a granted-role user; that
+            // would show a "password" that was never actually saved as theirs.
+            if ($existingUser) {
+                return redirect()->route('admin.staff.index')
+                    ->with('success', "{$request->name} has been granted Staff access — they can log in choosing the Staff role with their existing password.");
+            }
+
             // Handling System Mode
             $systemMode = Setting::get('system_mode', 'Testing Mode');
             $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
@@ -307,7 +315,7 @@ class StaffController extends Controller
                 }
             }
 
-            $msg = $existingUser ? 'User promoted to Staff successfully!' : 'Staff Added Successfully!';
+            $msg = 'Staff Added Successfully!';
 
             if ($flashPassword) {
                 return redirect()->route('admin.staff.index')
@@ -331,7 +339,7 @@ class StaffController extends Controller
     public function updateStaff(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'staff', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'staff', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -408,27 +416,26 @@ class StaffController extends Controller
     public function deleteStaff($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'staff', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'staff', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
-        DB::beginTransaction();
         try {
             $staff = DB::table('staff')->where('staff_id', $id)->first();
             if (!$staff) {
                 return redirect()->back()->with('error', 'Staff member not found.');
             }
 
-            DB::table('staff')->where('staff_id', $id)->delete();
-            DB::table('users')->where('id', $staff->user_id)->delete();
+            // Revokes the Staff grant — deletes the whole account only if this was their
+            // only role, otherwise just removes the staff row and reassigns their primary
+            // role if Staff was it (see RoleGrantService::revoke()).
+            \App\Services\RoleGrantService::revoke($staff->user_id, 'Staff');
 
             AuditLogService::log("Deleted Staff User ID: {$staff->user_id}");
-            DB::commit();
 
             return redirect()->route('admin.staff.index')->with('success', 'Staff Member Deleted Successfully');
 
         } catch (\Exception $e) {
-            DB::rollBack();
             return redirect()->back()->with('error', 'Failed to delete staff: ' . $e->getMessage());
         }
     }

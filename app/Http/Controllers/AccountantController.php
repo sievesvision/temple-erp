@@ -86,12 +86,12 @@ class AccountantController extends Controller
     public function manageAccountants(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'accountants', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'accountants', 'view')) {
             abort(403, 'Unauthorized access.');
         }
-        $canAdd = RolePermission::can($user->role, 'accountants', 'add');
-        $canEdit = RolePermission::can($user->role, 'accountants', 'edit');
-        $canDelete = RolePermission::can($user->role, 'accountants', 'delete');
+        $canAdd = RolePermission::can(session('active_role', $user->role), 'accountants', 'add');
+        $canEdit = RolePermission::can(session('active_role', $user->role), 'accountants', 'edit');
+        $canDelete = RolePermission::can(session('active_role', $user->role), 'accountants', 'delete');
 
         $status = $request->get('verification_status');
 
@@ -113,7 +113,7 @@ class AccountantController extends Controller
     public function addAccountantPage()
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'accountants', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'accountants', 'add')) {
             abort(403, 'Unauthorized access.');
         }
         return view('admin.add-accountant');
@@ -122,14 +122,17 @@ class AccountantController extends Controller
     public function storeAccountant(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'accountants', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'accountants', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'mobile' => 'required|string|max:15|unique:users,mobile',
+            // Deliberately no unique:users rule on email/mobile — a duplicate is the signal
+            // to grant an existing user this role too (see the $existingUser branch below),
+            // not an error. Uniqueness among *Accountants specifically* is checked there instead.
+            'email' => 'required|email',
+            'mobile' => 'required|string|max:15',
             'salary' => 'required|numeric|min:0',
             'employment_status' => 'required|in:Active,On Leave,Inactive',
             'joining_date' => 'required|date',
@@ -159,12 +162,8 @@ class AccountantController extends Controller
                     return redirect()->back()->with('error', 'User is already registered as an Accountant.')->withInput();
                 }
 
-                DB::table('users')->where('id', $existingUser->id)->update([
-                    'role' => 'Accountant',
-                    'status' => 'Active',
-                    'email_verified_at' => now(),
-                    'updated_at' => now()
-                ]);
+                // Grant Accountant access without touching their existing role/status/identity
+                // — they keep whichever role brought them here and simply gain another.
                 $userId = $existingUser->id;
             } else {
                 $userId = DB::table('users')->insertGetId([
@@ -202,6 +201,15 @@ class AccountantController extends Controller
             AuditLogService::log("Created Accountant User ID: {$userId}");
             DB::commit();
 
+            // An existing user's real password is never touched (see the $existingUser
+            // branch above) — $password here was only ever generated for a brand-new
+            // account, so it must never be emailed or flashed for a granted-role user; that
+            // would show a "password" that was never actually saved as theirs.
+            if ($existingUser) {
+                return redirect()->route('admin.accountants.index')
+                    ->with('success', "{$request->name} has been granted Accountant access — they can log in choosing the Accountant role with their existing password.");
+            }
+
             // Handling System Mode
             $systemMode = Setting::get('system_mode', 'Testing Mode');
             $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
@@ -226,7 +234,7 @@ class AccountantController extends Controller
                 }
             }
 
-            $msg = $existingUser ? 'User promoted to Accountant successfully!' : 'Accountant Added Successfully!';
+            $msg = 'Accountant Added Successfully!';
 
             if ($flashPassword) {
                 return redirect()->route('admin.accountants.index')
@@ -250,7 +258,7 @@ class AccountantController extends Controller
     public function updateAccountant(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'accountants', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'accountants', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -325,27 +333,26 @@ class AccountantController extends Controller
     public function deleteAccountant($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'accountants', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'accountants', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
-        DB::beginTransaction();
         try {
             $accountant = DB::table('accountants')->where('accountant_id', $id)->first();
             if (!$accountant) {
                 return redirect()->back()->with('error', 'Accountant not found.');
             }
 
-            DB::table('accountants')->where('accountant_id', $id)->delete();
-            DB::table('users')->where('id', $accountant->user_id)->delete();
+            // Revokes the Accountant grant — deletes the whole account only if this was
+            // their only role, otherwise just removes the accountants row and reassigns
+            // their primary role if Accountant was it (see RoleGrantService::revoke()).
+            \App\Services\RoleGrantService::revoke($accountant->user_id, 'Accountant');
 
             AuditLogService::log("Deleted Accountant User ID: {$accountant->user_id}");
-            DB::commit();
 
             return redirect()->route('admin.accountants.index')->with('success', 'Accountant Deleted Successfully');
 
         } catch (\Exception $e) {
-            DB::rollBack();
             return redirect()->back()->with('error', 'Failed to delete accountant: ' . $e->getMessage());
         }
     }

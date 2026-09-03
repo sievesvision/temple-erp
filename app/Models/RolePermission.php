@@ -62,6 +62,25 @@ class RolePermission extends Model
     }
 
     /**
+     * Authority hierarchy — lower number = more authority. Used to cap which role a user
+     * may choose to log in as (User::authorisedLevel()) and, in the future, which roles one
+     * role may grant to another. Devotee is deliberately last since anyone can already hold
+     * it (see User::grantedRoles()).
+     */
+    public static function levels(): array
+    {
+        return [
+            'Admin' => 1,
+            'Committee' => 2,
+            'Accountant' => 3,
+            'Priest' => 4,
+            'Trustee' => 5,
+            'Staff' => 6,
+            'Devotee' => 7,
+        ];
+    }
+
+    /**
      * Whether the given role can perform the given action ('view'|'add'|'edit'|'delete')
      * on the given resource. Admin always has full access regardless of stored rows.
      */

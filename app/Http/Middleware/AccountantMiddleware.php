@@ -18,7 +18,11 @@ class AccountantMiddleware
         $user = Auth::user();
         $activeRole = $request->session()->get('active_role', $user->role);
 
-        if ($activeRole === 'Accountant' && $user->role === 'Accountant') {
+        // active_role can only be 'Accountant' via AuthController::login()'s validated
+        // grantedRoles() check (primary role or an explicit RoleGrantService grant), so
+        // checking it alone is sufficient — no need to also require users.role ===
+        // 'Accountant' (that's exactly what blocked a legitimately granted login).
+        if ($activeRole === 'Accountant') {
             return $next($request);
         }
 

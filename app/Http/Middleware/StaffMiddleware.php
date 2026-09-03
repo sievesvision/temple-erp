@@ -18,7 +18,11 @@ class StaffMiddleware
         $user = Auth::user();
         $activeRole = $request->session()->get('active_role', $user->role);
 
-        if ($activeRole === 'Staff' && $user->role === 'Staff') {
+        // active_role can only be 'Staff' via AuthController::login()'s validated
+        // grantedRoles() check (primary role or an explicit RoleGrantService grant), so
+        // checking it alone is sufficient — no need to also require users.role === 'Staff'
+        // (that's exactly what blocked a legitimately granted, non-primary Staff login).
+        if ($activeRole === 'Staff') {
             return $next($request);
         }
 

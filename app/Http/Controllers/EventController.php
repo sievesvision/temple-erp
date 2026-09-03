@@ -39,7 +39,7 @@ class EventController extends Controller
     public function manageEvents(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'events', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'events', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -63,7 +63,7 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'events', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'events', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -98,7 +98,7 @@ class EventController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'events', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'events', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -161,7 +161,7 @@ class EventController extends Controller
     public function destroy($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'events', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'events', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

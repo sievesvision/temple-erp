@@ -164,7 +164,7 @@ class ChatController extends Controller
     public function staffGetActiveSessions()
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'chats', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'chats', 'view')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -196,7 +196,7 @@ class ChatController extends Controller
     public function staffGetEndedSessions()
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'chats', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'chats', 'view')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -227,7 +227,7 @@ class ChatController extends Controller
     public function staffGetMessages($sessionId)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'chats', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'chats', 'view')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -262,7 +262,7 @@ class ChatController extends Controller
     public function staffSendReply(Request $request, $sessionId)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'chats', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'chats', 'add')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -304,7 +304,7 @@ class ChatController extends Controller
     public function staffEndSession($sessionId)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'chats', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'chats', 'delete')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 

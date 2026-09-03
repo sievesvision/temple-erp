@@ -8,6 +8,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class User extends Authenticatable
@@ -66,5 +67,53 @@ protected $fillable = [
     {
         $url = route('admin-reset.form', ['token' => $token, 'email' => $this->email]);
         Mail::to($this->email)->send(new AdminPasswordResetLinkMail($this->name, $url));
+    }
+
+    /**
+     * Maps a grantable role name to the pivot table whose existence (a row keyed by
+     * user_id) constitutes "this user holds that role" — see grantedRoles() and
+     * App\Services\RoleGrantService, which shares this map. Admin has no pivot table; it's
+     * a direct users.role assignment, not something granted this way.
+     */
+    public static function grantTables(): array
+    {
+        return [
+            'Committee' => 'committees',
+            'Accountant' => 'accountants',
+            'Priest' => 'priests',
+            'Trustee' => 'trustees',
+            'Staff' => 'staff',
+        ];
+    }
+
+    /**
+     * Every role this user may choose to log in as: their primary role, Devotee (universal —
+     * anyone can already log in as Devotee, auto-provisioned), and any role for which a
+     * pivot-table row exists for their user_id (an explicit grant made via the relevant
+     * "Add X" page or RoleGrantService::grant()).
+     */
+    public function grantedRoles(): array
+    {
+        $roles = [$this->role, 'Devotee'];
+
+        foreach (self::grantTables() as $role => $table) {
+            if (DB::table($table)->where('user_id', $this->id)->exists()) {
+                $roles[] = $role;
+            }
+        }
+
+        return array_values(array_unique($roles));
+    }
+
+    /**
+     * The most authoritative (lowest-numbered) level among every role this user holds —
+     * the ceiling AuthController::login() enforces so a user can never select a role more
+     * authoritative than what they're actually granted.
+     */
+    public function authorisedLevel(): int
+    {
+        $levels = RolePermission::levels();
+
+        return min(array_map(fn ($role) => $levels[$role] ?? PHP_INT_MAX, $this->grantedRoles()));
     }
 }

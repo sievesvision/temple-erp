@@ -167,7 +167,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     // Admin Settings Routes
     Route::get('/admin/settings', function () {
         $currentUser = \Illuminate\Support\Facades\Auth::user();
-        if (!$currentUser || !\App\Models\RolePermission::can($currentUser->role, 'settings', 'view')) {
+        if (!$currentUser || !\App\Models\RolePermission::can(session('active_role', $currentUser->role), 'settings', 'view')) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -260,7 +260,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
 
     Route::post('/admin/settings', function (\Illuminate\Http\Request $request) {
         $currentUser = \Illuminate\Support\Facades\Auth::user();
-        if (!$currentUser || !\App\Models\RolePermission::can($currentUser->role, 'settings', 'edit')) {
+        if (!$currentUser || !\App\Models\RolePermission::can(session('active_role', $currentUser->role), 'settings', 'edit')) {
             abort(403, 'Unauthorized access.');
         }
 

@@ -196,12 +196,12 @@ class PriestController extends Controller
     public function managePriests(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'priests', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'priests', 'view')) {
             abort(403, 'Unauthorized access.');
         }
-        $canAdd = RolePermission::can($user->role, 'priests', 'add');
-        $canEdit = RolePermission::can($user->role, 'priests', 'edit');
-        $canDelete = RolePermission::can($user->role, 'priests', 'delete');
+        $canAdd = RolePermission::can(session('active_role', $user->role), 'priests', 'add');
+        $canEdit = RolePermission::can(session('active_role', $user->role), 'priests', 'edit');
+        $canDelete = RolePermission::can(session('active_role', $user->role), 'priests', 'delete');
 
         $status = $request->get('verification_status');
 
@@ -229,7 +229,7 @@ class PriestController extends Controller
     public function addPriestPage()
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'priests', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'priests', 'add')) {
             abort(403, 'Unauthorized access.');
         }
         return view('admin.add-priest');
@@ -238,7 +238,7 @@ class PriestController extends Controller
     public function viewPriest($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'priests', 'view')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'priests', 'view')) {
             abort(403, 'Unauthorized access.');
         }
         $priest = DB::table('priests')
@@ -258,7 +258,7 @@ class PriestController extends Controller
     public function editPriest($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'priests', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'priests', 'edit')) {
             abort(403, 'Unauthorized access.');
         }
         $priest = DB::table('priests')
@@ -278,7 +278,7 @@ class PriestController extends Controller
     public function updatePriest(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'priests', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'priests', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -360,11 +360,9 @@ class PriestController extends Controller
     public function deletePriest($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'priests', 'delete')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'priests', 'delete')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
-
-        DB::beginTransaction();
 
         try {
             $priest = DB::table('priests')
@@ -375,24 +373,15 @@ class PriestController extends Controller
                 return redirect()->back()->with('error', 'Priest not found.');
             }
 
-            // Delete priest
-            DB::table('priests')
-                ->where('priest_id', $id)
-                ->delete();
+            // Revokes the Priest grant — deletes the whole account only if this was their
+            // only role, otherwise just removes the priests row and reassigns their
+            // primary role if Priest was it (see RoleGrantService::revoke()).
+            \App\Services\RoleGrantService::revoke($priest->user_id, 'Priest');
 
-            // Delete user
-            DB::table('users')
-                ->where('id', $priest->user_id)
-                ->delete();
-
-            DB::commit();
-
-            // ========== FIXED: Use named route ==========
             return redirect()->route('admin.priests.index')
                 ->with('success', 'Priest Deleted Successfully');
 
         } catch (\Exception $e) {
-            DB::rollBack();
             $msg = $e->getMessage();
             if (str_contains($msg, 'foreign key constraint fails') || str_contains($msg, 'Integrity constraint violation')) {
                 $msg = 'This priest has historical pooja bookings, leave requests, or chats and cannot be deleted. Please suspend or set their employment status to "Inactive" instead.';
@@ -407,14 +396,17 @@ class PriestController extends Controller
     public function storePriest(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'priests', 'add')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'priests', 'add')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'mobile' => 'required|string|max:15|unique:users,mobile',
+            // Deliberately no unique:users rule on email/mobile — a duplicate is the signal
+            // to grant an existing user this role too (see the $existingUser branch below),
+            // not an error. Uniqueness among *Priests specifically* is checked there instead.
+            'email' => 'required|email',
+            'mobile' => 'required|string|max:15',
             'gender' => 'nullable|string',
             'dob' => 'nullable|date',
             'experience_years' => 'nullable|integer|min:0|max:50',
@@ -455,15 +447,8 @@ class PriestController extends Controller
                         ->withInput();
                 }
 
-                DB::table('users')
-                    ->where('id', $existingUser->id)
-                    ->update([
-                        'role' => 'Priest',
-                        'status' => 'Active',
-                        'email_verified_at' => now(),
-                        'updated_at' => now()
-                    ]);
-
+                // Grant Priest access without touching their existing role/status/identity —
+                // they keep whichever role brought them here and simply gain another.
                 $userId = $existingUser->id;
 
             } else {
@@ -515,6 +500,15 @@ class PriestController extends Controller
 
             DB::commit();
 
+            // An existing user's real password is never touched (see the $existingUser
+            // branch above) — $password here was only ever generated for a brand-new
+            // account, so it must never be emailed or flashed for a granted-role user; that
+            // would show a "password" that was never actually saved as theirs.
+            if ($existingUser) {
+                return redirect()->route('admin.priests.index')
+                    ->with('success', "{$request->name} has been granted Priest access — they can log in choosing the Priest role with their existing password.");
+            }
+
             // Handling System Mode
             $systemMode = Setting::get('system_mode', 'Testing Mode');
             $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
@@ -539,11 +533,9 @@ class PriestController extends Controller
                 }
             }
 
-            $message = $existingUser ? 'User promoted to Priest successfully!' : 'Priest Added Successfully!';
-
             if ($flashPassword) {
                 return redirect()->route('admin.priests.index')
-                    ->with('success', $message)
+                    ->with('success', 'Priest Added Successfully!')
                     ->with('success_user_created', [
                         'name' => $request->name,
                         'email' => $request->email,
@@ -551,7 +543,7 @@ class PriestController extends Controller
                         'role' => 'Priest'
                     ]);
             } else {
-                return redirect()->route('admin.priests.index')->with('success', $message);
+                return redirect()->route('admin.priests.index')->with('success', 'Priest Added Successfully!');
             }
 
         } catch (\Exception $e) {
@@ -933,7 +925,7 @@ class PriestController extends Controller
     public function updateLeaveStatus(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can($user->role, 'leaves', 'edit')) {
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'leaves', 'edit')) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
