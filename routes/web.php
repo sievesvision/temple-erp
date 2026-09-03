@@ -66,8 +66,26 @@ Route::post('/set-new-password', [AuthController::class, 'resetPasswordLink'])->
 // ============================================
 // ADMIN ROUTES (Restricted via RoleMiddleware)
 // ============================================
-Route::middleware(['auth', 'role.admin'])->group(function () {
+// The dashboard route also hosts the Support Chats / Previous Chats tabs (?tab=chats /
+// ?tab=prev_chats) — those need to be reachable by any role RolePermission grants the
+// 'chats' resource to (e.g. Committee), not just Admin, so this route sits outside the
+// strict role.admin group with its own inline check instead: the general dashboard stats
+// stay Admin-only, while the chat tabs are gated by the same 'chats' permission the
+// sidebar link and ChatController's API routes already use.
+Route::middleware(['auth'])->group(function () {
     Route::get('/admin/dashboard', function () {
+        $currentUser = \Illuminate\Support\Facades\Auth::user();
+        $activeRole = session('active_role', $currentUser->role ?? null);
+        $tab = request()->get('tab');
+
+        if (in_array($tab, ['chats', 'prev_chats'], true)) {
+            if (!\App\Models\RolePermission::can($activeRole, 'chats', 'view')) {
+                abort(403, 'Unauthorized access.');
+            }
+        } elseif ($activeRole !== 'Admin') {
+            abort(403, 'Unauthorized access.');
+        }
+
         $devoteesCount = \Illuminate\Support\Facades\DB::table('devotees')->count();
         $priestsCount = \Illuminate\Support\Facades\DB::table('priests')->count();
         
@@ -156,7 +174,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'recentDonations'
         ));
     })->name('admin.dashboard');
+});
 
+Route::middleware(['auth', 'role.admin'])->group(function () {
     // Inventory CRUD & Stock Adjustment Routes (Admin management)
     Route::get('/admin/manage-inventory', [\App\Http\Controllers\InventoryController::class, 'index'])->name('admin.inventory.index');
     Route::post('/admin/inventory/store', [\App\Http\Controllers\InventoryController::class, 'store'])->name('admin.inventory.store');
@@ -460,9 +480,14 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/committee/store', [CommitteeController::class, 'storeCommittee'])->name('admin.committee.store');
     Route::post('/admin/committee/update/{id}', [CommitteeController::class, 'updateCommittee'])->name('admin.committee.update');
     Route::delete('/admin/committee/delete/{id}', [CommitteeController::class, 'deleteCommittee'])->name('admin.committee.delete');
+});
 
-    // Admin Chat Support Routes — see PriestController comment above (Committee gets
-    // view + reply via the "Support Chats" resource, not end-session).
+// Admin Chat Support Routes — kept outside the Admin/Committee-only group above because
+// the "Support Chats" resource must be independently grantable to any role via Role
+// Management (same reasoning as the /admin/dashboard chat tabs). ChatController's methods
+// already self-enforce via RolePermission::can(session('active_role', ...), 'chats', ...),
+// so auth is the only route-level requirement here.
+Route::middleware(['auth'])->group(function () {
     Route::get('/admin/chats/active', [\App\Http\Controllers\ChatController::class, 'staffGetActiveSessions'])->name('admin.chats.active');
     Route::get('/admin/chats/history', [\App\Http\Controllers\ChatController::class, 'staffGetEndedSessions'])->name('admin.chats.history');
     Route::get('/admin/chats/{session}/messages', [\App\Http\Controllers\ChatController::class, 'staffGetMessages'])->name('admin.chats.messages');
