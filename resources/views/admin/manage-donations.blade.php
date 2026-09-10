@@ -232,16 +232,19 @@
         <h1><i class="bi bi-wallet2"></i>Manage Donations</h1>
         <div class="subtitle">Log, view, and audit donations received from registered devotees and guest donors</div>
     </div>
-    @if($canAddDonation)
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ route('admin.donations.export') }}" class="btn-add" style="background: linear-gradient(135deg, #1f9d6a, #34b380);">
+            <i class="bi bi-file-earmark-excel-fill"></i> Export to Excel
+        </a>
+        @if($canAddDonation)
         <button class="btn-add" data-bs-toggle="modal" data-bs-target="#recordDevoteeDonationModal">
             <i class="bi bi-person-check-fill"></i> Log Devotee Donation
         </button>
         <button class="btn-add" style="background: linear-gradient(135deg, #2a6fdb, #548ee8);" data-bs-toggle="modal" data-bs-target="#recordGuestDonationModal">
             <i class="bi bi-person-heart"></i> Log Guest Donation
         </button>
+        @endif
     </div>
-    @endif
 </div>
 
 @if(session('success'))
@@ -317,6 +320,9 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="ehundi-tab" data-bs-toggle="tab" data-bs-target="#ehundi-pane" type="button" role="tab"><i class="bi bi-coin text-warning me-1"></i>e-Hundi Offerings</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="event-summary-tab" data-bs-toggle="tab" data-bs-target="#event-summary-pane" type="button" role="tab"><i class="bi bi-calendar-event text-warning me-1"></i>By Event</button>
             </li>
         </ul>
     </div>
@@ -676,6 +682,45 @@
                             <td colspan="6" class="text-center text-muted py-5">
                                 <i class="bi bi-coin fs-1 d-block mb-2 text-warning"></i>
                                 No e-Hundi offerings recorded yet.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- By Event Pane -->
+        <div class="tab-pane fade" id="event-summary-pane" role="tabpanel">
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Donations Received</th>
+                            <th>Paid Total</th>
+                            <th>Pending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($eventSummary as $ev)
+                        <tr>
+                            <td><span class="fw-semibold text-dark">{{ $ev->event_name }}</span></td>
+                            <td>{{ $ev->donation_count }}</td>
+                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($ev->paid_total, 2) }}</span> <span class="text-muted small">({{ $ev->paid_count }})</span></td>
+                            <td>
+                                @if($ev->pending_count > 0)
+                                    <span class="text-warning fw-semibold">{{ $temple['currency'] }} {{ number_format($ev->pending_total, 2) }}</span> <span class="text-muted small">({{ $ev->pending_count }})</span>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-5">
+                                <i class="bi bi-calendar-event fs-1 d-block mb-2 text-warning"></i>
+                                No event-linked donations recorded yet.
                             </td>
                         </tr>
                         @endforelse

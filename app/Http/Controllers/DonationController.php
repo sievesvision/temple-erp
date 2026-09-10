@@ -65,18 +65,50 @@ class DonationController extends Controller
             $d->donation_type = 'devotee';
             $d->display_id = 'DN' . str_pad($d->id, 5, '0', STR_PAD_LEFT);
             $d->display_name = $d->devotee_name;
-            $d->display_purpose = $d->event_name ?? ($d->remarks ?: 'General Temple Fund');
+            // For event-linked donations, $d->purpose holds the donor's selected donation
+            // option(s) (e.g. "Annadanam Sponsorship, Pooja Sponsorship (x2)") — append it
+            // instead of showing only the event name, so the chosen option is visible here.
+            // display_option keeps just that raw value (blank for the generic placeholder)
+            // as its own field, for the event-wise summary and the Excel export.
+            $d->display_option = ($d->purpose && $d->purpose !== 'Event Donation') ? $d->purpose : '';
+            $d->display_purpose = $d->event_name
+                ? $d->event_name . ($d->display_option ? ' — ' . $d->display_option : '')
+                : ($d->remarks ?: 'General Temple Fund');
         });
 
         $guestDonations->each(function ($g) {
             $g->donation_type = 'guest';
             $g->display_id = 'GD' . str_pad($g->id, 5, '0', STR_PAD_LEFT);
             $g->display_name = $g->donor_name;
-            $g->display_purpose = $g->event_name ?? ($g->purpose_details ?: $g->purpose);
+            $g->display_option = ($g->purpose && $g->purpose !== 'Event Donation') ? $g->purpose : '';
+            $g->display_purpose = $g->event_name
+                ? $g->event_name . ($g->display_option ? ' — ' . $g->display_option : '')
+                : ($g->purpose_details ?: $g->purpose);
         });
 
         $allDonations = $devoteeDonations->concat($guestDonations)
             ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
+            ->values();
+
+        // Event-wise donation tracking — totals per event, Paid-only (matches the totals
+        // above), plus a Pending figure so admins can see what's still awaiting approval.
+        $eventSummary = $allDonations
+            ->filter(fn ($row) => !empty($row->event_id))
+            ->groupBy('event_id')
+            ->map(function ($rows) {
+                $paid = $rows->where('payment_status', 'Paid');
+                $pending = $rows->where('payment_status', 'Pending');
+                return (object) [
+                    'event_id' => $rows->first()->event_id,
+                    'event_name' => $rows->first()->event_name,
+                    'donation_count' => $rows->count(),
+                    'paid_total' => $paid->sum('amount'),
+                    'paid_count' => $paid->count(),
+                    'pending_total' => $pending->sum('amount'),
+                    'pending_count' => $pending->count(),
+                ];
+            })
+            ->sortByDesc('paid_total')
             ->values();
 
         // Fetch e-Hundi Donations
@@ -103,6 +135,7 @@ class DonationController extends Controller
             'devoteeDonations',
             'guestDonations',
             'allDonations',
+            'eventSummary',
             'ehundiDonations',
             'devoteeTotal',
             'guestTotal',
@@ -114,6 +147,82 @@ class DonationController extends Controller
             'canEditDonation',
             'canDeleteDonation'
         ));
+    }
+
+    /**
+     * Export all devotee + guest donations as CSV (opens directly in Excel) — includes
+     * the event name and the donor's selected donation option as separate columns.
+     */
+    public function export(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'view')) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $devoteeDonations = DB::table('donations')
+            ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
+            ->join('users', 'devotees.user_id', '=', 'users.id')
+            ->leftJoin('events', 'donations.event_id', '=', 'events.event_id')
+            ->select('donations.*', 'users.name as devotee_name', 'users.email', 'users.mobile', 'events.event_name')
+            ->orderBy('donation_date', 'desc')
+            ->get()
+            ->map(function ($d) {
+                $d->donation_type = 'Devotee';
+                $d->display_id = 'DN' . str_pad($d->id, 5, '0', STR_PAD_LEFT);
+                $d->display_name = $d->devotee_name;
+                $d->display_option = ($d->purpose && $d->purpose !== 'Event Donation') ? $d->purpose : '';
+                return $d;
+            });
+
+        $guestDonations = DB::table('donations_without_logins')
+            ->leftJoin('events', 'donations_without_logins.event_id', '=', 'events.event_id')
+            ->select('donations_without_logins.*', 'events.event_name')
+            ->orderBy('donation_date', 'desc')
+            ->get()
+            ->map(function ($g) {
+                $g->donation_type = 'Guest';
+                $g->display_id = 'GD' . str_pad($g->id, 5, '0', STR_PAD_LEFT);
+                $g->display_name = $g->donor_name;
+                $g->display_option = ($g->purpose && $g->purpose !== 'Event Donation') ? $g->purpose : '';
+                return $g;
+            });
+
+        $rows = $devoteeDonations->concat($guestDonations)
+            ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
+            ->values();
+
+        $filename = 'donations-export-' . now()->format('Y-m-d') . '.csv';
+
+        $callback = function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            // BOM so Excel detects UTF-8 correctly instead of mangling non-ASCII names.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Donation ID', 'Type', 'Name', 'Email', 'Mobile', 'Amount', 'Payment Method', 'Status', 'Event', 'Donation Option', 'Dedication / Remarks', 'Transaction ID', 'Donation Date']);
+            foreach ($rows as $row) {
+                fputcsv($out, [
+                    $row->display_id,
+                    $row->donation_type,
+                    $row->display_name,
+                    $row->email ?? '',
+                    $row->mobile ?? '',
+                    $row->amount,
+                    $row->payment_method,
+                    $row->payment_status,
+                    $row->event_name ?? '',
+                    $row->display_option,
+                    $row->donation_type === 'Guest' ? ($row->purpose_details ?? '') : ($row->remarks ?? ''),
+                    $row->transaction_id,
+                    $row->donation_date,
+                ]);
+            }
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     /**
