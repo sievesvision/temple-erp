@@ -210,6 +210,10 @@ class DonationController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        if ($request->filled('event_id')) {
+            return $this->exportEventDonations((int) $request->query('event_id'));
+        }
+
         $devoteeDonations = DB::table('donations')
             ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
             ->join('users', 'devotees.user_id', '=', 'users.id')
@@ -265,6 +269,116 @@ class DonationController extends Controller
                     $row->transaction_id,
                     $row->donation_date,
                 ]);
+            }
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * Export one event's donations as CSV, with a column per that event's configured
+     * donation option (matching the Event Donations tab's pivoted table) instead of the
+     * flat "Donation Option" text column the general export uses.
+     */
+    private function exportEventDonations(int $eventId)
+    {
+        $event = Event::with('donationOptions')->find($eventId);
+        if (!$event) {
+            abort(404, 'Event not found.');
+        }
+
+        $devoteeDonations = DB::table('donations')
+            ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
+            ->join('users', 'devotees.user_id', '=', 'users.id')
+            ->where('donations.event_id', $eventId)
+            ->select('donations.*', 'users.name as devotee_name', 'users.email', 'users.mobile')
+            ->get()
+            ->map(function ($d) {
+                $d->donation_type = 'devotee';
+                $d->display_id = 'DN' . str_pad($d->id, 5, '0', STR_PAD_LEFT);
+                $d->display_name = $d->devotee_name;
+                return $d;
+            });
+
+        $guestDonations = DB::table('donations_without_logins')
+            ->where('event_id', $eventId)
+            ->get()
+            ->map(function ($g) {
+                $g->donation_type = 'guest';
+                $g->display_id = 'GD' . str_pad($g->id, 5, '0', STR_PAD_LEFT);
+                $g->display_name = $g->donor_name;
+                return $g;
+            });
+
+        $donationSelections = DB::table('donation_selections')->get()
+            ->groupBy(fn ($s) => $s->donation_type . ':' . $s->donation_id);
+
+        $options = $event->donationOptions;
+
+        $rows = $devoteeDonations->concat($guestDonations)
+            ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
+            ->values()
+            ->map(function ($row) use ($options, $donationSelections) {
+                $selections = $donationSelections[$row->donation_type . ':' . $row->id] ?? collect();
+                $optionAmounts = [];
+                $matchedTotal = 0;
+                foreach ($options as $opt) {
+                    $amt = (float) $selections->where('event_donation_option_id', $opt->id)->sum('amount');
+                    $optionAmounts[$opt->id] = $amt;
+                    $matchedTotal += $amt;
+                }
+                $row->option_amounts = $optionAmounts;
+                $row->other_amount = round($row->amount - $matchedTotal, 2);
+                if ($row->other_amount < 0.01) {
+                    $row->other_amount = 0;
+                }
+                return $row;
+            });
+
+        $filename = 'event-donations-' . \Illuminate\Support\Str::slug($event->event_name) . '-' . now()->format('Y-m-d') . '.csv';
+
+        $callback = function () use ($rows, $options) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            $header = array_merge(
+                ['Donation ID', 'Type', 'Name', 'Email', 'Mobile'],
+                $options->pluck('label')->all(),
+                [
+                    'Other', 'Total Amount', 'Payment Method', 'Payment Status',
+                    'Transaction ID', 'Bank Name', 'Bank Account No', 'Bank IFSC', 'Bank Branch',
+                    'Dedication / Remarks', 'Donation Date', 'Recorded At',
+                ]
+            );
+            fputcsv($out, $header);
+            foreach ($rows as $row) {
+                $isGuest = $row->donation_type === 'guest';
+                $line = [
+                    $row->display_id,
+                    $isGuest ? 'Guest' : 'Devotee',
+                    $row->display_name,
+                    $row->email ?? '',
+                    $row->mobile ?? '',
+                ];
+                foreach ($options as $opt) {
+                    $line[] = $row->option_amounts[$opt->id] > 0 ? $row->option_amounts[$opt->id] : '';
+                }
+                $line[] = $row->other_amount > 0 ? $row->other_amount : '';
+                $line[] = $row->amount;
+                $line[] = $row->payment_method;
+                $line[] = $row->payment_status;
+                $line[] = $row->transaction_id;
+                $line[] = $isGuest ? ($row->bank_name ?? '') : '';
+                $line[] = $isGuest ? ($row->bank_account_no ?? '') : '';
+                $line[] = $isGuest ? ($row->bank_ifsc ?? '') : '';
+                $line[] = $isGuest ? ($row->bank_branch ?? '') : '';
+                $line[] = $isGuest ? ($row->purpose_details ?? '') : ($row->remarks ?? '');
+                $line[] = $row->donation_date;
+                $line[] = $row->created_at;
+                fputcsv($out, $line);
             }
             fclose($out);
         };

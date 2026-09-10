@@ -633,14 +633,19 @@
 
         <!-- Event Donations Pane -->
         <div class="tab-pane fade" id="event-summary-pane" role="tabpanel">
-            <div class="mb-4" style="max-width: 420px;">
-                <label class="form-label fw-semibold">View</label>
-                <select id="eventViewSelect" class="form-select rounded-3">
-                    <option value="event-overview-pane">Overview (all events)</option>
-                    @foreach($eventSummary as $ev)
-                    <option value="event-detail-pane-{{ $ev->event_id }}">{{ $ev->event_name }}</option>
-                    @endforeach
-                </select>
+            <div class="d-flex align-items-end gap-3 mb-4 flex-wrap">
+                <div style="max-width: 420px; flex: 1;">
+                    <label class="form-label fw-semibold">View</label>
+                    <select id="eventViewSelect" class="form-select rounded-3">
+                        <option value="event-overview-pane" data-event-id="">Overview (all events)</option>
+                        @foreach($eventSummary as $ev)
+                        <option value="event-detail-pane-{{ $ev->event_id }}" data-event-id="{{ $ev->event_id }}">{{ $ev->event_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <a href="{{ route('admin.donations.export') }}" id="eventExportBtn" class="btn-add" style="background: linear-gradient(135deg, #1f9d6a, #34b380);">
+                    <i class="bi bi-file-earmark-excel-fill"></i> Export to Excel
+                </a>
             </div>
 
             <!-- Overview: the aggregate per-event summary -->
@@ -1230,7 +1235,11 @@
     }
 
     // Event Donations tab: a single dropdown switches between the Overview (aggregate
-    // per-event totals) and each event's own pivoted donation table.
+    // per-event totals) and each event's own pivoted donation table. The Export button
+    // stays in sync with the dropdown — exporting the whole thing from Overview, or just
+    // that event (with its own option columns) once a specific event is selected.
+    const EVENT_EXPORT_BASE_URL = @json(route('admin.donations.export'));
+
     document.addEventListener('DOMContentLoaded', function () {
         function showEventPane(target) {
             document.querySelectorAll('.event-content-pane').forEach(function (p) { p.style.display = 'none'; });
@@ -1239,9 +1248,22 @@
         }
 
         const eventViewSelect = document.getElementById('eventViewSelect');
-        if (eventViewSelect) {
-            eventViewSelect.addEventListener('change', function () { showEventPane(this.value); });
+        const eventExportBtn = document.getElementById('eventExportBtn');
+
+        function syncExportLink() {
+            if (!eventViewSelect || !eventExportBtn) { return; }
+            const selectedOption = eventViewSelect.options[eventViewSelect.selectedIndex];
+            const eventId = selectedOption ? selectedOption.getAttribute('data-event-id') : '';
+            eventExportBtn.href = eventId ? (EVENT_EXPORT_BASE_URL + '?event_id=' + eventId) : EVENT_EXPORT_BASE_URL;
         }
+
+        if (eventViewSelect) {
+            eventViewSelect.addEventListener('change', function () {
+                showEventPane(this.value);
+                syncExportLink();
+            });
+        }
+        syncExportLink();
     });
 </script>
 @endsection
