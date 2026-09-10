@@ -223,6 +223,54 @@
         color: white;
         border-color: transparent;
     }
+    .event-sidebar-list .list-group-item {
+        border: none;
+        border-radius: 14px !important;
+        margin-bottom: 6px;
+        color: #5a4e3e;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .event-sidebar-list .list-group-item:hover {
+        background: #faf5eb;
+    }
+    .event-sidebar-list .list-group-item.active {
+        background: linear-gradient(135deg, #b8863a, #d4a05a);
+        color: white;
+    }
+    .event-sidebar-list .list-group-item.active .badge {
+        background: rgba(255,255,255,0.25) !important;
+        color: white !important;
+    }
+    .donation-tier-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid #f0ece6;
+        border-radius: 12px;
+        margin-bottom: 8px;
+        cursor: pointer;
+    }
+    .donation-tier-option.selected {
+        border-color: #b8863a;
+        background: #fdf9f2;
+    }
+    .option-chip {
+        background: #faf5eb;
+        border: 1px solid #f0ece6;
+        color: #7b6b5a;
+        font-size: 0.75rem;
+        padding: 4px 12px;
+        border-radius: 40px;
+        cursor: pointer;
+    }
+    .option-chip:hover {
+        background: #b8863a;
+        color: white;
+        border-color: transparent;
+    }
 </style>
 @endsection
 
@@ -364,113 +412,7 @@
                     </thead>
                     <tbody>
                         @forelse($allDonations as $row)
-                        <tr data-type="{{ $row->donation_type }}" data-status="{{ strtolower($row->payment_status) }}" data-method="{{ strtolower($row->payment_method) }}" data-date="{{ $row->donation_date }}">
-                            <td>
-                                @if($row->donation_type === 'devotee')
-                                    <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill"><i class="bi bi-people-fill me-1"></i>Devotee</span>
-                                @else
-                                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill"><i class="bi bi-person-heart me-1"></i>Guest</span>
-                                @endif
-                            </td>
-                            <td><strong>{{ $row->display_id }}</strong></td>
-                            <td><span class="fw-semibold text-dark">{{ $row->display_name }}</span></td>
-                            <td>
-                                <div class="small text-dark">{{ $row->mobile ?? 'No mobile' }}</div>
-                                <div class="small text-muted">{{ $row->email ?? 'No email' }}</div>
-                            </td>
-                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($row->amount, 2) }}</span></td>
-                            <td>{{ $row->display_purpose }}</td>
-                            <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $row->payment_method }}</span></td>
-                            <td><code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $row->transaction_id }}">{{ $row->transaction_id }}</code></td>
-                            <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
-                            <td>
-                                @php
-                                    $rowStatusColor = ['Paid' => 'success', 'Pending' => 'warning', 'Cancelled' => 'secondary', 'Failed' => 'danger'][$row->payment_status] ?? 'secondary';
-                                @endphp
-                                <span class="badge bg-{{ $rowStatusColor }} bg-opacity-10 text-{{ $rowStatusColor }} px-3 py-2 rounded-pill">{{ $row->payment_status }}</span>
-                            </td>
-                            <td class="text-end">
-                                @if($row->donation_type === 'devotee')
-                                    @if($canEditDonation && $row->payment_method === 'Stripe' && in_array($row->payment_status, ['Pending', 'Cancelled']))
-                                    <form action="{{ route('admin.donations.checkStripeStatus', ['type' => 'devotee', 'id' => $row->id]) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <button type="submit" class="btn-action-checkstatus" title="Ask Stripe for this session's real status">
-                                            <i class="bi bi-arrow-repeat"></i> Check Status
-                                        </button>
-                                    </form>
-                                    @endif
-                                    @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank Transfer', 'Bank', 'Cash']))
-                                    <form action="{{ route('admin.donations.approveDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
-                                        @csrf
-                                        <button type="submit" class="btn-action-approve" title="Approve this donation as received">
-                                            <i class="bi bi-check-circle"></i> Approve
-                                        </button>
-                                    </form>
-                                    @endif
-                                    @if($row->email && $row->payment_status === 'Paid')
-                                    <form action="{{ route('admin.donations.resendReceipt', ['type' => 'devotee', 'id' => $row->id]) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $row->email }}">
-                                            <i class="bi bi-envelope-arrow-up"></i> Resend
-                                        </button>
-                                    </form>
-                                    @endif
-                                    @if($canEditDonation)
-                                    <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editDevoteeDonationModal{{ $row->id }}">
-                                        <i class="bi bi-pencil-square"></i> Edit
-                                    </button>
-                                    @endif
-                                    @if($canDeleteDonation)
-                                    <form action="{{ route('admin.donations.deleteDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn-action-delete">
-                                            <i class="bi bi-trash"></i> Delete
-                                        </button>
-                                    </form>
-                                    @endif
-                                @else
-                                    @if($canEditDonation && $row->payment_method === 'Stripe' && in_array($row->payment_status, ['Pending', 'Cancelled']))
-                                    <form action="{{ route('admin.donations.checkStripeStatus', ['type' => 'guest', 'id' => $row->id]) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <button type="submit" class="btn-action-checkstatus" title="Ask Stripe for this session's real status">
-                                            <i class="bi bi-arrow-repeat"></i> Check Status
-                                        </button>
-                                    </form>
-                                    @endif
-                                    @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank', 'Cash']))
-                                    <form action="{{ route('admin.donations.approveGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
-                                        @csrf
-                                        <button type="submit" class="btn-action-approve" title="Approve this donation as received">
-                                            <i class="bi bi-check-circle"></i> Approve
-                                        </button>
-                                    </form>
-                                    @endif
-                                    @if($row->email && $row->payment_status === 'Paid')
-                                    <form action="{{ route('admin.donations.resendReceipt', ['type' => 'guest', 'id' => $row->id]) }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $row->email }}">
-                                            <i class="bi bi-envelope-arrow-up"></i> Resend
-                                        </button>
-                                    </form>
-                                    @endif
-                                    @if($canEditDonation)
-                                    <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editGuestDonationModal{{ $row->id }}">
-                                        <i class="bi bi-pencil-square"></i> Edit
-                                    </button>
-                                    @endif
-                                    @if($canDeleteDonation)
-                                    <form action="{{ route('admin.donations.deleteGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn-action-delete">
-                                            <i class="bi bi-trash"></i> Delete
-                                        </button>
-                                    </form>
-                                    @endif
-                                @endif
-                            </td>
-                        </tr>
+                            @include('admin.partials.donation-row', ['row' => $row])
                         @empty
                         <tr>
                             <td colspan="11" class="text-center text-muted py-5">
@@ -539,6 +481,17 @@
                                     <input type="date" name="donation_date" class="form-control rounded-3" value="{{ $d->donation_date }}" required>
                                 </div>
                                 <div class="mb-3">
+                                    <label class="form-label fw-semibold">Donation Option / Purpose</label>
+                                    <input type="text" name="purpose" class="form-control rounded-3" value="{{ $d->purpose }}" placeholder="e.g. Sponsorship for a Conch">
+                                    @if($d->event_id && isset($eventOptionsByEventId[$d->event_id]) && count($eventOptionsByEventId[$d->event_id]))
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        @foreach($eventOptionsByEventId[$d->event_id] as $opt)
+                                        <span class="option-chip" onclick="appendOptionChip(this, 'input[name=purpose]')">{{ $opt->label }}</span>
+                                        @endforeach
+                                    </div>
+                                    @endif
+                                </div>
+                                <div class="mb-3">
                                     <label class="form-label fw-semibold">Remarks</label>
                                     <input type="text" name="remarks" class="form-control rounded-3" value="{{ $d->remarks }}">
                                 </div>
@@ -590,6 +543,13 @@
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Purpose</label>
                                     <input type="text" name="purpose" class="form-control rounded-3" value="{{ $g->purpose }}" required>
+                                    @if($g->event_id && isset($eventOptionsByEventId[$g->event_id]) && count($eventOptionsByEventId[$g->event_id]))
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        @foreach($eventOptionsByEventId[$g->event_id] as $opt)
+                                        <span class="option-chip" onclick="appendOptionChip(this, 'input[name=purpose]')">{{ $opt->label }}</span>
+                                        @endforeach
+                                    </div>
+                                    @endif
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Event (Optional)</label>
@@ -692,40 +652,108 @@
 
         <!-- By Event Pane -->
         <div class="tab-pane fade" id="event-summary-pane" role="tabpanel">
-            <div class="table-responsive">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>Event</th>
-                            <th>Donations Received</th>
-                            <th>Paid Total</th>
-                            <th>Pending</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($eventSummary as $ev)
-                        <tr>
-                            <td><span class="fw-semibold text-dark">{{ $ev->event_name }}</span></td>
-                            <td>{{ $ev->donation_count }}</td>
-                            <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($ev->paid_total, 2) }}</span> <span class="text-muted small">({{ $ev->paid_count }})</span></td>
-                            <td>
-                                @if($ev->pending_count > 0)
-                                    <span class="text-warning fw-semibold">{{ $temple['currency'] }} {{ number_format($ev->pending_total, 2) }}</span> <span class="text-muted small">({{ $ev->pending_count }})</span>
-                                @else
-                                    <span class="text-muted">—</span>
-                                @endif
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="4" class="text-center text-muted py-5">
-                                <i class="bi bi-calendar-event fs-1 d-block mb-2 text-warning"></i>
-                                No event-linked donations recorded yet.
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div class="row g-3">
+                <!-- Collapsible event sidebar -->
+                <div class="col-md-3">
+                    <div class="list-group event-sidebar-list" id="eventSidebarList">
+                        <button type="button" class="list-group-item list-group-item-action active" data-event-target="event-overview-pane">
+                            <i class="bi bi-grid-1x2-fill me-2"></i>Overview
+                        </button>
+                        @foreach($eventSummary as $ev)
+                        <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-event-target="event-detail-pane-{{ $ev->event_id }}">
+                            <span>{{ $ev->event_name }}</span>
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">{{ $ev->donation_count }}</span>
+                        </button>
+                        @endforeach
+                    </div>
+                </div>
+
+                <!-- Overview (current summary view) or a specific event's full detail -->
+                <div class="col-md-9">
+                    <div class="event-content-pane" id="event-overview-pane">
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Event</th>
+                                        <th>Donations Received</th>
+                                        <th>Paid Total</th>
+                                        <th>Pending</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($eventSummary as $ev)
+                                    <tr class="event-summary-row" data-event-target="event-detail-pane-{{ $ev->event_id }}" style="cursor:pointer;">
+                                        <td><span class="fw-semibold text-dark">{{ $ev->event_name }}</span></td>
+                                        <td>{{ $ev->donation_count }}</td>
+                                        <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($ev->paid_total, 2) }}</span> <span class="text-muted small">({{ $ev->paid_count }})</span></td>
+                                        <td>
+                                            @if($ev->pending_count > 0)
+                                                <span class="text-warning fw-semibold">{{ $temple['currency'] }} {{ number_format($ev->pending_total, 2) }}</span> <span class="text-muted small">({{ $ev->pending_count }})</span>
+                                            @else
+                                                <span class="text-muted">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-5">
+                                            <i class="bi bi-calendar-event fs-1 d-block mb-2 text-warning"></i>
+                                            No event-linked donations recorded yet.
+                                        </td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    @foreach($eventSummary as $ev)
+                    <div class="event-content-pane" id="event-detail-pane-{{ $ev->event_id }}" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <h5 class="fw-bold mb-0 text-dark">{{ $ev->event_name }}</h5>
+                            @if($canAddDonation)
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn-add" style="padding: 8px 18px; font-size: 0.85rem;" onclick="openDonationModalForEvent('devotee', {{ $ev->event_id }})">
+                                    <i class="bi bi-person-check-fill"></i> Add Devotee Donation
+                                </button>
+                                <button type="button" class="btn-add" style="padding: 8px 18px; font-size: 0.85rem; background: linear-gradient(135deg, #2a6fdb, #548ee8);" onclick="openDonationModalForEvent('guest', {{ $ev->event_id }})">
+                                    <i class="bi bi-person-heart"></i> Add Guest Donation
+                                </button>
+                            </div>
+                            @endif
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Contact</th>
+                                        <th>Amount</th>
+                                        <th>Donation Option</th>
+                                        <th>Payment Method</th>
+                                        <th>Transaction ID</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($allDonations->where('event_id', $ev->event_id) as $row)
+                                        @include('admin.partials.donation-row', ['row' => $row, 'purposeOverride' => $row->display_option ?: '—'])
+                                    @empty
+                                    <tr>
+                                        <td colspan="11" class="text-center text-muted py-4">No donations recorded for this event yet.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
             </div>
         </div>
     </div>
@@ -752,18 +780,20 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
-                        <input type="number" step="0.01" name="amount" class="form-control rounded-3" placeholder="e.g. 1000.00" required>
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label fw-semibold">Event (Optional)</label>
-                        <select name="event_id" class="form-select rounded-3">
+                        <select name="event_id" id="devotee_event_id" class="form-select rounded-3 donation-event-select" data-tiers-target="devoteeEventTiers" data-manual-target="devoteeManualAmount">
                             <option value="">-- General Fund --</option>
                             @foreach($events as $event)
                                 <option value="{{ $event->event_id }}">{{ $event->event_name }} ({{ date('d M Y', strtotime($event->event_date)) }})</option>
                             @endforeach
                         </select>
                     </div>
+                    <div id="devoteeEventTiers" style="display:none;"></div>
+                    <div class="mb-3" id="devoteeManualAmount">
+                        <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
+                        <input type="number" step="0.01" name="amount" id="devotee_amount_input" class="form-control rounded-3" placeholder="e.g. 1000.00" required>
+                    </div>
+                    <input type="hidden" name="purpose" id="devotee_purpose_hidden">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Mode</label>
                         <select name="payment_mode" class="form-select rounded-3" required>
@@ -822,34 +852,36 @@
                             <input type="text" name="mobile" class="form-control rounded-3" placeholder="e.g. 9876543210">
                         </div>
                     </div>
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
-                            <input type="number" step="0.01" name="amount" class="form-control rounded-3" placeholder="e.g. 500.00" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Donation Date</label>
-                            <input type="date" name="donation_date" class="form-control rounded-3" value="{{ date('Y-m-d') }}" required>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Purpose</label>
-                        <select name="purpose" class="form-select rounded-3" required>
-                            <option value="General" selected>General Donation</option>
-                            <option value="Temple Expansion">Temple Expansion</option>
-                            <option value="Annadanam">Annadanam (Food Offering)</option>
-                            <option value="Festival Pooja">Festival Pooja</option>
-                        </select>
-                    </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Event (Optional)</label>
-                        <select name="event_id" class="form-select rounded-3">
+                        <select name="event_id" id="guest_event_id" class="form-select rounded-3">
                             <option value="">-- General Fund --</option>
                             @foreach($events as $event)
                                 <option value="{{ $event->event_id }}">{{ $event->event_name }} ({{ date('d M Y', strtotime($event->event_date)) }})</option>
                             @endforeach
                         </select>
                     </div>
+                    <div id="guestEventTiers" style="display:none;"></div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6" id="guestManualAmount">
+                            <label class="form-label fw-semibold">Donation Amount ({{ $temple['currency'] }})</label>
+                            <input type="number" step="0.01" name="amount" id="guest_amount_input" class="form-control rounded-3" placeholder="e.g. 500.00" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Donation Date</label>
+                            <input type="date" name="donation_date" class="form-control rounded-3" value="{{ date('Y-m-d') }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="guest_purpose_wrap">
+                        <label class="form-label fw-semibold">Purpose</label>
+                        <select name="purpose" id="guest_purpose_select" class="form-select rounded-3" required>
+                            <option value="General" selected>General Donation</option>
+                            <option value="Temple Expansion">Temple Expansion</option>
+                            <option value="Annadanam">Annadanam (Food Offering)</option>
+                            <option value="Festival Pooja">Festival Pooja</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="guest_purpose_tier_hidden" value="">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Purpose Details / Notes</label>
                         <input type="text" name="purpose_details" class="form-control rounded-3" placeholder="e.g. In memory of parents">
@@ -994,6 +1026,193 @@
             $('#donationDateFrom').val('');
             $('#donationDateTo').val('');
             donationsTable.draw();
+        });
+    });
+</script>
+<script>
+    // Event-scoped donation options (tiers), keyed by event_id, for the Add Donation
+    // modals — lets an admin pick from the same options a donor sees on the event's own
+    // donation page instead of a generic Purpose dropdown.
+    const EVENT_DONATION_OPTIONS = @json($eventDonationOptionsForJs);
+    const DONATION_CURRENCY = @json($temple['currency']);
+
+    function escapeHtmlText(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // Appends an event option's label into a nearby free-text Purpose input — used by the
+    // "quick option" chips on the Edit Donation modals (kept as free text there since the
+    // stored value is a comma-joined string, not a fixed set of checkboxes).
+    function appendOptionChip(chipEl, selector) {
+        const scope = chipEl.closest('.modal-body') || document;
+        const input = scope.querySelector(selector);
+        if (!input) { return; }
+        const label = chipEl.textContent.trim();
+        const existing = input.value.split(',').map(s => s.trim()).filter(Boolean);
+        if (!existing.includes(label)) {
+            existing.push(label);
+        }
+        input.value = existing.join(', ');
+    }
+
+    // Wires an Add Donation modal's Event dropdown to render that event's configured
+    // donation options as checkboxes (mirroring the public donate-form tiers UI) in place
+    // of the manual Amount field whenever the selected event has any configured. Returns
+    // an `apply()` function so external code can force a re-render after setting the
+    // dropdown value programmatically (see openDonationModalForEvent below).
+    function initEventTierPicker(config) {
+        const eventSelect = document.getElementById(config.eventSelectId);
+        const tiersContainer = document.getElementById(config.tiersContainerId);
+        const manualWrap = document.getElementById(config.manualWrapId);
+        const amountInput = document.getElementById(config.amountInputId);
+
+        function setPurposeMode(useTiers) {
+            if (config.purposeMode !== 'select') { return; }
+            const selectEl = document.getElementById(config.purposeFieldId);
+            const hiddenEl = document.getElementById(config.purposeHiddenId);
+            const wrap = document.getElementById(config.purposeWrapId);
+            if (useTiers) {
+                selectEl.removeAttribute('name');
+                if (wrap) { wrap.style.display = 'none'; }
+                hiddenEl.name = 'purpose';
+            } else {
+                selectEl.setAttribute('name', 'purpose');
+                if (wrap) { wrap.style.display = ''; }
+                hiddenEl.removeAttribute('name');
+                hiddenEl.value = '';
+            }
+        }
+
+        function apply() {
+            const eventId = eventSelect.value;
+            const options = EVENT_DONATION_OPTIONS[eventId] || [];
+
+            if (!options.length) {
+                tiersContainer.style.display = 'none';
+                tiersContainer.innerHTML = '';
+                manualWrap.style.display = '';
+                amountInput.required = true;
+                setPurposeMode(false);
+                if (config.purposeMode === 'hidden') {
+                    document.getElementById(config.purposeHiddenId).value = '';
+                }
+                return;
+            }
+
+            manualWrap.style.display = 'none';
+            amountInput.required = false;
+            setPurposeMode(true);
+
+            let html = '';
+            options.forEach(function (opt, idx) {
+                const hasAmount = opt.amount !== null;
+                html += '<div class="donation-tier-option" data-idx="' + idx + '">'
+                    + '<label class="d-flex align-items-center gap-2 mb-0" style="cursor:pointer; flex:1;">'
+                    + '<input type="checkbox" class="tier-cb" data-idx="' + idx + '">'
+                    + '<span><strong>' + escapeHtmlText(opt.label) + '</strong><br><span class="text-muted small">'
+                    + (hasAmount ? (DONATION_CURRENCY + ' ' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
+                    + '</span></span></label>'
+                    + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="form-control form-control-sm tier-qty" style="width:70px; display:none;">' : '')
+                    + (!hasAmount ? '<input type="number" min="0" step="0.01" placeholder="Amount" class="form-control form-control-sm tier-free" style="width:110px;">' : '')
+                    + '</div>';
+            });
+            html += '<div class="d-flex justify-content-between fw-bold small mb-3 mt-1"><span>Total</span><span class="tier-total-display">' + DONATION_CURRENCY + ' 0.00</span></div>';
+            tiersContainer.innerHTML = html;
+            tiersContainer.style.display = 'block';
+
+            function recalc() {
+                let total = 0;
+                const labels = [];
+                tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) {
+                    const idx = row.dataset.idx;
+                    const cb = row.querySelector('.tier-cb');
+                    const qtyInput = row.querySelector('.tier-qty');
+                    const freeInput = row.querySelector('.tier-free');
+                    if (qtyInput) { qtyInput.style.display = cb.checked ? 'inline-block' : 'none'; }
+                    row.classList.toggle('selected', cb.checked);
+                    if (!cb.checked) { return; }
+                    const opt = options[idx];
+                    let label = opt.label;
+                    let amount = 0;
+                    if (opt.amount !== null) {
+                        const qty = (qtyInput && opt.allow_quantity) ? (parseInt(qtyInput.value, 10) || 1) : 1;
+                        amount = opt.amount * qty;
+                        if (opt.allow_quantity && qty > 1) { label += ' (x' + qty + ')'; }
+                    } else {
+                        amount = freeInput ? (parseFloat(freeInput.value) || 0) : 0;
+                    }
+                    if (amount > 0) {
+                        total += amount;
+                        labels.push(label);
+                    }
+                });
+                amountInput.value = total.toFixed(2);
+                const totalDisplay = tiersContainer.querySelector('.tier-total-display');
+                if (totalDisplay) { totalDisplay.textContent = DONATION_CURRENCY + ' ' + total.toFixed(2); }
+                const purposeHidden = document.getElementById(config.purposeHiddenId);
+                purposeHidden.value = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
+            }
+
+            tiersContainer.addEventListener('change', recalc);
+            tiersContainer.addEventListener('input', recalc);
+            recalc();
+        }
+
+        eventSelect.addEventListener('change', apply);
+        apply();
+        return apply;
+    }
+
+    const applyDevoteeEventTiers = initEventTierPicker({
+        eventSelectId: 'devotee_event_id',
+        tiersContainerId: 'devoteeEventTiers',
+        manualWrapId: 'devoteeManualAmount',
+        amountInputId: 'devotee_amount_input',
+        purposeMode: 'hidden',
+        purposeHiddenId: 'devotee_purpose_hidden',
+    });
+
+    const applyGuestEventTiers = initEventTierPicker({
+        eventSelectId: 'guest_event_id',
+        tiersContainerId: 'guestEventTiers',
+        manualWrapId: 'guestManualAmount',
+        amountInputId: 'guest_amount_input',
+        purposeMode: 'select',
+        purposeFieldId: 'guest_purpose_select',
+        purposeWrapId: 'guest_purpose_wrap',
+        purposeHiddenId: 'guest_purpose_tier_hidden',
+    });
+
+    // Opens the Log Devotee/Guest Donation modal with a given event pre-selected — used by
+    // the "Add Donation" buttons inside each event's detail pane on the By Event tab.
+    function openDonationModalForEvent(type, eventId) {
+        const isDevotee = type === 'devotee';
+        const select = document.getElementById(isDevotee ? 'devotee_event_id' : 'guest_event_id');
+        select.value = String(eventId);
+        select.dispatchEvent(new Event('change'));
+        const modalEl = document.getElementById(isDevotee ? 'recordDevoteeDonationModal' : 'recordGuestDonationModal');
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+
+    // By Event tab: collapsible event sidebar + overview/detail pane switching.
+    document.addEventListener('DOMContentLoaded', function () {
+        function showEventPane(target) {
+            document.querySelectorAll('.event-content-pane').forEach(function (p) { p.style.display = 'none'; });
+            const pane = document.getElementById(target);
+            if (pane) { pane.style.display = 'block'; }
+            document.querySelectorAll('#eventSidebarList .list-group-item').forEach(function (b) { b.classList.remove('active'); });
+            const sidebarBtn = document.querySelector('#eventSidebarList [data-event-target="' + target + '"]');
+            if (sidebarBtn) { sidebarBtn.classList.add('active'); }
+        }
+
+        document.querySelectorAll('#eventSidebarList [data-event-target]').forEach(function (el) {
+            el.addEventListener('click', function () { showEventPane(this.dataset.eventTarget); });
+        });
+
+        document.querySelectorAll('.event-summary-row[data-event-target]').forEach(function (el) {
+            el.addEventListener('click', function () { showEventPane(this.dataset.eventTarget); });
         });
     });
 </script>

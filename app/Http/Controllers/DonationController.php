@@ -126,10 +126,26 @@ class DonationController extends Controller
             ->orderBy('users.name', 'asc')
             ->get();
 
-        // Fetch Events list for the donation-linking dropdown
-        $events = DB::table('events')
+        // Fetch Events list for the donation-linking dropdown — eager-loaded with their
+        // configured donation options (tiers) so the Add/Edit donation forms can offer the
+        // same option checkboxes a donor would see on the event's own donation page.
+        $events = Event::with('donationOptions')
             ->orderBy('event_date', 'desc')
             ->get();
+        $eventOptionsByEventId = $events->keyBy('event_id')->map(fn ($e) => $e->donationOptions);
+
+        // Pre-shaped for the Add Donation modals' JS tier picker — built here rather than
+        // inline in the Blade @json() directive, since a nested multi-line closure inside
+        // @json() confuses Blade's own paren/bracket matching at compile time.
+        $eventDonationOptionsForJs = $events->mapWithKeys(function ($e) {
+            return [$e->event_id => $e->donationOptions->map(function ($o) {
+                return [
+                    'label' => $o->label,
+                    'amount' => $o->amount === null ? null : (float) $o->amount,
+                    'allow_quantity' => (bool) $o->allow_quantity,
+                ];
+            })->values()];
+        });
 
         return view('admin.manage-donations', compact(
             'devoteeDonations',
@@ -143,6 +159,8 @@ class DonationController extends Controller
             'grandTotal',
             'devotees',
             'events',
+            'eventOptionsByEventId',
+            'eventDonationOptionsForJs',
             'canAddDonation',
             'canEditDonation',
             'canDeleteDonation'
@@ -241,6 +259,7 @@ class DonationController extends Controller
             'amount' => 'required|numeric|min:1',
             'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque',
             'transaction_id' => 'nullable|string|max:100',
+            'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:255',
             'donation_date' => 'required|date',
         ]);
@@ -253,6 +272,9 @@ class DonationController extends Controller
                 'payment_method' => $validated['payment_mode'],
                 'payment_status' => 'Paid',
                 'transaction_id' => $validated['transaction_id'] ?? 'OFFLINE-' . strtoupper(uniqid()),
+                // 'purpose' carries the selected event donation option(s) when the admin
+                // picked from an event's tiers; 'remarks' stays the free-text note either way.
+                'purpose' => $validated['purpose'] ?? null,
                 'remarks' => $validated['remarks'] ?? 'Manually recorded donation',
                 'donation_date' => $validated['donation_date'],
                 'created_at' => now(),
@@ -362,6 +384,7 @@ class DonationController extends Controller
             'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,Stripe',
             'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
+            'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:255',
             'donation_date' => 'required|date',
         ]);
@@ -377,6 +400,7 @@ class DonationController extends Controller
             'payment_method' => $validated['payment_mode'],
             'payment_status' => $validated['payment_status'],
             'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
+            'purpose' => $validated['purpose'] ?? null,
             'remarks' => $validated['remarks'] ?? null,
             'donation_date' => $validated['donation_date'],
             'updated_at' => now(),
