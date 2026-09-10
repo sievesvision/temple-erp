@@ -134,12 +134,42 @@ class DonationController extends Controller
             ->get();
         $eventOptionsByEventId = $events->keyBy('event_id')->map(fn ($e) => $e->donationOptions);
 
+        // Structured per-option breakdown for every donation, keyed "type:id" — lets the
+        // per-event view show one column per configured donation option with the actual
+        // amount the donor put toward it, instead of a single flattened purpose string.
+        $donationSelections = DB::table('donation_selections')->get()
+            ->groupBy(fn ($s) => $s->donation_type . ':' . $s->donation_id);
+
+        // Pivoted rows per event: each donation row plus an option_id => amount map (only
+        // populated for donations made with the new structured tier picker) and an
+        // 'other_amount' catch-all for anything not attributable to a specific option
+        // (older free-text donations, or a plain "Event Donation" with no tier chosen).
+        $eventDonationRows = $eventOptionsByEventId->map(function ($options, $eventId) use ($allDonations, $donationSelections) {
+            return $allDonations->where('event_id', $eventId)->values()->map(function ($row) use ($options, $donationSelections) {
+                $selections = $donationSelections[$row->donation_type . ':' . $row->id] ?? collect();
+                $optionAmounts = [];
+                $matchedTotal = 0;
+                foreach ($options as $opt) {
+                    $amt = (float) $selections->where('event_donation_option_id', $opt->id)->sum('amount');
+                    $optionAmounts[$opt->id] = $amt;
+                    $matchedTotal += $amt;
+                }
+                $row->option_amounts = $optionAmounts;
+                $row->other_amount = round($row->amount - $matchedTotal, 2);
+                if ($row->other_amount < 0.01) {
+                    $row->other_amount = 0;
+                }
+                return $row;
+            });
+        });
+
         // Pre-shaped for the Add Donation modals' JS tier picker — built here rather than
         // inline in the Blade @json() directive, since a nested multi-line closure inside
         // @json() confuses Blade's own paren/bracket matching at compile time.
         $eventDonationOptionsForJs = $events->mapWithKeys(function ($e) {
             return [$e->event_id => $e->donationOptions->map(function ($o) {
                 return [
+                    'id' => $o->id,
                     'label' => $o->label,
                     'amount' => $o->amount === null ? null : (float) $o->amount,
                     'allow_quantity' => (bool) $o->allow_quantity,
@@ -161,6 +191,8 @@ class DonationController extends Controller
             'events',
             'eventOptionsByEventId',
             'eventDonationOptionsForJs',
+            'donationSelections',
+            'eventDonationRows',
             'canAddDonation',
             'canEditDonation',
             'canDeleteDonation'
@@ -244,6 +276,41 @@ class DonationController extends Controller
     }
 
     /**
+     * Persist the per-option breakdown of a tiered donation (from the "selections_json"
+     * hidden field built by the public donate-form and the admin Add Donation modals), so
+     * the per-event donations view can show one column per configured option instead of
+     * just a flattened purpose string. Silently no-ops for non-tiered donations.
+     */
+    private function saveDonationSelections(string $donationType, int $donationId, ?string $selectionsJson): void
+    {
+        if (!$selectionsJson) {
+            return;
+        }
+
+        $selections = json_decode($selectionsJson, true);
+        if (!is_array($selections) || empty($selections)) {
+            return;
+        }
+
+        foreach ($selections as $selection) {
+            if (empty($selection['label']) || !isset($selection['amount']) || (float) $selection['amount'] <= 0) {
+                continue;
+            }
+
+            DB::table('donation_selections')->insert([
+                'donation_type' => $donationType,
+                'donation_id' => $donationId,
+                'event_donation_option_id' => $selection['option_id'] ?? null,
+                'option_label' => $selection['label'],
+                'quantity' => $selection['quantity'] ?? null,
+                'amount' => $selection['amount'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    /**
      * Store a manually recorded Devotee donation.
      */
     public function storeDevoteeDonation(Request $request)
@@ -262,10 +329,11 @@ class DonationController extends Controller
             'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:255',
             'donation_date' => 'required|date',
+            'selections_json' => 'nullable|string',
         ]);
 
         try {
-            DB::table('donations')->insert([
+            $donationId = DB::table('donations')->insertGetId([
                 'devotee_id' => $validated['devotee_id'],
                 'event_id' => $validated['event_id'] ?? null,
                 'amount' => $validated['amount'],
@@ -280,6 +348,7 @@ class DonationController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->saveDonationSelections('devotee', $donationId, $validated['selections_json'] ?? null);
 
             $devoteeUser = DB::table('devotees')
                 ->join('users', 'devotees.user_id', '=', 'users.id')
@@ -329,10 +398,11 @@ class DonationController extends Controller
             'bank_ifsc' => 'required_if:payment_method,Bank|nullable|string|max:20',
             'bank_branch' => 'required_if:payment_method,Bank|nullable|string|max:100',
             'donation_date' => 'required|date',
+            'selections_json' => 'nullable|string',
         ]);
 
         try {
-            DB::table('donations_without_logins')->insert([
+            $donationId = DB::table('donations_without_logins')->insertGetId([
                 'donor_name' => $validated['donor_name'],
                 'event_id' => $validated['event_id'] ?? null,
                 'email' => $validated['email'] ?? null,
@@ -350,6 +420,7 @@ class DonationController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
 
             DonationReceiptService::send([
                 'donor_name' => $validated['donor_name'],
@@ -718,6 +789,7 @@ class DonationController extends Controller
             'purpose' => 'required|string|max:255',
             'purpose_details' => 'nullable|string|max:255',
             'payment_method' => 'required|in:Bank,Cash,Stripe',
+            'selections_json' => 'nullable|string',
         ]);
 
         if ($validated['payment_method'] === 'Stripe') {
@@ -728,7 +800,7 @@ class DonationController extends Controller
         // Same 'Pending until approved' rule as the guest donation flow — see storePublic().
         $transactionId = strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid());
 
-        DB::table('donations')->insert([
+        $donationId = DB::table('donations')->insertGetId([
             'devotee_id' => $devotee->devotee_id,
             'event_id' => $validated['event_id'] ?? null,
             'amount' => $validated['amount'],
@@ -741,6 +813,7 @@ class DonationController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->saveDonationSelections('devotee', $donationId, $validated['selections_json'] ?? null);
 
         DonationReceiptService::sendPendingNotice([
             'donor_name' => $user->name,
@@ -781,6 +854,7 @@ class DonationController extends Controller
             'purpose_details' => 'nullable|string|max:255',
             'payment_method' => 'required|in:Bank,Cash,Stripe',
             'transaction_id' => 'nullable|string|max:100',
+            'selections_json' => 'nullable|string',
         ]);
 
         if ($validated['payment_method'] === 'Stripe') {
@@ -793,7 +867,7 @@ class DonationController extends Controller
         // the only method that's auto-verified, since Stripe's own API confirms the charge.
         $transactionId = $validated['transaction_id'] ?? strtoupper($validated['payment_method']) . '-' . strtoupper(uniqid());
 
-        DB::table('donations_without_logins')->insert([
+        $donationId = DB::table('donations_without_logins')->insertGetId([
             'donor_name' => $validated['donor_name'],
             'event_id' => $validated['event_id'] ?? null,
             'email' => $validated['email'] ?? null,
@@ -812,6 +886,7 @@ class DonationController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
 
         DonationReceiptService::sendPendingNotice([
             'donor_name' => $validated['donor_name'],
@@ -871,6 +946,7 @@ class DonationController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->saveDonationSelections('devotee', $donationId, $validated['selections_json'] ?? null);
         } else {
             $donationId = DB::table('donations_without_logins')->insertGetId([
                 'donor_name' => $validated['donor_name'],
@@ -891,6 +967,7 @@ class DonationController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+            $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
         }
 
         $currency = strtolower(Setting::get('currency_code', 'AUD'));

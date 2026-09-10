@@ -122,6 +122,7 @@
                         </div>
                         <input type="hidden" name="amount" id="{{ $formId }}-amount">
                         <input type="hidden" name="purpose" id="{{ $formId }}-purpose">
+                        <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json">
                     </div>
                 @else
                     <input type="hidden" name="purpose" value="Event Donation">
@@ -190,6 +191,7 @@
     wrap.dataset.bound = '1';
     var amountHidden = document.getElementById('{{ $formId }}-amount');
     var purposeHidden = document.getElementById('{{ $formId }}-purpose');
+    var selectionsHidden = document.getElementById('{{ $formId }}-selections-json');
     var totalDisplay = document.getElementById('{{ $formId }}-tier-total');
     var submitBtn = document.querySelector('#{{ $formId }} button[type="submit"]');
     var currency = @json($temple['currency']);
@@ -197,6 +199,7 @@
     function recalc() {
         var total = 0;
         var labels = [];
+        var selections = [];
 
         wrap.querySelectorAll('.donation-tier-option').forEach(function (row) {
             var checkbox = row.querySelector('input[type="checkbox"]');
@@ -209,13 +212,15 @@
             var baseAmountRaw = checkbox.getAttribute('data-amount');
             var allowQty = checkbox.getAttribute('data-allow-qty') === '1';
             var label = checkbox.getAttribute('data-label');
+            var optionId = checkbox.value;
+            var qty = null;
             var amount = 0;
 
             if (baseAmountRaw !== '') {
                 var baseAmount = parseFloat(baseAmountRaw) || 0;
                 if (allowQty) {
                     var qtyInput = row.querySelector('.tier-qty-input');
-                    var qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+                    qty = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
                     amount = baseAmount * qty;
                     if (qty > 1) { label = label + ' (x' + qty + ')'; }
                 } else {
@@ -229,11 +234,13 @@
             if (amount > 0) {
                 total += amount;
                 labels.push(label);
+                selections.push({ option_id: optionId, label: label, quantity: qty, amount: amount });
             }
         });
 
         amountHidden.value = total.toFixed(2);
         purposeHidden.value = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
+        if (selectionsHidden) { selectionsHidden.value = JSON.stringify(selections); }
         if (totalDisplay) { totalDisplay.textContent = currency + ' ' + total.toFixed(2); }
         if (submitBtn) { submitBtn.disabled = total <= 0; }
     }
