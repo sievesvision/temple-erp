@@ -477,6 +477,13 @@ class DonationController extends Controller
             $sheet->getStyle($amountRange)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
         }
 
+        // Wrap text in every data cell so anything longer than its column (a long email,
+        // dedication note, etc.) wraps onto extra lines within the cell instead of visually
+        // spilling into the next column — Excel only clips that overflow when the neighbour
+        // isn't empty, and several columns here legitimately are, so wrapping is the
+        // reliable fix rather than relying on that.
+        $sheet->getStyle("A{$firstDataRow}:{$lastCol}{$lastDataRow}")->getAlignment()->setWrapText(true)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP);
+
         // Type / Payment Status / Donation Date read better centered than left-aligned.
         // Their position shifts with how many option columns an event has, so look them up
         // by header label rather than a fixed letter.
