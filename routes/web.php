@@ -512,6 +512,14 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
 });
 
+// Export needs its own group: the main Manage Donations page's export button is used by
+// Admin/Committee/Accountant, while the Event Console's export button (same route) is used
+// by an Event Coordinator scoped to their own event — a role list broader than any single
+// existing group. The controller narrows actual access from there (see DonationController::export()).
+Route::middleware(['auth', 'role:Admin,Committee,Accountant,Event Coordinator'])->group(function () {
+    Route::get('/admin/donations/export', [\App\Http\Controllers\DonationController::class, 'export'])->name('admin.donations.export');
+});
+
 // Admin Chat Support Routes — kept outside the Admin/Committee-only group above because
 // the "Support Chats" resource must be independently grantable to any role via Role
 // Management (same reasoning as the /admin/dashboard chat tabs). ChatController's methods
@@ -543,7 +551,6 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant'])->group(function (
     Route::post('/admin/donation/approve-guest/{id}', [\App\Http\Controllers\DonationController::class, 'approveGuestDonation'])->name('admin.donations.approveGuest');
     Route::post('/admin/donation/approve-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'approveDevoteeDonation'])->name('admin.donations.approveDevotee');
     Route::post('/admin/donation/check-stripe-status/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'checkStripeStatus'])->name('admin.donations.checkStripeStatus');
-    Route::get('/admin/donations/export', [\App\Http\Controllers\DonationController::class, 'export'])->name('admin.donations.export');
 });
 
 // ============================================
