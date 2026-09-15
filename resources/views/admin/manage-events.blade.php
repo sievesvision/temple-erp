@@ -335,11 +335,21 @@
                                         <input type="text" name="flyer_image" class="form-control rounded-3" placeholder="images/events/my-event-flyer.png" value="{{ $e->flyer_image }}">
                                         <div class="form-text">Shown at the bottom of the event's public donation page.</div>
                                     </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold">QR Code Image Path (optional)</label>
+                                        <input type="text" name="qr_code_image" class="form-control rounded-3" placeholder="images/events/my-event-qr.png" value="{{ $e->qr_code_image }}">
+                                        <div class="form-text">Shown next to the bank transfer details on the event's public donation page.</div>
+                                    </div>
                                     <div class="mb-3 form-check">
                                         <input type="checkbox" name="show_donation_summary" id="show_donation_summary_{{ $e->event_id }}" class="form-check-input" value="1" {{ $e->show_donation_summary ? 'checked' : '' }}>
                                         <label class="form-check-label fw-semibold" for="show_donation_summary_{{ $e->event_id }}">Show "amount raised so far" on the public event page</label>
                                     </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" name="require_donor_contact_details" id="require_donor_contact_details_{{ $e->event_id }}" class="form-check-input" value="1" {{ $e->require_donor_contact_details ? 'checked' : '' }}>
+                                        <label class="form-check-label fw-semibold" for="require_donor_contact_details_{{ $e->event_id }}">Require donor name, email &amp; mobile on this event's donation form</label>
+                                    </div>
                                     @include('admin.partials.event-donation-options-fields', ['options' => $e->donationOptions, 'formSuffix' => $e->event_id])
+                                    @include('admin.partials.event-contacts-fields', ['contacts' => $e->contactList(), 'formSuffix' => $e->event_id])
                                 </div>
                                 <div class="modal-footer border-0 pt-0">
                                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
@@ -430,11 +440,21 @@
                         <input type="text" name="flyer_image" class="form-control rounded-3" placeholder="images/events/my-event-flyer.png">
                         <div class="form-text">Shown at the bottom of the event's public donation page.</div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">QR Code Image Path (optional)</label>
+                        <input type="text" name="qr_code_image" class="form-control rounded-3" placeholder="images/events/my-event-qr.png">
+                        <div class="form-text">Shown next to the bank transfer details on the event's public donation page.</div>
+                    </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" name="show_donation_summary" id="show_donation_summary_new" class="form-check-input" value="1" checked>
                         <label class="form-check-label fw-semibold" for="show_donation_summary_new">Show "amount raised so far" on the public event page</label>
                     </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="require_donor_contact_details" id="require_donor_contact_details_new" class="form-check-input" value="1">
+                        <label class="form-check-label fw-semibold" for="require_donor_contact_details_new">Require donor name, email &amp; mobile on this event's donation form</label>
+                    </div>
                     @include('admin.partials.event-donation-options-fields', ['options' => collect(), 'formSuffix' => 'new'])
+                    @include('admin.partials.event-contacts-fields', ['contacts' => [], 'formSuffix' => 'new'])
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>

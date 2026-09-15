@@ -83,10 +83,43 @@
                 <p class="mb-0">Sponsorships and donations for this event are warmly welcome. Use the form below to submit your details, and make your payment by cash at the temple, bank transfer, or online payment.</p>
             </div>
 
+            @if($event->qr_code_image || $event->contactList() || $temple['address'])
+                <div class="row g-3 mb-4">
+                    @if($event->qr_code_image)
+                    <div class="col-md-4">
+                        <div class="donation-bank-card text-center h-100 d-flex flex-column justify-content-center">
+                            <img src="{{ asset($event->qr_code_image) }}" alt="Scan to donate" class="img-fluid mb-2" style="max-width:160px; margin:0 auto;">
+                            <span class="bank-label mb-0">Scan to donate online</span>
+                        </div>
+                    </div>
+                    @endif
+                    @if($event->contactList() || $temple['address'])
+                    <div class="col-md-{{ $event->qr_code_image ? 8 : 12 }}">
+                        <div class="donation-bank-card h-100">
+                            @if($temple['address'])
+                                <span class="bank-label">Location</span>
+                                <span class="bank-value mb-2" style="display:block;">{{ $temple['address'] }}</span>
+                            @endif
+                            @if($event->contactList())
+                                <span class="bank-label">Contact</span>
+                                <div class="row g-2 mt-0">
+                                    @foreach($event->contactList() as $contact)
+                                    <div class="col-sm-6">
+                                        <span class="bank-value" style="font-size:.95rem;">{{ $contact['name'] }}@if($contact['phone']) — {{ $contact['phone'] }}@endif</span>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            @endif
+
             @if(session('success_donation'))<div class="alert alert-success">{{ session('success_donation') }}</div>@endif
             @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
-            @include('frontend.partials.donate-form', ['temple' => $temple, 'lockedEvent' => $event, 'donationOptions' => $donationOptions, 'formAction' => route('donate.without.login'), 'formId' => 'event-donate-form', 'stripeEnabled' => $stripeEnabled])
+            @include('frontend.partials.donate-form', ['temple' => $temple, 'lockedEvent' => $event, 'donationOptions' => $donationOptions, 'formAction' => route('donate.without.login'), 'formId' => 'event-donate-form', 'stripeEnabled' => $stripeEnabled, 'requireContactDetails' => $requireContactDetails])
 
             @if($event->flyer_image)
                 <div class="event-flyer mt-5 text-center">

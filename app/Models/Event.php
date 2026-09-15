@@ -21,12 +21,16 @@ class Event extends Model
         'status',
         'header_image',
         'flyer_image',
+        'qr_code_image',
         'show_donation_summary',
+        'require_donor_contact_details',
         'coordinator_emails',
+        'contacts',
     ];
 
     protected $casts = [
         'show_donation_summary' => 'boolean',
+        'require_donor_contact_details' => 'boolean',
     ];
 
     public function donationOptions()
@@ -48,6 +52,28 @@ class Event extends Model
         return collect(explode(',', $this->coordinator_emails))
             ->map(fn ($email) => trim($email))
             ->filter(fn ($email) => $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Parse the contacts JSON column ([{name, phone}, ...]) into a clean array, dropping
+     * any row missing a name (a phone-only or fully blank row from an unused repeater slot).
+     */
+    public function contactList(): array
+    {
+        if (!$this->contacts) {
+            return [];
+        }
+
+        $decoded = json_decode($this->contacts, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return collect($decoded)
+            ->map(fn ($c) => ['name' => trim($c['name'] ?? ''), 'phone' => trim($c['phone'] ?? '')])
+            ->filter(fn ($c) => $c['name'] !== '')
             ->values()
             ->all();
     }

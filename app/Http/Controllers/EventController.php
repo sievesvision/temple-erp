@@ -29,8 +29,9 @@ class EventController extends Controller
             + DB::table('donations')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount');
 
         $donationOptions = $event->donationOptions;
+        $requireContactDetails = (bool) $event->require_donor_contact_details;
 
-        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled'));
+        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled', 'requireContactDetails'));
     }
 
     /**
@@ -78,14 +79,17 @@ class EventController extends Controller
             'status' => 'required|string|in:Upcoming,Ongoing,Completed,Cancelled',
             'header_image' => 'nullable|string|max:255',
             'flyer_image' => 'nullable|string|max:255',
+            'qr_code_image' => 'nullable|string|max:255',
             'coordinator_emails' => 'nullable|string|max:1000',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
+        $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
         $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date']);
 
         try {
             $event = Event::create($validated);
             $this->saveDonationOptions($event, $request);
+            $this->saveContacts($event, $request);
             return redirect()->back()->with('success', 'Event scheduled and created successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to create event: ' . $e->getMessage())->withInput();
@@ -113,15 +117,18 @@ class EventController extends Controller
             'status' => 'required|string|in:Upcoming,Ongoing,Completed,Cancelled',
             'header_image' => 'nullable|string|max:255',
             'flyer_image' => 'nullable|string|max:255',
+            'qr_code_image' => 'nullable|string|max:255',
             'coordinator_emails' => 'nullable|string|max:1000',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
+        $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
 
         try {
             $event = Event::findOrFail($id);
             $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date'], $event->event_id);
             $event->update($validated);
             $this->saveDonationOptions($event, $request);
+            $this->saveContacts($event, $request);
             return redirect()->back()->with('success', 'Event details and schedule updated successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to update event: ' . $e->getMessage())->withInput();
@@ -129,14 +136,14 @@ class EventController extends Controller
     }
 
     /**
-     * Replace an event's donation options from the fixed 5-slot admin form.
+     * Replace an event's donation options from the fixed 12-slot admin form.
      * Blank label rows are skipped; a blank amount means "donor enters any amount".
      */
     private function saveDonationOptions(Event $event, Request $request): void
     {
         $event->donationOptions()->delete();
 
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= 12; $i++) {
             $label = trim((string) $request->input("option_label_$i", ''));
             if ($label === '') {
                 continue;
@@ -153,6 +160,26 @@ class EventController extends Controller
                 'sort_order' => $i,
             ]);
         }
+    }
+
+    /**
+     * Replace an event's public contact list from the fixed 8-slot admin form (name+phone).
+     * Blank name rows are skipped; stored as JSON on the event's `contacts` column.
+     */
+    private function saveContacts(Event $event, Request $request): void
+    {
+        $contacts = [];
+        for ($i = 1; $i <= 8; $i++) {
+            $name = trim((string) $request->input("contact_name_$i", ''));
+            if ($name === '') {
+                continue;
+            }
+            $contacts[] = [
+                'name' => $name,
+                'phone' => trim((string) $request->input("contact_phone_$i", '')),
+            ];
+        }
+        $event->update(['contacts' => $contacts ? json_encode($contacts) : null]);
     }
 
     /**

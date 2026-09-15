@@ -1,8 +1,8 @@
 @php $options = $options ?? collect(); @endphp
 <div class="mb-3">
-    <label class="form-label fw-semibold">Donation Options (up to 5)</label>
+    <label class="form-label fw-semibold">Donation Options (up to 12)</label>
     <div class="form-text mb-2">Leave a row's label blank to skip it. Leave amount blank for a "donor enters any amount" option.</div>
-    @for ($i = 1; $i <= 5; $i++)
+    @for ($i = 1; $i <= 12; $i++)
         @php $opt = $options->get($i - 1); @endphp
         <div class="row g-2 align-items-center mb-2">
             <div class="col-5">

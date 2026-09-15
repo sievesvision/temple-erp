@@ -1090,11 +1090,16 @@ class DonationController extends Controller
      */
     public function storePublic(Request $request)
     {
+        // Some events (e.g. those needing to trace every donor for a receipt/audit trail)
+        // require contact details — the event itself decides via require_donor_contact_details.
+        $requireContact = $request->filled('event_id')
+            && Event::where('event_id', $request->input('event_id'))->value('require_donor_contact_details');
+
         $validated = $request->validate([
             'donor_name' => 'required|string|max:255',
             'event_id' => 'nullable|exists:events,event_id',
-            'email' => 'nullable|email|max:255',
-            'mobile' => 'nullable|string|max:20',
+            'email' => ($requireContact ? 'required' : 'nullable') . '|email|max:255',
+            'mobile' => ($requireContact ? 'required' : 'nullable') . '|string|max:20',
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:255',
             'purpose_details' => 'nullable|string|max:255',
