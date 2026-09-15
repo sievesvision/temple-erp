@@ -211,12 +211,18 @@ class DonationController extends Controller
     public function export(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'view')) {
+        $activeRole = session('active_role', $user->role ?? null);
+        $eventId = $request->filled('event_id') ? (int) $request->query('event_id') : null;
+
+        $isCoordinatorForEvent = $user && $activeRole === 'Event Coordinator' && $eventId
+            && DB::table('event_coordinators')->where('user_id', $user->id)->where('event_id', $eventId)->exists();
+
+        if (!$user || !(RolePermission::can($activeRole, 'donations', 'view') || $isCoordinatorForEvent)) {
             abort(403, 'Unauthorized access.');
         }
 
-        if ($request->filled('event_id')) {
-            return $this->exportEventDonations((int) $request->query('event_id'));
+        if ($eventId) {
+            return $this->exportEventDonations($eventId);
         }
 
         $devoteeDonations = DB::table('donations')

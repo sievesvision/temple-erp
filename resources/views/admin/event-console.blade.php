@@ -12,18 +12,20 @@
             --gold: #b8863a;
             --gold-light: #e0ac4f;
             --teal: #0f9d6a;
-            --ink: #22201c;
-            --muted: #857a6b;
-            --cream: #faf6ef;
-            --card-line: rgba(184, 134, 58, 0.1);
+            --navy: #1e293b;
+            --navy-dark: #0f172a;
+            --ink: #1e2530;
+            --muted: #64748b;
+            --cream: #f6f7f9;
+            --card-line: #e8eaee;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--ink); }
 
         .console-topbar {
-            background: linear-gradient(135deg, #241a0d, #3d2c17);
+            background: linear-gradient(135deg, var(--navy), var(--navy-dark));
             color: white;
-            padding: 18px 28px;
+            padding: 16px 28px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -32,7 +34,7 @@
             position: sticky;
             top: 0;
             z-index: 40;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 18px rgba(15,23,42,0.18);
         }
         .console-topbar .back-link { color: rgba(255,255,255,0.6); font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
         .console-topbar .back-link:hover { color: white; }
@@ -56,25 +58,26 @@
         .btn-fullscreen { background: rgba(255,255,255,0.12); border: none; color: white; padding: 12px 20px; border-radius: 40px; font-weight: 700; font-size: 0.85rem; }
         .btn-fullscreen:hover { background: rgba(255,255,255,0.2); color: white; }
 
-        .console-body { padding: 28px; max-width: 1500px; margin: 0 auto 100px; }
+        .console-body { padding: 22px clamp(16px, 2.2vw, 32px); max-width: 100%; margin: 0 auto 100px; }
+        .pane-narrow { max-width: 1080px; margin: 0 auto; }
         .console-pane { display: none; }
         .console-pane.active { display: block; animation: fadeIn 0.25s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-        .console-card { background: white; border-radius: 26px; padding: 26px; box-shadow: 0 10px 34px rgba(34,32,28,0.06); margin-bottom: 22px; border: 1px solid var(--card-line); }
+        .console-card { background: white; border-radius: 16px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); margin-bottom: 18px; border: 1px solid var(--card-line); }
 
-        .stat-tile { background: white; border-radius: 22px; padding: 22px; box-shadow: 0 10px 30px rgba(34,32,28,0.05); border: 1px solid var(--card-line); display: flex; align-items: center; gap: 16px; }
-        .stat-tile .stat-icon { width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: white; flex-shrink: 0; }
-        .stat-tile .label { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .stat-tile .value { font-size: 1.5rem; font-weight: 800; color: var(--ink); margin-top: 2px; }
+        .stat-tile { background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); border: 1px solid var(--card-line); display: flex; align-items: center; gap: 14px; }
+        .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
+        .stat-tile .label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+        .stat-tile .value { font-size: 1.35rem; font-weight: 800; color: var(--ink); margin-top: 2px; }
 
         .quick-entry-toggle { display: flex; gap: 12px; margin-bottom: 22px; }
-        .quick-entry-toggle button { flex: 1; padding: 16px; border-radius: 18px; border: 2px solid #f0ece6; background: white; font-weight: 700; font-size: 1.05rem; color: var(--muted); transition: 0.2s; }
+        .quick-entry-toggle button { flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: white; font-weight: 700; font-size: 1rem; color: var(--muted); transition: 0.2s; }
         .quick-entry-toggle button.active { border-color: var(--gold); background: linear-gradient(135deg, #fdf6ea, #fbeed6); color: var(--gold); }
 
-        .qe-field label { font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; display: block; color: var(--ink); }
-        .qe-field input, .qe-field select, .qe-field textarea { padding: 16px; font-size: 1.1rem; border-radius: 16px; border: 2px solid #f0ece6; width: 100%; }
-        .qe-field input:focus, .qe-field select:focus, .qe-field textarea:focus { border-color: var(--gold); outline: none; box-shadow: 0 0 0 4px rgba(184,134,58,0.1); }
+        .qe-field label { font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; display: block; color: var(--ink); }
+        .qe-field input, .qe-field select, .qe-field textarea { padding: 13px 14px; font-size: 1rem; border-radius: 10px; border: 1.5px solid #e2e8f0; width: 100%; font-family: inherit; }
+        .qe-field input:focus, .qe-field select:focus, .qe-field textarea:focus { border-color: var(--gold); outline: none; box-shadow: 0 0 0 3px rgba(184,134,58,0.12); }
 
         .quick-amount-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
         .quick-amount-btn { background: #f5f0e6; border: 2px solid transparent; color: var(--gold); font-weight: 700; padding: 10px 18px; border-radius: 14px; font-size: 0.95rem; transition: 0.15s; }
@@ -98,12 +101,24 @@
         .qe-toast { position: fixed; bottom: 100px; right: 24px; background: var(--teal); color: white; padding: 18px 26px; border-radius: 16px; font-weight: 700; box-shadow: 0 14px 34px rgba(0,0,0,0.18); z-index: 999; display: none; font-size: 1.05rem; }
         .qe-toast.error { background: #dc3545; }
 
+        .table-scroll-wrap { overflow: auto; max-height: calc(100vh - 250px); border-radius: 16px; }
         table.console-table { width: 100%; border-collapse: collapse; }
-        table.console-table th, table.console-table td { padding: 14px 14px; text-align: left; font-size: 0.87rem; border-bottom: 1px solid #f5f0e6; }
-        table.console-table th { background: #faf5eb; font-weight: 800; color: var(--muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; position: sticky; top: 0; }
-        table.console-table tbody tr:hover { background: #fefcf8; }
-        .btn-refresh { background: white; border: 1px solid var(--card-line); padding: 10px 22px; border-radius: 40px; font-weight: 700; font-size: 0.88rem; color: var(--ink); }
-        .btn-refresh:hover { background: #f5f0e6; }
+        table.console-table th, table.console-table td { padding: 11px 14px; text-align: left; font-size: 0.84rem; border-bottom: 1px solid #eef1f5; white-space: nowrap; }
+        table.console-table th { background: #f8fafc; font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 0.66rem; letter-spacing: 0.05em; position: sticky; top: 0; z-index: 5; box-shadow: inset 0 -1px 0 var(--card-line); }
+        table.console-table td.col-name { white-space: normal; min-width: 150px; font-weight: 600; }
+        table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-variant-numeric: tabular-nums; }
+        table.console-table td.col-amount.total { font-weight: 800; color: var(--ink); }
+        table.console-table td.col-txn { max-width: 130px; overflow: hidden; text-overflow: ellipsis; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.78rem; color: var(--muted); }
+        table.console-table tbody tr:nth-child(even) { background: #fbfcfd; }
+        table.console-table tbody tr:hover { background: #f4f8fb; }
+        .status-pill { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+        .status-pill.status-paid { background: rgba(15,157,106,0.1); color: var(--teal); }
+        .status-pill.status-pending { background: rgba(224,166,56,0.14); color: #b7791f; }
+        .status-pill.status-cancelled, .status-pill.status-failed { background: rgba(220,53,69,0.1); color: #dc3545; }
+        .btn-refresh { background: white; border: 1px solid var(--card-line); padding: 9px 20px; border-radius: 10px; font-weight: 600; font-size: 0.85rem; color: var(--ink); }
+        .btn-refresh:hover { background: #f1f5f9; }
+        .btn-export { background: linear-gradient(135deg, #1f9d6a, #34b380); border: none; padding: 9px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; color: white; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-export:hover { color: white; opacity: 0.92; }
 
         .btn-action-edit, .btn-action-delete, .btn-action-resend, .btn-action-approve, .btn-action-checkstatus {
             border: none; padding: 7px 14px; border-radius: 40px; font-weight: 700; font-size: 0.72rem; transition: 0.2s;
@@ -157,16 +172,18 @@
                     <div class="stat-tile"><div class="stat-icon" style="background:#8b5cf6;"><i class="bi bi-people-fill"></i></div><div><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
                 </div>
             </div>
-            <div class="d-flex justify-content-end mb-2">
+            <div class="d-flex justify-content-end gap-2 mb-2">
+                <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
                 <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
             </div>
-            <div class="console-card" style="overflow-x:auto; padding:0;">
+            <div class="console-card" style="padding:0;">
+                <div class="table-scroll-wrap">
                 <table class="console-table">
                     <thead>
                         <tr>
                             <th>Type</th><th>ID</th><th>Name</th><th>Contact</th>
-                            @foreach($options as $opt)<th>{{ $opt->label }}</th>@endforeach
-                            <th>Other</th><th>Total</th><th>Payment</th><th>Txn ID</th><th>Date</th><th>Status</th><th class="text-end">Actions</th>
+                            @foreach($options as $opt)<th class="col-amount">{{ $opt->label }}</th>@endforeach
+                            <th class="col-amount">Other</th><th class="col-amount">Total</th><th>Payment</th><th>Txn ID</th><th>Date</th><th>Status</th><th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -174,17 +191,21 @@
                         <tr>
                             <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
                             <td><strong>{{ $row->display_id }}</strong></td>
-                            <td>{{ $row->display_name }}</td>
-                            <td>{{ $row->mobile ?? $row->email ?? '—' }}</td>
+                            <td class="col-name">{{ $row->display_name }}</td>
+                            <td>
+                                @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
+                                @if($row->email)<div class="text-muted" style="font-size:0.78rem;">{{ $row->email }}</div>@endif
+                                @if(!$row->mobile && !$row->email)—@endif
+                            </td>
                             @foreach($options as $opt)
-                            <td>@if(($row->option_amounts[$opt->id] ?? 0) > 0){{ number_format($row->option_amounts[$opt->id], 2) }}@else — @endif</td>
+                            <td class="col-amount">@if(($row->option_amounts[$opt->id] ?? 0) > 0){{ number_format($row->option_amounts[$opt->id], 2) }}@else — @endif</td>
                             @endforeach
-                            <td>@if($row->other_amount > 0){{ number_format($row->other_amount, 2) }}@else — @endif</td>
-                            <td><strong>{{ number_format($row->amount, 2) }}</strong></td>
+                            <td class="col-amount">@if($row->other_amount > 0){{ number_format($row->other_amount, 2) }}@else — @endif</td>
+                            <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
                             <td>{{ $row->payment_method }}</td>
-                            <td>{{ $row->transaction_id }}</td>
+                            <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
                             <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
-                            <td>{{ $row->payment_status }}</td>
+                            <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status }}</span></td>
                             <td class="text-end">
                                 @include('admin.partials.donation-actions', ['row' => $row])
                             </td>
@@ -194,13 +215,14 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
 
         @if($canAddDonation)
         <!-- QUICK ENTRY -->
         <div class="console-pane" id="pane-entry">
-            <div class="console-card">
+            <div class="console-card pane-narrow">
                 <div class="quick-entry-toggle">
                     <button type="button" class="active" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
                     <button type="button" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
@@ -256,6 +278,7 @@
 
         <!-- DASHBOARD -->
         <div class="console-pane" id="pane-dashboard">
+            <div class="pane-narrow">
             <div class="d-flex justify-content-end mb-2">
                 <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
             </div>
@@ -283,6 +306,7 @@
                 @empty
                 <p class="text-muted mb-0">No donation options configured for this event.</p>
                 @endforelse
+            </div>
             </div>
         </div>
     </div>
