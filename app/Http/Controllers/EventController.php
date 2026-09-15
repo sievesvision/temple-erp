@@ -94,6 +94,7 @@ class EventController extends Controller
             $event = Event::create($validated);
             $this->saveDonationOptions($event, $request);
             $this->saveContacts($event, $request);
+            $this->saveGalleryImages($event, $request);
             return redirect()->back()->with('success', 'Event scheduled and created successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to create event: ' . $e->getMessage())->withInput();
@@ -133,6 +134,7 @@ class EventController extends Controller
             $event->update($validated);
             $this->saveDonationOptions($event, $request);
             $this->saveContacts($event, $request);
+            $this->saveGalleryImages($event, $request);
             return redirect()->back()->with('success', 'Event details and schedule updated successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to update event: ' . $e->getMessage())->withInput();
@@ -215,6 +217,24 @@ class EventController extends Controller
             ];
         }
         $event->update(['contacts' => $contacts ? json_encode($contacts) : null]);
+    }
+
+    /**
+     * Replace an event's public image gallery from a fixed 6-slot admin form (plain
+     * manually-typed paths, same convention as header_image/flyer_image/qr_code_image).
+     * Blank rows are skipped; stored as JSON on the event's `gallery_images` column.
+     */
+    private function saveGalleryImages(Event $event, Request $request): void
+    {
+        $images = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $path = trim((string) $request->input("gallery_image_$i", ''));
+            if ($path === '') {
+                continue;
+            }
+            $images[] = $path;
+        }
+        $event->update(['gallery_images' => $images ? json_encode($images) : null]);
     }
 
     /**

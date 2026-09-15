@@ -421,6 +421,7 @@
                                     </div>
                                     @include('admin.partials.event-donation-options-fields', ['options' => $e->donationOptions, 'formSuffix' => $e->event_id])
                                     @include('admin.partials.event-contacts-fields', ['contacts' => $e->contactList(), 'formSuffix' => $e->event_id])
+                                    @include('admin.partials.event-gallery-fields', ['galleryImages' => $e->galleryImages(), 'formSuffix' => $e->event_id])
                                 </div>
                                 <div class="modal-footer border-0 pt-0">
                                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
@@ -526,6 +527,7 @@
                     </div>
                     @include('admin.partials.event-donation-options-fields', ['options' => collect(), 'formSuffix' => 'new'])
                     @include('admin.partials.event-contacts-fields', ['contacts' => [], 'formSuffix' => 'new'])
+                    @include('admin.partials.event-gallery-fields', ['galleryImages' => [], 'formSuffix' => 'new'])
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>

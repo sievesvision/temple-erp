@@ -22,6 +22,7 @@ class Event extends Model
         'header_image',
         'flyer_image',
         'qr_code_image',
+        'gallery_images',
         'show_donation_summary',
         'require_donor_contact_details',
         'coordinator_emails',
@@ -74,6 +75,29 @@ class Event extends Model
         return collect($decoded)
             ->map(fn ($c) => ['name' => trim($c['name'] ?? ''), 'phone' => trim($c['phone'] ?? '')])
             ->filter(fn ($c) => $c['name'] !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Parse the gallery_images JSON column (a plain array of manually-typed image paths,
+     * same convention as header_image/flyer_image/qr_code_image) into a clean list of
+     * non-blank paths.
+     */
+    public function galleryImages(): array
+    {
+        if (!$this->gallery_images) {
+            return [];
+        }
+
+        $decoded = json_decode($this->gallery_images, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return collect($decoded)
+            ->map(fn ($path) => trim((string) $path))
+            ->filter(fn ($path) => $path !== '')
             ->values()
             ->all();
     }
