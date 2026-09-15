@@ -355,6 +355,7 @@ class DonationController extends Controller
     private function renderEventDonationsWorkbook(Event $event, $options, $rows)
     {
         $templeName = Setting::get('temple_name', 'Temple Donation Report');
+        $currency = Setting::get('currency_code', 'AUD');
 
         $headers = array_merge(
             ['Donation ID', 'Type', 'Name', 'Email', 'Mobile'],
@@ -365,6 +366,15 @@ class DonationController extends Controller
                 'Dedication / Remarks', 'Donation Date', 'Recorded At',
             ]
         );
+        // Fixed, deliberately narrow widths (in Excel "characters") instead of auto-size —
+        // auto-size lets one long email or dedication note balloon the whole sheet. Text
+        // columns stay just wide enough to identify at a glance (full value is always one
+        // click away in the formula bar); amount columns only ever hold a short number.
+        $widths = array_merge(
+            [12, 9, 18, 20, 13],
+            array_fill(0, $options->count(), 13),
+            [10, 13, 13, 11, 16, 13, 13, 10, 12, 16, 12, 15]
+        );
         $colCount = count($headers);
         $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
 
@@ -374,22 +384,24 @@ class DonationController extends Controller
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
+        $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(10);
         $safeTitle = preg_replace('/[\\\\\/\?\*\[\]:]/', '', $event->event_name);
         $sheet->setTitle(\Illuminate\Support\Str::limit($safeTitle, 28, ''));
 
         $sheet->setCellValue('A1', $templeName);
         $sheet->mergeCells("A1:{$lastCol}1");
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16)->setName('Calibri');
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getRowDimension(1)->setRowHeight(26);
 
         $sheet->setCellValue('A2', 'Event Donations Report — ' . $event->event_name);
         $sheet->mergeCells("A2:{$lastCol}2");
         $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(12)->getColor()->setRGB('B8863A');
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-        $sheet->setCellValue('A3', 'Generated on ' . now()->format('d M Y, h:i A'));
+        $sheet->setCellValue('A3', 'Generated on ' . now()->format('d M Y, h:i A') . ' · ' . $rows->count() . ' donation(s)');
         $sheet->mergeCells("A3:{$lastCol}3");
-        $sheet->getStyle('A3')->getFont()->setItalic(true)->setSize(10)->getColor()->setRGB('888888');
+        $sheet->getStyle('A3')->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('999999');
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $headerRow = 5;
@@ -398,10 +410,10 @@ class DonationController extends Controller
             $sheet->setCellValue("{$col}{$headerRow}", $label);
         }
         $headerRange = "A{$headerRow}:{$lastCol}{$headerRow}";
-        $sheet->getStyle($headerRange)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle($headerRange)->getFont()->setBold(true)->setSize(9)->getColor()->setRGB('FFFFFF');
         $sheet->getStyle($headerRange)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('B8863A');
         $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)->setWrapText(true);
-        $sheet->getRowDimension($headerRow)->setRowHeight(28);
+        $sheet->getRowDimension($headerRow)->setRowHeight(32);
 
         $rowIndex = $headerRow + 1;
         $firstDataRow = $rowIndex;
@@ -434,6 +446,12 @@ class DonationController extends Controller
                 $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
                 $sheet->setCellValue("{$col}{$rowIndex}", $value);
             }
+
+            // Zebra striping so a long row of numbers stays easy to track across the sheet.
+            if (($rowIndex - $firstDataRow) % 2 === 1) {
+                $sheet->getStyle("A{$rowIndex}:{$lastCol}{$rowIndex}")->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FBF8F3');
+            }
             $rowIndex++;
         }
         $lastDataRow = max($rowIndex - 1, $firstDataRow);
@@ -450,19 +468,38 @@ class DonationController extends Controller
         $sheet->getStyle($totalsRange)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FDF6EA');
         $sheet->getStyle($totalsRange)->getBorders()->getTop()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM);
 
-        // Currency formatting on every amount column, header through totals row.
+        // Currency formatting (with the temple's currency code) and right-alignment on
+        // every amount column, header through totals row.
         for ($c = $amountStartCol; $c <= $amountEndCol; $c++) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
-            $sheet->getStyle("{$colLetter}{$firstDataRow}:{$colLetter}{$rowIndex}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $amountRange = "{$colLetter}{$firstDataRow}:{$colLetter}{$rowIndex}";
+            $sheet->getStyle($amountRange)->getNumberFormat()->setFormatCode('"' . $currency . '" #,##0.00');
+            $sheet->getStyle($amountRange)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
         }
 
-        // Light borders around the whole table and auto-sized columns for readability.
-        $sheet->getStyle("A{$headerRow}:{$lastCol}{$rowIndex}")->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-        foreach (range(1, $colCount) as $c) {
-            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
-            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        // Type / Payment Status / Donation Date read better centered than left-aligned.
+        // Their position shifts with how many option columns an event has, so look them up
+        // by header label rather than a fixed letter.
+        foreach (['Type', 'Payment Status', 'Donation Date'] as $label) {
+            $idx = array_search($label, $headers, true);
+            if ($idx === false) {
+                continue;
+            }
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 1);
+            $sheet->getStyle("{$colLetter}{$firstDataRow}:{$colLetter}{$lastDataRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         }
-        $sheet->freezePane('A' . $firstDataRow);
+
+        // Light borders around the whole table and fixed column widths (see $widths above).
+        $sheet->getStyle("A{$headerRow}:{$lastCol}{$rowIndex}")->getBorders()->getAllBorders()
+            ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('E0D8C8');
+        foreach ($widths as $i => $width) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->getColumnDimension($colLetter)->setWidth($width);
+        }
+
+        // Freeze both the header rows AND the first three identity columns (ID/Type/Name),
+        // so scrolling right to check an amount never loses track of who the row belongs to.
+        $sheet->freezePane('D' . $firstDataRow);
 
         $filename = 'event-donations-' . \Illuminate\Support\Str::slug($event->event_name) . '-' . now()->format('Y-m-d') . '.xlsx';
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
