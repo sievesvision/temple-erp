@@ -65,7 +65,7 @@
         .console-pane.active { display: block; animation: fadeIn 0.25s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-        .console-card { background: white; border-radius: 16px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); margin-bottom: 18px; border: 1px solid var(--card-line); }
+        .console-card { background: white; border-radius: 10px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); margin-bottom: 18px; border: 1px solid var(--card-line); }
 
         .stat-tile { background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); border: 1px solid var(--card-line); display: flex; align-items: center; gap: 14px; min-width: 0; }
         .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
@@ -78,34 +78,57 @@
         .option-chip-stat .label { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .option-chip-stat .value { font-size: 1.05rem; font-weight: 800; color: var(--ink); margin-top: 2px; }
 
-        .quick-entry-toggle { display: flex; gap: 12px; margin-bottom: 24px; }
-        .quick-entry-toggle button { flex: 1; padding: 18px; min-height: 56px; border-radius: 14px; border: 1.5px solid #e2e8f0; background: white; font-weight: 700; font-size: 1.05rem; color: var(--muted); transition: 0.2s; }
-        .quick-entry-toggle button.active { border-color: var(--gold); background: linear-gradient(135deg, #fdf6ea, #fbeed6); color: var(--gold); box-shadow: 0 4px 14px rgba(184,134,58,0.18); }
+        /* Quick Entry — grouped into shaded panels (Donor / Donation / Payment), each with a
+           colored left-bar title, so the form reads as distinct sections instead of one flat
+           stack of identical-looking fields on a white card. */
+        .qe-panel { background: #f7f9fb; border: 1px solid #e3e8ee; border-radius: 10px; padding: 20px; margin-bottom: 18px; }
+        .qe-panel:last-child { margin-bottom: 0; }
+        .qe-panel-title { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink); margin-bottom: 16px; }
+        .qe-panel-title .bar { width: 4px; height: 16px; border-radius: 2px; flex-shrink: 0; }
 
-        .qe-field { margin-bottom: 1.4rem; }
-        .qe-field label { font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; display: block; color: var(--ink); }
-        .qe-field input, .qe-field select, .qe-field textarea { padding: 16px; font-size: 1.05rem; border-radius: 12px; border: 1.5px solid #e2e8f0; width: 100%; font-family: inherit; min-height: 54px; }
-        .qe-field textarea { min-height: auto; }
-        .qe-field input:focus, .qe-field select:focus, .qe-field textarea:focus { border-color: var(--gold); outline: none; box-shadow: 0 0 0 3px rgba(184,134,58,0.12); }
+        .quick-entry-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
+        .quick-entry-toggle button { flex: 1; padding: 16px; min-height: 54px; border-radius: 8px; border: 1.5px solid #dde3ea; background: #f7f9fb; font-weight: 700; font-size: 1.02rem; color: var(--muted); transition: 0.2s; }
+        .quick-entry-toggle button.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 4px 14px rgba(184,134,58,0.28); }
+
+        .qe-field { margin-bottom: 1.1rem; }
+        .qe-field:last-child { margin-bottom: 0; }
+
+        /* The "left-shaded label" input group: a tinted label cell fused to the input, both
+           inside one bordered control — reads as a single professional form control rather
+           than a plain borderless input floating on the page. Stacks (label on top) on
+           narrow phones; sits to the left from tablet width up. */
+        .qe-input-group { display: flex; flex-direction: column; border: 1.5px solid #d5dce4; border-radius: 8px; background: #fff; overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s; }
+        .qe-input-group:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,134,58,0.14); }
+        .qe-input-group .qe-input-label { background: #eef2f6; color: #51606f; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 9px 14px; border-bottom: 1.5px solid #d5dce4; }
+        .qe-input-group input, .qe-input-group select, .qe-input-group textarea { border: none; background: transparent; padding: 14px; font-size: 1.02rem; width: 100%; font-family: inherit; min-height: 50px; }
+        .qe-input-group textarea { min-height: auto; }
+        .qe-input-group input:focus, .qe-input-group select:focus, .qe-input-group textarea:focus { outline: none; }
+        @media (min-width: 576px) {
+            .qe-input-group { flex-direction: row; align-items: stretch; }
+            .qe-input-group .qe-input-label { border-bottom: none; border-right: 1.5px solid #d5dce4; display: flex; align-items: center; min-width: 150px; flex-shrink: 0; }
+            .qe-input-group input, .qe-input-group select, .qe-input-group textarea { flex: 1; min-width: 0; }
+        }
 
         .quick-amount-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-        .quick-amount-btn { background: #f5f0e6; border: 2px solid transparent; color: var(--gold); font-weight: 700; padding: 12px 20px; min-height: 46px; min-width: 64px; border-radius: 14px; font-size: 1rem; transition: 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-        .quick-amount-btn:hover { background: #efe6d4; }
-        .quick-amount-btn.active { background: var(--gold); color: white; box-shadow: 0 4px 12px rgba(184,134,58,0.35); transform: scale(1.04); }
+        .quick-amount-btn { background: #fff; border: 1.5px solid #e3d9bf; color: var(--gold); font-weight: 700; padding: 12px 20px; min-height: 46px; min-width: 64px; border-radius: 8px; font-size: 1rem; transition: 0.15s; }
+        .quick-amount-btn:hover { background: #fbf6ea; }
+        .quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 4px 12px rgba(184,134,58,0.35); }
 
         .devotee-combobox-wrap { position: relative; }
-        .devotee-combobox-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5ddd0; border-radius: 16px; max-height: 280px; overflow-y: auto; z-index: 20; box-shadow: 0 16px 40px rgba(0,0,0,0.12); display: none; margin-top: 6px; }
+        .devotee-combobox-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #d5dce4; border-radius: 8px; max-height: 280px; overflow-y: auto; z-index: 20; box-shadow: 0 16px 40px rgba(0,0,0,0.12); display: none; margin-top: 6px; }
         .devotee-combobox-results.show { display: block; }
-        .devotee-combobox-item { padding: 14px 18px; cursor: pointer; border-bottom: 1px solid #f5f0e6; }
-        .devotee-combobox-item:hover, .devotee-combobox-item.highlighted { background: #fdf6ea; }
+        .devotee-combobox-item { padding: 14px 18px; cursor: pointer; border-bottom: 1px solid #eef2f6; }
+        .devotee-combobox-item:hover, .devotee-combobox-item.highlighted { background: #f7f9fb; }
 
-        .donation-tier-option { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px; min-height: 64px; border: 2px solid #f0ece6; border-radius: 16px; margin-bottom: 14px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; }
-        .donation-tier-option.selected { border-color: var(--gold); background: linear-gradient(135deg, #fdf9f2, #fbf3e2); box-shadow: 0 4px 14px rgba(184,134,58,0.12); }
+        .donation-tier-option { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px 18px 26px; min-height: 64px; border: 1.5px solid #e3e8ee; border-radius: 8px; background: #fff; margin-bottom: 12px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; }
+        .donation-tier-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: #dde3ea; border-radius: 8px 0 0 8px; transition: background 0.15s; }
+        .donation-tier-option.selected { border-color: var(--gold); background: #fefaf2; box-shadow: 0 4px 14px rgba(184,134,58,0.12); }
+        .donation-tier-option.selected::before { background: var(--gold); }
         .donation-tier-option label { font-size: 1.05rem; margin: 0; cursor: pointer; }
-        .donation-tier-option input[type="checkbox"] { width: 28px; height: 28px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; }
+        .donation-tier-option input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; }
 
         .btn-save-next { position: fixed; bottom: 0; left: 0; right: 0; padding: 20px 28px; background: white; border-top: 1px solid var(--card-line); box-shadow: 0 -10px 30px rgba(0,0,0,0.06); z-index: 30; }
-        .btn-save-next button { width: 100%; max-width: 1444px; margin: 0 auto; display: block; padding: 20px; font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; border: none; border-radius: 20px; box-shadow: 0 10px 24px rgba(184,134,58,0.3); }
+        .btn-save-next button { width: 100%; max-width: 1444px; margin: 0 auto; display: block; padding: 20px; font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; border: none; border-radius: 10px; box-shadow: 0 10px 24px rgba(184,134,58,0.3); }
         .btn-save-next button:disabled { opacity: 0.6; }
 
         .qe-toast { position: fixed; bottom: 100px; right: 24px; background: var(--teal); color: white; padding: 18px 26px; border-radius: 16px; font-weight: 700; box-shadow: 0 14px 34px rgba(0,0,0,0.18); z-index: 999; display: none; font-size: 1.05rem; }
@@ -241,55 +264,82 @@
         @if($canAddDonation)
         <!-- QUICK ENTRY (default pane; Guest is the default mode for fast walk-up entry) -->
         <div class="console-pane active" id="pane-entry">
-            <div class="console-card pane-narrow">
+            <div class="console-card pane-narrow" style="background:transparent; border:none; box-shadow:none; padding:0;">
                 <div class="quick-entry-toggle">
                     <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
                     <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
                 </div>
 
-                <div id="qeDevoteeFields" style="display:none;">
-                    <div class="qe-field devotee-combobox-wrap">
-                        <label>Search Devotee (name, email, or mobile)</label>
-                        <input type="text" class="form-control" id="qeDevoteeSearch" placeholder="Start typing...">
-                        <input type="hidden" id="qeDevoteeId">
-                        <div class="devotee-combobox-results" id="qeDevoteeResults"></div>
+                <div class="qe-panel">
+                    <div class="qe-panel-title"><span class="bar" style="background:var(--gold);"></span>Donor Details</div>
+
+                    <div id="qeDevoteeFields" style="display:none;">
+                        <div class="qe-field devotee-combobox-wrap">
+                            <div class="qe-input-group">
+                                <span class="qe-input-label">Search Devotee</span>
+                                <input type="text" id="qeDevoteeSearch" placeholder="Name, email, or mobile...">
+                            </div>
+                            <input type="hidden" id="qeDevoteeId">
+                            <div class="devotee-combobox-results" id="qeDevoteeResults"></div>
+                        </div>
+                    </div>
+
+                    <div id="qeGuestFields">
+                        <div class="qe-field">
+                            <div class="qe-input-group">
+                                <span class="qe-input-label">Donor Name</span>
+                                <input type="text" id="qeGuestName" placeholder="Full name">
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6 qe-field">
+                                <div class="qe-input-group">
+                                    <span class="qe-input-label">Email</span>
+                                    <input type="email" id="qeGuestEmail" placeholder="Optional">
+                                </div>
+                            </div>
+                            <div class="col-md-6 qe-field">
+                                <div class="qe-input-group">
+                                    <span class="qe-input-label">Mobile</span>
+                                    <input type="text" id="qeGuestMobile" placeholder="Optional">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="qeGuestFields">
+                <div class="qe-panel">
+                    <div class="qe-panel-title"><span class="bar" style="background:var(--teal);"></span>Donation Amount</div>
+                    <div id="qeTiers" class="mb-3"></div>
                     <div class="qe-field">
-                        <label>Donor Name</label>
-                        <input type="text" class="form-control" id="qeGuestName">
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 qe-field">
-                            <label>Email</label>
-                            <input type="email" class="form-control" id="qeGuestEmail">
+                        <div class="qe-input-group">
+                            <span class="qe-input-label">Amount</span>
+                            <input type="number" step="0.01" id="qeAmount" placeholder="0.00">
                         </div>
-                        <div class="col-md-6 qe-field">
-                            <label>Mobile</label>
-                            <input type="text" class="form-control" id="qeGuestMobile">
+                        <div class="quick-amount-row" id="qeQuickAmounts"></div>
+                    </div>
+                    <div class="qe-field">
+                        <div class="qe-input-group">
+                            <span class="qe-input-label">Details</span>
+                            <textarea id="qeDetails" rows="2" placeholder="Optional — any extra detail about this donation..."></textarea>
                         </div>
                     </div>
                 </div>
 
-                <div id="qeTiers" class="mb-3"></div>
-                <div class="qe-field">
-                    <label>Amount</label>
-                    <input type="number" step="0.01" class="form-control" id="qeAmount" placeholder="0.00">
-                    <div class="quick-amount-row" id="qeQuickAmounts"></div>
-                </div>
-                <div class="qe-field">
-                    <label>Details (optional)</label>
-                    <textarea id="qeDetails" rows="2" placeholder="Any extra detail about this donation..."></textarea>
-                </div>
-                <div class="qe-field">
-                    <label>Payment Method</label>
-                    <select class="form-select" id="qePaymentMethod"></select>
-                </div>
-                <div class="qe-field">
-                    <label>Transaction ID (optional)</label>
-                    <input type="text" class="form-control" id="qeTransactionId">
+                <div class="qe-panel">
+                    <div class="qe-panel-title"><span class="bar" style="background:#8b5cf6;"></span>Payment Details</div>
+                    <div class="qe-field">
+                        <div class="qe-input-group">
+                            <span class="qe-input-label">Method</span>
+                            <select id="qePaymentMethod"></select>
+                        </div>
+                    </div>
+                    <div class="qe-field">
+                        <div class="qe-input-group">
+                            <span class="qe-input-label">Txn ID</span>
+                            <input type="text" id="qeTransactionId" placeholder="Optional">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
