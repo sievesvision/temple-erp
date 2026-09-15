@@ -134,6 +134,10 @@ class DonationController extends Controller
             ->get();
         $eventOptionsByEventId = $events->keyBy('event_id')->map(fn ($e) => $e->donationOptions);
 
+        // Which payment methods show up in the "Log Devotee/Guest Donation" forms — set in
+        // System Settings > Donations & Payments. UPI is excluded by default.
+        $enabledPaymentMethods = json_decode(Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
+
         // Structured per-option breakdown for every donation, keyed "type:id" — lets the
         // per-event view show one column per configured donation option with the actual
         // amount the donor put toward it, instead of a single flattened purpose string.
@@ -193,6 +197,7 @@ class DonationController extends Controller
             'eventDonationOptionsForJs',
             'donationSelections',
             'eventDonationRows',
+            'enabledPaymentMethods',
             'canAddDonation',
             'canEditDonation',
             'canDeleteDonation'
@@ -339,53 +344,133 @@ class DonationController extends Controller
                 return $row;
             });
 
-        $filename = 'event-donations-' . \Illuminate\Support\Str::slug($event->event_name) . '-' . now()->format('Y-m-d') . '.csv';
+        return $this->renderEventDonationsWorkbook($event, $options, $rows);
+    }
 
-        $callback = function () use ($rows, $options) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF");
-            $header = array_merge(
-                ['Donation ID', 'Type', 'Name', 'Email', 'Mobile'],
-                $options->pluck('label')->all(),
-                [
-                    'Other', 'Total Amount', 'Payment Method', 'Payment Status',
-                    'Transaction ID', 'Bank Name', 'Bank Account No', 'Bank IFSC', 'Bank Branch',
-                    'Dedication / Remarks', 'Donation Date', 'Recorded At',
-                ]
-            );
-            fputcsv($out, $header);
-            foreach ($rows as $row) {
-                $isGuest = $row->donation_type === 'guest';
-                $line = [
-                    $row->display_id,
-                    $isGuest ? 'Guest' : 'Devotee',
-                    $row->display_name,
-                    $row->email ?? '',
-                    $row->mobile ?? '',
-                ];
-                foreach ($options as $opt) {
-                    $line[] = $row->option_amounts[$opt->id] > 0 ? $row->option_amounts[$opt->id] : '';
-                }
-                $line[] = $row->other_amount > 0 ? $row->other_amount : '';
-                $line[] = $row->amount;
-                $line[] = $row->payment_method;
-                $line[] = $row->payment_status;
-                $line[] = $row->transaction_id;
-                $line[] = $isGuest ? ($row->bank_name ?? '') : '';
-                $line[] = $isGuest ? ($row->bank_account_no ?? '') : '';
-                $line[] = $isGuest ? ($row->bank_ifsc ?? '') : '';
-                $line[] = $isGuest ? ($row->bank_branch ?? '') : '';
-                $line[] = $isGuest ? ($row->purpose_details ?? '') : ($row->remarks ?? '');
-                $line[] = $row->donation_date;
-                $line[] = $row->created_at;
-                fputcsv($out, $line);
+    /**
+     * Builds the actual .xlsx workbook for exportEventDonations() — a temple-name banner,
+     * report title/generated-at line, a styled header row, the donation rows with one
+     * column per configured option, and a bold totals row with real SUM() formulas.
+     */
+    private function renderEventDonationsWorkbook(Event $event, $options, $rows)
+    {
+        $templeName = Setting::get('temple_name', 'Temple Donation Report');
+
+        $headers = array_merge(
+            ['Donation ID', 'Type', 'Name', 'Email', 'Mobile'],
+            $options->pluck('label')->all(),
+            [
+                'Other', 'Total Amount', 'Payment Method', 'Payment Status',
+                'Transaction ID', 'Bank Name', 'Bank Account No', 'Bank IFSC', 'Bank Branch',
+                'Dedication / Remarks', 'Donation Date', 'Recorded At',
+            ]
+        );
+        $colCount = count($headers);
+        $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
+
+        // Amount columns are: the option columns, then Other, then Total Amount.
+        $amountStartCol = 6;
+        $amountEndCol = $amountStartCol + $options->count() + 1;
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $safeTitle = preg_replace('/[\\\\\/\?\*\[\]:]/', '', $event->event_name);
+        $sheet->setTitle(\Illuminate\Support\Str::limit($safeTitle, 28, ''));
+
+        $sheet->setCellValue('A1', $templeName);
+        $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A2', 'Event Donations Report — ' . $event->event_name);
+        $sheet->mergeCells("A2:{$lastCol}2");
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(12)->getColor()->setRGB('B8863A');
+        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A3', 'Generated on ' . now()->format('d M Y, h:i A'));
+        $sheet->mergeCells("A3:{$lastCol}3");
+        $sheet->getStyle('A3')->getFont()->setItalic(true)->setSize(10)->getColor()->setRGB('888888');
+        $sheet->getStyle('A3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $headerRow = 5;
+        foreach ($headers as $i => $label) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue("{$col}{$headerRow}", $label);
+        }
+        $headerRange = "A{$headerRow}:{$lastCol}{$headerRow}";
+        $sheet->getStyle($headerRange)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle($headerRange)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('B8863A');
+        $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)->setWrapText(true);
+        $sheet->getRowDimension($headerRow)->setRowHeight(28);
+
+        $rowIndex = $headerRow + 1;
+        $firstDataRow = $rowIndex;
+        foreach ($rows as $row) {
+            $isGuest = $row->donation_type === 'guest';
+            $data = [
+                $row->display_id,
+                $isGuest ? 'Guest' : 'Devotee',
+                $row->display_name,
+                $row->email ?? '',
+                $row->mobile ?? '',
+            ];
+            foreach ($options as $opt) {
+                $data[] = $row->option_amounts[$opt->id] > 0 ? (float) $row->option_amounts[$opt->id] : null;
             }
-            fclose($out);
-        };
+            $data[] = $row->other_amount > 0 ? (float) $row->other_amount : null;
+            $data[] = (float) $row->amount;
+            $data[] = $row->payment_method;
+            $data[] = $row->payment_status;
+            $data[] = $row->transaction_id;
+            $data[] = $isGuest ? ($row->bank_name ?? '') : '';
+            $data[] = $isGuest ? ($row->bank_account_no ?? '') : '';
+            $data[] = $isGuest ? ($row->bank_ifsc ?? '') : '';
+            $data[] = $isGuest ? ($row->bank_branch ?? '') : '';
+            $data[] = $isGuest ? ($row->purpose_details ?? '') : ($row->remarks ?? '');
+            $data[] = $row->donation_date;
+            $data[] = $row->created_at;
 
-        return response()->stream($callback, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            foreach ($data as $i => $value) {
+                $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+                $sheet->setCellValue("{$col}{$rowIndex}", $value);
+            }
+            $rowIndex++;
+        }
+        $lastDataRow = max($rowIndex - 1, $firstDataRow);
+
+        // Totals row — real SUM() formulas over the amount columns, not just a static number.
+        $sheet->setCellValue("A{$rowIndex}", 'TOTAL');
+        $sheet->mergeCells("A{$rowIndex}:E{$rowIndex}");
+        for ($c = $amountStartCol; $c <= $amountEndCol; $c++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+            $sheet->setCellValue("{$colLetter}{$rowIndex}", "=SUM({$colLetter}{$firstDataRow}:{$colLetter}{$lastDataRow})");
+        }
+        $totalsRange = "A{$rowIndex}:{$lastCol}{$rowIndex}";
+        $sheet->getStyle($totalsRange)->getFont()->setBold(true);
+        $sheet->getStyle($totalsRange)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FDF6EA');
+        $sheet->getStyle($totalsRange)->getBorders()->getTop()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM);
+
+        // Currency formatting on every amount column, header through totals row.
+        for ($c = $amountStartCol; $c <= $amountEndCol; $c++) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+            $sheet->getStyle("{$colLetter}{$firstDataRow}:{$colLetter}{$rowIndex}")->getNumberFormat()->setFormatCode('#,##0.00');
+        }
+
+        // Light borders around the whole table and auto-sized columns for readability.
+        $sheet->getStyle("A{$headerRow}:{$lastCol}{$rowIndex}")->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        foreach (range(1, $colCount) as $c) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c);
+            $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+        }
+        $sheet->freezePane('A' . $firstDataRow);
+
+        $filename = 'event-donations-' . \Illuminate\Support\Str::slug($event->event_name) . '-' . now()->format('Y-m-d') . '.xlsx';
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 
@@ -507,10 +592,13 @@ class DonationController extends Controller
             'purpose_details' => 'nullable|string|max:255',
             'payment_method' => 'required|string|in:Cash,UPI,Bank',
             'transaction_id' => 'nullable|string|max:100',
-            'bank_name' => 'required_if:payment_method,Bank|nullable|string|max:100',
-            'bank_account_no' => 'required_if:payment_method,Bank|nullable|string|max:50',
-            'bank_ifsc' => 'required_if:payment_method,Bank|nullable|string|max:20',
-            'bank_branch' => 'required_if:payment_method,Bank|nullable|string|max:100',
+            // Bank/cheque details are a convenience field, not a requirement — an admin
+            // recording a donation from a bank statement or receipt may not have every
+            // field to hand, so none of these are mandatory even when payment_method=Bank.
+            'bank_name' => 'nullable|string|max:100',
+            'bank_account_no' => 'nullable|string|max:50',
+            'bank_ifsc' => 'nullable|string|max:20',
+            'bank_branch' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
         ]);

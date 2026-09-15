@@ -372,6 +372,29 @@
                                 <i class="bi bi-exclamation-triangle-fill me-1"></i> Live mode is active — donations will charge real cards using the live Stripe keys.
                             </div>
                         </div>
+
+                        <div class="settings-section">
+                            <h5><i class="bi bi-cash-stack me-2"></i>Manually Recorded Donation Payment Methods</h5>
+                            <p class="text-muted small mb-3">Controls which payment methods appear in the "Log Devotee/Guest Donation" forms admins use to manually record a donation. Unchecking a method here doesn't affect existing donation records already saved with it.</p>
+                            <div class="d-flex flex-wrap gap-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="enabled_payment_methods[]" value="Cash" id="pm_cash" {{ in_array('Cash', $enabledPaymentMethods) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="pm_cash">Cash</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="enabled_payment_methods[]" value="UPI" id="pm_upi" {{ in_array('UPI', $enabledPaymentMethods) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="pm_upi">UPI</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="enabled_payment_methods[]" value="Bank Transfer" id="pm_bank_transfer" {{ in_array('Bank Transfer', $enabledPaymentMethods) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="pm_bank_transfer">Bank Transfer</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="enabled_payment_methods[]" value="Cheque" id="pm_cheque" {{ in_array('Cheque', $enabledPaymentMethods) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="pm_cheque">Cheque</label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- TEMPLE HOURS -->

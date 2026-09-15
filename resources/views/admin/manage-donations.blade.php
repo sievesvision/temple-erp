@@ -825,11 +825,15 @@
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Mode</label>
                         <select name="payment_mode" class="form-select rounded-3" required>
-                            <option value="Cash" selected>Cash</option>
-                            <option value="UPI">UPI</option>
-                            <option value="Bank Transfer">Bank Transfer</option>
-                            <option value="Cheque">Cheque</option>
+                            @forelse($enabledPaymentMethods as $method)
+                                <option value="{{ $method }}" {{ $loop->first ? 'selected' : '' }}>{{ $method }}</option>
+                            @empty
+                                <option value="Cash" selected>Cash</option>
+                            @endforelse
                         </select>
+                        @if(empty($enabledPaymentMethods))
+                        <div class="form-text text-warning">No payment methods are enabled in System Settings &rsaquo; Donations &amp; Payments — falling back to Cash.</div>
+                        @endif
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Transaction ID / Reference (Optional)</label>
@@ -915,13 +919,28 @@
                         <label class="form-label fw-semibold">Purpose Details / Notes</label>
                         <input type="text" name="purpose_details" class="form-control rounded-3" placeholder="e.g. In memory of parents">
                     </div>
+                    @php
+                        // The guest form's single "Bank" value covers both Bank Transfer and
+                        // Cheque, so it's offered if either is enabled in System Settings.
+                        $guestPaymentOptions = [];
+                        if (in_array('Cash', $enabledPaymentMethods)) { $guestPaymentOptions['Cash'] = 'Cash'; }
+                        if (in_array('UPI', $enabledPaymentMethods)) { $guestPaymentOptions['UPI'] = 'UPI'; }
+                        if (in_array('Bank Transfer', $enabledPaymentMethods) || in_array('Cheque', $enabledPaymentMethods)) {
+                            $guestPaymentOptions['Bank'] = 'Bank Transfer / Cheque';
+                        }
+                    @endphp
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Payment Method</label>
                         <select name="payment_method" id="guest_payment_method" class="form-select rounded-3" required>
-                            <option value="Cash" selected>Cash</option>
-                            <option value="UPI">UPI</option>
-                            <option value="Bank">Bank Transfer / Cheque</option>
+                            @forelse($guestPaymentOptions as $value => $label)
+                                <option value="{{ $value }}" {{ $loop->first ? 'selected' : '' }}>{{ $label }}</option>
+                            @empty
+                                <option value="Cash" selected>Cash</option>
+                            @endforelse
                         </select>
+                        @if(empty($guestPaymentOptions))
+                        <div class="form-text text-warning">No payment methods are enabled in System Settings &rsaquo; Donations &amp; Payments — falling back to Cash.</div>
+                        @endif
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Transaction ID / Reference (Optional)</label>
@@ -967,25 +986,10 @@
         const paymentSelect = document.getElementById('guest_payment_method');
         const bankFields = document.getElementById('bank_details_fields');
 
-        const bankName = document.getElementById('bank_name');
-        const bankAcc = document.getElementById('bank_account_no');
-        const bankIfsc = document.getElementById('bank_ifsc');
-        const bankBranch = document.getElementById('bank_branch');
-
+        // Bank/cheque details are optional — an admin may not have every field to hand
+        // when recording a donation, so this only shows/hides the sub-form, never forces it.
         function toggleBankFields() {
-            if (paymentSelect.value === 'Bank') {
-                bankFields.style.display = 'block';
-                bankName.required = true;
-                bankAcc.required = true;
-                bankIfsc.required = true;
-                bankBranch.required = true;
-            } else {
-                bankFields.style.display = 'none';
-                bankName.required = false;
-                bankAcc.required = false;
-                bankIfsc.required = false;
-                bankBranch.required = false;
-            }
+            bankFields.style.display = (paymentSelect.value === 'Bank') ? 'block' : 'none';
         }
 
         paymentSelect.addEventListener('change', toggleBankFields);
