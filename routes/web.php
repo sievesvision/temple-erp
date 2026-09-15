@@ -230,6 +230,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         // UPI is excluded by default — only Cash/Bank Transfer/Cheque show up in the manual
         // "Log Donation" forms out of the box; an admin opts UPI back in here if they use it.
         $enabledPaymentMethods = json_decode(\App\Models\Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
+        $systemNotificationEmail = \App\Models\Setting::get('system_notification_email', 'admin@hasq.org');
         $templeOpeningTime = \App\Models\Setting::get('temple_opening_time', '06:00');
         $templeClosingTime = \App\Models\Setting::get('temple_closing_time', '21:00');
         $lowStockThreshold = \App\Models\Setting::get('low_stock_threshold', '10.00');
@@ -274,6 +275,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'stripeEnabled',
             'stripeMode',
             'enabledPaymentMethods',
+            'systemNotificationEmail',
             'templeOpeningTime',
             'templeClosingTime',
             'lowStockThreshold',
@@ -327,6 +329,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'stripe_mode' => 'nullable|string|in:test,live',
             'enabled_payment_methods' => 'nullable|array',
             'enabled_payment_methods.*' => 'string|in:Cash,UPI,Bank Transfer,Cheque',
+            'system_notification_email' => 'nullable|email|max:255',
             'temple_opening_time' => 'required|string|max:10',
             'temple_closing_time' => 'required|string|max:10',
             'low_stock_threshold' => 'required|numeric|min:0',
@@ -398,6 +401,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('stripe_enabled', $request->boolean('stripe_enabled') ? '1' : '0');
         \App\Models\Setting::set('stripe_mode', $request->stripe_mode === 'live' ? 'live' : 'test');
         \App\Models\Setting::set('enabled_payment_methods', json_encode($request->input('enabled_payment_methods', [])));
+        \App\Models\Setting::set('system_notification_email', $request->system_notification_email ?? '');
         \App\Models\Setting::set('temple_opening_time', $request->temple_opening_time);
         \App\Models\Setting::set('temple_closing_time', $request->temple_closing_time);
         \App\Models\Setting::set('low_stock_threshold', $request->low_stock_threshold);

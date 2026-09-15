@@ -214,6 +214,14 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="settings-section">
+                            <h5><i class="bi bi-envelope-check me-2"></i>System Notification Email</h5>
+                            <p class="text-muted small mb-3">Every email the system sends — receipts, credentials, notifications — is BCC'd to this address, so there's a running record of what's gone out. Leave blank to disable.</p>
+                            <div class="col-md-6">
+                                <input type="email" name="system_notification_email" class="form-control rounded-3" value="{{ $systemNotificationEmail }}" placeholder="admin@hasq.org">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- TEMPLE INFORMATION -->
