@@ -87,9 +87,13 @@
             <div class="kicker mt-3">Event Donation</div>
             <h1>{{ $event->event_name }}</h1>
             <div class="event-meta">
-                <span><i class="bi bi-calendar-event"></i>{{ date('d M Y', strtotime($event->event_date)) }}</span>
+                @if($event->date_tbc)
+                    <span><i class="bi bi-calendar-event"></i>Date to be confirmed</span>
+                @else
+                    <span><i class="bi bi-calendar-event"></i>{{ date('d M Y', strtotime($event->event_date)) }}</span>
+                    @if($event->start_time)<span><i class="bi bi-clock"></i>{{ date('g:i A', strtotime($event->start_time)) }}</span>@endif
+                @endif
                 @if($event->location)<span><i class="bi bi-geo-alt"></i>{{ $event->location }}</span>@endif
-                @if($event->start_time)<span><i class="bi bi-clock"></i>{{ date('g:i A', strtotime($event->start_time)) }}</span>@endif
             </div>
             <div>
                 @if($event->show_donation_summary)

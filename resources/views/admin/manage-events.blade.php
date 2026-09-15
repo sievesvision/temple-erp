@@ -242,7 +242,9 @@
                         <div class="text-muted small text-truncate" style="max-width: 250px;">{{ $e->description ?? 'No description provided' }}</div>
                     </td>
                     <td>
-                        <div class="fw-semibold"><i class="bi bi-calendar-check text-warning me-1"></i>{{ date('d M Y', strtotime($e->event_date)) }}</div>
+                        <div class="fw-semibold"><i class="bi bi-calendar-check text-warning me-1"></i>{{ date('d M Y', strtotime($e->event_date)) }}
+                            @if($e->date_tbc)<span class="badge bg-warning bg-opacity-25 text-warning border border-warning ms-1" style="font-size:.65rem;">TBC</span>@endif
+                        </div>
                         <div class="text-muted small"><i class="bi bi-clock me-1"></i>{{ date('g:i A', strtotime($e->start_time)) }} - {{ date('g:i A', strtotime($e->end_time)) }}</div>
                     </td>
                     <td>
@@ -366,6 +368,10 @@
                                         <div class="col-md-12">
                                             <label class="form-label fw-semibold">Event Date</label>
                                             <input type="date" name="event_date" class="form-control rounded-3" value="{{ $e->event_date }}" required>
+                                            <div class="form-check mt-2">
+                                                <input type="checkbox" name="date_tbc" id="date_tbc_{{ $e->event_id }}" class="form-check-input" value="1" {{ $e->date_tbc ? 'checked' : '' }}>
+                                                <label class="form-check-label small" for="date_tbc_{{ $e->event_id }}">Date to be confirmed — show "Date to be confirmed" publicly instead of the date above (still used internally for sorting)</label>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="row g-3 mb-3">
@@ -472,6 +478,10 @@
                         <div class="col-md-12">
                             <label class="form-label fw-semibold">Event Date</label>
                             <input type="date" name="event_date" class="form-control rounded-3" value="{{ date('Y-m-d') }}" required>
+                            <div class="form-check mt-2">
+                                <input type="checkbox" name="date_tbc" id="date_tbc_new" class="form-check-input" value="1">
+                                <label class="form-check-label small" for="date_tbc_new">Date to be confirmed — show "Date to be confirmed" publicly instead of the date above (still used internally for sorting)</label>
+                            </div>
                         </div>
                     </div>
                     <div class="row g-3 mb-3">

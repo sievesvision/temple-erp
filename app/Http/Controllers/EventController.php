@@ -88,6 +88,7 @@ class EventController extends Controller
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
         $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
+        $validated['date_tbc'] = $request->boolean('date_tbc');
         $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date']);
 
         try {
@@ -127,6 +128,7 @@ class EventController extends Controller
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
         $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
+        $validated['date_tbc'] = $request->boolean('date_tbc');
 
         try {
             $event = Event::findOrFail($id);

@@ -341,8 +341,13 @@ class DonationController extends Controller
         $amountEndCol = $amountStartCol + $options->count() + 1;
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
         $spreadsheet->getDefaultStyle()->getFont()->setName('Calibri')->setSize(10);
+
+        $summarySheet = $spreadsheet->getActiveSheet();
+        $summarySheet->setTitle('Summary');
+        $this->buildEventDonationsSummarySheet($summarySheet, $event, $options, $rows, $templeName, $currency);
+
+        $sheet = $spreadsheet->createSheet();
         $safeTitle = preg_replace('/[\\\\\/\?\*\[\]:]/', '', $event->event_name);
         $sheet->setTitle(\Illuminate\Support\Str::limit($safeTitle, 28, ''));
 
@@ -466,6 +471,8 @@ class DonationController extends Controller
         // so scrolling right to check an amount never loses track of who the row belongs to.
         $sheet->freezePane('D' . $firstDataRow);
 
+        $spreadsheet->setActiveSheetIndex(0);
+
         $filename = 'event-donations-' . \Illuminate\Support\Str::slug($event->event_name) . '-' . now()->format('Y-m-d') . '.xlsx';
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
 
@@ -474,6 +481,181 @@ class DonationController extends Controller
         }, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    /**
+     * Builds the "Summary" sheet (opened first) for the event donations workbook: an
+     * at-a-glance overview (paid/pending totals and counts), a payment-method breakdown, and
+     * a per-donation-option category breakdown — both based on Paid donations only, since
+     * Pending amounts aren't real money received yet. Pending is called out separately in red
+     * and deliberately excluded from every total, per how the temple actually reconciles cash.
+     */
+    private function buildEventDonationsSummarySheet($sheet, Event $event, $options, $rows, string $templeName, string $currency): void
+    {
+        $amountFormat = '"' . $currency . '" #,##0.00';
+        $gold = 'B8863A';
+        $teal = '0F9D6A';
+        $red = 'C0392B';
+        $lastCol = 'E';
+
+        $sheet->getColumnDimension('A')->setWidth(26);
+        $sheet->getColumnDimension('B')->setWidth(18);
+        $sheet->getColumnDimension('C')->setWidth(3);
+        $sheet->getColumnDimension('D')->setWidth(26);
+        $sheet->getColumnDimension('E')->setWidth(18);
+
+        $sheet->setCellValue('A1', $templeName);
+        $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getRowDimension(1)->setRowHeight(26);
+
+        $sheet->setCellValue('A2', 'Donation Balance Summary — ' . $event->event_name);
+        $sheet->mergeCells("A2:{$lastCol}2");
+        $sheet->getStyle('A2')->getFont()->setBold(true)->setSize(12)->getColor()->setRGB($gold);
+        $sheet->getStyle('A2')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A3', 'Generated on ' . now()->format('d M Y, h:i A'));
+        $sheet->mergeCells("A3:{$lastCol}3");
+        $sheet->getStyle('A3')->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('999999');
+        $sheet->getStyle('A3')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+        $paidRows = $rows->where('payment_status', 'Paid');
+        $pendingRows = $rows->where('payment_status', 'Pending');
+        $excludedRows = $rows->whereIn('payment_status', ['Cancelled', 'Failed']);
+        $paidTotal = $paidRows->sum('amount');
+        $pendingTotal = $pendingRows->sum('amount');
+        $excludedTotal = $excludedRows->sum('amount');
+
+        // --- Overview stat cards (row 5 = labels, row 6 = values) ---
+        $cards = [
+            ['col' => 'A', 'label' => 'PAID TOTAL', 'value' => $paidTotal, 'isAmount' => true, 'color' => $teal],
+            ['col' => 'B', 'label' => 'PENDING TOTAL', 'value' => $pendingTotal, 'isAmount' => true, 'color' => $red],
+            ['col' => 'D', 'label' => 'PAID DONATIONS', 'value' => $paidRows->count(), 'isAmount' => false, 'color' => '333333'],
+            ['col' => 'E', 'label' => 'TOTAL DONATIONS', 'value' => $rows->count(), 'isAmount' => false, 'color' => '333333'],
+        ];
+        foreach ($cards as $card) {
+            $sheet->setCellValue("{$card['col']}5", $card['label']);
+            $sheet->setCellValue("{$card['col']}6", $card['value']);
+            $sheet->getStyle("{$card['col']}5")->getFont()->setBold(true)->setSize(8)->getColor()->setRGB('857A6B');
+            $sheet->getStyle("{$card['col']}6")->getFont()->setBold(true)->setSize(16)->getColor()->setRGB($card['color']);
+            if ($card['isAmount']) {
+                $sheet->getStyle("{$card['col']}6")->getNumberFormat()->setFormatCode($amountFormat);
+            }
+            $sheet->getStyle("{$card['col']}5:{$card['col']}6")->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FBF8F3');
+            $sheet->getStyle("{$card['col']}5:{$card['col']}6")->getBorders()->getAllBorders()
+                ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN)->getColor()->setRGB('E0D8C8');
+        }
+        $sheet->getRowDimension(6)->setRowHeight(24);
+
+        // --- Payment method breakdown (Paid only), left column ---
+        $normalizeMethod = function (?string $method) {
+            $method = trim((string) $method);
+            if (in_array($method, ['Bank', 'Bank Transfer'], true)) {
+                return 'Bank Transfer';
+            }
+            return $method !== '' ? $method : 'Unspecified';
+        };
+        $preferredOrder = ['Cash', 'Bank Transfer', 'Stripe', 'UPI', 'Cheque'];
+        $methodTotals = $paidRows->groupBy(fn ($r) => $normalizeMethod($r->payment_method))->map->sum('amount');
+        $methodTotals = $methodTotals->sortBy(function ($total, $method) use ($preferredOrder) {
+            $pos = array_search($method, $preferredOrder, true);
+            return $pos === false ? 99 : $pos;
+        });
+
+        $sectionRow = 8;
+        $sheet->setCellValue("A{$sectionRow}", 'PAYMENT METHOD BREAKDOWN (PAID)');
+        $sheet->mergeCells("A{$sectionRow}:B{$sectionRow}");
+        $sheet->getStyle("A{$sectionRow}")->getFont()->setBold(true)->setSize(9)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle("A{$sectionRow}:B{$sectionRow}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($gold);
+        $sheet->getStyle("A{$sectionRow}:B{$sectionRow}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getRowDimension($sectionRow)->setRowHeight(20);
+
+        $r = $sectionRow + 1;
+        foreach ($methodTotals as $method => $total) {
+            $sheet->setCellValue("A{$r}", $method);
+            $sheet->setCellValue("B{$r}", (float) $total);
+            $sheet->getStyle("B{$r}")->getNumberFormat()->setFormatCode($amountFormat);
+            $sheet->getStyle("B{$r}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $r++;
+        }
+        $sheet->setCellValue("A{$r}", 'Total Received (Paid)');
+        $sheet->setCellValue("B{$r}", (float) $paidTotal);
+        $sheet->getStyle("A{$r}:B{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$r}:B{$r}")->getBorders()->getTop()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM);
+        $sheet->getStyle("B{$r}")->getNumberFormat()->setFormatCode($amountFormat);
+        $sheet->getStyle("B{$r}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        $r += 2;
+
+        $sheet->setCellValue("A{$r}", 'Pending (awaiting payment)');
+        $sheet->setCellValue("B{$r}", (float) $pendingTotal);
+        $sheet->getStyle("A{$r}:B{$r}")->getFont()->setBold(true)->getColor()->setRGB($red);
+        $sheet->getStyle("B{$r}")->getFont()->setBold(true)->getColor()->setRGB($red);
+        $sheet->getStyle("B{$r}")->getNumberFormat()->setFormatCode($amountFormat);
+        $sheet->getStyle("B{$r}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        $r++;
+        $sheet->setCellValue("A{$r}", 'Not included in totals above');
+        $sheet->getStyle("A{$r}")->getFont()->setItalic(true)->setSize(8)->getColor()->setRGB($red);
+        $r++;
+
+        if ($excludedTotal > 0) {
+            $sheet->setCellValue("A{$r}", 'Cancelled / Failed (excluded)');
+            $sheet->setCellValue("B{$r}", (float) $excludedTotal);
+            $sheet->getStyle("A{$r}:B{$r}")->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('999999');
+            $sheet->getStyle("B{$r}")->getNumberFormat()->setFormatCode($amountFormat);
+            $sheet->getStyle("B{$r}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        }
+        $paymentSectionEnd = $r;
+
+        // --- Category breakdown (Paid only, one row per donation option + Other), right column ---
+        $categoryTotals = [];
+        foreach ($options as $opt) {
+            $categoryTotals[$opt->label] = $paidRows->sum(fn ($row) => $row->option_amounts[$opt->id] ?? 0);
+        }
+        $otherTotal = $paidRows->sum('other_amount');
+        if ($otherTotal > 0 || empty($categoryTotals)) {
+            $categoryTotals['Other'] = $otherTotal;
+        }
+
+        $sheet->setCellValue("D{$sectionRow}", 'DONATION CATEGORY BREAKDOWN (PAID)');
+        $sheet->mergeCells("D{$sectionRow}:E{$sectionRow}");
+        $sheet->getStyle("D{$sectionRow}")->getFont()->setBold(true)->setSize(9)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle("D{$sectionRow}:E{$sectionRow}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($teal);
+        $sheet->getStyle("D{$sectionRow}:E{$sectionRow}")->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+        $r = $sectionRow + 1;
+        foreach ($categoryTotals as $label => $total) {
+            $sheet->setCellValue("D{$r}", $label);
+            $sheet->setCellValue("E{$r}", (float) $total);
+            $sheet->getStyle("D{$r}")->getAlignment()->setWrapText(true);
+            $sheet->getStyle("E{$r}")->getNumberFormat()->setFormatCode($amountFormat);
+            $sheet->getStyle("E{$r}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+            $r++;
+        }
+        $sheet->setCellValue("D{$r}", 'Total (Paid)');
+        $sheet->setCellValue("E{$r}", (float) $paidTotal);
+        $sheet->getStyle("D{$r}:E{$r}")->getFont()->setBold(true);
+        $sheet->getStyle("D{$r}:E{$r}")->getBorders()->getTop()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM);
+        $sheet->getStyle("E{$r}")->getNumberFormat()->setFormatCode($amountFormat);
+        $sheet->getStyle("E{$r}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        $categorySectionEnd = $r;
+
+        // --- Grand total, spanning both columns below whichever section is taller ---
+        $grandTotalRow = max($paymentSectionEnd, $categorySectionEnd) + 2;
+        $sheet->setCellValue("A{$grandTotalRow}", 'GRAND TOTAL RAISED (PAID)');
+        $sheet->mergeCells("A{$grandTotalRow}:D{$grandTotalRow}");
+        $sheet->setCellValue("E{$grandTotalRow}", (float) $paidTotal);
+        $sheet->getStyle("A{$grandTotalRow}:E{$grandTotalRow}")->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle("A{$grandTotalRow}:E{$grandTotalRow}")->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FDF6EA');
+        $sheet->getStyle("A{$grandTotalRow}:E{$grandTotalRow}")->getBorders()->getTop()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THICK)->getColor()->setRGB($gold);
+        $sheet->getStyle("A{$grandTotalRow}:E{$grandTotalRow}")->getBorders()->getBottom()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THICK)->getColor()->setRGB($gold);
+        $sheet->getStyle("E{$grandTotalRow}")->getNumberFormat()->setFormatCode($amountFormat);
+        $sheet->getStyle("E{$grandTotalRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+        $sheet->getRowDimension($grandTotalRow)->setRowHeight(24);
+
+        $sheet->getStyle("A{$sectionRow}:E{$grandTotalRow}")->getFont()->setName('Calibri')->setSize(10);
+        $sheet->setSelectedCell('A1');
     }
 
     /**

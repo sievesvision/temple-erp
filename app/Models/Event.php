@@ -15,6 +15,7 @@ class Event extends Model
         'slug',
         'description',
         'event_date',
+        'date_tbc',
         'start_time',
         'end_time',
         'location',
@@ -32,6 +33,7 @@ class Event extends Model
     protected $casts = [
         'show_donation_summary' => 'boolean',
         'require_donor_contact_details' => 'boolean',
+        'date_tbc' => 'boolean',
     ];
 
     public function donationOptions()

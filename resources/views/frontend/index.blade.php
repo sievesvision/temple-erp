@@ -61,7 +61,11 @@
                         <div class="event-donation-list">
                             @forelse($events->take(5) as $event)
                             <div class="event-donation-row">
+                                @if($event->date_tbc)
+                                <div class="edc-date" style="font-size:.7rem; line-height:1.2;">DATE<br>TBC</div>
+                                @else
                                 <div class="edc-date">{{ strtoupper(date('M', strtotime($event->event_date))) }}<br>{{ date('d', strtotime($event->event_date)) }}</div>
+                                @endif
                                 <div class="flex-grow-1">
                                     <h3>{{ $event->event_name }}</h3>
                                     <a href="{{ route('events.show', $event->slug) }}">Donate for this event <i class="bi bi-arrow-up-right ms-1"></i></a>
