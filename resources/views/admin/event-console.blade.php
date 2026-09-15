@@ -20,6 +20,7 @@
             --card-line: #e8eaee;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { overflow-x: hidden; }
         body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--ink); }
 
         .console-topbar {
@@ -66,22 +67,31 @@
 
         .console-card { background: white; border-radius: 16px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); margin-bottom: 18px; border: 1px solid var(--card-line); }
 
-        .stat-tile { background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); border: 1px solid var(--card-line); display: flex; align-items: center; gap: 14px; }
+        .stat-tile { background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); border: 1px solid var(--card-line); display: flex; align-items: center; gap: 14px; min-width: 0; }
         .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
+        .stat-tile .stat-text { min-width: 0; }
         .stat-tile .label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .stat-tile .value { font-size: 1.35rem; font-weight: 800; color: var(--ink); margin-top: 2px; }
+        .stat-tile .value { font-size: 1.35rem; font-weight: 800; color: var(--ink); margin-top: 2px; overflow-wrap: break-word; }
 
-        .quick-entry-toggle { display: flex; gap: 12px; margin-bottom: 22px; }
-        .quick-entry-toggle button { flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: white; font-weight: 700; font-size: 1rem; color: var(--muted); transition: 0.2s; }
-        .quick-entry-toggle button.active { border-color: var(--gold); background: linear-gradient(135deg, #fdf6ea, #fbeed6); color: var(--gold); }
+        .option-breakdown-scroll { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 2px 2px 10px; margin-bottom: 4px; }
+        .option-chip-stat { flex: 0 0 auto; min-width: 150px; max-width: 220px; background: white; border: 1px solid var(--card-line); border-radius: 12px; padding: 12px 16px; }
+        .option-chip-stat .label { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .option-chip-stat .value { font-size: 1.05rem; font-weight: 800; color: var(--ink); margin-top: 2px; }
 
-        .qe-field label { font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; display: block; color: var(--ink); }
-        .qe-field input, .qe-field select, .qe-field textarea { padding: 13px 14px; font-size: 1rem; border-radius: 10px; border: 1.5px solid #e2e8f0; width: 100%; font-family: inherit; }
+        .quick-entry-toggle { display: flex; gap: 12px; margin-bottom: 24px; }
+        .quick-entry-toggle button { flex: 1; padding: 18px; min-height: 56px; border-radius: 14px; border: 1.5px solid #e2e8f0; background: white; font-weight: 700; font-size: 1.05rem; color: var(--muted); transition: 0.2s; }
+        .quick-entry-toggle button.active { border-color: var(--gold); background: linear-gradient(135deg, #fdf6ea, #fbeed6); color: var(--gold); box-shadow: 0 4px 14px rgba(184,134,58,0.18); }
+
+        .qe-field { margin-bottom: 1.4rem; }
+        .qe-field label { font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; display: block; color: var(--ink); }
+        .qe-field input, .qe-field select, .qe-field textarea { padding: 16px; font-size: 1.05rem; border-radius: 12px; border: 1.5px solid #e2e8f0; width: 100%; font-family: inherit; min-height: 54px; }
+        .qe-field textarea { min-height: auto; }
         .qe-field input:focus, .qe-field select:focus, .qe-field textarea:focus { border-color: var(--gold); outline: none; box-shadow: 0 0 0 3px rgba(184,134,58,0.12); }
 
-        .quick-amount-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-        .quick-amount-btn { background: #f5f0e6; border: 2px solid transparent; color: var(--gold); font-weight: 700; padding: 10px 18px; border-radius: 14px; font-size: 0.95rem; transition: 0.15s; }
-        .quick-amount-btn:hover, .quick-amount-btn.active { background: var(--gold); color: white; }
+        .quick-amount-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .quick-amount-btn { background: #f5f0e6; border: 2px solid transparent; color: var(--gold); font-weight: 700; padding: 12px 20px; min-height: 46px; min-width: 64px; border-radius: 14px; font-size: 1rem; transition: 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .quick-amount-btn:hover { background: #efe6d4; }
+        .quick-amount-btn.active { background: var(--gold); color: white; box-shadow: 0 4px 12px rgba(184,134,58,0.35); transform: scale(1.04); }
 
         .devotee-combobox-wrap { position: relative; }
         .devotee-combobox-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5ddd0; border-radius: 16px; max-height: 280px; overflow-y: auto; z-index: 20; box-shadow: 0 16px 40px rgba(0,0,0,0.12); display: none; margin-top: 6px; }
@@ -89,10 +99,10 @@
         .devotee-combobox-item { padding: 14px 18px; cursor: pointer; border-bottom: 1px solid #f5f0e6; }
         .devotee-combobox-item:hover, .devotee-combobox-item.highlighted { background: #fdf6ea; }
 
-        .donation-tier-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border: 2px solid #f0ece6; border-radius: 18px; margin-bottom: 12px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; }
-        .donation-tier-option.selected { border-color: var(--gold); background: linear-gradient(135deg, #fdf9f2, #fbf3e2); }
+        .donation-tier-option { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px; min-height: 64px; border: 2px solid #f0ece6; border-radius: 16px; margin-bottom: 14px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; }
+        .donation-tier-option.selected { border-color: var(--gold); background: linear-gradient(135deg, #fdf9f2, #fbf3e2); box-shadow: 0 4px 14px rgba(184,134,58,0.12); }
         .donation-tier-option label { font-size: 1.05rem; margin: 0; cursor: pointer; }
-        .donation-tier-option input[type="checkbox"] { width: 22px; height: 22px; }
+        .donation-tier-option input[type="checkbox"] { width: 28px; height: 28px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; }
 
         .btn-save-next { position: fixed; bottom: 0; left: 0; right: 0; padding: 20px 28px; background: white; border-top: 1px solid var(--card-line); box-shadow: 0 -10px 30px rgba(0,0,0,0.06); z-index: 30; }
         .btn-save-next button { width: 100%; max-width: 1444px; margin: 0 auto; display: block; padding: 20px; font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; border: none; border-radius: 20px; box-shadow: 0 10px 24px rgba(184,134,58,0.3); }
@@ -146,32 +156,41 @@
             <h1>{{ $event->event_name }}</h1>
         </div>
         <div class="console-tabs">
-            <button type="button" class="console-tab-btn active" data-pane="pane-table"><i class="bi bi-table"></i> Donations</button>
             @if($canAddDonation)
-            <button type="button" class="console-tab-btn" data-pane="pane-entry"><i class="bi bi-lightning-charge-fill"></i> Quick Entry</button>
+            <button type="button" class="console-tab-btn active" data-pane="pane-entry"><i class="bi bi-lightning-charge-fill"></i> Quick Entry</button>
             @endif
-            <button type="button" class="console-tab-btn" data-pane="pane-dashboard"><i class="bi bi-pie-chart-fill"></i> Dashboard</button>
+            <button type="button" class="console-tab-btn {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-table"></i> Donations</button>
         </div>
         <button type="button" class="btn-fullscreen" id="fullscreenBtn"><i class="bi bi-arrows-fullscreen me-1"></i>Fullscreen</button>
     </div>
 
     <div class="console-body">
-        <!-- DONATIONS TABLE -->
-        <div class="console-pane active" id="pane-table">
+        <!-- DONATIONS TABLE (dashboard stats live on top so there's no separate Dashboard tab) -->
+        <div class="console-pane {{ $canAddDonation ? '' : 'active' }}" id="pane-table">
             <div class="row g-3 mb-3">
                 <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--teal);"><i class="bi bi-cash-coin"></i></div><div><div class="label">Paid Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div></div></div>
+                    <div class="stat-tile"><div class="stat-icon" style="background:var(--teal);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Paid Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div></div></div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:#e0a638;"><i class="bi bi-hourglass-split"></i></div><div><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
+                    <div class="stat-tile"><div class="stat-icon" style="background:#e0a638;"><i class="bi bi-hourglass-split"></i></div><div class="stat-text"><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-check2-circle"></i></div><div><div class="label">Paid Donations</div><div class="value">{{ $summary['paid_count'] }}</div></div></div>
+                    <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-check2-circle"></i></div><div class="stat-text"><div class="label">Paid Donations</div><div class="value">{{ $summary['paid_count'] }}</div></div></div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:#8b5cf6;"><i class="bi bi-people-fill"></i></div><div><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
+                    <div class="stat-tile"><div class="stat-icon" style="background:#8b5cf6;"><i class="bi bi-people-fill"></i></div><div class="stat-text"><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
                 </div>
             </div>
+            @if($options->count())
+            <div class="option-breakdown-scroll">
+                @foreach($options as $opt)
+                <div class="option-chip-stat">
+                    <div class="label">{{ $opt->label }}</div>
+                    <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['option_totals'][$opt->id] ?? 0, 2) }}</div>
+                </div>
+                @endforeach
+            </div>
+            @endif
             <div class="d-flex justify-content-end gap-2 mb-2">
                 <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
                 <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
@@ -220,16 +239,16 @@
         </div>
 
         @if($canAddDonation)
-        <!-- QUICK ENTRY -->
-        <div class="console-pane" id="pane-entry">
+        <!-- QUICK ENTRY (default pane; Guest is the default mode for fast walk-up entry) -->
+        <div class="console-pane active" id="pane-entry">
             <div class="console-card pane-narrow">
                 <div class="quick-entry-toggle">
-                    <button type="button" class="active" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
-                    <button type="button" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
+                    <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
+                    <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
                 </div>
 
-                <div id="qeDevoteeFields">
-                    <div class="qe-field mb-3 devotee-combobox-wrap">
+                <div id="qeDevoteeFields" style="display:none;">
+                    <div class="qe-field devotee-combobox-wrap">
                         <label>Search Devotee (name, email, or mobile)</label>
                         <input type="text" class="form-control" id="qeDevoteeSearch" placeholder="Start typing...">
                         <input type="hidden" id="qeDevoteeId">
@@ -237,17 +256,17 @@
                     </div>
                 </div>
 
-                <div id="qeGuestFields" style="display:none;">
-                    <div class="qe-field mb-3">
+                <div id="qeGuestFields">
+                    <div class="qe-field">
                         <label>Donor Name</label>
                         <input type="text" class="form-control" id="qeGuestName">
                     </div>
                     <div class="row">
-                        <div class="col-md-6 qe-field mb-3">
+                        <div class="col-md-6 qe-field">
                             <label>Email</label>
                             <input type="email" class="form-control" id="qeGuestEmail">
                         </div>
-                        <div class="col-md-6 qe-field mb-3">
+                        <div class="col-md-6 qe-field">
                             <label>Mobile</label>
                             <input type="text" class="form-control" id="qeGuestMobile">
                         </div>
@@ -255,20 +274,20 @@
                 </div>
 
                 <div id="qeTiers" class="mb-3"></div>
-                <div class="qe-field mb-3">
+                <div class="qe-field">
                     <label>Amount</label>
                     <input type="number" step="0.01" class="form-control" id="qeAmount" placeholder="0.00">
                     <div class="quick-amount-row" id="qeQuickAmounts"></div>
                 </div>
-                <div class="qe-field mb-3">
+                <div class="qe-field">
                     <label>Details (optional)</label>
                     <textarea id="qeDetails" rows="2" placeholder="Any extra detail about this donation..."></textarea>
                 </div>
-                <div class="qe-field mb-3">
+                <div class="qe-field">
                     <label>Payment Method</label>
                     <select class="form-select" id="qePaymentMethod"></select>
                 </div>
-                <div class="qe-field mb-4">
+                <div class="qe-field">
                     <label>Transaction ID (optional)</label>
                     <input type="text" class="form-control" id="qeTransactionId">
                 </div>
@@ -276,43 +295,10 @@
         </div>
         @endif
 
-        <!-- DASHBOARD -->
-        <div class="console-pane" id="pane-dashboard">
-            <div class="pane-narrow">
-            <div class="d-flex justify-content-end mb-2">
-                <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
-            </div>
-            <div class="row g-3 mb-3">
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--teal);"><i class="bi bi-cash-coin"></i></div><div><div class="label">Paid Total</div><div class="value">{{ number_format($summary['paid_total'], 2) }}</div></div></div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:#e0a638;"><i class="bi bi-hourglass-split"></i></div><div><div class="label">Pending Total</div><div class="value">{{ number_format($summary['pending_total'], 2) }}</div></div></div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-check2-circle"></i></div><div><div class="label">Paid Donations</div><div class="value">{{ $summary['paid_count'] }}</div></div></div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:#8b5cf6;"><i class="bi bi-people-fill"></i></div><div><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
-                </div>
-            </div>
-            <div class="console-card">
-                <h6 class="fw-bold mb-3">By Option (Paid)</h6>
-                @forelse($options as $opt)
-                <div class="d-flex justify-content-between border-bottom py-3">
-                    <span>{{ $opt->label }}</span>
-                    <strong>{{ number_format($summary['option_totals'][$opt->id] ?? 0, 2) }}</strong>
-                </div>
-                @empty
-                <p class="text-muted mb-0">No donation options configured for this event.</p>
-                @endforelse
-            </div>
-            </div>
-        </div>
     </div>
 
     @if($canAddDonation)
-    <div class="btn-save-next" id="paneEntryFooter" style="display:none;">
+    <div class="btn-save-next" id="paneEntryFooter">
         <button type="button" id="qeSaveBtn"><i class="bi bi-lightning-charge-fill me-2"></i>Save &amp; Next</button>
     </div>
     @endif
@@ -537,7 +523,7 @@
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [101, 501, 1001, 2001];
 
-        let qeMode = 'devotee';
+        let qeMode = 'guest';
         const toggleDevoteeBtn = document.getElementById('qeToggleDevotee');
         const toggleGuestBtn = document.getElementById('qeToggleGuest');
         const devoteeFields = document.getElementById('qeDevoteeFields');
@@ -647,9 +633,9 @@
                     + '<span><strong>' + escapeHtmlQe(opt.label) + '</strong><br><span class="text-muted small">'
                     + (hasAmount ? (opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
                     + '</span></span></label>'
-                    + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="form-control form-control-sm tier-qty" style="width:80px; display:none;">' : '')
-                    + (!hasAmount ? '<div class="d-flex flex-column gap-1"><input type="number" min="0" step="0.01" placeholder="Amount" class="form-control form-control-sm tier-free" style="width:140px;">'
-                        + '<div class="d-flex gap-1 tier-quick-amounts"></div></div>' : '')
+                    + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="form-control tier-qty" style="width:90px; min-height:46px; font-size:1rem; display:none;">' : '')
+                    + (!hasAmount ? '<div class="d-flex flex-column gap-2"><input type="number" min="0" step="0.01" placeholder="Amount" class="form-control tier-free" style="width:150px; min-height:46px; font-size:1rem;">'
+                        + '<div class="d-flex gap-2 flex-wrap tier-quick-amounts"></div></div>' : '')
                     + '</div>';
             });
             tiersContainer.innerHTML = html;
@@ -664,8 +650,9 @@
                     const b = document.createElement('button');
                     b.type = 'button';
                     b.className = 'quick-amount-btn';
-                    b.style.padding = '4px 10px';
-                    b.style.fontSize = '0.78rem';
+                    b.style.padding = '10px 16px';
+                    b.style.minHeight = '42px';
+                    b.style.fontSize = '0.88rem';
                     b.textContent = amt;
                     b.addEventListener('click', function () {
                         cb.checked = true;
