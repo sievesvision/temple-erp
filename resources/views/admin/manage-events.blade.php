@@ -254,6 +254,14 @@
                         </span>
                     </td>
                     <td class="text-end">
+                        @if(session('active_role', auth()->user()->role) === 'Admin')
+                        <button class="btn-action-edit me-1" data-bs-toggle="modal" data-bs-target="#coordinatorsModal{{ $e->event_id }}" onclick="loadCoordinators({{ $e->event_id }})">
+                            <i class="bi bi-person-badge"></i> Coordinators
+                        </button>
+                        <a href="{{ route('admin.events.console', $e->event_id) }}" class="btn-action-edit me-1">
+                            <i class="bi bi-arrows-fullscreen"></i> Console
+                        </a>
+                        @endif
                         <button class="btn-action-edit me-1" data-bs-toggle="modal" data-bs-target="#editEventModal{{ $e->event_id }}">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
@@ -266,6 +274,38 @@
                         </form>
                     </td>
                 </tr>
+
+                @if(session('active_role', auth()->user()->role) === 'Admin')
+                <!-- COORDINATORS MODAL -->
+                <div class="modal fade" id="coordinatorsModal{{ $e->event_id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content border-0 shadow-lg rounded-4">
+                            <div class="modal-header border-0 pb-0">
+                                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-person-badge text-warning me-2"></i>Coordinators — {{ $e->event_name }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body py-3">
+                                <div id="coordinatorsList{{ $e->event_id }}" class="mb-3">
+                                    <div class="text-muted small">Loading…</div>
+                                </div>
+                                <form action="{{ route('admin.events.coordinators.store', $e->event_id) }}" method="POST" class="d-flex gap-2">
+                                    @csrf
+                                    <select name="user_id" class="form-select rounded-3" required>
+                                        <option value="">-- Choose a user --</option>
+                                        @foreach($allUsers as $u)
+                                            <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                                        @endforeach
+                                    </select>
+                                    <button type="submit" class="btn-add" style="padding: 8px 20px; white-space:nowrap;">Add</button>
+                                </form>
+                            </div>
+                            <div class="modal-footer border-0 pt-0">
+                                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
 
                 <!-- EDIT EVENT MODAL -->
                 <div class="modal fade" id="editEventModal{{ $e->event_id }}" tabindex="-1" aria-hidden="true">
@@ -471,5 +511,49 @@
     $(document).ready(function() {
         console.log("Manage Events dashboard initialized");
     });
+
+    const CSRF_TOKEN = @json(csrf_token());
+
+    function loadCoordinators(eventId) {
+        const container = document.getElementById('coordinatorsList' + eventId);
+        if (!container) { return; }
+        container.innerHTML = '<div class="text-muted small">Loading…</div>';
+
+        fetch('/admin/events/' + eventId + '/coordinators', { headers: { 'Accept': 'application/json' } })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                const coordinators = data.coordinators || [];
+                if (!coordinators.length) {
+                    container.innerHTML = '<div class="text-muted small">No coordinators assigned yet.</div>';
+                    return;
+                }
+                let html = '<div class="d-flex flex-column gap-2">';
+                coordinators.forEach(function (c) {
+                    html += '<div class="d-flex justify-content-between align-items-center p-2 rounded-3" style="background:#faf5eb;">'
+                        + '<div><div class="fw-semibold small">' + escapeHtmlEvt(c.name) + '</div><div class="text-muted" style="font-size:0.78rem;">' + escapeHtmlEvt(c.email) + '</div></div>'
+                        + '<button type="button" class="btn-action-delete" onclick="removeCoordinator(' + eventId + ', ' + c.id + ')"><i class="bi bi-x-lg"></i></button>'
+                        + '</div>';
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            })
+            .catch(function () {
+                container.innerHTML = '<div class="text-danger small">Failed to load coordinators.</div>';
+            });
+    }
+
+    function removeCoordinator(eventId, userId) {
+        if (!confirm('Remove this coordinator\'s access to this event?')) { return; }
+        fetch('/admin/events/' + eventId + '/coordinators/' + userId, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'X-HTTP-Method-Override': 'DELETE' },
+        }).then(function () { loadCoordinators(eventId); });
+    }
+
+    function escapeHtmlEvt(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
 </script>
 @endsection

@@ -47,6 +47,10 @@ Route::post('/register/verify-otp', [AuthController::class, 'verifyOtp'])->name(
 Route::post('/register/resend-otp', [AuthController::class, 'resendOtp'])->name('register.resend-otp');
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+// Throttled separately from the main login route — this endpoint exists purely so the
+// login page can decide whether to show a role picker, but it still runs a real password
+// check, so it needs its own rate limit to avoid becoming a cheaper guessing oracle.
+Route::post('/login/roles', [AuthController::class, 'availableRoles'])->middleware('throttle:10,1')->name('login.roles');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // FORGOT PASSWORD SYSTEM ROUTES
@@ -446,6 +450,12 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
     Route::delete('/admin/event/delete/{id}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('admin.events.delete');
 
+    // Event Coordinator assignment (per-event) — controller enforces Admin-only itself,
+    // route access matches the events group's existing "broader than capability" pattern.
+    Route::get('/admin/events/{event}/coordinators', [\App\Http\Controllers\EventCoordinatorController::class, 'index'])->name('admin.events.coordinators.index');
+    Route::post('/admin/events/{event}/coordinators', [\App\Http\Controllers\EventCoordinatorController::class, 'store'])->name('admin.events.coordinators.store');
+    Route::delete('/admin/events/{event}/coordinators/{user}', [\App\Http\Controllers\EventCoordinatorController::class, 'destroy'])->name('admin.events.coordinators.destroy');
+
     // Priest Routes (Admin management) — route access is intentionally broader than
     // capability; the Role Permissions grid ("Priests" resource) decides what Committee
     // can actually do once inside (view-only by default; see PriestController).
@@ -493,6 +503,16 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::delete('/admin/committee/delete/{id}', [CommitteeController::class, 'deleteCommittee'])->name('admin.committee.delete');
 });
 
+// Event Console — a role:Admin,Committee route by default (matching every other
+// events/donations route's "broader than capability" pattern), but ALSO reachable by an
+// Event Coordinator scoped to just their assigned event; the controller does that finer
+// per-event_id check itself since RoleMiddleware has no concept of a specific record.
+Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(function () {
+    Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
+    Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
+    Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
+});
+
 // Admin Chat Support Routes — kept outside the Admin/Committee-only group above because
 // the "Support Chats" resource must be independently grantable to any role via Role
 // Management (same reasoning as the /admin/dashboard chat tabs). ChatController's methods
@@ -532,6 +552,15 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant'])->group(function (
 // ============================================
 Route::middleware(['auth', 'role.committee'])->group(function () {
     Route::get('/committee/dashboard', [CommitteeController::class, 'dashboard'])->name('committee.dashboard');
+});
+
+// ============================================
+// EVENT COORDINATOR ROUTES — scoped entirely to whichever events this user coordinates
+// (event_coordinators pivot), not a role.* middleware since it has no full dashboard,
+// just a "My Events" landing page into the per-event console.
+// ============================================
+Route::middleware(['auth', 'role:Admin,Event Coordinator'])->group(function () {
+    Route::get('/admin/my-events', [\App\Http\Controllers\EventCoordinatorController::class, 'myEvents'])->name('event-coordinator.my-events');
 });
 
 // ============================================

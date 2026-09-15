@@ -83,6 +83,11 @@ protected $fillable = [
             'Priest' => 'priests',
             'Trustee' => 'trustees',
             'Staff' => 'staff',
+            // Unlike every other table here (one row = you hold the role), event_coordinators
+            // holds many rows per user — one per event they coordinate. exists() below still
+            // works correctly against a multi-row table; see EventCoordinatorController for
+            // the per-event scoping this role actually relies on.
+            'Event Coordinator' => 'event_coordinators',
         ];
     }
 

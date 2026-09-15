@@ -55,7 +55,11 @@ class EventController extends Controller
 
         $events = $query->get();
 
-        return view('admin.manage-events', compact('events', 'statusFilter'));
+        // Every existing account, for the "Coordinators" assignment modal — any user
+        // regardless of primary role can be granted Event Coordinator access.
+        $allUsers = DB::table('users')->select('id', 'name', 'email')->orderBy('name')->get();
+
+        return view('admin.manage-events', compact('events', 'statusFilter', 'allUsers'));
     }
 
     /**

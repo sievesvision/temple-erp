@@ -540,8 +540,10 @@
           @csrf
           <input type="hidden" id="role" name="role" value="{{ old('role', 'Devotee') }}">
 
-          <!-- Role Selector -->
-          <div class="mb-4 role-selector-wrap">
+          <!-- Role Selector — hidden until we know (via /login/roles) that this account
+               actually holds more than one role; a single-role account skips this
+               entirely and logs straight in. See the script below. -->
+          <div class="mb-4 role-selector-wrap @if(!old('role')) d-none @endif" id="roleSelectorWrap">
             <label class="form-label fw-semibold text-muted small mb-2">ACCESS MODE *</label>
             <button type="button" id="toggleRolesBtn" class="role-select-trigger w-100 d-flex align-items-center justify-content-between">
               <span class="d-flex align-items-center gap-2">
@@ -605,6 +607,15 @@
                     <div class="d-flex align-items-center gap-3">
                       <i class="bi bi-people-fill fs-5 text-muted"></i>
                       <span class="fw-medium text-dark" style="font-size: 0.9rem;">Committee</span>
+                    </div>
+                    <i class="bi bi-check-circle-fill text-saffron active-check d-none"></i>
+                  </div>
+
+                  <!-- Event Coordinator Option -->
+                  <div class="role-list-item d-flex align-items-center justify-content-between p-2 rounded-3" data-role="Event Coordinator" style="cursor: pointer;">
+                    <div class="d-flex align-items-center gap-3">
+                      <i class="bi bi-calendar-check-fill fs-5 text-muted"></i>
+                      <span class="fw-medium text-dark" style="font-size: 0.9rem;">Event Coordinator</span>
                     </div>
                     <i class="bi bi-check-circle-fill text-saffron active-check d-none"></i>
                   </div>
@@ -675,6 +686,7 @@
       'Staff': 'bi-person-workspace',
       'Accountant': 'bi-cash-coin',
       'Committee': 'bi-people-fill',
+      'Event Coordinator': 'bi-calendar-check-fill',
       'Admin': 'bi-gear-fill'
     };
 
@@ -736,6 +748,83 @@
         }
       });
     });
+
+    // --- Only show the role picker when the account actually holds more than one role ---
+    const loginForm = document.getElementById('loginForm');
+    const roleSelectorWrap = document.getElementById('roleSelectorWrap');
+    const emailInput = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    let rolesResolvedFor = null; // "email|password" the picker was last resolved for
+
+    function currentCredentialsKey() {
+      return emailInput.value + '|' + passwordInput.value;
+    }
+
+    if (loginForm) {
+      loginForm.addEventListener('submit', function (e) {
+        // Already resolved for exactly these credentials (either auto-submitting after a
+        // single-role lookup, or the user picked from an already-revealed multi-role list)
+        // — let it through without checking again.
+        if (rolesResolvedFor === currentCredentialsKey()) {
+          return;
+        }
+
+        e.preventDefault();
+
+        fetch(@json(route('login.roles')), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': @json(csrf_token()),
+          },
+          body: JSON.stringify({ email: emailInput.value, password: passwordInput.value }),
+        })
+          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+          .then(function (result) {
+            const roles = (result.ok && result.data.roles) ? result.data.roles : [];
+
+            if (roles.length === 1) {
+              setActiveRole(roles[0]);
+              rolesResolvedFor = currentCredentialsKey();
+              loginForm.submit();
+              return;
+            }
+
+            if (roles.length > 1) {
+              roleListItems.forEach(function (item) {
+                item.classList.toggle('d-none', !roles.includes(item.dataset.role));
+              });
+              setActiveRole(roles.includes(roleInput.value) ? roleInput.value : roles[0]);
+              roleSelectorWrap.classList.remove('d-none');
+              // Open the dropdown itself too — otherwise the now-visible wrapper still
+              // hides its options inside the collapsed list until the trigger is clicked.
+              if (roleSelectorCollapse && toggleRolesBtn) {
+                roleSelectorCollapse.classList.remove('d-none');
+                toggleRolesBtn.classList.add('open');
+              }
+              rolesResolvedFor = currentCredentialsKey();
+              return;
+            }
+
+            // Invalid credentials (or the check failed outright) — let the real submit
+            // through so the server's own "incorrect password" / "no account" message
+            // shows up exactly as it always has.
+            rolesResolvedFor = currentCredentialsKey();
+            loginForm.submit();
+          })
+          .catch(function () {
+            rolesResolvedFor = currentCredentialsKey();
+            loginForm.submit();
+          });
+      });
+
+      // Credentials changed since the last check — re-check on the next submit instead of
+      // trusting a stale role list (or a stale "submit anyway" decision).
+      [emailInput, passwordInput].forEach(function (el) {
+        el.addEventListener('input', function () { rolesResolvedFor = null; });
+      });
+    }
 
     // Toggle password visibility
     function togglePassword() {

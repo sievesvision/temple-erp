@@ -41,6 +41,7 @@ class RoleMiddleware
             'Staff' => 'staff.dashboard',
             'Accountant' => 'accountant.dashboard',
             'Committee' => 'committee.dashboard',
+            'Event Coordinator' => 'event-coordinator.my-events',
             default => 'home',
         };
 

@@ -291,60 +291,12 @@ class DonationController extends Controller
      */
     private function exportEventDonations(int $eventId)
     {
-        $event = Event::with('donationOptions')->find($eventId);
-        if (!$event) {
+        $breakdown = \App\Services\EventDonationBreakdown::forEvent($eventId);
+        if (!$breakdown['event']) {
             abort(404, 'Event not found.');
         }
 
-        $devoteeDonations = DB::table('donations')
-            ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
-            ->join('users', 'devotees.user_id', '=', 'users.id')
-            ->where('donations.event_id', $eventId)
-            ->select('donations.*', 'users.name as devotee_name', 'users.email', 'users.mobile')
-            ->get()
-            ->map(function ($d) {
-                $d->donation_type = 'devotee';
-                $d->display_id = 'DN' . str_pad($d->id, 5, '0', STR_PAD_LEFT);
-                $d->display_name = $d->devotee_name;
-                return $d;
-            });
-
-        $guestDonations = DB::table('donations_without_logins')
-            ->where('event_id', $eventId)
-            ->get()
-            ->map(function ($g) {
-                $g->donation_type = 'guest';
-                $g->display_id = 'GD' . str_pad($g->id, 5, '0', STR_PAD_LEFT);
-                $g->display_name = $g->donor_name;
-                return $g;
-            });
-
-        $donationSelections = DB::table('donation_selections')->get()
-            ->groupBy(fn ($s) => $s->donation_type . ':' . $s->donation_id);
-
-        $options = $event->donationOptions;
-
-        $rows = $devoteeDonations->concat($guestDonations)
-            ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
-            ->values()
-            ->map(function ($row) use ($options, $donationSelections) {
-                $selections = $donationSelections[$row->donation_type . ':' . $row->id] ?? collect();
-                $optionAmounts = [];
-                $matchedTotal = 0;
-                foreach ($options as $opt) {
-                    $amt = (float) $selections->where('event_donation_option_id', $opt->id)->sum('amount');
-                    $optionAmounts[$opt->id] = $amt;
-                    $matchedTotal += $amt;
-                }
-                $row->option_amounts = $optionAmounts;
-                $row->other_amount = round($row->amount - $matchedTotal, 2);
-                if ($row->other_amount < 0.01) {
-                    $row->other_amount = 0;
-                }
-                return $row;
-            });
-
-        return $this->renderEventDonationsWorkbook($event, $options, $rows);
+        return $this->renderEventDonationsWorkbook($breakdown['event'], $breakdown['options'], $breakdown['rows']);
     }
 
     /**
@@ -519,6 +471,26 @@ class DonationController extends Controller
     }
 
     /**
+     * Whether the given user/active-role may record a new donation, optionally against a
+     * specific event. The normal RolePermission grid covers Admin/Committee/Accountant as
+     * today; an Event Coordinator has no grid entries at all (see RolePermission::roles())
+     * and is instead authorized per-event via the event_coordinators pivot — only for the
+     * specific event they're recording against, never a blank/general-fund donation.
+     */
+    private function canRecordDonation($user, ?string $activeRole, $eventId): bool
+    {
+        if (RolePermission::can($activeRole, 'donations', 'add')) {
+            return true;
+        }
+
+        if ($activeRole === 'Event Coordinator' && $eventId) {
+            return DB::table('event_coordinators')->where('user_id', $user->id)->where('event_id', $eventId)->exists();
+        }
+
+        return false;
+    }
+
+    /**
      * Persist the per-option breakdown of a tiered donation (from the "selections_json"
      * hidden field built by the public donate-form and the admin Add Donation modals), so
      * the per-event donations view can show one column per configured option instead of
@@ -559,7 +531,11 @@ class DonationController extends Controller
     public function storeDevoteeDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'add')) {
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+            }
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -610,8 +586,14 @@ class DonationController extends Controller
                 'transaction_id' => $validated['transaction_id'] ?? null,
             ]);
 
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'message' => 'Devotee donation recorded successfully.']);
+            }
             return redirect()->back()->with('success', 'Devotee donation recorded successfully.');
         } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Failed to record donation: ' . $e->getMessage()], 500);
+            }
             return redirect()->back()->with('error', 'Failed to record donation: ' . $e->getMessage())->withInput();
         }
     }
@@ -622,7 +604,11 @@ class DonationController extends Controller
     public function storeGuestDonation(Request $request)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'add')) {
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+            }
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -679,8 +665,14 @@ class DonationController extends Controller
                 'transaction_id' => $validated['transaction_id'] ?? null,
             ]);
 
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'message' => 'Guest donation recorded successfully.']);
+            }
             return redirect()->back()->with('success', 'Guest donation recorded successfully.');
         } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Failed to record guest donation: ' . $e->getMessage()], 500);
+            }
             return redirect()->back()->with('error', 'Failed to record guest donation: ' . $e->getMessage())->withInput();
         }
     }

@@ -10,6 +10,7 @@
         'Admin' => 'admin.dashboard',
         'Committee' => 'committee.dashboard',
         'Accountant' => 'accountant.dashboard',
+        'Event Coordinator' => 'event-coordinator.my-events',
         default => 'login',
     };
 @endphp
@@ -27,8 +28,8 @@
 
   <ul class="nav flex-column">
     <li class="nav-item">
-      <a href="{{ route($dashboardRoute) }}" class="nav-link {{ (request()->routeIs('admin.dashboard') && !in_array(request()->get('tab'), ['chats', 'prev_chats'])) || request()->routeIs('committee.dashboard') ? 'active' : '' }}">
-        <i class="bi bi-speedometer2"></i> Dashboard
+      <a href="{{ route($dashboardRoute) }}" class="nav-link {{ (request()->routeIs('admin.dashboard') && !in_array(request()->get('tab'), ['chats', 'prev_chats'])) || request()->routeIs('committee.dashboard') || request()->routeIs('event-coordinator.my-events') ? 'active' : '' }}">
+        <i class="bi bi-speedometer2"></i> {{ $sidebarRole === 'Event Coordinator' ? 'My Events' : 'Dashboard' }}
       </a>
     </li>
 

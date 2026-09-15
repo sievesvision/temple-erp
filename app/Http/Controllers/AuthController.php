@@ -245,6 +245,29 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
+    /**
+     * Pure UX helper for the login page: given credentials, reports which roles this
+     * account actually holds so the page can skip the role picker entirely for a
+     * single-role user, or show only their real roles for a multi-role one. Does NOT log
+     * anyone in or establish a session — login() below independently re-checks credentials
+     * and the chosen role together and remains the sole authoritative gate either way, so
+     * this endpoint being skipped or spoofed client-side changes nothing security-wise.
+     */
+    public function availableRoles(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['roles' => []], 422);
+        }
+
+        return response()->json(['roles' => $user->grantedRoles()]);
+    }
+
     public function login(Request $request)
     {
         $request->validate([
@@ -340,6 +363,9 @@ class AuthController extends Controller
 
             case 'Committee':
                 return redirect()->route('committee.dashboard');
+
+            case 'Event Coordinator':
+                return redirect()->route('event-coordinator.my-events');
 
             case 'Devotee':
             default:
