@@ -288,16 +288,47 @@
                                 <div id="coordinatorsList{{ $e->event_id }}" class="mb-3">
                                     <div class="text-muted small">Loading…</div>
                                 </div>
-                                <form action="{{ route('admin.events.coordinators.store', $e->event_id) }}" method="POST" class="d-flex gap-2">
-                                    @csrf
-                                    <select name="user_id" class="form-select rounded-3" required>
-                                        <option value="">-- Choose a user --</option>
-                                        @foreach($allUsers as $u)
-                                            <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
-                                        @endforeach
-                                    </select>
-                                    <button type="submit" class="btn-add" style="padding: 8px 20px; white-space:nowrap;">Add</button>
-                                </form>
+
+                                <ul class="nav nav-pills mb-3 small" role="tablist">
+                                    <li class="nav-item">
+                                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#coordExisting{{ $e->event_id }}" type="button">Existing User</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#coordNew{{ $e->event_id }}" type="button">New Person</button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content">
+                                    <div class="tab-pane fade show active" id="coordExisting{{ $e->event_id }}">
+                                        <form action="{{ route('admin.events.coordinators.store', $e->event_id) }}" method="POST" class="d-flex gap-2">
+                                            @csrf
+                                            <select name="user_id" class="form-select rounded-3" required>
+                                                <option value="">-- Choose a user --</option>
+                                                @foreach($allUsers as $u)
+                                                    <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                                                @endforeach
+                                            </select>
+                                            <button type="submit" class="btn-add" style="padding: 8px 20px; white-space:nowrap;">Add</button>
+                                        </form>
+                                    </div>
+                                    <div class="tab-pane fade" id="coordNew{{ $e->event_id }}">
+                                        <form action="{{ route('admin.events.coordinators.store', $e->event_id) }}" method="POST">
+                                            @csrf
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
+                                                    <input type="text" name="name" class="form-control form-control-sm rounded-3" placeholder="Full name" required>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <input type="email" name="email" class="form-control form-control-sm rounded-3" placeholder="Email" required>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <input type="text" name="mobile" class="form-control form-control-sm rounded-3" placeholder="Mobile" required>
+                                                </div>
+                                            </div>
+                                            <div class="form-text mb-2">Creates a brand-new account (or grants an existing one matched by email/mobile) with Event Coordinator access for this event.</div>
+                                            <button type="submit" class="btn-add w-100" style="padding: 8px 20px;">Create &amp; Add</button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
                             <div class="modal-footer border-0 pt-0">
                                 <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Close</button>
@@ -504,10 +535,55 @@
         </div>
     </div>
 </div>
+
+@if(session('success_user_created'))
+<div class="modal fade" id="testingUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4" style="background: #fdfbf7; border: 1px solid #b8863a !important;">
+            <div class="modal-header border-0 pb-0 text-center d-block">
+                <span class="fs-1">✨</span>
+                <h4 class="modal-title fw-bold text-success mt-2">User Created (Testing Mode)</h4>
+            </div>
+            <div class="modal-body py-4 px-4">
+                <p class="text-muted text-center mb-4">Since the system is in <strong>Testing Mode</strong>, the credentials are shown below. No emails are sent unless configured otherwise.</p>
+                <div class="bg-white p-3 rounded-3 border mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Name:</span>
+                        <span class="fw-bold">{{ session('success_user_created.name') }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Email:</span>
+                        <span class="fw-bold">{{ session('success_user_created.email') }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Role:</span>
+                        <span class="fw-bold"><span class="badge bg-warning text-dark">{{ session('success_user_created.role') }}</span></span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Temporary Password:</span>
+                        <span class="fw-bold text-danger">{{ session('success_user_created.password') }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0 justify-content-center">
+                <button type="button" class="btn btn-warning rounded-pill px-4 text-white fw-bold" data-bs-dismiss="modal" style="background: linear-gradient(135deg, #b8863a, #d4a05a); border:none;">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 @endsection
 
 @section('page-js')
 <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var testingModalEl = document.getElementById('testingUserModal');
+        if (testingModalEl) {
+            var myModal = new bootstrap.Modal(testingModalEl);
+            myModal.show();
+        }
+    });
+
     $(document).ready(function() {
         console.log("Manage Events dashboard initialized");
     });

@@ -29,7 +29,18 @@ class SystemUserController extends Controller
 
         $roleFilter = $request->get('role');
         if ($roleFilter && in_array($roleFilter, RolePermission::roles(), true)) {
-            $query->where('role', $roleFilter);
+            // Match either the account's stored primary role, or a granted role via its
+            // pivot table — a user whose primary role is Devotee but who also holds a
+            // Committee/Event Coordinator/etc. grant should still show up under that filter.
+            $grantTable = User::grantTables()[$roleFilter] ?? null;
+            if ($grantTable) {
+                $grantedUserIds = \Illuminate\Support\Facades\DB::table($grantTable)->pluck('user_id');
+                $query->where(function ($q) use ($roleFilter, $grantedUserIds) {
+                    $q->where('role', $roleFilter)->orWhereIn('id', $grantedUserIds);
+                });
+            } else {
+                $query->where('role', $roleFilter);
+            }
         }
 
         $search = $request->get('search');

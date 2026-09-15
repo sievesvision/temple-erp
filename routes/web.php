@@ -47,11 +47,10 @@ Route::post('/register/verify-otp', [AuthController::class, 'verifyOtp'])->name(
 Route::post('/register/resend-otp', [AuthController::class, 'resendOtp'])->name('register.resend-otp');
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
-// Throttled separately from the main login route — this endpoint exists purely so the
-// login page can decide whether to show a role picker, but it still runs a real password
-// check, so it needs its own rate limit to avoid becoming a cheaper guessing oracle.
-Route::post('/login/roles', [AuthController::class, 'availableRoles'])->middleware('throttle:10,1')->name('login.roles');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
+// Switches session('active_role') for anyone holding more than one granted role — reached
+// from the topbar's "Switch Role" menu rather than at login time (see AuthController).
+Route::post('/switch-role', [AuthController::class, 'switchRole'])->middleware('auth')->name('switch-role');
 
 // FORGOT PASSWORD SYSTEM ROUTES
 Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('forgot-password');

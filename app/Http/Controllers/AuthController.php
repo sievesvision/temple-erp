@@ -246,26 +246,22 @@ class AuthController extends Controller
     }
 
     /**
-     * Pure UX helper for the login page: given credentials, reports which roles this
-     * account actually holds so the page can skip the role picker entirely for a
-     * single-role user, or show only their real roles for a multi-role one. Does NOT log
-     * anyone in or establish a session — login() below independently re-checks credentials
-     * and the chosen role together and remains the sole authoritative gate either way, so
-     * this endpoint being skipped or spoofed client-side changes nothing security-wise.
+     * The dashboard route for a given active role — shared by login() (always lands on the
+     * account's stored/default role) and switchRole() (lands on whichever role was just
+     * switched to).
      */
-    public function availableRoles(Request $request)
+    private function dashboardRouteForRole(string $role): string
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        $user = User::where('email', $request->email)->first();
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['roles' => []], 422);
-        }
-
-        return response()->json(['roles' => $user->grantedRoles()]);
+        return match ($role) {
+            'Admin' => 'admin.dashboard',
+            'Priest' => 'priest.dashboard',
+            'Trustee' => 'trustee.dashboard',
+            'Staff' => 'staff.dashboard',
+            'Accountant' => 'accountant.dashboard',
+            'Committee' => 'committee.dashboard',
+            'Event Coordinator' => 'event-coordinator.my-events',
+            default => 'devotee.dashboard',
+        };
     }
 
     public function login(Request $request)
@@ -273,7 +269,6 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
-            'role' => 'required'
         ]);
 
         // Find user by email
@@ -293,25 +288,6 @@ class AuthController extends Controller
                 ->withInput();
         }
 
-        // Check the requested role is one this account actually holds — either their
-        // primary role, Devotee (universal, auto-provisioned below), or a role explicitly
-        // granted via the relevant "Add X" page / RoleGrantService::grant() (see
-        // User::grantedRoles()). The level check is defense-in-depth: a user can never log
-        // in as a role more authoritative than the most-authoritative role they hold.
-        $grantedRoles = $user->grantedRoles();
-        if (!in_array($request->role, $grantedRoles, true)) {
-            return back()
-                ->withErrors(['role' => 'This account is not authorised for the ' . $request->role . ' role.'])
-                ->withInput();
-        }
-
-        $requestedLevel = \App\Models\RolePermission::levels()[$request->role] ?? PHP_INT_MAX;
-        if ($requestedLevel < $user->authorisedLevel()) {
-            return back()
-                ->withErrors(['role' => 'You are not authorised for that role.'])
-                ->withInput();
-        }
-
         // Email Verification Protection
         if (is_null($user->email_verified_at)) {
             return back()
@@ -319,11 +295,15 @@ class AuthController extends Controller
                 ->withInput();
         }
 
-        // Set active role in session
-        session(['active_role' => $request->role]);
+        // Login always lands on the account's stored/default role — a user holding
+        // additional roles (Committee, Event Coordinator, etc. via grant tables) switches
+        // to them afterwards from the topbar menu (see switchRole()), rather than picking
+        // at the login screen.
+        $role = $user->role;
+        session(['active_role' => $role]);
 
-        // Auto create devotee profile if they log in as Devotee and profile doesn't exist
-        if ($request->role === 'Devotee') {
+        // Auto create devotee profile if their default role is Devotee and one doesn't exist
+        if ($role === 'Devotee') {
             $devoteeExists = \Illuminate\Support\Facades\DB::table('devotees')->where('user_id', $user->id)->exists();
             if (!$devoteeExists) {
                 \Illuminate\Support\Facades\DB::table('devotees')->insert([
@@ -344,33 +324,35 @@ class AuthController extends Controller
         Auth::login($user);
         $user->update(['last_login_at' => now()]);
 
-        // Redirect based on selected role
-        switch ($request->role) {
-            case 'Admin':
-                return redirect()->route('admin.dashboard');
-            
-            case 'Priest':
-                return redirect()->route('priest.dashboard');
-            
-            case 'Trustee':
-                return redirect()->route('trustee.dashboard');
-            
-            case 'Staff':
-                return redirect()->route('staff.dashboard');
-            
-            case 'Accountant':
-                return redirect()->route('accountant.dashboard');
+        return redirect()->route($this->dashboardRouteForRole($role));
+    }
 
-            case 'Committee':
-                return redirect()->route('committee.dashboard');
+    /**
+     * Switches the session's active role without re-authenticating — reachable from the
+     * topbar's "Switch Role" menu for anyone holding more than one granted role. Still
+     * enforces the same eligibility (grantedRoles()) and authority-ceiling checks login()
+     * used to apply to its role choice, so this can't be used to escalate beyond what the
+     * account actually holds.
+     */
+    public function switchRole(Request $request)
+    {
+        $request->validate(['role' => 'required|string']);
 
-            case 'Event Coordinator':
-                return redirect()->route('event-coordinator.my-events');
+        $user = Auth::user();
+        $grantedRoles = $user->grantedRoles();
 
-            case 'Devotee':
-            default:
-                return redirect()->route('devotee.dashboard');
+        if (!in_array($request->role, $grantedRoles, true)) {
+            return redirect()->back()->with('error', 'You are not authorised for the ' . $request->role . ' role.');
         }
+
+        $requestedLevel = \App\Models\RolePermission::levels()[$request->role] ?? PHP_INT_MAX;
+        if ($requestedLevel < $user->authorisedLevel()) {
+            return redirect()->back()->with('error', 'You are not authorised for that role.');
+        }
+
+        session(['active_role' => $request->role]);
+
+        return redirect()->route($this->dashboardRouteForRole($request->role));
     }
 
     public function logout(Request $request)

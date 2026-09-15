@@ -70,6 +70,8 @@ class EventConsoleController extends Controller
         $canEditDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'edit') || $isCoordinatorForEvent;
         $canDeleteDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete');
 
+        $temple = Setting::templeBranding();
+
         return view('admin.event-console', compact(
             'event',
             'options',
@@ -80,7 +82,8 @@ class EventConsoleController extends Controller
             'eventOptionsForJs',
             'canAddDonation',
             'canEditDonation',
-            'canDeleteDonation'
+            'canDeleteDonation',
+            'temple'
         ));
     }
 }

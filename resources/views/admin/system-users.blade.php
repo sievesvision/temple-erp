@@ -156,7 +156,12 @@
                 <tr>
                     <td><strong>{{ $u->name }}</strong></td>
                     <td>{{ $u->email }}</td>
-                    <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $u->role }}</span></td>
+                    <td>
+                        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $u->role }}</span>
+                        @foreach(array_diff($u->grantedRoles(), [$u->role, 'Devotee']) as $extraRole)
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-1 rounded-pill" style="font-size:0.7rem;">+ {{ $extraRole }}</span>
+                        @endforeach
+                    </td>
                     <td>
                         @if($u->status === 'Active')
                             <span class="badge bg-success">Active</span>

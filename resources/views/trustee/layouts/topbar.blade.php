@@ -21,6 +21,7 @@
         <li><a class="dropdown-item" href="{{ route('trustee.dashboard') }}?tab=profile"><i class="bi bi-person me-2"></i>My Profile</a></li>
         <li><a class="dropdown-item" href="{{ route('trustee.dashboard') }}?tab=approvals"><i class="bi bi-check2-square me-2"></i>Approvals</a></li>
         <li><hr class="dropdown-divider"></li>
+        @include('partials.switch-role-menu')
         <li><a class="dropdown-item text-danger" id="topbarLogoutBtn" style="cursor:pointer;"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
       </ul>
     </div>

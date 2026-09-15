@@ -47,6 +47,7 @@
         <li><a class="dropdown-item" href="{{ route('priest.dashboard') }}?tab=profile"><i class="bi bi-person me-2"></i>My Profile</a></li>
         <li><a class="dropdown-item" href="{{ route('priest.dashboard') }}?tab=poojas"><i class="bi bi-calendar-check me-2"></i>My Poojas</a></li>
         <li><hr class="dropdown-divider"></li>
+        @include('partials.switch-role-menu')
         <li><a class="dropdown-item text-danger" id="topbarLogoutBtn" style="cursor:pointer;"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
       </ul>
     </div>

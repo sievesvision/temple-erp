@@ -546,7 +546,7 @@ class DonationController extends Controller
             'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
-            'remarks' => 'nullable|string|max:255',
+            'remarks' => 'nullable|string|max:2000',
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
         ]);
@@ -619,7 +619,7 @@ class DonationController extends Controller
             'mobile' => 'nullable|string|max:20',
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:100',
-            'purpose_details' => 'nullable|string|max:255',
+            'purpose_details' => 'nullable|string|max:2000',
             'payment_method' => 'required|string|in:Cash,UPI,Bank',
             'transaction_id' => 'nullable|string|max:100',
             // Bank/cheque details are a convenience field, not a requirement — an admin
@@ -694,7 +694,7 @@ class DonationController extends Controller
             'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
-            'remarks' => 'nullable|string|max:255',
+            'remarks' => 'nullable|string|max:2000',
             'donation_date' => 'required|date',
         ]);
 
@@ -755,7 +755,7 @@ class DonationController extends Controller
             'mobile' => 'nullable|string|max:20',
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:100',
-            'purpose_details' => 'nullable|string|max:255',
+            'purpose_details' => 'nullable|string|max:2000',
             'payment_method' => 'required|string|in:Cash,UPI,Bank,Stripe',
             'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
@@ -1025,7 +1025,7 @@ class DonationController extends Controller
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:255',
-            'purpose_details' => 'nullable|string|max:255',
+            'purpose_details' => 'nullable|string|max:2000',
             'payment_method' => 'required|in:Bank,Cash,Stripe',
             'selections_json' => 'nullable|string',
         ]);
@@ -1094,7 +1094,7 @@ class DonationController extends Controller
             'mobile' => ($requireContact ? 'required' : 'nullable') . '|string|max:20',
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:255',
-            'purpose_details' => 'nullable|string|max:255',
+            'purpose_details' => 'nullable|string|max:2000',
             'payment_method' => 'required|in:Bank,Cash,Stripe',
             'transaction_id' => 'nullable|string|max:100',
             'selections_json' => 'nullable|string',

@@ -51,6 +51,7 @@
         <li><a class="dropdown-item" href="{{ route('staff.dashboard') }}?tab=profile"><i class="bi bi-person me-2"></i>My Profile</a></li>
         <li><a class="dropdown-item" href="{{ route('staff.dashboard') }}?tab=tasks"><i class="bi bi-list-task me-2"></i>My Tasks</a></li>
         <li><hr class="dropdown-divider"></li>
+        @include('partials.switch-role-menu')
         <li><a class="dropdown-item text-danger" id="topbarLogoutBtn" style="cursor:pointer;"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
       </ul>
     </div>

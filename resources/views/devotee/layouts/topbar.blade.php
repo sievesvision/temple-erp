@@ -45,6 +45,7 @@
         @endif
         <li><a class="dropdown-item" href="{{ route('devotee.dashboard') }}?tab=bookings"><i class="bi bi-clock-history me-2"></i>My Bookings</a></li>
         <li><hr class="dropdown-divider"></li>
+        @include('partials.switch-role-menu')
         <li><a class="dropdown-item text-danger" id="topbarLogoutBtn" style="cursor:pointer;"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
       </ul>
     </div>

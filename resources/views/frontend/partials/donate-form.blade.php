@@ -12,6 +12,22 @@
     $lockContactFields = $lockContactFields ?? false;
     $requireContactDetails = $requireContactDetails ?? false;
 @endphp
+<style>
+    .quick-amount-chip {
+        background: #f5f0e6;
+        border: 2px solid transparent;
+        color: var(--primary, #b8863a);
+        font-weight: 700;
+        padding: 8px 16px;
+        border-radius: 40px;
+        font-size: 0.9rem;
+        transition: 0.15s;
+    }
+    .quick-amount-chip:hover, .quick-amount-chip.active {
+        background: var(--primary, #b8863a);
+        color: white;
+    }
+</style>
 <div class="donate-tabs-card">
     <ul class="nav nav-pills donate-method-tabs mb-4" id="{{ $formId }}-tabs" role="tablist">
         <li class="nav-item" role="presentation">
@@ -80,6 +96,11 @@
             <div class="col-md-6">
                 <label for="{{ $formId }}-amount">Amount ({{ $temple['currency'] }})</label>
                 <input class="form-control" id="{{ $formId }}-amount" name="amount" type="number" min="1" step=".01" required>
+                <div class="quick-amount-row d-flex flex-wrap gap-2 mt-2" id="{{ $formId }}-quick-amounts">
+                    @foreach([101, 501, 1001, 2001] as $qa)
+                        <button type="button" class="quick-amount-chip" data-amount="{{ $qa }}">{{ $qa }}</button>
+                    @endforeach
+                </div>
             </div>
             @endif
 
@@ -109,9 +130,16 @@
                                             <input type="number" min="1" value="1" class="form-control form-control-sm tier-qty-input">
                                         </div>
                                     @elseif($option->amount === null)
-                                        <div class="tier-qty-wrap" style="display:none;">
-                                            <label class="small mb-0 me-2">{{ $temple['currency'] }}</label>
-                                            <input type="number" min="1" step=".01" placeholder="Amount" class="form-control form-control-sm tier-free-amount-input">
+                                        <div class="tier-qty-wrap flex-column align-items-stretch" style="display:none;">
+                                            <div class="d-flex align-items-center">
+                                                <label class="small mb-0 me-2">{{ $temple['currency'] }}</label>
+                                                <input type="number" min="1" step=".01" placeholder="Amount" class="form-control form-control-sm tier-free-amount-input">
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-1 mt-1 tier-free-quick-amounts">
+                                                @foreach([101, 501, 1001, 2001] as $qa)
+                                                    <button type="button" class="quick-amount-chip" style="padding:4px 10px; font-size:0.78rem;" data-amount="{{ $qa }}">{{ $qa }}</button>
+                                                @endforeach
+                                            </div>
                                         </div>
                                     @endif
                                 </div>
@@ -150,8 +178,8 @@
             @endif
 
             <div class="col-12">
-                <label for="{{ $formId }}-purpose_details">Dedication (optional)</label>
-                <input class="form-control" id="{{ $formId }}-purpose_details" name="purpose_details" placeholder="In honour of...">
+                <label for="{{ $formId }}-purpose_details">Details / Dedication (optional)</label>
+                <textarea class="form-control" id="{{ $formId }}-purpose_details" name="purpose_details" rows="2" placeholder="In honour of... or any other details about this donation"></textarea>
             </div>
             <input type="hidden" name="transaction_id" value="">
             <div class="col-12">
@@ -182,6 +210,25 @@
             if (submitBtn) { submitBtn.textContent = submitBtn.getAttribute('data-label-' + method); }
         });
     });
+
+    // Quick donation amount presets (only present when the plain Amount field is shown,
+    // i.e. no event tiers) — click to fill it in instantly instead of typing.
+    var quickAmountsRow = document.getElementById('{{ $formId }}-quick-amounts');
+    var amountField = document.getElementById('{{ $formId }}-amount');
+    if (quickAmountsRow && amountField) {
+        quickAmountsRow.querySelectorAll('.quick-amount-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                amountField.value = chip.getAttribute('data-amount');
+                quickAmountsRow.querySelectorAll('.quick-amount-chip').forEach(function (c) { c.classList.remove('active'); });
+                chip.classList.add('active');
+            });
+        });
+        amountField.addEventListener('input', function () {
+            quickAmountsRow.querySelectorAll('.quick-amount-chip').forEach(function (c) {
+                c.classList.toggle('active', c.getAttribute('data-amount') === amountField.value);
+            });
+        });
+    }
 })();
 </script>
 @if($useTiers)
@@ -190,6 +237,23 @@
     var wrap = document.getElementById('{{ $formId }}-tiers');
     if (!wrap || wrap.dataset.bound) { return; }
     wrap.dataset.bound = '1';
+
+    // Quick-amount presets for each free-amount tier option — fills the amount and checks
+    // the option's box (dispatching input so the existing recalc()/total logic picks it up).
+    wrap.querySelectorAll('.donation-tier-option').forEach(function (row) {
+        var freeInput = row.querySelector('.tier-free-amount-input');
+        var checkbox = row.querySelector('input[type="checkbox"]');
+        row.querySelectorAll('.tier-free-quick-amounts .quick-amount-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                if (checkbox) { checkbox.checked = true; }
+                freeInput.value = chip.getAttribute('data-amount');
+                row.querySelectorAll('.quick-amount-chip').forEach(function (c) { c.classList.remove('active'); });
+                chip.classList.add('active');
+                freeInput.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+    });
+
     var amountHidden = document.getElementById('{{ $formId }}-amount');
     var purposeHidden = document.getElementById('{{ $formId }}-purpose');
     var selectionsHidden = document.getElementById('{{ $formId }}-selections-json');
