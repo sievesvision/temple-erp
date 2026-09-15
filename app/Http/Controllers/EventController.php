@@ -143,27 +143,58 @@ class EventController extends Controller
      * Replace an event's donation options from the fixed 12-slot admin form.
      * Blank label rows are skipped; a blank amount means "donor enters any amount".
      */
+    /**
+     * Updates existing donation options in place (matched by the hidden option_id_$i field
+     * the edit form round-trips) rather than deleting and recreating them. Recreating would
+     * assign new auto-increment ids on every save — even one that doesn't touch this
+     * section at all — silently orphaning every donation_selections row that references the
+     * old ids (their event_donation_option_id gets nulled via the FK's nullOnDelete, and the
+     * per-option column/export/console breakdown for that donation quietly goes blank).
+     */
     private function saveDonationOptions(Event $event, Request $request): void
     {
-        $event->donationOptions()->delete();
+        $seenIds = [];
 
         for ($i = 1; $i <= 12; $i++) {
             $label = trim((string) $request->input("option_label_$i", ''));
+            $existingId = $request->input("option_id_$i");
+
             if ($label === '') {
+                // Blank slot — remove whichever option used to live here, if any. Its
+                // donation_selections rows will lose their option_id (FK nullOnDelete) and
+                // fall back to the "Other" column, which is correct: the option is gone.
+                if ($existingId) {
+                    EventDonationOption::where('id', $existingId)->where('event_id', $event->event_id)->delete();
+                }
                 continue;
             }
 
             $amountRaw = $request->input("option_amount_$i");
             $amount = ($amountRaw === null || $amountRaw === '') ? null : (float) $amountRaw;
+            $allowQuantity = $request->boolean("option_allow_qty_$i");
 
-            EventDonationOption::create([
-                'event_id' => $event->event_id,
-                'label' => $label,
-                'amount' => $amount,
-                'allow_quantity' => $request->boolean("option_allow_qty_$i"),
-                'sort_order' => $i,
-            ]);
+            $option = $existingId
+                ? EventDonationOption::where('id', $existingId)->where('event_id', $event->event_id)->first()
+                : null;
+
+            if ($option) {
+                $option->update(['label' => $label, 'amount' => $amount, 'allow_quantity' => $allowQuantity, 'sort_order' => $i]);
+            } else {
+                $option = EventDonationOption::create([
+                    'event_id' => $event->event_id,
+                    'label' => $label,
+                    'amount' => $amount,
+                    'allow_quantity' => $allowQuantity,
+                    'sort_order' => $i,
+                ]);
+            }
+
+            $seenIds[] = $option->id;
         }
+
+        // Anything not resubmitted this time (the admin removed a row entirely rather than
+        // just blanking it) is gone too — same orphaning behaviour as the blank-slot case.
+        $event->donationOptions()->whereNotIn('id', $seenIds ?: [0])->delete();
     }
 
     /**

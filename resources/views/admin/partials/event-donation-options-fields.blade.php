@@ -5,6 +5,7 @@
     @for ($i = 1; $i <= 12; $i++)
         @php $opt = $options->get($i - 1); @endphp
         <div class="row g-2 align-items-center mb-2">
+            <input type="hidden" name="option_id_{{ $i }}" value="{{ $opt->id ?? '' }}">
             <div class="col-5">
                 <input type="text" name="option_label_{{ $i }}" class="form-control form-control-sm rounded-3" placeholder="e.g. Sponsorship for a Conch" value="{{ $opt->label ?? '' }}">
             </div>
