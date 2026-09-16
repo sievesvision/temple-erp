@@ -594,6 +594,16 @@
             var myModal = new bootstrap.Modal(testingModalEl);
             myModal.show();
         }
+
+        // "Settings" from the Event Console links here as ?edit=<event_id> so it can reuse
+        // this page's existing Edit Event modal instead of duplicating the form.
+        var editId = new URLSearchParams(window.location.search).get('edit');
+        if (editId) {
+            var editModalEl = document.getElementById('editEventModal' + editId);
+            if (editModalEl) {
+                new bootstrap.Modal(editModalEl).show();
+            }
+        }
     });
 
     $(document).ready(function() {

@@ -7,528 +7,679 @@
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
     <style>
         :root {
-            --gold: #b8863a;
-            --gold-light: #e0ac4f;
-            --teal: #0f9d6a;
-            --navy: #1e293b;
-            --navy-dark: #0f172a;
-            --ink: #1e2530;
-            --muted: #64748b;
-            --cream: #f6f7f9;
-            --card-line: #e8eaee;
+            --maroon: #6B0F1A;
+            --maroon-dark: #4A0A12;
+            --gold: #C89B3C;
+            --gold-hover: #A67C2B;
+            --cream: #F9F3E7;
+            --white: #FFFFFF;
+            --border: #F0E5D6;
+            --text-primary: #1F2A37;
+            --text-secondary: #6B7280;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --error: #EF4444;
+            --success-bg: #ECFDF5;
+            --pending-bg: #FFF7ED;
+            --error-bg: #FEF2F2;
+            --serif: 'Playfair Display', Georgia, serif;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow-x: hidden; }
-        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--ink); }
+        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--text-primary); }
+        h1, h2, h3, h4 { font-family: var(--serif); }
+        button, input, select, textarea { font-family: inherit; }
 
+        /* ---------- App shell: sidebar + main ---------- */
+        .app-shell { display: flex; min-height: 100vh; }
+
+        .app-sidebar {
+            width: 240px; flex-shrink: 0; background: var(--white); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; justify-content: space-between;
+            position: sticky; top: 0; height: 100vh; z-index: 50; transition: transform 0.25s ease;
+        }
+        .sidebar-nav { padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-link {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; border: none; background: none;
+            color: var(--text-secondary); font-weight: 600; font-size: 0.92rem; text-decoration: none; text-align: left; cursor: pointer; transition: 0.15s;
+        }
+        .sidebar-link i { font-size: 1.05rem; width: 20px; text-align: center; flex-shrink: 0; }
+        .sidebar-link:hover { background: var(--cream); color: var(--text-primary); }
+        .sidebar-link.active { background: var(--gold); color: white; box-shadow: 0 4px 12px rgba(200,155,60,0.35); }
+
+        .sidebar-decoration { padding: 24px 20px; text-align: center; border-top: 1px solid var(--border); }
+        .sidebar-decoration svg { width: 110px; height: auto; margin-bottom: 12px; }
+        .sidebar-decoration p { font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.85rem; line-height: 1.5; margin: 0; }
+        .sidebar-decoration .lotus-divider { width: 60px; height: auto; margin: 12px auto 0; display: block; }
+
+        .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+        /* ---------- Topbar ---------- */
         .console-topbar {
-            background: linear-gradient(135deg, var(--navy), var(--navy-dark));
-            color: white;
-            padding: 16px 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 16px;
-            position: sticky;
-            top: 0;
-            z-index: 40;
-            box-shadow: 0 4px 18px rgba(15,23,42,0.18);
+            background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+            background-image:
+                radial-gradient(circle at 8% 30%, rgba(255,255,255,0.05) 0%, transparent 45%),
+                radial-gradient(circle at 92% 70%, rgba(255,255,255,0.05) 0%, transparent 45%),
+                linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+            color: white; padding: 14px 24px; display: flex; align-items: center; gap: 16px;
+            position: sticky; top: 0; z-index: 40; box-shadow: 0 4px 18px rgba(74,10,18,0.25);
         }
-        .console-topbar .back-link { color: rgba(255,255,255,0.6); font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
-        .console-topbar .back-link:hover { color: white; }
-        .console-topbar h1 { font-size: 1.25rem; font-weight: 800; margin: 2px 0 0; letter-spacing: -0.01em; }
-        .topbar-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-        .topbar-brand { display: flex; align-items: center; gap: 10px; }
-        .topbar-logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
-        .topbar-temple-name { font-weight: 800; font-size: 0.92rem; line-height: 1.2; }
-        .topbar-temple-sub { font-size: 0.7rem; color: rgba(255,255,255,0.55); line-height: 1.2; }
-        .topbar-divider { width: 1px; height: 32px; background: rgba(255,255,255,0.15); }
-        .console-tabs { display: flex; gap: 8px; flex-wrap: wrap; background: rgba(255,255,255,0.06); padding: 6px; border-radius: 18px; }
-        .console-tab-btn {
-            background: transparent;
-            border: none;
-            color: rgba(255,255,255,0.75);
-            padding: 12px 22px;
-            border-radius: 14px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            transition: 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .console-tab-btn.active { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; box-shadow: 0 6px 16px rgba(184,134,58,0.35); }
-        .console-tab-btn:not(.active):hover { background: rgba(255,255,255,0.08); color: white; }
-        .btn-fullscreen { background: rgba(255,255,255,0.12); border: none; color: white; padding: 12px 20px; border-radius: 40px; font-weight: 700; font-size: 0.85rem; }
-        .btn-fullscreen:hover { background: rgba(255,255,255,0.2); color: white; }
+        .sidebar-toggle { display: none; background: rgba(255,255,255,0.12); border: none; color: white; width: 38px; height: 38px; border-radius: 10px; font-size: 1.1rem; flex-shrink: 0; }
+        .topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .topbar-logo { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
+        .topbar-temple-name { font-weight: 800; font-size: 1rem; line-height: 1.2; font-family: var(--serif); }
+        .topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; }
 
-        .console-body { padding: 22px clamp(16px, 2.2vw, 32px); max-width: 100%; margin: 0 auto 100px; }
-        .pane-narrow { max-width: 1080px; margin: 0 auto; }
+        .topbar-event-title { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
+        .topbar-event-title .flourish-line { flex: 1; max-width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); display: none; flex-shrink: 0; }
+        .topbar-event-title-text { min-width: 0; max-width: 100%; }
+        .topbar-event-title-text h1 { font-size: clamp(1.05rem, 2.4vw, 1.6rem); font-weight: 800; color: var(--gold); margin: 0; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .topbar-event-title-text .event-motto { font-size: 0.72rem; color: rgba(255,255,255,0.75); letter-spacing: 0.03em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        @media (max-width: 900px) { .topbar-event-title-text .event-motto { display: none; } }
+
+        .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+        .topbar-clock { text-align: right; line-height: 1.25; display: none; }
+        .topbar-clock .clock-date { font-size: 0.8rem; font-weight: 700; color: white; }
+        .topbar-clock .clock-time { font-size: 0.72rem; color: rgba(255,255,255,0.7); }
+        .btn-fullscreen-icon { background: rgba(255,255,255,0.12); border: none; color: white; width: 38px; height: 38px; border-radius: 50%; font-size: 1rem; flex-shrink: 0; }
+        .btn-fullscreen-icon:hover { background: rgba(255,255,255,0.22); }
+
+        .admin-pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+        .admin-pill:hover, .admin-pill:focus { background: rgba(255,255,255,0.18); color: white; }
+        .admin-pill i:first-child { font-size: 1.2rem; }
+        .admin-pill .bi-chevron-down { font-size: 0.7rem; }
+
+        @media (min-width: 640px) { .topbar-clock { display: block; } }
+        @media (min-width: 768px) { .topbar-event-title .flourish-line { display: block; } }
+
+        /* ---------- Main content ---------- */
+        .console-body { padding: 24px clamp(16px, 2.2vw, 32px); max-width: 100%; }
         .console-pane { display: none; }
-        .console-pane.active { display: block; animation: fadeIn 0.25s ease; }
+        .console-pane.active { display: block; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-        .console-card { background: white; border-radius: 10px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); margin-bottom: 18px; border: 1px solid var(--card-line); }
+        .page-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+        .page-header-icon { width: 46px; height: 46px; border-radius: 50%; background: var(--maroon); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+        .page-header h2 { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0; }
+        .page-header p { color: var(--text-secondary); font-size: 0.87rem; margin: 2px 0 0; }
+        .page-header-actions { margin-left: auto; }
 
-        .stat-tile { background: white; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 6px 18px rgba(15,23,42,0.04); border: 1px solid var(--card-line); display: flex; align-items: center; gap: 14px; min-width: 0; }
-        .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
-        .stat-tile .stat-text { min-width: 0; }
-        .stat-tile .label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .stat-tile .value { font-size: 1.35rem; font-weight: 800; color: var(--ink); margin-top: 2px; overflow-wrap: break-word; }
+        .card-panel { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px rgba(31,42,55,0.04); }
+        .btn-view-all { display: inline-flex; align-items: center; gap: 6px; background: var(--white); border: 1.5px solid var(--border); color: var(--text-primary); padding: 10px 18px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; }
+        .btn-view-all:hover { background: var(--cream); }
 
-        .option-breakdown-scroll { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 2px 2px 10px; margin-bottom: 4px; }
-        .option-chip-stat { flex: 0 0 auto; min-width: 150px; max-width: 220px; background: white; border: 1px solid var(--card-line); border-radius: 12px; padding: 12px 16px; }
-        .option-chip-stat .label { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .option-chip-stat .value { font-size: 1.05rem; font-weight: 800; color: var(--ink); margin-top: 2px; }
+        .donation-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+        @media (min-width: 1100px) { .donation-grid { grid-template-columns: 1.9fr 1fr; } }
 
-        /* Quick Entry — grouped into shaded panels (Donor / Donation / Payment), each with a
-           colored left-bar title, so the form reads as distinct sections instead of one flat
-           stack of identical-looking fields on a white card. */
-        .qe-panel { background: #f7f9fb; border: 1px solid #e3e8ee; border-radius: 10px; padding: 20px; margin-bottom: 18px; }
-        .qe-panel:last-child { margin-bottom: 0; }
-        .qe-panel-title { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink); margin-bottom: 16px; }
-        .qe-panel-title .bar { width: 4px; height: 16px; border-radius: 2px; flex-shrink: 0; }
+        .panel-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .panel-icon { width: 44px; height: 44px; border-radius: 50%; background: rgba(200,155,60,0.14); color: var(--gold-hover); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+        .panel-header h3 { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text-primary); }
+        .panel-header p { margin: 0; font-size: 0.8rem; color: var(--text-secondary); }
 
-        .quick-entry-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
-        .quick-entry-toggle button { flex: 1; padding: 16px; min-height: 54px; border-radius: 8px; border: 1.5px solid #dde3ea; background: #f7f9fb; font-weight: 700; font-size: 1.02rem; color: var(--muted); transition: 0.2s; }
-        .quick-entry-toggle button.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 4px 14px rgba(184,134,58,0.28); }
+        .mode-toggle { display: flex; gap: 10px; margin-bottom: 22px; }
+        .mode-toggle button { flex: 1; padding: 13px; min-height: 48px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--cream); font-weight: 700; font-size: 0.95rem; color: var(--text-secondary); transition: 0.15s; }
+        .mode-toggle button.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 4px 14px rgba(200,155,60,0.3); }
 
-        .qe-field { margin-bottom: 1.1rem; }
-        .qe-field:last-child { margin-bottom: 0; }
+        .section-title { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 0.98rem; color: var(--text-primary); margin: 24px 0 14px; }
+        .section-title:first-child { margin-top: 0; }
+        .section-title .icon-badge-sm { width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
 
-        /* The "left-shaded label" input group: a tinted label cell fused to the input, both
-           inside one bordered control — reads as a single professional form control rather
-           than a plain borderless input floating on the page. Stacks (label on top) on
-           narrow phones; sits to the left from tablet width up. */
-        .qe-input-group { display: flex; flex-direction: column; border: 1.5px solid #d5dce4; border-radius: 8px; background: #fff; overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s; }
-        .qe-input-group:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,134,58,0.14); }
-        .qe-input-group .qe-input-label { background: #eef2f6; color: #51606f; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 9px 14px; border-bottom: 1.5px solid #d5dce4; }
-        .qe-input-group input, .qe-input-group select, .qe-input-group textarea { border: none; background: transparent; padding: 14px; font-size: 1.02rem; width: 100%; font-family: inherit; min-height: 50px; }
-        .qe-input-group textarea { min-height: auto; }
-        .qe-input-group input:focus, .qe-input-group select:focus, .qe-input-group textarea:focus { outline: none; }
-        @media (min-width: 576px) {
-            .qe-input-group { flex-direction: row; align-items: stretch; }
-            .qe-input-group .qe-input-label { border-bottom: none; border-right: 1.5px solid #d5dce4; display: flex; align-items: center; min-width: 150px; flex-shrink: 0; }
-            .qe-input-group input, .qe-input-group select, .qe-input-group textarea { flex: 1; min-width: 0; }
+        .field-row { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+        .field-row.two-col { grid-template-columns: 1fr; }
+        @media (min-width: 560px) { .field-row.two-col { grid-template-columns: 1fr 1fr; } }
+
+        .field-label { display: block; font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 6px; }
+        .field-label .required { color: var(--error); }
+        .field-group { position: relative; }
+        .field-group > .field-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.95rem; pointer-events: none; }
+        .field-group input, .field-group select, .field-group textarea {
+            width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.94rem; color: var(--text-primary); background: var(--white);
         }
+        .field-group input:not(textarea), .field-group select { padding-left: 40px; min-height: 46px; }
+        .field-group input:focus, .field-group select:focus, .field-group textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+        .field-group textarea { resize: vertical; min-height: 70px; }
 
-        .quick-amount-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-        .quick-amount-btn { background: #fff; border: 1.5px solid #e3d9bf; color: var(--gold); font-weight: 700; padding: 12px 20px; min-height: 46px; min-width: 64px; border-radius: 8px; font-size: 1rem; transition: 0.15s; }
-        .quick-amount-btn:hover { background: #fbf6ea; }
-        .quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 4px 12px rgba(184,134,58,0.35); }
-
-        .devotee-combobox-wrap { position: relative; }
-        .devotee-combobox-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #d5dce4; border-radius: 8px; max-height: 280px; overflow-y: auto; z-index: 20; box-shadow: 0 16px 40px rgba(0,0,0,0.12); display: none; margin-top: 6px; }
+        .devotee-combobox-results { position: absolute; top: 100%; left: 0; right: 0; background: var(--white); border: 1px solid var(--border); border-radius: 10px; max-height: 280px; overflow-y: auto; z-index: 20; box-shadow: 0 16px 40px rgba(31,42,55,0.14); display: none; margin-top: 6px; }
         .devotee-combobox-results.show { display: block; }
-        .devotee-combobox-item { padding: 14px 18px; cursor: pointer; border-bottom: 1px solid #eef2f6; }
-        .devotee-combobox-item:hover, .devotee-combobox-item.highlighted { background: #f7f9fb; }
+        .devotee-combobox-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--cream); }
+        .devotee-combobox-item:hover, .devotee-combobox-item.highlighted { background: var(--cream); }
 
-        .qe-toast { position: fixed; bottom: 100px; right: 24px; background: var(--teal); color: white; padding: 18px 26px; border-radius: 16px; font-weight: 700; box-shadow: 0 14px 34px rgba(0,0,0,0.18); z-index: 999; display: none; font-size: 1.05rem; }
-        .qe-toast.error { background: #dc3545; }
+        .quick-amount-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .quick-amount-btn { background: var(--white); border: 1.5px solid var(--border); color: var(--gold-hover); font-weight: 700; padding: 11px 18px; min-height: 44px; border-radius: 10px; font-size: 0.92rem; transition: 0.15s; }
+        .quick-amount-btn:hover { background: var(--cream); }
+        .quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 4px 12px rgba(200,155,60,0.35); }
+        .quick-amount-btn.custom-amount-btn { color: var(--text-secondary); }
 
-        .table-scroll-wrap { overflow: auto; max-height: calc(100vh - 250px); border-radius: 16px; }
+        .checkbox-field { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; background: var(--cream); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 20px; }
+        .checkbox-field input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
+        .checkbox-field label { font-weight: 700; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; margin: 0; }
+        .checkbox-field .checkbox-note { display: block; font-weight: 400; font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px; }
+
+        .qty-row { display: flex; align-items: center; gap: 10px; margin: -6px 0 16px; max-width: 200px; }
+        .qty-row label { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin: 0; white-space: nowrap; }
+
+        .form-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .btn-reset { flex: 0 0 auto; padding: 14px 26px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem; }
+        .btn-reset:hover { background: var(--cream); }
+        .btn-save { flex: 1; padding: 14px 26px; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.02rem; box-shadow: 0 8px 20px rgba(200,155,60,0.32); }
+        .btn-save:disabled { opacity: 0.6; }
+
+        .summary-panel h4 { font-size: 1rem; font-weight: 800; margin: 0 0 16px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .summary-tile { background: var(--cream); border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-width: 0; }
+        .summary-tile .icon-badge-sm { width: 26px; height: 26px; font-size: 0.7rem; margin-bottom: 6px; }
+        .summary-tile .label { display: flex; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+        .summary-tile .value { font-size: 1.1rem; font-weight: 800; color: var(--text-primary); overflow-wrap: break-word; }
+        .btn-view-pending { display: block; width: 100%; text-align: center; margin-top: 14px; padding: 11px; border-radius: 10px; border: 1.5px solid var(--gold); background: var(--white); color: var(--gold-hover); font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+        .btn-view-pending:hover { background: var(--cream); }
+
+        .quote-card { background: linear-gradient(135deg, #FDF6EA, #FBEED6); border: 1px solid var(--border); border-radius: 14px; padding: 24px 20px; text-align: center; margin-top: 18px; }
+        .quote-card svg { width: 90px; height: auto; margin: 0 auto 12px; display: block; }
+        .quote-card p { font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.92rem; margin: 0; line-height: 1.55; }
+
+        .recent-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+        .recent-header h4 { margin: 0; font-size: 1.02rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .recent-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+        .search-input, .filter-select { padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border); font-size: 0.85rem; background: var(--white); }
+        .search-input { min-width: 220px; padding-left: 36px; }
+        .search-input-wrap { position: relative; }
+        .search-input-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem; }
+
+        .table-scroll-wrap { overflow: auto; border-radius: 10px; }
         table.console-table { width: 100%; border-collapse: collapse; }
-        table.console-table th, table.console-table td { padding: 11px 14px; text-align: left; font-size: 0.84rem; border-bottom: 1px solid #eef1f5; white-space: nowrap; }
-        table.console-table th { background: #f8fafc; font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 0.66rem; letter-spacing: 0.05em; position: sticky; top: 0; z-index: 5; box-shadow: inset 0 -1px 0 var(--card-line); }
-        table.console-table td.col-name { white-space: normal; min-width: 150px; font-weight: 600; }
+        table.console-table th, table.console-table td { padding: 12px 14px; text-align: left; font-size: 0.85rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        table.console-table th { background: var(--cream); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; position: sticky; top: 0; z-index: 5; }
+        table.console-table td.col-name { white-space: normal; min-width: 140px; font-weight: 600; }
         table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-variant-numeric: tabular-nums; }
-        table.console-table td.col-amount.total { font-weight: 800; color: var(--ink); }
-        table.console-table td.col-txn { max-width: 130px; overflow: hidden; text-overflow: ellipsis; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.78rem; color: var(--muted); }
-        table.console-table tbody tr:nth-child(even) { background: #fbfcfd; }
-        table.console-table tbody tr:hover { background: #f4f8fb; }
-        .status-pill { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
-        .status-pill.status-paid { background: rgba(15,157,106,0.1); color: var(--teal); }
-        .status-pill.status-pending { background: rgba(224,166,56,0.14); color: #b7791f; }
-        .status-pill.status-cancelled, .status-pill.status-failed { background: rgba(220,53,69,0.1); color: #dc3545; }
-        .btn-refresh { background: white; border: 1px solid var(--card-line); padding: 9px 20px; border-radius: 10px; font-weight: 600; font-size: 0.85rem; color: var(--ink); }
-        .btn-refresh:hover { background: #f1f5f9; }
+        table.console-table td.col-amount.total { font-weight: 800; color: var(--text-primary); }
+        table.console-table td.col-txn { max-width: 130px; overflow: hidden; text-overflow: ellipsis; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.78rem; color: var(--text-secondary); }
+        table.console-table tbody tr:hover { background: var(--cream); }
+        .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+        .status-pill.status-paid { background: var(--success-bg); color: var(--success); }
+        .status-pill.status-pending { background: var(--pending-bg); color: var(--warning); }
+        .status-pill.status-cancelled, .status-pill.status-failed { background: var(--error-bg); color: var(--error); }
+
+        .btn-refresh { background: var(--white); border: 1.5px solid var(--border); padding: 9px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; color: var(--text-primary); }
+        .btn-refresh:hover { background: var(--cream); }
         .btn-export { background: linear-gradient(135deg, #1f9d6a, #34b380); border: none; padding: 9px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; color: white; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .btn-export:hover { color: white; opacity: 0.92; }
 
         .btn-action-edit, .btn-action-delete, .btn-action-resend, .btn-action-approve, .btn-action-checkstatus {
-            border: none; padding: 7px 14px; border-radius: 40px; font-weight: 700; font-size: 0.72rem; transition: 0.2s;
-            display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; margin: 2px;
+            border: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 0; transition: 0.15s;
+            display: inline-flex; align-items: center; justify-content: center; margin: 2px;
         }
-        .btn-action-edit { background: rgba(184,134,58,0.1); color: var(--gold); }
+        .btn-action-edit i, .btn-action-delete i, .btn-action-resend i, .btn-action-approve i, .btn-action-checkstatus i { font-size: 0.92rem; }
+        .btn-action-edit { background: rgba(200,155,60,0.14); color: var(--gold-hover); }
         .btn-action-edit:hover { background: var(--gold); color: white; }
-        .btn-action-delete { background: rgba(220,53,69,0.1); color: #dc3545; }
-        .btn-action-delete:hover { background: #dc3545; color: white; }
+        .btn-action-delete { background: var(--error-bg); color: var(--error); }
+        .btn-action-delete:hover { background: var(--error); color: white; }
         .btn-action-resend { background: rgba(42,111,219,0.1); color: #2a6fdb; }
         .btn-action-resend:hover { background: #2a6fdb; color: white; }
-        .btn-action-approve { background: rgba(15,157,106,0.1); color: var(--teal); }
-        .btn-action-approve:hover { background: var(--teal); color: white; }
-        .btn-action-checkstatus { background: rgba(139,92,246,0.1); color: #8b5cf6; }
-        .btn-action-checkstatus:hover { background: #8b5cf6; color: white; }
+        .btn-action-approve { background: var(--success-bg); color: var(--success); }
+        .btn-action-approve:hover { background: var(--success); color: white; }
+        .btn-action-checkstatus { background: var(--pending-bg); color: var(--warning); }
+        .btn-action-checkstatus:hover { background: var(--warning); color: white; }
 
-        .fullscreen-hint { position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: rgba(34,32,28,0.9); color: white; padding: 10px 22px; border-radius: 40px; font-size: 0.85rem; font-weight: 600; z-index: 200; box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
+        /* ---------- Dashboard pane ---------- */
+        .stat-tile { background: var(--white); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(31,42,55,0.04); border: 1px solid var(--border); display: flex; align-items: center; gap: 14px; min-width: 0; }
+        .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
+        .stat-tile .stat-text { min-width: 0; }
+        .stat-tile .label { color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+        .stat-tile .value { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); margin-top: 2px; overflow-wrap: break-word; }
 
-        /* --- Manage Donations workspace (Quick Entry pane) --- */
-        .qe-page-header { margin-bottom: 16px; }
-        .qe-page-header h2 { font-size: 1.4rem; font-weight: 800; color: var(--ink); margin: 0 0 3px; }
-        .qe-page-header p { color: var(--muted); font-size: 0.87rem; margin: 0; }
+        .breakdown-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .breakdown-row:last-child { border-bottom: none; }
+        .breakdown-row .breakdown-bar-wrap { flex: 1; min-width: 0; }
+        .breakdown-row .breakdown-label { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+        .breakdown-row .breakdown-bar-bg { height: 8px; border-radius: 6px; background: var(--cream); overflow: hidden; }
+        .breakdown-row .breakdown-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-hover)); border-radius: 6px; }
 
-        .qe-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
-        @media (min-width: 992px) { .qe-grid { grid-template-columns: 1.9fr 1fr; } }
+        .fullscreen-hint { position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: rgba(31,42,55,0.92); color: white; padding: 10px 22px; border-radius: 40px; font-size: 0.85rem; font-weight: 600; z-index: 200; box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
+        .qe-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 16px 24px; border-radius: 12px; font-weight: 700; box-shadow: 0 14px 34px rgba(0,0,0,0.18); z-index: 999; display: none; font-size: 1rem; }
+        .qe-toast.error { background: var(--error); }
 
-        .qe-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-        .qe-card-header .icon-circle { width: 42px; height: 42px; border-radius: 50%; background: rgba(184,134,58,0.12); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0; }
-        .qe-card-header h3 { margin: 0; font-size: 1.02rem; font-weight: 800; color: var(--ink); }
-        .qe-card-header p { margin: 0; font-size: 0.78rem; color: var(--muted); }
-
-        .qe-checkbox-field { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; background: #f7f9fb; border: 1px solid #e3e8ee; border-radius: 8px; margin-bottom: 1.1rem; }
-        .qe-checkbox-field input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
-        .qe-checkbox-field label { font-weight: 700; font-size: 0.88rem; color: var(--ink); cursor: pointer; margin: 0; }
-        .qe-checkbox-field .qe-checkbox-note { display: block; font-weight: 400; font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
-
-        .qe-qty-wrap { display: flex; align-items: center; gap: 10px; margin-top: 10px; max-width: 200px; }
-        .qe-qty-wrap label { font-size: 0.8rem; font-weight: 700; color: var(--muted); margin: 0; white-space: nowrap; }
-
-        .qe-actions { display: flex; gap: 12px; margin-top: 22px; }
-        .qe-btn-reset { flex: 0 0 auto; padding: 14px 26px; border-radius: 8px; border: 1.5px solid #dde3ea; background: #fff; color: var(--muted); font-weight: 700; font-size: 0.95rem; }
-        .qe-btn-reset:hover { background: #f7f9fb; }
-        .qe-btn-save { flex: 1; padding: 14px 26px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; font-weight: 800; font-size: 1.02rem; box-shadow: 0 8px 20px rgba(184,134,58,0.28); }
-        .qe-btn-save:disabled { opacity: 0.6; }
-
-        .qe-summary-card h4 { font-size: 0.98rem; font-weight: 800; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; color: var(--ink); }
-        .qe-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .qe-summary-tile { background: #f7f9fb; border: 1px solid #e3e8ee; border-radius: 8px; padding: 14px; min-width: 0; }
-        .qe-summary-tile .label { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
-        .qe-summary-tile .value { font-size: 1.1rem; font-weight: 800; color: var(--ink); overflow-wrap: break-word; }
-        .qe-view-pending-btn { display: block; width: 100%; text-align: center; margin-top: 4px; padding: 10px; border-radius: 8px; border: 1.5px solid #e3d9bf; background: #fff; color: var(--gold); font-weight: 700; font-size: 0.85rem; cursor: pointer; }
-        .qe-view-pending-btn:hover { background: #fbf6ea; }
-
-        .qe-quote-card { background: linear-gradient(135deg, #fdf6ea, #fbeed6); border: 1px solid #f0e2c4; border-radius: 10px; padding: 20px; text-align: center; margin-top: 16px; }
-        .qe-quote-card i { font-size: 1.3rem; color: var(--gold); margin-bottom: 8px; display: block; }
-        .qe-quote-card p { font-style: italic; color: #7a6a4a; font-size: 0.86rem; margin: 0; line-height: 1.5; }
-
-        .qe-recent-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-        .qe-recent-header h4 { margin: 0; font-size: 1rem; font-weight: 800; color: var(--ink); }
-        .qe-recent-controls { display: flex; gap: 8px; flex-wrap: wrap; }
-        .qe-search-input, .qe-filter-select { padding: 9px 14px; border-radius: 8px; border: 1.5px solid #d5dce4; font-size: 0.85rem; }
-        .qe-search-input { min-width: 220px; }
+        /* ---------- Responsive / iPad ---------- */
+        @media (max-width: 1023px) {
+            .sidebar-toggle { display: inline-flex; align-items: center; justify-content: center; }
+            .app-sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); box-shadow: 0 0 40px rgba(0,0,0,0.2); }
+            .app-sidebar.open { transform: translateX(0); }
+            .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(31,42,55,0.4); z-index: 45; }
+            .sidebar-backdrop.show { display: block; }
+        }
+        @media (max-width: 600px) {
+            .topbar-temple-sub { display: none; }
+            .console-topbar { padding: 12px 16px; }
+        }
     </style>
 </head>
 <body>
-    <div class="console-topbar">
-        <div class="topbar-left">
-            <div class="topbar-brand">
-                @if($temple['logo'] ?? null)<img src="{{ $temple['logo'] }}" class="topbar-logo" alt="">@endif
-                <div>
-                    <div class="topbar-temple-name">{{ $temple['name'] ?? 'Temple' }}</div>
-                    @if($temple['subtitle'] ?? null)<div class="topbar-temple-sub">{{ $temple['subtitle'] }}</div>@endif
-                </div>
+    @php
+        $backRoute = session('active_role', auth()->user()->role ?? null) === 'Event Coordinator' ? 'event-coordinator.my-events' : 'admin.events.index';
+        $backLabel = $backRoute === 'event-coordinator.my-events' ? 'My Events' : 'Events';
+    @endphp
+    <div class="app-shell">
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-nav">
+                <button type="button" class="sidebar-link" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
+                @if($canAddDonation)
+                <button type="button" class="sidebar-link active" data-pane="pane-entry"><i class="bi bi-heart-fill"></i><span>Donations</span></button>
+                @endif
+                <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Donations</span></button>
+                @if($canEditEvent)
+                <a class="sidebar-link" href="{{ route('admin.events.index') }}?edit={{ $event->event_id }}"><i class="bi bi-gear-fill"></i><span>Settings</span></a>
+                @endif
+                <a class="sidebar-link" href="{{ route($backRoute) }}"><i class="bi bi-arrow-left"></i><span>Back to {{ $backLabel }}</span></a>
             </div>
-            <div class="topbar-divider"></div>
-            <div>
-                @php $backRoute = session('active_role', auth()->user()->role ?? null) === 'Event Coordinator' ? 'event-coordinator.my-events' : 'admin.events.index'; @endphp
-                <a href="{{ route($backRoute) }}" class="back-link"><i class="bi bi-arrow-left"></i>Back to {{ $backRoute === 'event-coordinator.my-events' ? 'My Events' : 'Events' }}</a>
-                <h1>{{ $event->event_name }}</h1>
+            <div class="sidebar-decoration">
+                <svg viewBox="0 0 200 130" aria-hidden="true">
+                    <polygon points="100,6 112,24 88,24" fill="var(--gold)"/>
+                    <rect x="93" y="24" width="14" height="8" fill="var(--gold)"/>
+                    <polygon points="100,20 120,38 80,38" fill="var(--gold)" opacity="0.88"/>
+                    <rect x="72" y="38" width="56" height="10" fill="var(--gold)" opacity="0.88"/>
+                    <polygon points="100,34 130,54 70,54" fill="var(--gold)" opacity="0.74"/>
+                    <rect x="60" y="54" width="80" height="12" fill="var(--gold)" opacity="0.74"/>
+                    <polygon points="100,50 142,72 58,72" fill="var(--gold)" opacity="0.6"/>
+                    <rect x="45" y="72" width="110" height="16" fill="var(--gold)" opacity="0.6"/>
+                    <rect x="35" y="88" width="130" height="28" fill="var(--gold)" opacity="0.48"/>
+                    <rect x="55" y="100" width="14" height="16" fill="var(--cream)"/>
+                    <rect x="131" y="100" width="14" height="16" fill="var(--cream)"/>
+                    <rect x="92" y="96" width="16" height="20" fill="var(--maroon)"/>
+                </svg>
+                <p>&ldquo;A small contribution creates a lasting legacy.&rdquo;</p>
+                <svg class="lotus-divider" viewBox="0 0 60 20" aria-hidden="true">
+                    <path d="M30 18 C22 18 16 12 16 6 C22 6 27 10 30 16 C33 10 38 6 44 6 C44 12 38 18 30 18 Z" fill="var(--gold)" opacity="0.8"/>
+                </svg>
             </div>
-        </div>
-        <div class="console-tabs">
-            @if($canAddDonation)
-            <button type="button" class="console-tab-btn active" data-pane="pane-entry"><i class="bi bi-lightning-charge-fill"></i> Quick Entry</button>
-            @endif
-            <button type="button" class="console-tab-btn {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-table"></i> Donations</button>
-        </div>
-        <button type="button" class="btn-fullscreen" id="fullscreenBtn"><i class="bi bi-arrows-fullscreen me-1"></i>Fullscreen</button>
-    </div>
+        </aside>
 
-    <div class="console-body">
-        <!-- DONATIONS TABLE (dashboard stats live on top so there's no separate Dashboard tab) -->
-        <div class="console-pane {{ $canAddDonation ? '' : 'active' }}" id="pane-table">
-            <div class="row g-3 mb-3">
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--teal);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Paid Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div></div></div>
+        <div class="app-main">
+            <header class="console-topbar">
+                <button type="button" class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-list"></i></button>
+                <div class="topbar-brand">
+                    @if($temple['logo'] ?? null)<img src="{{ $temple['logo'] }}" class="topbar-logo" alt="">@endif
+                    <div>
+                        <div class="topbar-temple-name">{{ $temple['name'] ?? 'Temple' }}</div>
+                        @if($temple['subtitle'] ?? null)<div class="topbar-temple-sub">{{ $temple['subtitle'] }}</div>@endif
+                    </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:#e0a638;"><i class="bi bi-hourglass-split"></i></div><div class="stat-text"><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
+                <div class="topbar-event-title">
+                    <span class="flourish-line"></span>
+                    <div class="topbar-event-title-text">
+                        <h1>{{ $event->event_name }}</h1>
+                        <div class="event-motto">Our Temple &bull; Our Community &bull; A Brighter Tomorrow</div>
+                    </div>
+                    <span class="flourish-line"></span>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-check2-circle"></i></div><div class="stat-text"><div class="label">Paid Donations</div><div class="value">{{ $summary['paid_count'] }}</div></div></div>
+                <div class="topbar-right">
+                    <div class="topbar-clock" id="topbarClock">
+                        <div class="clock-date"><i class="bi bi-calendar3 me-1"></i><span id="clockDate"></span></div>
+                        <div class="clock-time" id="clockTime"></div>
+                    </div>
+                    <button type="button" class="btn-fullscreen-icon" id="fullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+                    <div class="dropdown">
+                        <button class="admin-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i><span>{{ \Illuminate\Support\Str::limit(auth()->user()->name ?? 'Admin', 14) }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ route($backRoute) }}"><i class="bi bi-arrow-left me-2"></i>Back to {{ $backLabel }}</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ route('logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        </ul>
+                    </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:#8b5cf6;"><i class="bi bi-people-fill"></i></div><div class="stat-text"><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
-                </div>
-            </div>
-            @if($options->count())
-            <div class="option-breakdown-scroll">
-                @foreach($options as $opt)
-                <div class="option-chip-stat">
-                    <div class="label">{{ $opt->label }}</div>
-                    <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['option_totals'][$opt->id] ?? 0, 2) }}</div>
-                </div>
-                @endforeach
-            </div>
-            @endif
-            <div class="d-flex justify-content-end gap-2 mb-2">
-                <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
-                <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
-            </div>
-            <div class="console-card" style="padding:0;">
-                <div class="table-scroll-wrap">
-                <table class="console-table">
-                    <thead>
-                        <tr>
-                            <th>Type</th><th>ID</th><th>Name</th><th>Contact</th>
-                            @foreach($options as $opt)<th class="col-amount">{{ $opt->label }}</th>@endforeach
-                            <th class="col-amount">Other</th><th class="col-amount">Total</th><th>Payment</th><th>Txn ID</th><th>Date</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($rows as $row)
-                        <tr>
-                            <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
-                            <td><strong>{{ $row->display_id }}</strong></td>
-                            <td class="col-name">{{ $row->display_name }}</td>
-                            <td>
-                                @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
-                                @if($row->email)<div class="text-muted" style="font-size:0.78rem;">{{ $row->email }}</div>@endif
-                                @if(!$row->mobile && !$row->email)—@endif
-                            </td>
-                            @foreach($options as $opt)
-                            <td class="col-amount">@if(($row->option_amounts[$opt->id] ?? 0) > 0){{ number_format($row->option_amounts[$opt->id], 2) }}@else — @endif</td>
-                            @endforeach
-                            <td class="col-amount">@if($row->other_amount > 0){{ number_format($row->other_amount, 2) }}@else — @endif</td>
-                            <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
-                            <td>{{ $row->payment_method }}</td>
-                            <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
-                            <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
-                            <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status }}</span></td>
-                            <td class="text-end">
-                                @include('admin.partials.donation-actions', ['row' => $row])
-                            </td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-                </div>
-            </div>
-        </div>
+            </header>
 
-        @if($canAddDonation)
-        <!-- QUICK ENTRY / MANAGE DONATIONS WORKSPACE (default pane; Guest is the default mode) -->
-        <div class="console-pane active" id="pane-entry">
-            <div class="qe-page-header">
-                <h2>Manage Donations</h2>
-                <p>Add, view and manage donations for {{ $event->event_name }}</p>
-            </div>
+            <div class="console-body">
+                <!-- DASHBOARD -->
+                <div class="console-pane {{ $canAddDonation ? '' : '' }}" id="pane-dashboard">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-speedometer2"></i></div>
+                        <div>
+                            <h2>Dashboard</h2>
+                            <p>Full donation statistics for {{ $event->event_name }}</p>
+                        </div>
+                    </div>
 
-            <div class="qe-grid">
-                <div>
-                    <div class="console-card">
-                        <div class="qe-card-header">
-                            <div class="icon-circle"><i class="bi bi-person-plus-fill"></i></div>
-                            <div>
-                                <h3>Log New Donation</h3>
-                                <p>Record a new donation received</p>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--success);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Paid Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--warning);"><i class="bi bi-hourglass-split"></i></div><div class="stat-text"><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--maroon);"><i class="bi bi-people-fill"></i></div><div class="stat-text"><div class="label">Total Donors</div><div class="value">{{ $summary['total_donors'] }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-receipt"></i></div><div class="stat-text"><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <div class="card-panel h-100">
+                                <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-tags-fill"></i></span>By Donation Type (Paid)</div>
+                                @forelse($options as $opt)
+                                    @php $amt = $summary['option_totals'][$opt->id] ?? 0; $pct = $summary['paid_total'] > 0 ? min(100, round($amt / $summary['paid_total'] * 100)) : 0; @endphp
+                                    <div class="breakdown-row">
+                                        <div class="breakdown-bar-wrap">
+                                            <div class="breakdown-label"><span>{{ $opt->label }}</span><span>{{ $temple['currency'] ?? '' }} {{ number_format($amt, 2) }}</span></div>
+                                            <div class="breakdown-bar-bg"><div class="breakdown-bar-fill" style="width:{{ $pct }}%;"></div></div>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-muted mb-0">No donation types configured for this event.</p>
+                                @endforelse
                             </div>
                         </div>
-
-                        <div class="quick-entry-toggle">
-                            <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
-                            <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
+                        <div class="col-lg-6">
+                            <div class="card-panel h-100">
+                                <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-credit-card-fill"></i></span>By Payment Method (Paid)</div>
+                                @forelse($summary['method_totals'] as $method => $amt)
+                                    @php $pct = $summary['paid_total'] > 0 ? min(100, round($amt / $summary['paid_total'] * 100)) : 0; @endphp
+                                    <div class="breakdown-row">
+                                        <div class="breakdown-bar-wrap">
+                                            <div class="breakdown-label"><span>{{ $method }}</span><span>{{ $temple['currency'] ?? '' }} {{ number_format($amt, 2) }}</span></div>
+                                            <div class="breakdown-bar-bg"><div class="breakdown-bar-fill" style="width:{{ $pct }}%;"></div></div>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-muted mb-0">No paid donations recorded yet.</p>
+                                @endforelse
+                            </div>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="qe-panel">
-                            <div class="qe-panel-title"><span class="bar" style="background:var(--gold);"></span>Donor Details</div>
+                <!-- ALL DONATIONS (full detailed table) -->
+                <div class="console-pane {{ $canAddDonation ? '' : 'active' }}" id="pane-table">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-card-list"></i></div>
+                        <div>
+                            <h2>All Donations</h2>
+                            <p>Every donation recorded for {{ $event->event_name }}</p>
+                        </div>
+                        <div class="page-header-actions d-flex gap-2">
+                            <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
+                            <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+                        </div>
+                    </div>
+                    <div class="card-panel" style="padding:0;">
+                        <div class="table-scroll-wrap" style="max-height: calc(100vh - 220px);">
+                        <table class="console-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th><th>ID</th><th>Name</th><th>Contact</th>
+                                    @foreach($options as $opt)<th class="col-amount">{{ $opt->label }}</th>@endforeach
+                                    <th class="col-amount">Other</th><th class="col-amount">Total</th><th>Payment</th><th>Txn ID</th><th>Date</th><th>Status</th><th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($rows as $row)
+                                <tr>
+                                    <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
+                                    <td><strong>{{ $row->display_id }}</strong></td>
+                                    <td class="col-name">{{ $row->display_name }}</td>
+                                    <td>
+                                        @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
+                                        @if($row->email)<div class="text-muted" style="font-size:0.78rem;">{{ $row->email }}</div>@endif
+                                        @if(!$row->mobile && !$row->email)—@endif
+                                    </td>
+                                    @foreach($options as $opt)
+                                    <td class="col-amount">@if(($row->option_amounts[$opt->id] ?? 0) > 0){{ number_format($row->option_amounts[$opt->id], 2) }}@else — @endif</td>
+                                    @endforeach
+                                    <td class="col-amount">@if($row->other_amount > 0){{ number_format($row->other_amount, 2) }}@else — @endif</td>
+                                    <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
+                                    <td>{{ $row->payment_method }}</td>
+                                    <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
+                                    <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
+                                    <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
+                                    <td class="text-end">
+                                        @include('admin.partials.donation-actions', ['row' => $row])
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+
+                @if($canAddDonation)
+                <!-- DONATIONS WORKSPACE (Quick Entry + Recent Donations combined) -->
+                <div class="console-pane active" id="pane-entry">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-heart-fill"></i></div>
+                        <div>
+                            <h2>Manage Donations</h2>
+                            <p>Add, view and manage donations for {{ $event->event_name }}</p>
+                        </div>
+                        <div class="page-header-actions">
+                            <button type="button" class="btn-view-all" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
+                        </div>
+                    </div>
+
+                    <div class="donation-grid">
+                        <div class="card-panel">
+                            <div class="panel-header">
+                                <div class="panel-icon"><i class="bi bi-person-plus-fill"></i></div>
+                                <div>
+                                    <h3>Log New Donation</h3>
+                                    <p>Record a new donation received</p>
+                                </div>
+                            </div>
+
+                            <div class="mode-toggle">
+                                <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
+                                <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
+                            </div>
 
                             <div id="qeDevoteeFields" style="display:none;">
-                                <div class="qe-field devotee-combobox-wrap">
-                                    <div class="qe-input-group">
-                                        <span class="qe-input-label">Search Devotee</span>
+                                <div class="field-row two-col">
+                                    <div class="field-group devotee-combobox-wrap">
+                                        <label class="field-label">Search Devotee <span class="required">*</span></label>
+                                        <i class="bi bi-search field-icon"></i>
                                         <input type="text" id="qeDevoteeSearch" placeholder="Name, email, or mobile...">
+                                        <input type="hidden" id="qeDevoteeId">
+                                        <div class="devotee-combobox-results" id="qeDevoteeResults"></div>
                                     </div>
-                                    <input type="hidden" id="qeDevoteeId">
-                                    <div class="devotee-combobox-results" id="qeDevoteeResults"></div>
+                                    <div class="field-group">
+                                        <label class="field-label">Donation Date <span class="required">*</span></label>
+                                        <i class="bi bi-calendar3 field-icon"></i>
+                                        <input type="date" id="qeDonationDateDevotee">
+                                    </div>
                                 </div>
                             </div>
 
                             <div id="qeGuestFields">
-                                <div class="row g-3">
-                                    <div class="col-md-6 qe-field">
-                                        <div class="qe-input-group">
-                                            <span class="qe-input-label">Donor Name</span>
-                                            <input type="text" id="qeGuestName" placeholder="Full name">
-                                        </div>
+                                <div class="field-row two-col">
+                                    <div class="field-group">
+                                        <label class="field-label">Donor Name <span class="required">*</span></label>
+                                        <i class="bi bi-person field-icon"></i>
+                                        <input type="text" id="qeGuestName" placeholder="Enter full name">
                                     </div>
-                                    <div class="col-md-6 qe-field">
-                                        <div class="qe-input-group">
-                                            <span class="qe-input-label">Email</span>
-                                            <input type="email" id="qeGuestEmail" placeholder="Optional">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="qe-field">
-                                    <div class="qe-input-group">
-                                        <span class="qe-input-label">Mobile</span>
-                                        <input type="text" id="qeGuestMobile" placeholder="Optional">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="qe-panel">
-                            <div class="qe-panel-title"><span class="bar" style="background:var(--teal);"></span>Donation Details</div>
-
-                            <div class="qe-field">
-                                <div class="qe-input-group">
-                                    <span class="qe-input-label">Donation Type</span>
-                                    <select id="qeDonationType"></select>
-                                </div>
-                                <div class="qe-qty-wrap" id="qeQtyWrap" style="display:none;">
-                                    <label>Quantity</label>
-                                    <input type="number" min="1" value="1" class="form-control" id="qeQty">
-                                </div>
-                            </div>
-
-                            <div class="qe-field">
-                                <div class="qe-input-group">
-                                    <span class="qe-input-label">Amount</span>
-                                    <input type="number" step="0.01" id="qeAmount" placeholder="0.00">
-                                </div>
-                                <div class="quick-amount-row" id="qeQuickAmounts"></div>
-                            </div>
-
-                            <div class="qe-checkbox-field">
-                                <input type="checkbox" id="qeGeneralDonation">
-                                <label for="qeGeneralDonation">General Donation (Optional)<span class="qe-checkbox-note">Mark as general donation (not for a specific purpose)</span></label>
-                            </div>
-                        </div>
-
-                        <div class="qe-panel">
-                            <div class="qe-panel-title"><span class="bar" style="background:#8b5cf6;"></span>Payment Details</div>
-                            <div class="row g-3">
-                                <div class="col-md-6 qe-field">
-                                    <div class="qe-input-group">
-                                        <span class="qe-input-label">Method</span>
-                                        <select id="qePaymentMethod"></select>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 qe-field">
-                                    <div class="qe-input-group">
-                                        <span class="qe-input-label">Reference</span>
-                                        <input type="text" id="qeTransactionId" placeholder="Optional">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row g-3">
-                                <div class="col-md-6 qe-field">
-                                    <div class="qe-input-group">
-                                        <span class="qe-input-label">Date</span>
+                                    <div class="field-group">
+                                        <label class="field-label">Donation Date <span class="required">*</span></label>
+                                        <i class="bi bi-calendar3 field-icon"></i>
                                         <input type="date" id="qeDonationDate">
                                     </div>
                                 </div>
-                                <div class="col-md-6 qe-field">
-                                    <div class="qe-input-group">
-                                        <span class="qe-input-label">Status</span>
-                                        <select id="qePaymentStatus">
-                                            <option value="Paid">Received</option>
-                                            <option value="Pending">Pending</option>
-                                        </select>
+                                <div class="field-row two-col">
+                                    <div class="field-group">
+                                        <label class="field-label">Email (Optional)</label>
+                                        <i class="bi bi-envelope field-icon"></i>
+                                        <input type="email" id="qeGuestEmail" placeholder="example@email.com">
+                                    </div>
+                                    <div class="field-group">
+                                        <label class="field-label">Mobile (Optional)</label>
+                                        <i class="bi bi-telephone field-icon"></i>
+                                        <input type="text" id="qeGuestMobile" placeholder="04XX XXX XXX">
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="qe-panel">
-                            <div class="qe-panel-title"><span class="bar" style="background:var(--muted);"></span>Additional Information</div>
-                            <div class="qe-field">
-                                <div class="qe-input-group">
-                                    <span class="qe-input-label">Notes</span>
-                                    <textarea id="qeDetails" rows="2" placeholder="Optional — e.g. in memory of..., family name, special request..."></textarea>
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-currency-dollar"></i></span>Donation Amount</div>
+
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <label class="field-label">Donation Type</label>
+                                    <i class="bi bi-tag field-icon"></i>
+                                    <select id="qeDonationType"></select>
                                 </div>
                             </div>
+                            <div class="qty-row" id="qeQtyWrap" style="display:none;">
+                                <label>Quantity</label>
+                                <input type="number" min="1" value="1" class="form-control" id="qeQty">
+                            </div>
+
+                            <div class="quick-amount-row" id="qeQuickAmounts"></div>
+
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <label class="field-label">Amount (AUD)</label>
+                                    <i class="bi bi-currency-dollar field-icon"></i>
+                                    <input type="number" step="0.01" id="qeAmount" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="checkbox-field">
+                                <input type="checkbox" id="qeGeneralDonation">
+                                <label for="qeGeneralDonation">General Donation (Optional)<span class="checkbox-note">Mark as general donation (not for a specific purpose)</span></label>
+                            </div>
+
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-file-earmark-text-fill"></i></span>Additional Information</div>
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <textarea id="qeDetails" rows="2" placeholder="e.g. In memory of..., Family name..., Special request..."></textarea>
+                                </div>
+                            </div>
+
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-credit-card-fill"></i></span>Payment Details</div>
+                            <div class="field-row two-col">
+                                <div class="field-group">
+                                    <label class="field-label">Payment Method</label>
+                                    <i class="bi bi-wallet2 field-icon"></i>
+                                    <select id="qePaymentMethod"></select>
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label">Reference (Optional)</label>
+                                    <i class="bi bi-hash field-icon"></i>
+                                    <input type="text" id="qeTransactionId" placeholder="Transaction / cheque no.">
+                                </div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <label class="field-label">Status</label>
+                                    <i class="bi bi-check2-circle field-icon"></i>
+                                    <select id="qePaymentStatus">
+                                        <option value="Paid">Completed</option>
+                                        <option value="Pending">Pending</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn-reset" id="qeResetBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
+                                <button type="button" class="btn-save" id="qeSaveBtn"><i class="bi bi-save2-fill me-2"></i>Save Donation</button>
+                            </div>
                         </div>
 
-                        <div class="qe-actions">
-                            <button type="button" class="qe-btn-reset" id="qeResetBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
-                            <button type="button" class="qe-btn-save" id="qeSaveBtn"><i class="bi bi-lightning-charge-fill me-2"></i>Save &amp; Next</button>
+                        <div>
+                            <div class="card-panel summary-panel">
+                                <h4><i class="bi bi-pie-chart-fill" style="color:var(--gold);"></i>Donation Summary</h4>
+                                <div class="summary-grid">
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-cash-coin"></i>Total Collected</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-people-fill"></i>Total Donors</div>
+                                        <div class="value">{{ $summary['total_donors'] }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-calendar-check"></i>Today's Collection</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-hourglass-split"></i>Pending Transfers</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-view-pending" data-pane="pane-table">View Pending ({{ $summary['pending_count'] }})</button>
+                            </div>
+
+                            <div class="quote-card">
+                                <svg viewBox="0 0 100 60" aria-hidden="true">
+                                    <polygon points="50,4 58,16 42,16" fill="var(--gold)"/>
+                                    <rect x="45" y="16" width="10" height="6" fill="var(--gold)"/>
+                                    <polygon points="50,14 62,26 38,26" fill="var(--gold)" opacity="0.85"/>
+                                    <rect x="33" y="26" width="34" height="8" fill="var(--gold)" opacity="0.85"/>
+                                    <rect x="20" y="34" width="60" height="16" fill="var(--gold)" opacity="0.6"/>
+                                    <rect x="30" y="40" width="8" height="10" fill="var(--cream)"/>
+                                    <rect x="62" y="40" width="8" height="10" fill="var(--cream)"/>
+                                    <rect x="46" y="38" width="8" height="12" fill="var(--maroon)"/>
+                                </svg>
+                                <p>&ldquo;Every contribution builds a stronger temple and community.&rdquo;</p>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div>
-                    <div class="console-card qe-summary-card">
-                        <h4><i class="bi bi-pie-chart-fill" style="color:var(--gold);"></i>Donation Summary</h4>
-                        <div class="qe-summary-grid">
-                            <div class="qe-summary-tile">
-                                <div class="label"><i class="bi bi-cash-coin"></i>Total Collected</div>
-                                <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div>
-                            </div>
-                            <div class="qe-summary-tile">
-                                <div class="label"><i class="bi bi-people-fill"></i>Total Donors</div>
-                                <div class="value">{{ $summary['total_donors'] }}</div>
-                            </div>
-                            <div class="qe-summary-tile">
-                                <div class="label"><i class="bi bi-calendar-check"></i>Today's Collection</div>
-                                <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div>
-                            </div>
-                            <div class="qe-summary-tile">
-                                <div class="label"><i class="bi bi-hourglass-split"></i>Pending Transfers</div>
-                                <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div>
+                    <div class="card-panel mt-3">
+                        <div class="recent-header">
+                            <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
+                            <div class="recent-controls">
+                                <div class="search-input-wrap">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text" class="search-input" id="qeRecentSearch" placeholder="Search by name, email, mobile...">
+                                </div>
+                                <select class="filter-select" id="qeRecentFilter">
+                                    <option value="">All Donations</option>
+                                    <option value="Paid">Completed</option>
+                                    <option value="Pending">Pending</option>
+                                </select>
                             </div>
                         </div>
-                        <button type="button" class="qe-view-pending-btn" onclick='document.querySelector(".console-tab-btn[data-pane=pane-table]").click()'>View Pending ({{ $summary['pending_count'] }})</button>
+                        <div class="table-scroll-wrap" style="max-height:420px;">
+                        <table class="console-table" id="qeRecentTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th><th>Donor Name</th><th class="col-amount">Amount</th><th>Payment Method</th><th>General Donation</th><th>Status</th><th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($rows->take(25) as $row)
+                                    @php $isGeneral = collect($row->option_amounts ?? [])->sum() <= 0.01; @endphp
+                                    <tr data-status="{{ $row->payment_status }}" data-search="{{ strtolower($row->display_name . ' ' . ($row->email ?? '') . ' ' . ($row->mobile ?? '')) }}">
+                                        <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
+                                        <td class="col-name">{{ $row->display_name }}</td>
+                                        <td class="col-amount total">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</td>
+                                        <td>{{ $row->payment_method }}</td>
+                                        <td>{{ $isGeneral ? 'Yes' : '—' }}</td>
+                                        <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
+                                        <td class="text-end">@include('admin.partials.donation-actions', ['row' => $row])</td>
+                                    </tr>
+                                @empty
+                                <tr><td colspan="7" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                        </div>
+                        @if($rows->count() > 25)
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn-refresh" data-pane="pane-table">View All {{ $rows->count() }} Donations</button>
+                        </div>
+                        @endif
                     </div>
-
-                    <div class="qe-quote-card">
-                        <i class="bi bi-flower1"></i>
-                        <p>&ldquo;A small contribution creates a lasting legacy.&rdquo;</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="console-card mt-3">
-                <div class="qe-recent-header">
-                    <h4><i class="bi bi-clock-history me-1" style="color:var(--gold);"></i>Recent Donations</h4>
-                    <div class="qe-recent-controls">
-                        <input type="text" class="qe-search-input" id="qeRecentSearch" placeholder="Search by name, email, mobile...">
-                        <select class="qe-filter-select" id="qeRecentFilter">
-                            <option value="">All Donations</option>
-                            <option value="Paid">Received</option>
-                            <option value="Pending">Pending</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="table-scroll-wrap" style="max-height:420px;">
-                <table class="console-table" id="qeRecentTable">
-                    <thead>
-                        <tr>
-                            <th>Date</th><th>Donor Name</th><th>Type</th><th class="col-amount">Amount</th><th>Payment Method</th><th>Status</th><th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($rows->take(25) as $row)
-                        <tr data-status="{{ $row->payment_status }}" data-search="{{ strtolower($row->display_name . ' ' . ($row->email ?? '') . ' ' . ($row->mobile ?? '')) }}">
-                            <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
-                            <td class="col-name">{{ $row->display_name }}</td>
-                            <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
-                            <td class="col-amount total">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</td>
-                            <td>{{ $row->payment_method }}</td>
-                            <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Received' : $row->payment_status }}</span></td>
-                            <td class="text-end">@include('admin.partials.donation-actions', ['row' => $row])</td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="7" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-                </div>
-                @if($rows->count() > 25)
-                <div class="text-center mt-3">
-                    <button type="button" class="btn-refresh" onclick='document.querySelector(".console-tab-btn[data-pane=pane-table]").click()'>View All {{ $rows->count() }} Donations</button>
                 </div>
                 @endif
             </div>
         </div>
-        @endif
-
     </div>
 
     <div class="qe-toast" id="qeToast"></div>
@@ -599,7 +750,7 @@
                         </div>
                         <div class="modal-footer border-0 pt-0">
                             <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
-                            <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #b8863a, #d4a05a); border:none;">Save Changes</button>
+                            <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #C89B3C, #A67C2B); border:none;">Save Changes</button>
                         </div>
                     </form>
                 </div>
@@ -704,15 +855,46 @@
             input.value = existing.join(', ');
         }
 
-        // Tab switching
-        document.querySelectorAll('.console-tab-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                document.querySelectorAll('.console-tab-btn').forEach(function (b) { b.classList.remove('active'); });
-                document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.remove('active'); });
-                this.classList.add('active');
-                document.getElementById(this.dataset.pane).classList.add('active');
+        // Sidebar / pane switching — sidebar links, the "View All Donations" button, and the
+        // "View Pending" button all just switch which console-pane is visible.
+        function switchPane(paneId) {
+            document.querySelectorAll('[data-pane]').forEach(function (el) {
+                el.classList.toggle('active', el.dataset.pane === paneId && el.classList.contains('sidebar-link'));
+            });
+            document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
+            closeSidebarDrawer();
+        }
+        document.querySelectorAll('[data-pane]').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                if (this.tagName === 'A') { return; }
+                e.preventDefault();
+                switchPane(this.dataset.pane);
             });
         });
+
+        // Sidebar drawer for tablet/narrow screens.
+        const sidebar = document.getElementById('appSidebar');
+        const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        function closeSidebarDrawer() { sidebar.classList.remove('open'); sidebarBackdrop.classList.remove('show'); }
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function () {
+                sidebar.classList.toggle('open');
+                sidebarBackdrop.classList.toggle('show');
+            });
+        }
+        sidebarBackdrop.addEventListener('click', closeSidebarDrawer);
+
+        // Live clock in the topbar.
+        function tickClock() {
+            const now = new Date();
+            const dateEl = document.getElementById('clockDate');
+            const timeEl = document.getElementById('clockTime');
+            if (dateEl) { dateEl.textContent = now.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }); }
+            if (timeEl) { timeEl.textContent = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); }
+        }
+        tickClock();
+        setInterval(tickClock, 30000);
 
         // Fullscreen: explicit button, plus a one-tap-anywhere fallback so the console
         // effectively "opens in fullscreen" as soon as the admin starts using it — browsers
@@ -818,14 +1000,15 @@
             return div.innerHTML;
         }
 
-        // Quick-amount preset buttons for the manual Amount field.
+        // Quick-amount preset buttons for the Amount field, plus a "Custom Amount" chip that
+        // just clears the preset selection and focuses the field for manual typing.
         const amountInput = document.getElementById('qeAmount');
         const quickAmountsRow = document.getElementById('qeQuickAmounts');
         QUICK_AMOUNTS.forEach(function (amt) {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'quick-amount-btn';
-            btn.textContent = amt;
+            btn.textContent = '$' + amt.toLocaleString();
             btn.addEventListener('click', function () {
                 amountInput.value = amt.toFixed(2);
                 amountInput.dispatchEvent(new Event('input'));
@@ -834,16 +1017,24 @@
             });
             quickAmountsRow.appendChild(btn);
         });
+        const customAmountBtn = document.createElement('button');
+        customAmountBtn.type = 'button';
+        customAmountBtn.className = 'quick-amount-btn custom-amount-btn';
+        customAmountBtn.textContent = 'Custom Amount';
+        customAmountBtn.addEventListener('click', function () {
+            quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
+            amountInput.value = '';
+            amountInput.focus();
+        });
+        quickAmountsRow.appendChild(customAmountBtn);
         amountInput.addEventListener('input', function () {
-            quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) {
-                b.classList.toggle('active', parseFloat(b.textContent) === parseFloat(amountInput.value));
+            quickAmountsRow.querySelectorAll('.quick-amount-btn:not(.custom-amount-btn)').forEach(function (b) {
+                b.classList.toggle('active', parseFloat(b.textContent.replace(/[^0-9.]/g, '')) === parseFloat(amountInput.value));
             });
         });
 
-        // Donation Type — a single dropdown of the event's configured options (backend-driven,
-        // same EVENT_OPTIONS data the old multi-tier checkboxes used) plus a "General Donation"
-        // default. Only one type is picked at a time, feeding the one Amount field/quick-amount
-        // row above — no per-type duplicate controls.
+        // Donation Type — a single dropdown of the event's configured options (backend-driven)
+        // plus a "General Donation" default. Feeds the one Amount field/quick-amount row above.
         const donationTypeSelect = document.getElementById('qeDonationType');
         const qtyWrap = document.getElementById('qeQtyWrap');
         const qtyInput = document.getElementById('qeQty');
@@ -869,7 +1060,6 @@
             return EVENT_OPTIONS[donationTypeSelect.value];
         }
 
-        // Recompute the submitted purpose/selection whenever the type, qty, or amount changes.
         function recalcDonationType() {
             const opt = currentOption();
             const amount = parseFloat(amountInput.value) || 0;
@@ -889,8 +1079,6 @@
             selections = amount > 0 ? [{ option_id: opt.id, label: purposeValue, quantity: qty, amount: amount }] : [];
         }
 
-        // Selecting a type (or changing qty) pre-fills the Amount field for a fixed-price
-        // option — the admin can still override it manually afterwards.
         donationTypeSelect.addEventListener('change', function () {
             const opt = currentOption();
             if (opt && opt.amount !== null) {
@@ -910,8 +1098,6 @@
         });
         amountInput.addEventListener('input', recalcDonationType);
 
-        // The "General Donation" checkbox is a shortcut for picking no specific type — it
-        // locks the Donation Type dropdown back to General while checked.
         generalDonationCheckbox.addEventListener('change', function () {
             donationTypeSelect.disabled = this.checked;
             if (this.checked) { donationTypeSelect.value = ''; }
@@ -927,6 +1113,7 @@
         }
 
         const donationDateInput = document.getElementById('qeDonationDate');
+        const donationDateDevoteeInput = document.getElementById('qeDonationDateDevotee');
         const paymentStatusSelect = document.getElementById('qePaymentStatus');
 
         function resetQuickEntry() {
@@ -944,7 +1131,9 @@
             generalDonationCheckbox.checked = false;
             qtyInput.value = 1;
             qtyWrap.style.display = 'none';
-            donationDateInput.value = new Date().toISOString().slice(0, 10);
+            const today = new Date().toISOString().slice(0, 10);
+            donationDateInput.value = today;
+            donationDateDevoteeInput.value = today;
             paymentStatusSelect.value = 'Paid';
             selections = [];
             purposeValue = 'Event Donation';
@@ -964,7 +1153,6 @@
             body.set('amount', amount.toFixed(2));
             body.set('transaction_id', document.getElementById('qeTransactionId').value);
             body.set('selections_json', JSON.stringify(selections));
-            body.set('donation_date', donationDateInput.value || new Date().toISOString().slice(0, 10));
             body.set('payment_status', paymentStatusSelect.value);
 
             let url;
@@ -972,6 +1160,7 @@
                 if (!devoteeIdInput.value) { showToast('Search and select a devotee first.', true); btn.disabled = false; return; }
                 url = STORE_DEVOTEE_URL;
                 body.set('devotee_id', devoteeIdInput.value);
+                body.set('donation_date', donationDateDevoteeInput.value || new Date().toISOString().slice(0, 10));
                 // Devotee donations only accept Cash/UPI/Bank Transfer/Cheque.
                 body.set('payment_mode', paymentSelect.value);
                 body.set('purpose', purposeValue);
@@ -981,6 +1170,7 @@
                 if (!name) { showToast('Enter the donor name.', true); btn.disabled = false; return; }
                 url = STORE_GUEST_URL;
                 body.set('donor_name', name);
+                body.set('donation_date', donationDateInput.value || new Date().toISOString().slice(0, 10));
                 body.set('email', document.getElementById('qeGuestEmail').value);
                 body.set('mobile', document.getElementById('qeGuestMobile').value);
                 // Guest donations only accept Cash/UPI/Bank — translate the shared payment

@@ -47,6 +47,12 @@ class EventConsoleController extends Controller
         $totalDonors = $paidRows->map(fn ($r) => $r->donation_type === 'devotee'
             ? 'devotee:' . $r->devotee_id
             : 'guest:' . strtolower(trim($r->email ?: $r->mobile ?: $r->display_name)))->unique()->count();
+        // Normalizes the guest/devotee payment-method naming difference (guest uses "Bank",
+        // devotee uses "Bank Transfer") into one bucket, matching the Excel summary sheet.
+        $normalizeMethod = fn (?string $m) => in_array(trim((string) $m), ['Bank', 'Bank Transfer'], true)
+            ? 'Bank Transfer'
+            : (trim((string) $m) ?: 'Unspecified');
+
         $summary = [
             'paid_total' => $paidRows->sum('amount'),
             'paid_count' => $paidRows->count(),
@@ -58,6 +64,7 @@ class EventConsoleController extends Controller
             'option_totals' => $options->mapWithKeys(fn ($opt) => [
                 $opt->id => $paidRows->sum(fn ($r) => $r->option_amounts[$opt->id] ?? 0),
             ]),
+            'method_totals' => $paidRows->groupBy(fn ($r) => $normalizeMethod($r->payment_method))->map->sum('amount'),
         ];
 
         $devotees = DB::table('devotees')
@@ -78,6 +85,10 @@ class EventConsoleController extends Controller
         $canAddDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'add') || $isCoordinatorForEvent;
         $canEditDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'edit') || $isCoordinatorForEvent;
         $canDeleteDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete');
+        // Event settings (donation options, contacts, gallery, status, etc.) are edited via
+        // the same Edit Event modal used on Manage Events — a bigger capability than just
+        // recording donations, so a plain Event Coordinator doesn't get this link.
+        $canEditEvent = $activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit');
 
         $temple = Setting::templeBranding();
 
@@ -92,6 +103,7 @@ class EventConsoleController extends Controller
             'canAddDonation',
             'canEditDonation',
             'canDeleteDonation',
+            'canEditEvent',
             'temple'
         ));
     }
