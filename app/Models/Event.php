@@ -29,6 +29,11 @@ class Event extends Model
         'require_donor_email',
         'require_donor_mobile',
         'coordinator_emails',
+        'donation_account_name',
+        'donation_bank_name',
+        'donation_bsb',
+        'donation_account_number',
+        'donation_contact_email',
         'contacts',
     ];
 
@@ -113,6 +118,56 @@ class Event extends Model
         return collect($decoded)
             ->map(fn ($path) => trim((string) $path))
             ->filter(fn ($path) => $path !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * This event's own donation bank account details, or the temple's global ones from
+     * Settings when left blank. Read live from Settings each time rather than copied once,
+     * so an event that never overrides these automatically tracks later changes to the
+     * global values — but an event that does set its own sticks with it regardless of what
+     * the global settings change to afterwards.
+     */
+    public function effectiveDonationAccountName(): string
+    {
+        return $this->donation_account_name ?: Setting::get('donation_account_name', '');
+    }
+
+    public function effectiveDonationBankName(): string
+    {
+        return $this->donation_bank_name ?: Setting::get('donation_bank_name', '');
+    }
+
+    public function effectiveDonationBsb(): string
+    {
+        return $this->donation_bsb ?: Setting::get('donation_bsb', '');
+    }
+
+    public function effectiveDonationAccountNumber(): string
+    {
+        return $this->donation_account_number ?: Setting::get('donation_account_number', '');
+    }
+
+    /**
+     * The email(s) shown publicly on this event's donation page (e.g. "send your transfer
+     * receipt to ..."), distinct from coordinator_emails (an internal CC list, never shown
+     * to donors). Falls back to the global donation receipt email when not set.
+     */
+    public function effectiveDonationContactEmail(): string
+    {
+        return $this->donation_contact_email ?: Setting::get('donation_receipt_email', '');
+    }
+
+    /**
+     * Parse the comma-separated donation_contact_email field into a clean list of valid
+     * addresses, same defensive style as coordinatorEmailList().
+     */
+    public function donationContactEmailList(): array
+    {
+        return collect(explode(',', $this->effectiveDonationContactEmail()))
+            ->map(fn ($email) => trim($email))
+            ->filter(fn ($email) => $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL))
             ->values()
             ->all();
     }

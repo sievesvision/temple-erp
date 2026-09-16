@@ -94,6 +94,11 @@ class EventController extends Controller
             'flyer_image' => 'nullable|string|max:255',
             'qr_code_image' => 'nullable|string|max:255',
             'coordinator_emails' => 'nullable|string|max:1000',
+            'donation_account_name' => 'nullable|string|max:255',
+            'donation_bank_name' => 'nullable|string|max:255',
+            'donation_bsb' => 'nullable|string|max:20',
+            'donation_account_number' => 'nullable|string|max:50',
+            'donation_contact_email' => 'nullable|string|max:500',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
         $validated['require_donor_email'] = $request->boolean('require_donor_email');
@@ -140,6 +145,11 @@ class EventController extends Controller
             'flyer_image' => 'nullable|string|max:255',
             'qr_code_image' => 'nullable|string|max:255',
             'coordinator_emails' => 'nullable|string|max:1000',
+            'donation_account_name' => 'nullable|string|max:255',
+            'donation_bank_name' => 'nullable|string|max:255',
+            'donation_bsb' => 'nullable|string|max:20',
+            'donation_account_number' => 'nullable|string|max:50',
+            'donation_contact_email' => 'nullable|string|max:500',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
         $validated['require_donor_email'] = $request->boolean('require_donor_email');

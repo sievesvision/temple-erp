@@ -16,6 +16,13 @@
     $lockContactFields = $lockContactFields ?? false;
     $requireDonorEmail = $requireDonorEmail ?? false;
     $requireDonorMobile = $requireDonorMobile ?? false;
+    // A locked event's own donation account/contact-email override (if it set one) takes
+    // over the bank-transfer card entirely; otherwise this is just the temple's global ones.
+    $bankAccountName = $lockedEvent ? $lockedEvent->effectiveDonationAccountName() : $temple['donation_account_name'];
+    $bankName = $lockedEvent ? $lockedEvent->effectiveDonationBankName() : $temple['donation_bank_name'];
+    $bankBsb = $lockedEvent ? $lockedEvent->effectiveDonationBsb() : $temple['donation_bsb'];
+    $bankAccountNumber = $lockedEvent ? $lockedEvent->effectiveDonationAccountNumber() : $temple['donation_account_number'];
+    $receiptContactEmails = $lockedEvent ? $lockedEvent->donationContactEmailList() : array_filter([$temple['donation_receipt_email'] ?? null]);
 @endphp
 <style>
     .quick-amount-chip {
@@ -61,13 +68,22 @@
     <div class="donate-method-info mb-4" data-method-info="Bank">
         <div class="donation-bank-card">
             <div class="row g-3">
-                <div class="col-md-7"><span class="bank-label">Account name</span><strong class="bank-value">{{ $temple['donation_account_name'] }}</strong></div>
-                <div class="col-md-5"><span class="bank-label">Bank</span><strong class="bank-value">{{ $temple['donation_bank_name'] }}</strong></div>
-                <div class="col-md-5"><span class="bank-label">BSB number</span><strong class="bank-value">{{ $temple['donation_bsb'] }}</strong></div>
-                <div class="col-md-7"><span class="bank-label">Account number</span><strong class="bank-value">{{ $temple['donation_account_number'] }}</strong></div>
+                <div class="col-md-7"><span class="bank-label">Account name</span><strong class="bank-value">{{ $bankAccountName }}</strong></div>
+                <div class="col-md-5"><span class="bank-label">Bank</span><strong class="bank-value">{{ $bankName }}</strong></div>
+                <div class="col-md-5"><span class="bank-label">BSB number</span><strong class="bank-value">{{ $bankBsb }}</strong></div>
+                <div class="col-md-7"><span class="bank-label">Account number</span><strong class="bank-value">{{ $bankAccountNumber }}</strong></div>
             </div>
             <hr>
-            <p class="mb-0 small">Transfer directly using these details, then submit the form below so we can match your receipt. Send a copy of your transfer receipt to <a href="mailto:{{ $temple['donation_receipt_email'] }}">{{ $temple['donation_receipt_email'] }}</a> for an official receipt.</p>
+            <p class="mb-0 small">
+                Transfer directly using these details, then submit the form below so we can match your receipt.
+                @if(count($receiptContactEmails))
+                    Send a copy of your transfer receipt to
+                    @foreach($receiptContactEmails as $i => $contactEmail)
+                        <a href="mailto:{{ $contactEmail }}">{{ $contactEmail }}</a>{{ $i < count($receiptContactEmails) - 1 ? ' or ' : '' }}
+                    @endforeach
+                    for an official receipt.
+                @endif
+            </p>
         </div>
     </div>
     <div class="donate-method-info mb-4" data-method-info="Cash" style="display:none;">

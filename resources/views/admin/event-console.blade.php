@@ -183,6 +183,25 @@
         .donation-tier-option.single-option input[type="checkbox"] { display: none; }
         .donation-tier-option.single-option label { cursor: default; }
 
+        /* ---------- Event Settings: same sidebar-nav + categorized-panel structure as
+           admin/settings, in the console's own palette. ---------- */
+        .settings-nav { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 90px; }
+        .settings-nav-link { display: flex; align-items: center; gap: 10px; text-align: left; background: transparent; border: none; border-radius: 12px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; color: var(--text-secondary); transition: 0.15s; width: 100%; }
+        .settings-nav-link:hover { background: var(--cream); color: var(--gold-hover); }
+        .settings-nav-link.active { background: var(--gold); color: white; box-shadow: 0 4px 12px rgba(200,155,60,0.25); }
+        .settings-panel { display: none; }
+        .settings-panel.active { display: block; }
+        .settings-section { background: var(--cream); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
+        .settings-section:last-child { margin-bottom: 0; }
+        .settings-section h5 { font-weight: 700; color: var(--gold-hover); margin-bottom: 14px; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; }
+        .settings-section .form-label { font-weight: 600; color: var(--text-primary); font-size: 0.85rem; }
+        .settings-section .form-control, .settings-section .form-select { border-color: var(--border); }
+        .settings-section .form-control:focus, .settings-section .form-select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+        @media (max-width: 991.98px) {
+            .settings-nav { flex-direction: row; overflow-x: auto; position: static; }
+            .settings-nav-link { white-space: nowrap; }
+        }
+
         /* A small, compact amount box for the "no donation types configured" case. */
         .field-group.compact { max-width: 180px; }
         .field-group.compact input { padding: 8px 10px 8px 34px; font-size: 0.9rem; min-height: 36px; }
@@ -672,155 +691,202 @@
                         </div>
                     </div>
 
-                    <form action="{{ route('admin.events.update', $event->event_id) }}" method="POST">
-                        @csrf
-                        <div class="card-panel mb-3">
-                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-info-circle-fill"></i></span>Event Details</div>
-                            <div class="field-row two-col">
-                                <div class="field-group">
-                                    <label class="field-label">Event Name <span class="required">*</span></label>
-                                    <i class="bi bi-tag field-icon"></i>
-                                    <input type="text" name="event_name" value="{{ $event->event_name }}" required>
+                    <div class="card-panel">
+                        <form action="{{ route('admin.events.update', $event->event_id) }}" method="POST">
+                            @csrf
+                            <div class="row g-4">
+                                <div class="col-lg-3">
+                                    <div class="settings-nav">
+                                        <button type="button" class="settings-nav-link active" data-panel="details"><i class="bi bi-info-circle-fill"></i> Event Details</button>
+                                        <button type="button" class="settings-nav-link" data-panel="public-page"><i class="bi bi-window"></i> Public Page</button>
+                                        <button type="button" class="settings-nav-link" data-panel="donations"><i class="bi bi-wallet2"></i> Donations &amp; Payments</button>
+                                        <button type="button" class="settings-nav-link" data-panel="media"><i class="bi bi-images"></i> Media &amp; Images</button>
+                                        <button type="button" class="settings-nav-link" data-panel="options"><i class="bi bi-cash-coin"></i> Donation Options</button>
+                                        <button type="button" class="settings-nav-link" data-panel="contacts"><i class="bi bi-telephone-fill"></i> Public Contacts</button>
+                                        <button type="button" class="settings-nav-link" data-panel="gallery"><i class="bi bi-image-fill"></i> Gallery Images</button>
+                                    </div>
                                 </div>
-                                <div class="field-group">
-                                    <label class="field-label">URL Slug</label>
-                                    <i class="bi bi-link-45deg field-icon"></i>
-                                    <input type="text" name="slug" value="{{ $event->slug }}" placeholder="Leave blank to auto-generate">
-                                </div>
-                            </div>
-                            <div class="field-row">
-                                <div class="field-group">
-                                    <label class="field-label">Description</label>
-                                    <textarea name="description" rows="3">{{ $event->description }}</textarea>
-                                </div>
-                            </div>
-                            <div class="field-row two-col">
-                                <div class="field-group">
-                                    <label class="field-label">Event Date <span class="required">*</span></label>
-                                    <i class="bi bi-calendar3 field-icon"></i>
-                                    <input type="date" name="event_date" value="{{ $event->event_date }}" required>
-                                </div>
-                                <div class="field-group">
-                                    <label class="field-label">Location / Venue <span class="required">*</span></label>
-                                    <i class="bi bi-geo-alt field-icon"></i>
-                                    <input type="text" name="location" value="{{ $event->location }}" required>
-                                </div>
-                            </div>
-                            <div class="checkbox-field">
-                                <input type="checkbox" name="date_tbc" id="settingsDateTbc" value="1" {{ $event->date_tbc ? 'checked' : '' }}>
-                                <label for="settingsDateTbc">Date to be confirmed<span class="checkbox-note">Shows "Date to be confirmed" publicly instead of the date above (still used internally for sorting).</span></label>
-                            </div>
-                            <div class="field-row two-col">
-                                <div class="field-group">
-                                    <label class="field-label">Start Time <span class="required">*</span></label>
-                                    <i class="bi bi-clock field-icon"></i>
-                                    <input type="time" name="start_time" value="{{ date('H:i', strtotime($event->start_time)) }}" required>
-                                </div>
-                                <div class="field-group">
-                                    <label class="field-label">End Time <span class="required">*</span></label>
-                                    <i class="bi bi-clock-history field-icon"></i>
-                                    <input type="time" name="end_time" value="{{ date('H:i', strtotime($event->end_time)) }}" required>
-                                </div>
-                            </div>
-                            <div class="field-row two-col">
-                                <div class="field-group">
-                                    <label class="field-label">Status</label>
-                                    <i class="bi bi-flag field-icon"></i>
-                                    <select name="status">
-                                        @foreach(['Upcoming', 'Ongoing', 'Completed', 'Cancelled'] as $status)
-                                            <option value="{{ $status }}" {{ $event->status === $status ? 'selected' : '' }}>{{ $status }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="field-group">
-                                    <label class="field-label">Coordinator Emails</label>
-                                    <i class="bi bi-envelope field-icon"></i>
-                                    <input type="text" name="coordinator_emails" value="{{ $event->coordinator_emails }}" placeholder="cc1@example.com, cc2@example.com">
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="card-panel mb-3">
-                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-window"></i></span>Public Page</div>
-                            <div class="checkbox-field">
-                                <input type="checkbox" name="show_donation_summary" id="settingsShowSummary" value="1" {{ $event->show_donation_summary ? 'checked' : '' }}>
-                                <label for="settingsShowSummary">Show "amount raised so far" on the public event page</label>
-                            </div>
-                            <div class="checkbox-field">
-                                <input type="checkbox" name="require_donor_email" id="settingsRequireEmail" value="1" {{ $event->require_donor_email ? 'checked' : '' }}>
-                                <label for="settingsRequireEmail">Require donor email on this event's donation form</label>
-                            </div>
-                            <div class="checkbox-field">
-                                <input type="checkbox" name="require_donor_mobile" id="settingsRequireMobile" value="1" {{ $event->require_donor_mobile ? 'checked' : '' }}>
-                                <label for="settingsRequireMobile">Require donor mobile on this event's donation form</label>
-                            </div>
-                        </div>
-
-                        <div class="card-panel mb-3">
-                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-credit-card-fill"></i></span>Payment Methods</div>
-                            @php $eventMethodsOverride = $event->paymentMethodsOverride(); @endphp
-                            <div class="checkbox-field">
-                                <input type="hidden" name="use_global_payment_methods" value="0">
-                                <input type="checkbox" name="use_global_payment_methods" id="settingsUseGlobalMethods" value="1" {{ $eventMethodsOverride === null ? 'checked' : '' }}>
-                                <label for="settingsUseGlobalMethods">Use the global donation settings<span class="checkbox-note">Uncheck to choose which payment methods are available for this event specifically (e.g. disable Stripe just for this event).</span></label>
-                            </div>
-                            <div id="settingsPaymentMethodsList" style="{{ $eventMethodsOverride === null ? 'display:none;' : '' }} margin-bottom:0;">
-                                <div class="row g-2">
-                                    @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $method)
-                                    <div class="col-6 col-md-4">
-                                        <div class="checkbox-field" style="margin-bottom:0;">
-                                            <input type="checkbox" name="enabled_payment_methods[]" value="{{ $method }}" id="settingsMethod{{ strtolower(str_replace(' ', '', $method)) }}"
-                                                {{ in_array($method, $eventMethodsOverride ?? $globalPaymentMethods, true) ? 'checked' : '' }}>
-                                            <label for="settingsMethod{{ strtolower(str_replace(' ', '', $method)) }}">{{ $method }}</label>
+                                <div class="col-lg-9">
+                                    <!-- EVENT DETAILS -->
+                                    <div class="settings-panel active" data-panel-content="details">
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-info-circle-fill"></i>Event Information</h5>
+                                            <div class="row g-3">
+                                                <div class="col-md-8">
+                                                    <label class="form-label">Event Name <span class="text-danger">*</span></label>
+                                                    <input type="text" name="event_name" class="form-control rounded-3" value="{{ $event->event_name }}" required>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">URL Slug</label>
+                                                    <input type="text" name="slug" class="form-control rounded-3" value="{{ $event->slug }}" placeholder="Leave blank to auto-generate">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">Description</label>
+                                                    <textarea name="description" class="form-control rounded-3" rows="3">{{ $event->description }}</textarea>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Event Date <span class="text-danger">*</span></label>
+                                                    <input type="date" name="event_date" class="form-control rounded-3" value="{{ $event->event_date }}" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Location / Venue <span class="text-danger">*</span></label>
+                                                    <input type="text" name="location" class="form-control rounded-3" value="{{ $event->location }}" required>
+                                                </div>
+                                                <div class="col-12">
+                                                    <div class="form-check">
+                                                        <input type="checkbox" name="date_tbc" class="form-check-input" id="settingsDateTbc" value="1" {{ $event->date_tbc ? 'checked' : '' }}>
+                                                        <label class="form-check-label" for="settingsDateTbc">Date to be confirmed<span class="d-block text-muted small">Shows "Date to be confirmed" publicly instead of the date above (still used internally for sorting).</span></label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Start Time <span class="text-danger">*</span></label>
+                                                    <input type="time" name="start_time" class="form-control rounded-3" value="{{ date('H:i', strtotime($event->start_time)) }}" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">End Time <span class="text-danger">*</span></label>
+                                                    <input type="time" name="end_time" class="form-control rounded-3" value="{{ date('H:i', strtotime($event->end_time)) }}" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Status</label>
+                                                    <select name="status" class="form-select rounded-3">
+                                                        @foreach(['Upcoming', 'Ongoing', 'Completed', 'Cancelled'] as $status)
+                                                            <option value="{{ $status }}" {{ $event->status === $status ? 'selected' : '' }}>{{ $status }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    @endforeach
+
+                                    <!-- PUBLIC PAGE -->
+                                    <div class="settings-panel" data-panel-content="public-page">
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-window"></i>Donor Requirements</h5>
+                                            <div class="form-check mb-2">
+                                                <input type="checkbox" name="show_donation_summary" class="form-check-input" id="settingsShowSummary" value="1" {{ $event->show_donation_summary ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="settingsShowSummary">Show "amount raised so far" on the public event page</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input type="checkbox" name="require_donor_email" class="form-check-input" id="settingsRequireEmail" value="1" {{ $event->require_donor_email ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="settingsRequireEmail">Require donor email on this event's donation form</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input type="checkbox" name="require_donor_mobile" class="form-check-input" id="settingsRequireMobile" value="1" {{ $event->require_donor_mobile ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="settingsRequireMobile">Require donor mobile on this event's donation form</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- DONATIONS & PAYMENTS -->
+                                    <div class="settings-panel" data-panel-content="donations">
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-bank2"></i>Event Donation Account</h5>
+                                            <p class="text-muted small mb-3">Leave any field blank to use the temple's global donation account from System Settings — set one here only to override it just for this event.</p>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Account Name</label>
+                                                    <input type="text" name="donation_account_name" class="form-control rounded-3" value="{{ $event->donation_account_name }}" placeholder="{{ $event->effectiveDonationAccountName() }}">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Bank Name</label>
+                                                    <input type="text" name="donation_bank_name" class="form-control rounded-3" value="{{ $event->donation_bank_name }}" placeholder="{{ $event->effectiveDonationBankName() }}">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">BSB</label>
+                                                    <input type="text" name="donation_bsb" class="form-control rounded-3" value="{{ $event->donation_bsb }}" placeholder="{{ $event->effectiveDonationBsb() }}">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Account Number</label>
+                                                    <input type="text" name="donation_account_number" class="form-control rounded-3" value="{{ $event->donation_account_number }}" placeholder="{{ $event->effectiveDonationAccountNumber() }}">
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">Public Contact Email(s)</label>
+                                                    <input type="text" name="donation_contact_email" class="form-control rounded-3" value="{{ $event->donation_contact_email }}" placeholder="{{ \App\Models\Setting::get('donation_receipt_email', '') }}">
+                                                    <div class="form-text">Comma-separated. Shown to donors on this event's public donation page ("send your transfer receipt to...").</div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label">Coordinator Email(s)</label>
+                                                    <input type="text" name="coordinator_emails" class="form-control rounded-3" value="{{ $event->coordinator_emails }}" placeholder="cc1@example.com, cc2@example.com">
+                                                    <div class="form-text">Comma-separated. CC'd internally on this event's donation receipts — never shown to donors.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-credit-card-fill"></i>Payment Methods</h5>
+                                            @php $eventMethodsOverride = $event->paymentMethodsOverride(); @endphp
+                                            <div class="form-check mb-2">
+                                                <input type="hidden" name="use_global_payment_methods" value="0">
+                                                <input type="checkbox" name="use_global_payment_methods" class="form-check-input" id="settingsUseGlobalMethods" value="1" {{ $eventMethodsOverride === null ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="settingsUseGlobalMethods">Use the global donation settings<span class="d-block text-muted small">Uncheck to choose which payment methods are available for this event specifically (e.g. disable Stripe just for this event).</span></label>
+                                            </div>
+                                            <div id="settingsPaymentMethodsList" style="{{ $eventMethodsOverride === null ? 'display:none;' : '' }}">
+                                                <div class="d-flex flex-wrap gap-3">
+                                                    @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $method)
+                                                    <div class="form-check">
+                                                        <input type="checkbox" name="enabled_payment_methods[]" value="{{ $method }}" class="form-check-input" id="settingsMethod{{ strtolower(str_replace(' ', '', $method)) }}"
+                                                            {{ in_array($method, $eventMethodsOverride ?? $globalPaymentMethods, true) ? 'checked' : '' }}>
+                                                        <label class="form-check-label" for="settingsMethod{{ strtolower(str_replace(' ', '', $method)) }}">{{ $method }}</label>
+                                                    </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MEDIA & IMAGES -->
+                                    <div class="settings-panel" data-panel-content="media">
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-images"></i>Media &amp; Images</h5>
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Header Image Path</label>
+                                                    <input type="text" name="header_image" class="form-control rounded-3" value="{{ $event->header_image }}" placeholder="images/events/header.jpg">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Flyer Image Path</label>
+                                                    <input type="text" name="flyer_image" class="form-control rounded-3" value="{{ $event->flyer_image }}" placeholder="images/events/flyer.png">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">QR Code Image Path</label>
+                                                    <input type="text" name="qr_code_image" class="form-control rounded-3" value="{{ $event->qr_code_image }}" placeholder="images/events/qr.png">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- DONATION OPTIONS -->
+                                    <div class="settings-panel" data-panel-content="options">
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-cash-coin"></i>Donation Options</h5>
+                                            @include('admin.partials.event-donation-options-fields', ['options' => $options, 'formSuffix' => 'settings'])
+                                        </div>
+                                    </div>
+
+                                    <!-- PUBLIC CONTACTS -->
+                                    <div class="settings-panel" data-panel-content="contacts">
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-telephone-fill"></i>Public Contacts</h5>
+                                            @include('admin.partials.event-contacts-fields', ['contacts' => $event->contactList(), 'formSuffix' => 'settings'])
+                                        </div>
+                                    </div>
+
+                                    <!-- GALLERY IMAGES -->
+                                    <div class="settings-panel" data-panel-content="gallery">
+                                        <div class="settings-section">
+                                            <h5><i class="bi bi-image-fill"></i>Gallery Images</h5>
+                                            @include('admin.partials.event-gallery-fields', ['galleryImages' => $event->galleryImages(), 'formSuffix' => 'settings'])
+                                        </div>
+                                    </div>
+
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn-save"><i class="bi bi-save2-fill me-2"></i>Save Settings</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="card-panel mb-3">
-                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-images"></i></span>Media &amp; Images</div>
-                            <div class="field-row two-col">
-                                <div class="field-group">
-                                    <label class="field-label">Header Image Path</label>
-                                    <i class="bi bi-image field-icon"></i>
-                                    <input type="text" name="header_image" value="{{ $event->header_image }}" placeholder="images/events/header.jpg">
-                                </div>
-                                <div class="field-group">
-                                    <label class="field-label">Flyer Image Path</label>
-                                    <i class="bi bi-file-earmark-image field-icon"></i>
-                                    <input type="text" name="flyer_image" value="{{ $event->flyer_image }}" placeholder="images/events/flyer.png">
-                                </div>
-                            </div>
-                            <div class="field-row">
-                                <div class="field-group">
-                                    <label class="field-label">QR Code Image Path</label>
-                                    <i class="bi bi-qr-code field-icon"></i>
-                                    <input type="text" name="qr_code_image" value="{{ $event->qr_code_image }}" placeholder="images/events/qr.png">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card-panel mb-3">
-                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-cash-coin"></i></span>Donation Options</div>
-                            @include('admin.partials.event-donation-options-fields', ['options' => $options, 'formSuffix' => 'settings'])
-                        </div>
-
-                        <div class="card-panel mb-3">
-                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-telephone-fill"></i></span>Public Contacts</div>
-                            @include('admin.partials.event-contacts-fields', ['contacts' => $event->contactList(), 'formSuffix' => 'settings'])
-                        </div>
-
-                        <div class="card-panel mb-3">
-                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-images"></i></span>Gallery Images</div>
-                            @include('admin.partials.event-gallery-fields', ['galleryImages' => $event->galleryImages(), 'formSuffix' => 'settings'])
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="btn-save"><i class="bi bi-save2-fill me-2"></i>Save Settings</button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </div>
                 @endif
 
@@ -1214,6 +1280,22 @@
                 paymentMethodsList.style.display = this.checked ? 'none' : 'block';
             });
         }
+
+        // Settings category navigation — same sidebar-nav + categorized-panel pattern as
+        // admin/settings.
+        (function () {
+            const navLinks = document.querySelectorAll('.settings-nav-link');
+            const panels = document.querySelectorAll('.settings-panel');
+            navLinks.forEach(function (link) {
+                link.addEventListener('click', function () {
+                    navLinks.forEach(function (l) { l.classList.remove('active'); });
+                    panels.forEach(function (p) { p.classList.remove('active'); });
+                    this.classList.add('active');
+                    const target = document.querySelector('[data-panel-content="' + this.dataset.panel + '"]');
+                    if (target) { target.classList.add('active'); }
+                });
+            });
+        })();
 
         @if($canAddDonation)
         const DEVOTEES = @json($devotees);
