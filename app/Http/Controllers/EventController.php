@@ -36,10 +36,11 @@ class EventController extends Controller
             + DB::table('donations')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount');
 
         $donationOptions = $event->donationOptions;
-        $requireContactDetails = (bool) $event->require_donor_contact_details;
+        $requireDonorEmail = (bool) $event->require_donor_email;
+        $requireDonorMobile = (bool) $event->require_donor_mobile;
         $isClosed = $event->isClosedForDonations();
 
-        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled', 'requireContactDetails', 'isClosed'));
+        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled', 'requireDonorEmail', 'requireDonorMobile', 'isClosed'));
     }
 
     /**
@@ -95,7 +96,8 @@ class EventController extends Controller
             'coordinator_emails' => 'nullable|string|max:1000',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
-        $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
+        $validated['require_donor_email'] = $request->boolean('require_donor_email');
+        $validated['require_donor_mobile'] = $request->boolean('require_donor_mobile');
         $validated['date_tbc'] = $request->boolean('date_tbc');
         $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date']);
 
@@ -140,7 +142,8 @@ class EventController extends Controller
             'coordinator_emails' => 'nullable|string|max:1000',
         ]);
         $validated['show_donation_summary'] = $request->boolean('show_donation_summary');
-        $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
+        $validated['require_donor_email'] = $request->boolean('require_donor_email');
+        $validated['require_donor_mobile'] = $request->boolean('require_donor_mobile');
         $validated['date_tbc'] = $request->boolean('date_tbc');
 
         // Per-event payment method override. The older Manage Events modal doesn't have
@@ -170,67 +173,73 @@ class EventController extends Controller
     }
 
     /**
-     * Replace an event's donation options from the fixed 12-slot admin form.
-     * Blank label rows are skipped; a blank amount means "donor enters any amount".
-     */
-    /**
-     * Updates existing donation options in place (matched by the hidden option_id_$i field
-     * the edit form round-trips) rather than deleting and recreating them. Recreating would
-     * assign new auto-increment ids on every save — even one that doesn't touch this
-     * section at all — silently orphaning every donation_selections row that references the
-     * old ids (their event_donation_option_id gets nulled via the FK's nullOnDelete, and the
-     * per-option column/export/console breakdown for that donation quietly goes blank).
+     * Replace an event's donation options from the dynamic add/delete rows the admin form
+     * now renders (see event-donation-options-fields.blade.php) — one row per configured
+     * option, keyed by a stable identifier (the option's own id for existing rows, or a
+     * client-generated "new_N" key for rows added in the browser) rather than a fixed slot
+     * number, so rows can be freely added/removed up to the 12-option cap enforced client-side.
+     *
+     * Updates existing options in place (matched by that row's option_id) rather than
+     * deleting and recreating them. Recreating would assign new auto-increment ids on every
+     * save — even one that doesn't touch this section at all — silently orphaning every
+     * donation_selections row that references the old ids (their event_donation_option_id
+     * gets nulled via the FK's nullOnDelete, and the per-option column/export/console
+     * breakdown for that donation quietly goes blank).
      */
     private function saveDonationOptions(Event $event, Request $request): void
     {
+        $labels = $request->input('option_label');
+
         // A request that doesn't include this section at all (e.g. a hand-built or partial
-        // form submission) must leave existing options untouched rather than wiping them —
-        // every real form always renders at least the option_label_1 slot, even blank.
-        if (!$request->has('option_label_1')) {
+        // form submission) must leave existing options untouched rather than wiping them.
+        if (!is_array($labels)) {
             return;
         }
 
-        $seenIds = [];
+        // The add/delete UI caps this at 12 client-side; enforce the same cap here too in
+        // case that's ever bypassed.
+        $labels = array_slice($labels, 0, 12, true);
 
-        for ($i = 1; $i <= 12; $i++) {
-            $label = trim((string) $request->input("option_label_$i", ''));
-            $existingId = $request->input("option_id_$i");
+        $seenIds = [];
+        $sortOrder = 1;
+
+        foreach ($labels as $key => $rawLabel) {
+            $label = trim((string) $rawLabel);
+            $existingId = $request->input("option_id.$key");
 
             if ($label === '') {
-                // Blank slot — remove whichever option used to live here, if any. Its
-                // donation_selections rows will lose their option_id (FK nullOnDelete) and
-                // fall back to the "Other" column, which is correct: the option is gone.
                 if ($existingId) {
                     EventDonationOption::where('id', $existingId)->where('event_id', $event->event_id)->delete();
                 }
                 continue;
             }
 
-            $amountRaw = $request->input("option_amount_$i");
+            $amountRaw = $request->input("option_amount.$key");
             $amount = ($amountRaw === null || $amountRaw === '') ? null : (float) $amountRaw;
-            $allowQuantity = $request->boolean("option_allow_qty_$i");
+            $allowQuantity = $request->boolean("option_allow_qty.$key");
 
             $option = $existingId
                 ? EventDonationOption::where('id', $existingId)->where('event_id', $event->event_id)->first()
                 : null;
 
             if ($option) {
-                $option->update(['label' => $label, 'amount' => $amount, 'allow_quantity' => $allowQuantity, 'sort_order' => $i]);
+                $option->update(['label' => $label, 'amount' => $amount, 'allow_quantity' => $allowQuantity, 'sort_order' => $sortOrder]);
             } else {
                 $option = EventDonationOption::create([
                     'event_id' => $event->event_id,
                     'label' => $label,
                     'amount' => $amount,
                     'allow_quantity' => $allowQuantity,
-                    'sort_order' => $i,
+                    'sort_order' => $sortOrder,
                 ]);
             }
 
             $seenIds[] = $option->id;
+            $sortOrder++;
         }
 
         // Anything not resubmitted this time (the admin removed a row entirely rather than
-        // just blanking it) is gone too — same orphaning behaviour as the blank-slot case.
+        // just blanking it) is gone too — same orphaning behaviour as the blank-row case.
         $event->donationOptions()->whereNotIn('id', $seenIds ?: [0])->delete();
     }
 
@@ -240,19 +249,23 @@ class EventController extends Controller
      */
     private function saveContacts(Event $event, Request $request): void
     {
-        if (!$request->has('contact_name_1')) {
+        $names = $request->input('contact_name');
+
+        // A request that doesn't include this section at all must leave existing contacts
+        // untouched, same reasoning as saveDonationOptions().
+        if (!is_array($names)) {
             return;
         }
 
         $contacts = [];
-        for ($i = 1; $i <= 8; $i++) {
-            $name = trim((string) $request->input("contact_name_$i", ''));
+        foreach ($names as $key => $rawName) {
+            $name = trim((string) $rawName);
             if ($name === '') {
                 continue;
             }
             $contacts[] = [
                 'name' => $name,
-                'phone' => trim((string) $request->input("contact_phone_$i", '')),
+                'phone' => trim((string) $request->input("contact_phone.$key", '')),
             ];
         }
         $event->update(['contacts' => $contacts ? json_encode($contacts) : null]);

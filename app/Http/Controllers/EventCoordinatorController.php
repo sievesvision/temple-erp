@@ -89,11 +89,28 @@ class EventCoordinatorController extends Controller
         $coordinators = DB::table('event_coordinators')
             ->join('users', 'event_coordinators.user_id', '=', 'users.id')
             ->where('event_coordinators.event_id', $eventId)
-            ->select('users.id', 'users.name', 'users.email', 'event_coordinators.level')
+            ->select('users.id', 'users.name', 'users.email', 'users.status', 'users.last_login_at', 'users.last_reset_email_sent_at', 'event_coordinators.level')
             ->orderBy('users.name')
             ->get();
 
         return response()->json(['coordinators' => $coordinators]);
+    }
+
+    /**
+     * Redirect back to wherever the action was actually submitted from. A plain back() is
+     * environment-dependent (Referer headers, session-tracked previous URL) and was observed
+     * bouncing the console's own Coordinators pane out to the coordinator's landing page
+     * instead of staying put — so the console pane's forms pin this explicitly via a hidden
+     * "return_context" field; anywhere else (the Manage Events modal) that field is absent
+     * and this falls back to the previous back() behaviour, unchanged.
+     */
+    private function redirectAfterAction(Request $request, $eventId)
+    {
+        if ($request->input('return_context') === 'console') {
+            return redirect()->route('admin.events.console', $eventId);
+        }
+
+        return redirect()->back();
     }
 
     /**
@@ -105,13 +122,13 @@ class EventCoordinatorController extends Controller
     public function store(Request $request, $eventId)
     {
         if (!$this->canManageCoordinators($eventId)) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Unauthorized access.');
         }
 
         $event = Event::findOrFail($eventId);
         $level = $this->resolveGrantableLevel($request->input('level', 'entry'));
         if ($level === null) {
-            return redirect()->back()->with('error', 'Only the system Admin can grant Event Admin access.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Only the system Admin can grant Event Admin access.');
         }
 
         // Existing-user path: just the dropdown selection, no new account involved.
@@ -126,7 +143,7 @@ class EventCoordinatorController extends Controller
                 'updated_at' => now(),
             ]);
 
-            return redirect()->back()->with('success', 'Coordinator added for ' . $event->event_name . '.');
+            return $this->redirectAfterAction($request, $eventId)->with('success', 'Coordinator added for ' . $event->event_name . '.');
         }
 
         // New-user path: create the account (or grant an existing one matched by
@@ -166,7 +183,7 @@ class EventCoordinatorController extends Controller
             $alreadyCoordinator = DB::table('event_coordinators')->where('user_id', $userId)->where('event_id', $event->event_id)->exists();
             if ($alreadyCoordinator) {
                 DB::rollBack();
-                return redirect()->back()->with('error', 'That person is already a coordinator for this event.')->withInput();
+                return $this->redirectAfterAction($request, $eventId)->with('error', 'That person is already a coordinator for this event.')->withInput();
             }
 
             DB::table('event_coordinators')->insert([
@@ -181,7 +198,7 @@ class EventCoordinatorController extends Controller
             DB::commit();
 
             if ($existingUser) {
-                return redirect()->back()->with('success', "{$request->name} has been granted Event Coordinator access for {$event->event_name} — they can log in and switch to it from the topbar.");
+                return $this->redirectAfterAction($request, $eventId)->with('success', "{$request->name} has been granted Event Coordinator access for {$event->event_name} — they can log in and switch to it from the topbar.");
             }
 
             $systemMode = Setting::get('system_mode', 'Testing Mode');
@@ -208,7 +225,7 @@ class EventCoordinatorController extends Controller
             }
 
             if ($flashPassword) {
-                return redirect()->back()
+                return $this->redirectAfterAction($request, $eventId)
                     ->with('success', 'Event Coordinator Added Successfully!')
                     ->with('success_user_created', [
                         'name' => $request->name,
@@ -218,10 +235,10 @@ class EventCoordinatorController extends Controller
                     ]);
             }
 
-            return redirect()->back()->with('success', 'Event Coordinator Added Successfully!');
+            return $this->redirectAfterAction($request, $eventId)->with('success', 'Event Coordinator Added Successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Failed to add Event Coordinator: ' . $e->getMessage())->withInput();
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Failed to add Event Coordinator: ' . $e->getMessage())->withInput();
         }
     }
 
@@ -233,47 +250,77 @@ class EventCoordinatorController extends Controller
     public function updateLevel(Request $request, $eventId, $userId)
     {
         if (!$this->canManageCoordinators($eventId)) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Unauthorized access.');
         }
 
         $newLevel = $this->resolveGrantableLevel($request->input('level'));
         if ($newLevel === null) {
-            return redirect()->back()->with('error', 'Only the system Admin can grant Event Admin access.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Only the system Admin can grant Event Admin access.');
         }
 
         if (!$this->isSystemAdmin()) {
             $currentLevel = DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->value('level');
             if ($currentLevel === 'admin') {
-                return redirect()->back()->with('error', 'Only the system Admin can change an Event Admin\'s access.');
+                return $this->redirectAfterAction($request, $eventId)->with('error', 'Only the system Admin can change an Event Admin\'s access.');
             }
         }
 
         DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)
             ->update(['level' => $newLevel, 'updated_at' => now()]);
 
-        return redirect()->back()->with('success', 'Coordinator access level updated.');
+        return $this->redirectAfterAction($request, $eventId)->with('success', 'Coordinator access level updated.');
+    }
+
+    /**
+     * Lock/unlock a coordinator's account (flips users.status Active <-> Inactive) — a locked
+     * account is blocked at login entirely (see AuthController::login()), not just at this
+     * event's console. Same admin-vs-event-admin protection as destroy()/updateLevel(): an
+     * event-admin coordinator can't lock/unlock another 'admin'-level coordinator.
+     */
+    public function toggleLock(Request $request, $eventId, $userId)
+    {
+        if (!$this->canManageCoordinators($eventId)) {
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Unauthorized access.');
+        }
+
+        $coordinatorLevel = DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->value('level');
+        if ($coordinatorLevel === null) {
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'That person does not coordinate this event.');
+        }
+        if ($coordinatorLevel === 'admin' && !$this->isSystemAdmin()) {
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Only the system Admin can lock or unlock an Event Admin.');
+        }
+
+        $targetUser = User::findOrFail($userId);
+        $newStatus = $targetUser->status === 'Active' ? 'Inactive' : 'Active';
+        $targetUser->update(['status' => $newStatus]);
+
+        AuditLogService::log(($newStatus === 'Active' ? 'Unlocked' : 'Locked') . " account: {$targetUser->email}");
+
+        return $this->redirectAfterAction($request, $eventId)->with('success', $targetUser->name . ($newStatus === 'Active' ? ' has been unlocked.' : ' has been locked out.'));
     }
 
     /**
      * Send a password reset link to one of this event's coordinators — mirrors
      * SystemUserController::sendResetLink() but scoped to coordinators the caller manages.
      */
-    public function sendResetLink($eventId, $userId)
+    public function sendResetLink(Request $request, $eventId, $userId)
     {
         if (!$this->canManageCoordinators($eventId)) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Unauthorized access.');
         }
 
         $isCoordinator = DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->exists();
         if (!$isCoordinator) {
-            return redirect()->back()->with('error', 'That person does not coordinate this event.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'That person does not coordinate this event.');
         }
 
         $targetUser = User::findOrFail($userId);
         Password::sendResetLink(['email' => $targetUser->email]);
+        $targetUser->update(['last_reset_email_sent_at' => now()]);
         AuditLogService::log("Sent password reset link to {$targetUser->email}");
 
-        return redirect()->back()->with('success', "Reset link sent to {$targetUser->name}.");
+        return $this->redirectAfterAction($request, $eventId)->with('success', "Reset link sent to {$targetUser->name}.");
     }
 
     /**
@@ -281,22 +328,22 @@ class EventCoordinatorController extends Controller
      * any other event they coordinate is untouched. An event-admin coordinator can't remove
      * another 'admin'-level coordinator (including themselves) this way.
      */
-    public function destroy($eventId, $userId)
+    public function destroy(Request $request, $eventId, $userId)
     {
         if (!$this->canManageCoordinators($eventId)) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Unauthorized access.');
         }
 
         if (!$this->isSystemAdmin()) {
             $targetLevel = DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->value('level');
             if ($targetLevel === 'admin') {
-                return redirect()->back()->with('error', 'Only the system Admin can remove an Event Admin.');
+                return $this->redirectAfterAction($request, $eventId)->with('error', 'Only the system Admin can remove an Event Admin.');
             }
         }
 
         DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->delete();
 
-        return redirect()->back()->with('success', 'Coordinator access removed.');
+        return $this->redirectAfterAction($request, $eventId)->with('success', 'Coordinator access removed.');
     }
 
     /**

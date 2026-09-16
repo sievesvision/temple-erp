@@ -14,7 +14,8 @@
     $prefillName = $prefillName ?? null;
     $prefillEmail = $prefillEmail ?? null;
     $lockContactFields = $lockContactFields ?? false;
-    $requireContactDetails = $requireContactDetails ?? false;
+    $requireDonorEmail = $requireDonorEmail ?? false;
+    $requireDonorMobile = $requireDonorMobile ?? false;
 @endphp
 <style>
     .quick-amount-chip {
@@ -89,12 +90,12 @@
                 <input class="form-control" id="{{ $formId }}-donor_name" name="donor_name" value="{{ $prefillName ?? old('donor_name') }}" @if($lockContactFields) readonly @endif required>
             </div>
             <div class="col-md-6">
-                <label for="{{ $formId }}-email">Email for receipt{{ $requireContactDetails ? '' : ' (optional)' }}</label>
-                <input class="form-control" id="{{ $formId }}-email" name="email" type="email" value="{{ $prefillEmail ?? old('email') }}" @if($lockContactFields) readonly @endif @if($requireContactDetails) required @endif>
+                <label for="{{ $formId }}-email">Email for receipt{{ $requireDonorEmail ? '' : ' (optional)' }}</label>
+                <input class="form-control" id="{{ $formId }}-email" name="email" type="email" value="{{ $prefillEmail ?? old('email') }}" @if($lockContactFields) readonly @endif @if($requireDonorEmail) required @endif>
             </div>
             <div class="col-md-6">
-                <label for="{{ $formId }}-mobile">Mobile{{ $requireContactDetails ? '' : ' (optional)' }}</label>
-                <input class="form-control" id="{{ $formId }}-mobile" name="mobile" @if($requireContactDetails) required @endif>
+                <label for="{{ $formId }}-mobile">Mobile{{ $requireDonorMobile ? '' : ' (optional)' }}</label>
+                <input class="form-control" id="{{ $formId }}-mobile" name="mobile" @if($requireDonorMobile) required @endif>
             </div>
             @if($showPlainAmountField)
             <div class="col-md-6">

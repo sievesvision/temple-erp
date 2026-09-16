@@ -26,14 +26,16 @@ class Event extends Model
         'gallery_images',
         'enabled_payment_methods',
         'show_donation_summary',
-        'require_donor_contact_details',
+        'require_donor_email',
+        'require_donor_mobile',
         'coordinator_emails',
         'contacts',
     ];
 
     protected $casts = [
         'show_donation_summary' => 'boolean',
-        'require_donor_contact_details' => 'boolean',
+        'require_donor_email' => 'boolean',
+        'require_donor_mobile' => 'boolean',
         'date_tbc' => 'boolean',
     ];
 

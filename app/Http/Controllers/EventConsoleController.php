@@ -133,7 +133,7 @@ class EventConsoleController extends Controller
             $eventCoordinators = DB::table('event_coordinators')
                 ->join('users', 'event_coordinators.user_id', '=', 'users.id')
                 ->where('event_coordinators.event_id', $event->event_id)
-                ->select('users.id', 'users.name', 'users.email', 'users.status', 'users.last_login_at', 'event_coordinators.level')
+                ->select('users.id', 'users.name', 'users.email', 'users.status', 'users.last_login_at', 'users.last_reset_email_sent_at', 'event_coordinators.level')
                 ->orderBy('users.name')
                 ->get();
 

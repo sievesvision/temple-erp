@@ -1302,9 +1302,11 @@ class DonationController extends Controller
     public function storePublic(Request $request)
     {
         // Some events (e.g. those needing to trace every donor for a receipt/audit trail)
-        // require contact details — the event itself decides via require_donor_contact_details.
+        // require an email and/or mobile — each independently, via the event's own
+        // require_donor_email / require_donor_mobile settings.
         $lockedEvent = $request->filled('event_id') ? Event::find($request->input('event_id')) : null;
-        $requireContact = $lockedEvent && $lockedEvent->require_donor_contact_details;
+        $requireEmail = $lockedEvent && $lockedEvent->require_donor_email;
+        $requireMobile = $lockedEvent && $lockedEvent->require_donor_mobile;
 
         // Defense in depth: the public page already hides the form for a closed event, but a
         // direct POST (stale tab, replay) must not be allowed to record a donation either.
@@ -1315,8 +1317,8 @@ class DonationController extends Controller
         $validated = $request->validate([
             'donor_name' => 'required|string|max:255',
             'event_id' => 'nullable|exists:events,event_id',
-            'email' => ($requireContact ? 'required' : 'nullable') . '|email|max:255',
-            'mobile' => ($requireContact ? 'required' : 'nullable') . '|string|max:20',
+            'email' => ($requireEmail ? 'required' : 'nullable') . '|email|max:255',
+            'mobile' => ($requireMobile ? 'required' : 'nullable') . '|string|max:20',
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:255',
             'purpose_details' => 'nullable|string|max:2000',

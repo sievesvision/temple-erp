@@ -434,8 +434,12 @@
                                         <label class="form-check-label fw-semibold" for="show_donation_summary_{{ $e->event_id }}">Show "amount raised so far" on the public event page</label>
                                     </div>
                                     <div class="mb-3 form-check">
-                                        <input type="checkbox" name="require_donor_contact_details" id="require_donor_contact_details_{{ $e->event_id }}" class="form-check-input" value="1" {{ $e->require_donor_contact_details ? 'checked' : '' }}>
-                                        <label class="form-check-label fw-semibold" for="require_donor_contact_details_{{ $e->event_id }}">Require donor name, email &amp; mobile on this event's donation form</label>
+                                        <input type="checkbox" name="require_donor_email" id="require_donor_email_{{ $e->event_id }}" class="form-check-input" value="1" {{ $e->require_donor_email ? 'checked' : '' }}>
+                                        <label class="form-check-label fw-semibold" for="require_donor_email_{{ $e->event_id }}">Require donor email on this event's donation form</label>
+                                    </div>
+                                    <div class="mb-3 form-check">
+                                        <input type="checkbox" name="require_donor_mobile" id="require_donor_mobile_{{ $e->event_id }}" class="form-check-input" value="1" {{ $e->require_donor_mobile ? 'checked' : '' }}>
+                                        <label class="form-check-label fw-semibold" for="require_donor_mobile_{{ $e->event_id }}">Require donor mobile on this event's donation form</label>
                                     </div>
                                     @include('admin.partials.event-donation-options-fields', ['options' => $e->donationOptions, 'formSuffix' => $e->event_id])
                                     @include('admin.partials.event-contacts-fields', ['contacts' => $e->contactList(), 'formSuffix' => $e->event_id])
@@ -544,8 +548,12 @@
                         <label class="form-check-label fw-semibold" for="show_donation_summary_new">Show "amount raised so far" on the public event page</label>
                     </div>
                     <div class="mb-3 form-check">
-                        <input type="checkbox" name="require_donor_contact_details" id="require_donor_contact_details_new" class="form-check-input" value="1">
-                        <label class="form-check-label fw-semibold" for="require_donor_contact_details_new">Require donor name, email &amp; mobile on this event's donation form</label>
+                        <input type="checkbox" name="require_donor_email" id="require_donor_email_new" class="form-check-input" value="1">
+                        <label class="form-check-label fw-semibold" for="require_donor_email_new">Require donor email on this event's donation form</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="require_donor_mobile" id="require_donor_mobile_new" class="form-check-input" value="1">
+                        <label class="form-check-label fw-semibold" for="require_donor_mobile_new">Require donor mobile on this event's donation form</label>
                     </div>
                     @include('admin.partials.event-donation-options-fields', ['options' => collect(), 'formSuffix' => 'new'])
                     @include('admin.partials.event-contacts-fields', ['contacts' => [], 'formSuffix' => 'new'])

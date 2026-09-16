@@ -30,6 +30,7 @@ protected $fillable = [
     'status',
     'last_login_at',
     'password_changed_at',
+    'last_reset_email_sent_at',
 ];
 
     /**

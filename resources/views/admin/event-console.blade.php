@@ -672,9 +672,9 @@
                         </div>
                     </div>
 
-                    <div class="card-panel">
-                        <form action="{{ route('admin.events.update', $event->event_id) }}" method="POST">
-                            @csrf
+                    <form action="{{ route('admin.events.update', $event->event_id) }}" method="POST">
+                        @csrf
+                        <div class="card-panel mb-3">
                             <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-info-circle-fill"></i></span>Event Details</div>
                             <div class="field-row two-col">
                                 <div class="field-group">
@@ -738,25 +738,33 @@
                                     <input type="text" name="coordinator_emails" value="{{ $event->coordinator_emails }}" placeholder="cc1@example.com, cc2@example.com">
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-window"></i></span>Public Page</div>
+                        <div class="card-panel mb-3">
+                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-window"></i></span>Public Page</div>
                             <div class="checkbox-field">
                                 <input type="checkbox" name="show_donation_summary" id="settingsShowSummary" value="1" {{ $event->show_donation_summary ? 'checked' : '' }}>
                                 <label for="settingsShowSummary">Show "amount raised so far" on the public event page</label>
                             </div>
                             <div class="checkbox-field">
-                                <input type="checkbox" name="require_donor_contact_details" id="settingsRequireContact" value="1" {{ $event->require_donor_contact_details ? 'checked' : '' }}>
-                                <label for="settingsRequireContact">Require donor name, email &amp; mobile on this event's donation form</label>
+                                <input type="checkbox" name="require_donor_email" id="settingsRequireEmail" value="1" {{ $event->require_donor_email ? 'checked' : '' }}>
+                                <label for="settingsRequireEmail">Require donor email on this event's donation form</label>
                             </div>
+                            <div class="checkbox-field">
+                                <input type="checkbox" name="require_donor_mobile" id="settingsRequireMobile" value="1" {{ $event->require_donor_mobile ? 'checked' : '' }}>
+                                <label for="settingsRequireMobile">Require donor mobile on this event's donation form</label>
+                            </div>
+                        </div>
 
-                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-credit-card-fill"></i></span>Payment Methods</div>
+                        <div class="card-panel mb-3">
+                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-credit-card-fill"></i></span>Payment Methods</div>
                             @php $eventMethodsOverride = $event->paymentMethodsOverride(); @endphp
                             <div class="checkbox-field">
                                 <input type="hidden" name="use_global_payment_methods" value="0">
                                 <input type="checkbox" name="use_global_payment_methods" id="settingsUseGlobalMethods" value="1" {{ $eventMethodsOverride === null ? 'checked' : '' }}>
                                 <label for="settingsUseGlobalMethods">Use the global donation settings<span class="checkbox-note">Uncheck to choose which payment methods are available for this event specifically (e.g. disable Stripe just for this event).</span></label>
                             </div>
-                            <div id="settingsPaymentMethodsList" style="{{ $eventMethodsOverride === null ? 'display:none;' : '' }} margin-bottom:20px;">
+                            <div id="settingsPaymentMethodsList" style="{{ $eventMethodsOverride === null ? 'display:none;' : '' }} margin-bottom:0;">
                                 <div class="row g-2">
                                     @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $method)
                                     <div class="col-6 col-md-4">
@@ -769,7 +777,10 @@
                                     @endforeach
                                 </div>
                             </div>
+                        </div>
 
+                        <div class="card-panel mb-3">
+                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-images"></i></span>Media &amp; Images</div>
                             <div class="field-row two-col">
                                 <div class="field-group">
                                     <label class="field-label">Header Image Path</label>
@@ -789,21 +800,27 @@
                                     <input type="text" name="qr_code_image" value="{{ $event->qr_code_image }}" placeholder="images/events/qr.png">
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-cash-coin"></i></span>Donation Options</div>
+                        <div class="card-panel mb-3">
+                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-cash-coin"></i></span>Donation Options</div>
                             @include('admin.partials.event-donation-options-fields', ['options' => $options, 'formSuffix' => 'settings'])
+                        </div>
 
-                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-telephone-fill"></i></span>Public Contacts</div>
+                        <div class="card-panel mb-3">
+                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-telephone-fill"></i></span>Public Contacts</div>
                             @include('admin.partials.event-contacts-fields', ['contacts' => $event->contactList(), 'formSuffix' => 'settings'])
+                        </div>
 
-                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-images"></i></span>Gallery Images</div>
+                        <div class="card-panel mb-3">
+                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-images"></i></span>Gallery Images</div>
                             @include('admin.partials.event-gallery-fields', ['galleryImages' => $event->galleryImages(), 'formSuffix' => 'settings'])
+                        </div>
 
-                            <div class="form-actions">
-                                <button type="submit" class="btn-save"><i class="bi bi-save2-fill me-2"></i>Save Settings</button>
-                            </div>
-                        </form>
-                    </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-save"><i class="bi bi-save2-fill me-2"></i>Save Settings</button>
+                        </div>
+                    </form>
                 </div>
                 @endif
 
@@ -828,6 +845,7 @@
                             <div class="tab-pane fade show active" id="coordExistingPane">
                                 <form action="{{ route('admin.events.coordinators.store', $event->event_id) }}" method="POST" class="d-flex gap-2 flex-wrap">
                                     @csrf
+                                    <input type="hidden" name="return_context" value="console">
                                     <select name="user_id" class="form-select" style="max-width:280px;" required>
                                         <option value="">-- Choose a user --</option>
                                         @foreach($allUsersForCoordinators as $u)
@@ -847,6 +865,7 @@
                             <div class="tab-pane fade" id="coordNewPane">
                                 <form action="{{ route('admin.events.coordinators.store', $event->event_id) }}" method="POST">
                                     @csrf
+                                    <input type="hidden" name="return_context" value="console">
                                     <div class="field-row two-col">
                                         <div class="field-group"><label class="field-label">Full Name</label><input type="text" name="name" required></div>
                                         <div class="field-group"><label class="field-label">Email</label><input type="email" name="email" required></div>
@@ -874,17 +893,19 @@
                         <div class="table-scroll-wrap">
                         <table class="console-table">
                             <thead>
-                                <tr><th>Name</th><th>Email</th><th>Level</th><th>Status</th><th>Last Login</th><th class="text-end">Actions</th></tr>
+                                <tr><th>Name</th><th>Email</th><th>Level</th><th>Status</th><th>Last Login</th><th>Last Reset Email Sent</th><th class="text-end">Actions</th></tr>
                             </thead>
                             <tbody>
                                 @forelse($eventCoordinators as $coord)
+                                @php $canTouchThisCoord = $activeRole === 'Admin' || $coord->level !== 'admin'; @endphp
                                 <tr>
                                     <td class="col-name">{{ $coord->name }}</td>
                                     <td>{{ $coord->email }}</td>
                                     <td>
-                                        @if($activeRole === 'Admin' || $coord->level !== 'admin')
+                                        @if($canTouchThisCoord)
                                         <form action="{{ route('admin.events.coordinators.updateLevel', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline">
                                             @csrf
+                                            <input type="hidden" name="return_context" value="console">
                                             <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
                                                 <option value="view" {{ $coord->level === 'view' ? 'selected' : '' }}>View</option>
                                                 <option value="entry" {{ $coord->level === 'entry' ? 'selected' : '' }}>Entry</option>
@@ -897,24 +918,34 @@
                                         <span class="status-pill status-paid">Admin</span>
                                         @endif
                                     </td>
-                                    <td><span class="status-pill status-{{ $coord->status === 'Active' ? 'paid' : 'cancelled' }}">{{ $coord->status }}</span></td>
+                                    <td><span class="status-pill status-{{ $coord->status === 'Active' ? 'paid' : 'cancelled' }}">{{ $coord->status === 'Active' ? 'Active' : 'Locked' }}</span></td>
                                     <td>{{ $coord->last_login_at ? date('d M Y H:i', strtotime($coord->last_login_at)) : 'Never' }}</td>
+                                    <td>{{ $coord->last_reset_email_sent_at ? date('d M Y H:i', strtotime($coord->last_reset_email_sent_at)) : 'Never' }}</td>
                                     <td class="text-end">
                                         <form action="{{ route('admin.events.coordinators.sendResetLink', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline">
                                             @csrf
+                                            <input type="hidden" name="return_context" value="console">
                                             <button type="submit" class="btn-action-resend" title="Send password reset link"><i class="bi bi-key-fill"></i></button>
                                         </form>
-                                        @if($activeRole === 'Admin' || $coord->level !== 'admin')
+                                        @if($canTouchThisCoord)
+                                        <form action="{{ route('admin.events.coordinators.toggleLock', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $coord->status === 'Active' ? 'Lock' : 'Unlock' }} this account?')">
+                                            @csrf
+                                            <input type="hidden" name="return_context" value="console">
+                                            <button type="submit" class="btn-action-checkstatus" title="{{ $coord->status === 'Active' ? 'Lock account' : 'Unlock account' }}">
+                                                <i class="bi {{ $coord->status === 'Active' ? 'bi-lock-fill' : 'bi-unlock-fill' }}"></i>
+                                            </button>
+                                        </form>
                                         <form action="{{ route('admin.events.coordinators.destroy', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove this coordinator\'s access to this event?')">
                                             @csrf
                                             @method('DELETE')
+                                            <input type="hidden" name="return_context" value="console">
                                             <button type="submit" class="btn-action-delete" title="Remove access"><i class="bi bi-x-lg"></i></button>
                                         </form>
                                         @endif
                                     </td>
                                 </tr>
                                 @empty
-                                <tr><td colspan="6" class="text-center text-muted py-4">No coordinators assigned yet.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted py-4">No coordinators assigned yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -1130,12 +1161,18 @@
         }
         sidebarBackdrop.addEventListener('click', closeSidebarDrawer);
 
-        // The Settings form is a plain full-page POST/redirect (not AJAX), so the client-side
-        // "which pane is active" state would otherwise reset back to New Donation after
-        // saving. Remember the pane across that one navigation via localStorage.
+        // The Settings and Event Coordinators forms are plain full-page POST/redirects (not
+        // AJAX), so the client-side "which pane is active" state would otherwise reset back
+        // to New Donation after saving. Remember the pane across that one navigation via
+        // localStorage.
         document.querySelectorAll('#pane-settings form').forEach(function (form) {
             form.addEventListener('submit', function () {
                 try { localStorage.setItem('consoleActivePane', 'pane-settings'); } catch (e) {}
+            });
+        });
+        document.querySelectorAll('#pane-coordinators form').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                try { localStorage.setItem('consoleActivePane', 'pane-coordinators'); } catch (e) {}
             });
         });
         (function restoreActivePane() {

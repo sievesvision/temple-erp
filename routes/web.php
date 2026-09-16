@@ -516,6 +516,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::post('/admin/events/{event}/coordinators', [\App\Http\Controllers\EventCoordinatorController::class, 'store'])->name('admin.events.coordinators.store');
     Route::post('/admin/events/{event}/coordinators/{user}/level', [\App\Http\Controllers\EventCoordinatorController::class, 'updateLevel'])->name('admin.events.coordinators.updateLevel');
     Route::post('/admin/events/{event}/coordinators/{user}/send-reset-link', [\App\Http\Controllers\EventCoordinatorController::class, 'sendResetLink'])->name('admin.events.coordinators.sendResetLink');
+    Route::post('/admin/events/{event}/coordinators/{user}/toggle-lock', [\App\Http\Controllers\EventCoordinatorController::class, 'toggleLock'])->name('admin.events.coordinators.toggleLock');
     Route::delete('/admin/events/{event}/coordinators/{user}', [\App\Http\Controllers\EventCoordinatorController::class, 'destroy'])->name('admin.events.coordinators.destroy');
 });
 

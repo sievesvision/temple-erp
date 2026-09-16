@@ -295,6 +295,14 @@ class AuthController extends Controller
                 ->withInput();
         }
 
+        // A locked account (e.g. via the Event Coordinators "Lock" action) can't sign in at
+        // all, regardless of role — 'status' otherwise defaults to 'Active' for everyone.
+        if ($user->status !== 'Active') {
+            return back()
+                ->withErrors(['email' => 'This account has been locked. Please contact the temple office.'])
+                ->withInput();
+        }
+
         // Login always lands on the account's stored/default role — a user holding
         // additional roles (Committee, Event Coordinator, etc. via grant tables) switches
         // to them afterwards from the topbar menu (see switchRole()), rather than picking
