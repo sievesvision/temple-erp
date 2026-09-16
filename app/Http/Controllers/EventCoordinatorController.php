@@ -5,27 +5,53 @@ namespace App\Http\Controllers;
 use App\Mail\WelcomeMail;
 use App\Models\Event;
 use App\Models\Setting;
+use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\EventCoordinatorLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 
 /**
- * Assigns/removes the "Event Coordinator" role's per-event scope (event_coordinators
- * table). Deliberately separate from RoleGrantService — that service assumes one row per
- * user per role table, whereas a coordinator can hold many event assignments at once, and
- * removing one shouldn't touch the others (unlike every other role's all-or-nothing revoke).
- * Admin-only: this grants access to specific event data, not a general capability toggle.
+ * Assigns/removes the "Event Coordinator" role's per-event scope and level
+ * (event_coordinators table: view/entry/admin — see EventCoordinatorLevel). Deliberately
+ * separate from RoleGrantService — that service assumes one row per user per role table,
+ * whereas a coordinator can hold many event assignments at once, and removing one shouldn't
+ * touch the others (unlike every other role's all-or-nothing revoke).
+ *
+ * Two kinds of caller manage coordinators here: the system Admin (from Manage Events, or
+ * this same console pane) can grant any level including 'admin'; an event-admin coordinator
+ * can only manage entry/view coordinators for the one event they administer — they can
+ * never grant or touch another 'admin'-level coordinator, including themselves.
  */
 class EventCoordinatorController extends Controller
 {
-    private function requireAdmin()
+    private function isSystemAdmin(): bool
     {
         $user = Auth::user();
-        $activeRole = session('active_role', $user->role ?? null);
-        return $user && $activeRole === 'Admin';
+        return $user && session('active_role', $user->role ?? null) === 'Admin';
+    }
+
+    /**
+     * Whether the current user may manage coordinators for this event at all — the system
+     * Admin always can; an event-admin coordinator can too, but only for their own event.
+     */
+    private function canManageCoordinators($eventId): bool
+    {
+        if ($this->isSystemAdmin()) {
+            return true;
+        }
+
+        $user = Auth::user();
+        $activeRole = $user ? session('active_role', $user->role ?? null) : null;
+        if (!$user || $activeRole !== 'Event Coordinator') {
+            return false;
+        }
+
+        return EventCoordinatorLevel::atLeast(EventCoordinatorLevel::of((int) $eventId, $user->id), 'admin');
     }
 
     /**
@@ -51,19 +77,19 @@ class EventCoordinatorController extends Controller
     }
 
     /**
-     * List coordinators currently assigned to an event, plus all users eligible to be
-     * added (any existing account) — used to populate the "Coordinators" modal.
+     * List coordinators currently assigned to an event, plus their level — used to populate
+     * the Manage Events "Coordinators" modal (Admin-only entry point).
      */
     public function index($eventId)
     {
-        if (!$this->requireAdmin()) {
+        if (!$this->canManageCoordinators($eventId)) {
             abort(403, 'Unauthorized access.');
         }
 
         $coordinators = DB::table('event_coordinators')
             ->join('users', 'event_coordinators.user_id', '=', 'users.id')
             ->where('event_coordinators.event_id', $eventId)
-            ->select('users.id', 'users.name', 'users.email')
+            ->select('users.id', 'users.name', 'users.email', 'event_coordinators.level')
             ->orderBy('users.name')
             ->get();
 
@@ -78,11 +104,15 @@ class EventCoordinatorController extends Controller
      */
     public function store(Request $request, $eventId)
     {
-        if (!$this->requireAdmin()) {
+        if (!$this->canManageCoordinators($eventId)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $event = Event::findOrFail($eventId);
+        $level = $this->resolveGrantableLevel($request->input('level', 'entry'));
+        if ($level === null) {
+            return redirect()->back()->with('error', 'Only the system Admin can grant Event Admin access.');
+        }
 
         // Existing-user path: just the dropdown selection, no new account involved.
         if ($request->filled('user_id')) {
@@ -91,6 +121,7 @@ class EventCoordinatorController extends Controller
             DB::table('event_coordinators')->insertOrIgnore([
                 'user_id' => $validated['user_id'],
                 'event_id' => $event->event_id,
+                'level' => $level,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -141,6 +172,7 @@ class EventCoordinatorController extends Controller
             DB::table('event_coordinators')->insert([
                 'user_id' => $userId,
                 'event_id' => $event->event_id,
+                'level' => $level,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -194,17 +226,93 @@ class EventCoordinatorController extends Controller
     }
 
     /**
+     * Change an existing coordinator's level. The system Admin can set any level; an
+     * event-admin coordinator can only move someone between entry/view, and can't touch a
+     * coordinator who is currently 'admin' (including demoting themselves this way).
+     */
+    public function updateLevel(Request $request, $eventId, $userId)
+    {
+        if (!$this->canManageCoordinators($eventId)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $newLevel = $this->resolveGrantableLevel($request->input('level'));
+        if ($newLevel === null) {
+            return redirect()->back()->with('error', 'Only the system Admin can grant Event Admin access.');
+        }
+
+        if (!$this->isSystemAdmin()) {
+            $currentLevel = DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->value('level');
+            if ($currentLevel === 'admin') {
+                return redirect()->back()->with('error', 'Only the system Admin can change an Event Admin\'s access.');
+            }
+        }
+
+        DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)
+            ->update(['level' => $newLevel, 'updated_at' => now()]);
+
+        return redirect()->back()->with('success', 'Coordinator access level updated.');
+    }
+
+    /**
+     * Send a password reset link to one of this event's coordinators — mirrors
+     * SystemUserController::sendResetLink() but scoped to coordinators the caller manages.
+     */
+    public function sendResetLink($eventId, $userId)
+    {
+        if (!$this->canManageCoordinators($eventId)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $isCoordinator = DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->exists();
+        if (!$isCoordinator) {
+            return redirect()->back()->with('error', 'That person does not coordinate this event.');
+        }
+
+        $targetUser = User::findOrFail($userId);
+        Password::sendResetLink(['email' => $targetUser->email]);
+        AuditLogService::log("Sent password reset link to {$targetUser->email}");
+
+        return redirect()->back()->with('success', "Reset link sent to {$targetUser->name}.");
+    }
+
+    /**
      * Revoke one user's Event Coordinator access to one specific event — their access to
-     * any other event they coordinate is untouched.
+     * any other event they coordinate is untouched. An event-admin coordinator can't remove
+     * another 'admin'-level coordinator (including themselves) this way.
      */
     public function destroy($eventId, $userId)
     {
-        if (!$this->requireAdmin()) {
+        if (!$this->canManageCoordinators($eventId)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        if (!$this->isSystemAdmin()) {
+            $targetLevel = DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->value('level');
+            if ($targetLevel === 'admin') {
+                return redirect()->back()->with('error', 'Only the system Admin can remove an Event Admin.');
+            }
         }
 
         DB::table('event_coordinators')->where('event_id', $eventId)->where('user_id', $userId)->delete();
 
         return redirect()->back()->with('success', 'Coordinator access removed.');
+    }
+
+    /**
+     * Validates a requested level and enforces that only the system Admin may grant
+     * 'admin' — an event-admin coordinator's request for 'admin' returns null (caller
+     * turns that into an error) rather than silently downgrading it, so the mistake is
+     * visible instead of quietly granting the wrong access.
+     */
+    private function resolveGrantableLevel(?string $requestedLevel): ?string
+    {
+        $level = EventCoordinatorLevel::isValid($requestedLevel) ? $requestedLevel : 'entry';
+
+        if ($level === 'admin' && !$this->isSystemAdmin()) {
+            return null;
+        }
+
+        return $level;
     }
 }

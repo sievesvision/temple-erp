@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Event;
 use App\Models\EventDonationOption;
 use App\Models\Setting;
+use App\Services\EventCoordinatorLevel;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\RolePermission;
@@ -116,10 +117,11 @@ class EventController extends Controller
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
-        $isCoordinatorForEvent = $user && $activeRole === 'Event Coordinator'
-            && DB::table('event_coordinators')->where('user_id', $user->id)->where('event_id', $id)->exists();
+        // Only an event-admin coordinator may edit Settings — event-entry/event-view cannot.
+        $isEventAdminCoordinator = $user && $activeRole === 'Event Coordinator'
+            && EventCoordinatorLevel::atLeast(EventCoordinatorLevel::of((int) $id, $user->id), 'admin');
 
-        if (!$user || !(RolePermission::can($activeRole, 'events', 'edit') || $isCoordinatorForEvent)) {
+        if (!$user || !(RolePermission::can($activeRole, 'events', 'edit') || $isEventAdminCoordinator)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\RolePermission;
 use App\Models\Setting;
+use App\Services\EventCoordinatorLevel;
 use App\Services\EventDonationBreakdown;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,8 +23,12 @@ class EventConsoleController extends Controller
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
 
-        $isCoordinatorForEvent = $activeRole === 'Event Coordinator'
-            && DB::table('event_coordinators')->where('user_id', $user->id)->where('event_id', $eventId)->exists();
+        // A coordinator's level (view/entry/admin) — null if they're not a coordinator for
+        // this event at all. Every capability below is derived from this single lookup.
+        $coordinatorLevel = $activeRole === 'Event Coordinator'
+            ? EventCoordinatorLevel::of((int) $eventId, $user->id)
+            : null;
+        $isCoordinatorForEvent = $coordinatorLevel !== null;
 
         if (!($activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'view') || $isCoordinatorForEvent)) {
             abort(403, 'Unauthorized access.');
@@ -109,12 +114,31 @@ class EventConsoleController extends Controller
             'allow_quantity' => (bool) $o->allow_quantity,
         ])->values();
 
-        $canAddDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'add') || $isCoordinatorForEvent;
-        $canEditDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'edit') || $isCoordinatorForEvent;
+        // event-view coordinators get Dashboard + All Donations only; event-entry adds
+        // donation entry/edit/approve; event-admin adds Settings and coordinator management.
+        $canAddDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'add') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
+        $canEditDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'edit') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
         $canDeleteDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete');
-        // Event settings (donation options, contacts, gallery, status, etc.) — an Event
-        // Coordinator may edit these too, but only for the event they're scoped to.
-        $canEditEvent = $activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit') || $isCoordinatorForEvent;
+        // Event settings (donation options, contacts, gallery, status, etc.) — only an
+        // event-admin coordinator gets this, not event-entry/event-view.
+        $canEditEvent = $activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'admin');
+        // Managing this event's own coordinators — the system Admin always can; an
+        // event-admin coordinator can too, but only to add/remove entry/view coordinators
+        // (never grant admin — that stays an Admin-only action via Manage Events).
+        $canManageEventCoordinators = $activeRole === 'Admin' || EventCoordinatorLevel::atLeast($coordinatorLevel, 'admin');
+
+        $eventCoordinators = collect();
+        $allUsersForCoordinators = collect();
+        if ($canManageEventCoordinators) {
+            $eventCoordinators = DB::table('event_coordinators')
+                ->join('users', 'event_coordinators.user_id', '=', 'users.id')
+                ->where('event_coordinators.event_id', $event->event_id)
+                ->select('users.id', 'users.name', 'users.email', 'users.status', 'users.last_login_at', 'event_coordinators.level')
+                ->orderBy('users.name')
+                ->get();
+
+            $allUsersForCoordinators = DB::table('users')->select('id', 'name', 'email')->orderBy('name')->get();
+        }
 
         $temple = Setting::templeBranding();
 
@@ -133,6 +157,10 @@ class EventConsoleController extends Controller
             'canEditDonation',
             'canDeleteDonation',
             'canEditEvent',
+            'canManageEventCoordinators',
+            'eventCoordinators',
+            'allUsersForCoordinators',
+            'activeRole',
             'temple'
         ));
     }

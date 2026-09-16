@@ -448,12 +448,6 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/event/store', [\App\Http\Controllers\EventController::class, 'store'])->name('admin.events.store');
     Route::delete('/admin/event/delete/{id}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('admin.events.delete');
 
-    // Event Coordinator assignment (per-event) — controller enforces Admin-only itself,
-    // route access matches the events group's existing "broader than capability" pattern.
-    Route::get('/admin/events/{event}/coordinators', [\App\Http\Controllers\EventCoordinatorController::class, 'index'])->name('admin.events.coordinators.index');
-    Route::post('/admin/events/{event}/coordinators', [\App\Http\Controllers\EventCoordinatorController::class, 'store'])->name('admin.events.coordinators.store');
-    Route::delete('/admin/events/{event}/coordinators/{user}', [\App\Http\Controllers\EventCoordinatorController::class, 'destroy'])->name('admin.events.coordinators.destroy');
-
     // Priest Routes (Admin management) — route access is intentionally broader than
     // capability; the Role Permissions grid ("Priests" resource) decides what Committee
     // can actually do once inside (view-only by default; see PriestController).
@@ -513,6 +507,16 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     // Coordinator scoped to their own event — EventController::update() does the finer
     // per-event_id check itself, same pattern as the console route above.
     Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
+
+    // Event Coordinator assignment (per-event) — reachable by the system Admin (from Manage
+    // Events) or by an event-admin coordinator managing their own event's coordinators from
+    // this same console; EventCoordinatorController::canManageCoordinators() does the finer
+    // per-event, per-level check itself.
+    Route::get('/admin/events/{event}/coordinators', [\App\Http\Controllers\EventCoordinatorController::class, 'index'])->name('admin.events.coordinators.index');
+    Route::post('/admin/events/{event}/coordinators', [\App\Http\Controllers\EventCoordinatorController::class, 'store'])->name('admin.events.coordinators.store');
+    Route::post('/admin/events/{event}/coordinators/{user}/level', [\App\Http\Controllers\EventCoordinatorController::class, 'updateLevel'])->name('admin.events.coordinators.updateLevel');
+    Route::post('/admin/events/{event}/coordinators/{user}/send-reset-link', [\App\Http\Controllers\EventCoordinatorController::class, 'sendResetLink'])->name('admin.events.coordinators.sendResetLink');
+    Route::delete('/admin/events/{event}/coordinators/{user}', [\App\Http\Controllers\EventCoordinatorController::class, 'destroy'])->name('admin.events.coordinators.destroy');
 });
 
 // Export needs its own group: the main Manage Donations page's export button is used by
@@ -542,7 +546,12 @@ Route::middleware(['auth'])->group(function () {
 // capability — the Role Permissions grid ("Donations" resource) decides what
 // each of these roles can actually do once inside; see DonationController.
 // ============================================
-Route::middleware(['auth', 'role:Admin,Committee,Accountant'])->group(function () {
+// Event Coordinator is included here too — the route stays broader than the actual
+// capability, same pattern as the comment above describes for Admin/Committee/Accountant.
+// DonationController's per-event, per-level checks (see canManageDonationForEvent()) do the
+// real narrowing: a coordinator only reaches past those checks for their own event, and only
+// at entry/admin level — 'view' level and delete stay blocked there regardless of this gate.
+Route::middleware(['auth', 'role:Admin,Committee,Accountant,Event Coordinator'])->group(function () {
     Route::get('/admin/manage-donations', [\App\Http\Controllers\DonationController::class, 'manageDonations'])->name('admin.donations.index');
     Route::post('/admin/donation/store-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.donations.storeDevotee');
     Route::post('/admin/donation/store-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.donations.storeGuest');

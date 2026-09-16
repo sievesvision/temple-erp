@@ -345,6 +345,9 @@
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     @endif
+                    @if($canManageEventCoordinators)
+                    <button type="button" class="sidebar-link" data-pane="pane-coordinators"><i class="bi bi-people-fill"></i><span>Event Coordinators</span></button>
+                    @endif
                 </div>
                 <div class="sidebar-decoration">
                     <svg viewBox="0 0 200 130" aria-hidden="true">
@@ -800,6 +803,122 @@
                                 <button type="submit" class="btn-save"><i class="bi bi-save2-fill me-2"></i>Save Settings</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+                @endif
+
+                @if($canManageEventCoordinators)
+                <!-- EVENT COORDINATORS -->
+                <div class="console-pane" id="pane-coordinators">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-people-fill"></i></div>
+                        <div>
+                            <h2>Event Coordinators</h2>
+                            <p>People with console access to {{ $event->event_name }}</p>
+                        </div>
+                    </div>
+
+                    <div class="card-panel mb-3">
+                        <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-person-plus-fill"></i></span>Add a Coordinator</div>
+                        <ul class="nav nav-pills mb-3 small" role="tablist">
+                            <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#coordExistingPane" type="button">Existing User</button></li>
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#coordNewPane" type="button">New Person</button></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="coordExistingPane">
+                                <form action="{{ route('admin.events.coordinators.store', $event->event_id) }}" method="POST" class="d-flex gap-2 flex-wrap">
+                                    @csrf
+                                    <select name="user_id" class="form-select" style="max-width:280px;" required>
+                                        <option value="">-- Choose a user --</option>
+                                        @foreach($allUsersForCoordinators as $u)
+                                            <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
+                                        @endforeach
+                                    </select>
+                                    <select name="level" class="form-select" style="max-width:160px;">
+                                        <option value="entry" selected>Entry</option>
+                                        <option value="view">View</option>
+                                        @if($activeRole === 'Admin')
+                                        <option value="admin">Admin</option>
+                                        @endif
+                                    </select>
+                                    <button type="submit" class="btn-save" style="flex:0 0 auto; padding:10px 24px;">Add</button>
+                                </form>
+                            </div>
+                            <div class="tab-pane fade" id="coordNewPane">
+                                <form action="{{ route('admin.events.coordinators.store', $event->event_id) }}" method="POST">
+                                    @csrf
+                                    <div class="field-row two-col">
+                                        <div class="field-group"><label class="field-label">Full Name</label><input type="text" name="name" required></div>
+                                        <div class="field-group"><label class="field-label">Email</label><input type="email" name="email" required></div>
+                                    </div>
+                                    <div class="field-row two-col">
+                                        <div class="field-group"><label class="field-label">Mobile</label><input type="text" name="mobile" required></div>
+                                        <div class="field-group">
+                                            <label class="field-label">Access Level</label>
+                                            <select name="level">
+                                                <option value="entry" selected>Entry</option>
+                                                <option value="view">View</option>
+                                                @if($activeRole === 'Admin')
+                                                <option value="admin">Admin</option>
+                                                @endif
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn-save">Create &amp; Add</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-panel" style="padding:0;">
+                        <div class="table-scroll-wrap">
+                        <table class="console-table">
+                            <thead>
+                                <tr><th>Name</th><th>Email</th><th>Level</th><th>Status</th><th>Last Login</th><th class="text-end">Actions</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse($eventCoordinators as $coord)
+                                <tr>
+                                    <td class="col-name">{{ $coord->name }}</td>
+                                    <td>{{ $coord->email }}</td>
+                                    <td>
+                                        @if($activeRole === 'Admin' || $coord->level !== 'admin')
+                                        <form action="{{ route('admin.events.coordinators.updateLevel', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
+                                                <option value="view" {{ $coord->level === 'view' ? 'selected' : '' }}>View</option>
+                                                <option value="entry" {{ $coord->level === 'entry' ? 'selected' : '' }}>Entry</option>
+                                                @if($activeRole === 'Admin')
+                                                <option value="admin" {{ $coord->level === 'admin' ? 'selected' : '' }}>Admin</option>
+                                                @endif
+                                            </select>
+                                        </form>
+                                        @else
+                                        <span class="status-pill status-paid">Admin</span>
+                                        @endif
+                                    </td>
+                                    <td><span class="status-pill status-{{ $coord->status === 'Active' ? 'paid' : 'cancelled' }}">{{ $coord->status }}</span></td>
+                                    <td>{{ $coord->last_login_at ? date('d M Y H:i', strtotime($coord->last_login_at)) : 'Never' }}</td>
+                                    <td class="text-end">
+                                        <form action="{{ route('admin.events.coordinators.sendResetLink', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn-action-resend" title="Send password reset link"><i class="bi bi-key-fill"></i></button>
+                                        </form>
+                                        @if($activeRole === 'Admin' || $coord->level !== 'admin')
+                                        <form action="{{ route('admin.events.coordinators.destroy', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove this coordinator\'s access to this event?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn-action-delete" title="Remove access"><i class="bi bi-x-lg"></i></button>
+                                        </form>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="6" class="text-center text-muted py-4">No coordinators assigned yet.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                        </div>
                     </div>
                 </div>
                 @endif

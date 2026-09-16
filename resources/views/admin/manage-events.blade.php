@@ -309,6 +309,11 @@
                                                     <option value="{{ $u->id }}">{{ $u->name }} ({{ $u->email }})</option>
                                                 @endforeach
                                             </select>
+                                            <select name="level" class="form-select rounded-3" style="max-width:130px;">
+                                                <option value="admin">Admin</option>
+                                                <option value="entry" selected>Entry</option>
+                                                <option value="view">View</option>
+                                            </select>
                                             <button type="submit" class="btn-add" style="padding: 8px 20px; white-space:nowrap;">Add</button>
                                         </form>
                                     </div>
@@ -316,14 +321,21 @@
                                         <form action="{{ route('admin.events.coordinators.store', $e->event_id) }}" method="POST">
                                             @csrf
                                             <div class="row g-2">
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <input type="text" name="name" class="form-control form-control-sm rounded-3" placeholder="Full name" required>
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <input type="email" name="email" class="form-control form-control-sm rounded-3" placeholder="Email" required>
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <input type="text" name="mobile" class="form-control form-control-sm rounded-3" placeholder="Mobile" required>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <select name="level" class="form-select form-select-sm rounded-3">
+                                                        <option value="admin">Admin</option>
+                                                        <option value="entry" selected>Entry</option>
+                                                        <option value="view">View</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                             <div class="form-text mb-2">Creates a brand-new account (or grants an existing one matched by email/mobile) with Event Coordinator access for this event.</div>
@@ -628,7 +640,7 @@
                 let html = '<div class="d-flex flex-column gap-2">';
                 coordinators.forEach(function (c) {
                     html += '<div class="d-flex justify-content-between align-items-center p-2 rounded-3" style="background:#faf5eb;">'
-                        + '<div><div class="fw-semibold small">' + escapeHtmlEvt(c.name) + '</div><div class="text-muted" style="font-size:0.78rem;">' + escapeHtmlEvt(c.email) + '</div></div>'
+                        + '<div><div class="fw-semibold small">' + escapeHtmlEvt(c.name) + ' <span class="badge bg-secondary" style="font-size:0.65rem;">' + escapeHtmlEvt(c.level || 'entry') + '</span></div><div class="text-muted" style="font-size:0.78rem;">' + escapeHtmlEvt(c.email) + '</div></div>'
                         + '<button type="button" class="btn-action-delete" onclick="removeCoordinator(' + eventId + ', ' + c.id + ')"><i class="bi bi-x-lg"></i></button>'
                         + '</div>';
                 });

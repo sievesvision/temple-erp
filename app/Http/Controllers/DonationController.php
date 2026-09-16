@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\RolePermission;
 use App\Models\Event;
 use App\Services\DonationReceiptService;
+use App\Services\EventCoordinatorLevel;
 use App\Services\StripeConfigService;
 use Stripe\StripeClient;
 use Stripe\Webhook;
@@ -663,7 +664,8 @@ class DonationController extends Controller
      * specific event. The normal RolePermission grid covers Admin/Committee/Accountant as
      * today; an Event Coordinator has no grid entries at all (see RolePermission::roles())
      * and is instead authorized per-event via the event_coordinators pivot — only for the
-     * specific event they're recording against, never a blank/general-fund donation.
+     * specific event they're recording against (at least 'entry' level), never a blank/
+     * general-fund donation.
      */
     private function canRecordDonation($user, ?string $activeRole, $eventId): bool
     {
@@ -672,7 +674,27 @@ class DonationController extends Controller
         }
 
         if ($activeRole === 'Event Coordinator' && $eventId) {
-            return DB::table('event_coordinators')->where('user_id', $user->id)->where('event_id', $eventId)->exists();
+            return EventCoordinatorLevel::atLeast(EventCoordinatorLevel::of((int) $eventId, $user->id), 'entry');
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the given user/active-role may manage (edit/approve/resend/check-status) a
+     * donation belonging to $eventId — same per-event coordinator carve-out as
+     * canRecordDonation(), reusable for actions on an existing donation. $minLevel lets a
+     * caller require 'admin' for something more sensitive than the 'entry' default, though
+     * nothing currently needs that.
+     */
+    private function canManageDonationForEvent($user, ?string $activeRole, $eventId, string $minLevel = 'entry'): bool
+    {
+        if (RolePermission::can($activeRole, 'donations', 'edit')) {
+            return true;
+        }
+
+        if ($activeRole === 'Event Coordinator' && $eventId) {
+            return EventCoordinatorLevel::atLeast(EventCoordinatorLevel::of((int) $eventId, $user->id), $minLevel);
         }
 
         return false;
@@ -884,7 +906,14 @@ class DonationController extends Controller
     public function updateDevoteeDonation(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $donation = DB::table('donations')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -898,11 +927,6 @@ class DonationController extends Controller
             'remarks' => 'nullable|string|max:2000',
             'donation_date' => 'required|date',
         ]);
-
-        $donation = DB::table('donations')->where('id', $id)->first();
-        if (!$donation) {
-            return redirect()->back()->with('error', 'Donation not found.');
-        }
 
         DB::table('donations')->where('id', $id)->update([
             'event_id' => $validated['event_id'] ?? null,
@@ -945,7 +969,14 @@ class DonationController extends Controller
     public function updateGuestDonation(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $donation = DB::table('donations_without_logins')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -962,11 +993,6 @@ class DonationController extends Controller
             'transaction_id' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
         ]);
-
-        $donation = DB::table('donations_without_logins')->where('id', $id)->first();
-        if (!$donation) {
-            return redirect()->back()->with('error', 'Donation not found.');
-        }
 
         DB::table('donations_without_logins')->where('id', $id)->update([
             'donor_name' => $validated['donor_name'],
@@ -1014,9 +1040,7 @@ class DonationController extends Controller
     public function resendReceipt(Request $request, $type, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'view')) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
-        }
+        $activeRole = session('active_role', $user->role ?? null);
 
         if ($type === 'devotee') {
             $donation = DB::table('donations')
@@ -1025,49 +1049,37 @@ class DonationController extends Controller
                 ->where('donations.id', $id)
                 ->select('donations.*', 'users.name as donor_name', 'users.email')
                 ->first();
-
-            if (!$donation) {
-                return redirect()->back()->with('error', 'Donation not found.');
-            }
-
-            if (!$donation->email) {
-                return redirect()->back()->with('error', 'This devotee has no email address on file — cannot resend a receipt.');
-            }
-
-            DonationReceiptService::send([
-                'donor_name' => $donation->donor_name,
-                'donor_email' => $donation->email,
-                'amount' => $donation->amount,
-                'payment_method' => $donation->payment_method,
-                'purpose' => $donation->remarks ?? 'General Temple Fund',
-                'event_id' => $donation->event_id,
-                'donation_date' => $donation->donation_date,
-                'transaction_id' => $donation->transaction_id,
-            ]);
         } elseif ($type === 'guest') {
             $donation = DB::table('donations_without_logins')->where('id', $id)->first();
-
-            if (!$donation) {
-                return redirect()->back()->with('error', 'Donation not found.');
-            }
-
-            if (!$donation->email) {
-                return redirect()->back()->with('error', 'This donor has no email address on file — cannot resend a receipt.');
-            }
-
-            DonationReceiptService::send([
-                'donor_name' => $donation->donor_name,
-                'donor_email' => $donation->email,
-                'amount' => $donation->amount,
-                'payment_method' => $donation->payment_method,
-                'purpose' => $donation->purpose_details ?? $donation->purpose,
-                'event_id' => $donation->event_id,
-                'donation_date' => $donation->donation_date,
-                'transaction_id' => $donation->transaction_id,
-            ]);
         } else {
             return redirect()->back()->with('error', 'Invalid donation type.');
         }
+
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        if (!$donation->email) {
+            $label = $type === 'devotee' ? 'This devotee' : 'This donor';
+            return redirect()->back()->with('error', "{$label} has no email address on file — cannot resend a receipt.");
+        }
+
+        $purpose = $type === 'devotee' ? ($donation->remarks ?? 'General Temple Fund') : ($donation->purpose_details ?? $donation->purpose);
+
+        DonationReceiptService::send([
+            'donor_name' => $donation->donor_name,
+            'donor_email' => $donation->email,
+            'amount' => $donation->amount,
+            'payment_method' => $donation->payment_method,
+            'purpose' => $purpose,
+            'event_id' => $donation->event_id,
+            'donation_date' => $donation->donation_date,
+            'transaction_id' => $donation->transaction_id,
+        ]);
 
         return redirect()->back()->with('success', 'Receipt email resent successfully.');
     }
@@ -1081,15 +1093,17 @@ class DonationController extends Controller
     public function checkStripeStatus($type, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
-        }
+        $activeRole = session('active_role', $user->role ?? null);
 
         $table = $type === 'devotee' ? 'donations' : 'donations_without_logins';
         $row = DB::table($table)->where('id', $id)->first();
 
         if (!$row) {
             return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $row->event_id)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         if ($row->payment_method !== 'Stripe' || !in_array($row->payment_status, ['Pending', 'Cancelled'])) {
@@ -1111,13 +1125,15 @@ class DonationController extends Controller
     public function approveGuestDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
-        }
+        $activeRole = session('active_role', $user->role ?? null);
 
         $donation = DB::table('donations_without_logins')->where('id', $id)->first();
         if (!$donation) {
             return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         if ($donation->payment_status !== 'Pending') {
@@ -1151,9 +1167,7 @@ class DonationController extends Controller
     public function approveDevoteeDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'edit')) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
-        }
+        $activeRole = session('active_role', $user->role ?? null);
 
         $donation = DB::table('donations')
             ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
@@ -1164,6 +1178,10 @@ class DonationController extends Controller
 
         if (!$donation) {
             return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         if ($donation->payment_status !== 'Pending') {

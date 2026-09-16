@@ -18,7 +18,7 @@
         </button>
     </form>
     @endif
-    @if($row->email && $row->payment_status === 'Paid')
+    @if($canEditDonation && $row->email && $row->payment_status === 'Paid')
     <form action="{{ route('admin.donations.resendReceipt', ['type' => 'devotee', 'id' => $row->id]) }}" method="POST" class="d-inline">
         @csrf
         <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $row->email }}">
@@ -57,7 +57,7 @@
         </button>
     </form>
     @endif
-    @if($row->email && $row->payment_status === 'Paid')
+    @if($canEditDonation && $row->email && $row->payment_status === 'Paid')
     <form action="{{ route('admin.donations.resendReceipt', ['type' => 'guest', 'id' => $row->id]) }}" method="POST" class="d-inline">
         @csrf
         <button type="submit" class="btn-action-resend" title="Resend receipt to {{ $row->email }}">
