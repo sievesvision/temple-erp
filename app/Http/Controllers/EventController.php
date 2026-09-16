@@ -181,6 +181,13 @@ class EventController extends Controller
      */
     private function saveDonationOptions(Event $event, Request $request): void
     {
+        // A request that doesn't include this section at all (e.g. a hand-built or partial
+        // form submission) must leave existing options untouched rather than wiping them —
+        // every real form always renders at least the option_label_1 slot, even blank.
+        if (!$request->has('option_label_1')) {
+            return;
+        }
+
         $seenIds = [];
 
         for ($i = 1; $i <= 12; $i++) {
@@ -231,6 +238,10 @@ class EventController extends Controller
      */
     private function saveContacts(Event $event, Request $request): void
     {
+        if (!$request->has('contact_name_1')) {
+            return;
+        }
+
         $contacts = [];
         for ($i = 1; $i <= 8; $i++) {
             $name = trim((string) $request->input("contact_name_$i", ''));
@@ -252,6 +263,10 @@ class EventController extends Controller
      */
     private function saveGalleryImages(Event $event, Request $request): void
     {
+        if (!$request->has('gallery_image_1')) {
+            return;
+        }
+
         $images = [];
         for ($i = 1; $i <= 6; $i++) {
             $path = trim((string) $request->input("gallery_image_$i", ''));

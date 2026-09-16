@@ -135,7 +135,11 @@
         .field-label { display: block; font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 6px; }
         .field-label .required { color: var(--error); }
         .field-group { position: relative; }
-        .field-group > .field-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.95rem; pointer-events: none; }
+        /* The icon centers on the input itself, not the whole field-group (which also
+           includes the label above it) — anchored from the bottom edge, where the input
+           always sits, rather than top:50% of the group which pushed it down into the gap
+           between label and input. */
+        .field-group > .field-icon { position: absolute; left: 14px; bottom: 23px; transform: translateY(50%); color: var(--text-secondary); font-size: 0.95rem; pointer-events: none; }
         .field-group input, .field-group select, .field-group textarea {
             width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.94rem; color: var(--text-primary); background: var(--white);
         }
@@ -182,7 +186,7 @@
         /* A small, compact amount box for the "no donation types configured" case. */
         .field-group.compact { max-width: 180px; }
         .field-group.compact input { padding: 8px 10px 8px 34px; font-size: 0.9rem; min-height: 36px; }
-        .field-group.compact .field-icon { font-size: 0.85rem; }
+        .field-group.compact .field-icon { font-size: 0.85rem; bottom: 18px; }
 
         .form-actions { display: flex; gap: 12px; margin-top: 24px; }
         .btn-reset { flex: 0 0 auto; padding: 14px 26px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem; }
@@ -668,14 +672,17 @@
                     <div class="card-panel">
                         <form action="{{ route('admin.events.update', $event->event_id) }}" method="POST">
                             @csrf
-                            <input type="hidden" name="slug" value="{{ $event->slug }}">
-
                             <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-info-circle-fill"></i></span>Event Details</div>
-                            <div class="field-row">
+                            <div class="field-row two-col">
                                 <div class="field-group">
                                     <label class="field-label">Event Name <span class="required">*</span></label>
                                     <i class="bi bi-tag field-icon"></i>
                                     <input type="text" name="event_name" value="{{ $event->event_name }}" required>
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label">URL Slug</label>
+                                    <i class="bi bi-link-45deg field-icon"></i>
+                                    <input type="text" name="slug" value="{{ $event->slug }}" placeholder="Leave blank to auto-generate">
                                 </div>
                             </div>
                             <div class="field-row">
