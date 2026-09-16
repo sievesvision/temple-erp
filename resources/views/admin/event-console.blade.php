@@ -162,6 +162,23 @@
         .qty-row { display: flex; align-items: center; gap: 10px; margin: -6px 0 16px; max-width: 200px; }
         .qty-row label { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin: 0; white-space: nowrap; }
 
+        /* Multi-select donation type checkboxes, matching admin/manage-donations. */
+        .donation-tier-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 10px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; background: var(--white); }
+        .donation-tier-option.selected { border-color: var(--gold); background: #FDF6EA; }
+        .donation-tier-option label { display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; flex: 1; min-width: 160px; }
+        .donation-tier-option input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; }
+        .donation-tier-option .tier-qty, .donation-tier-option .tier-free { padding: 8px 10px; font-size: 0.88rem; min-height: 34px; border: 1.5px solid var(--border); border-radius: 8px; }
+        .donation-tier-option .tier-qty { width: 70px; }
+        .donation-tier-option .tier-free { width: 110px; }
+        .tier-free-quick-amounts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; width: 100%; justify-content: flex-end; }
+        .tier-free-quick-amounts .quick-amount-btn { padding: 5px 10px; font-size: 0.76rem; min-height: auto; }
+        .tier-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); padding: 10px 4px 4px; }
+
+        /* A small, compact amount box for the "no donation types configured" case. */
+        .field-group.compact { max-width: 180px; }
+        .field-group.compact input { padding: 8px 10px 8px 34px; font-size: 0.9rem; min-height: 36px; }
+        .field-group.compact .field-icon { font-size: 0.85rem; }
+
         .form-actions { display: flex; gap: 12px; margin-top: 24px; }
         .btn-reset { flex: 0 0 auto; padding: 14px 26px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem; }
         .btn-reset:hover { background: var(--cream); }
@@ -287,7 +304,14 @@
                         <i class="bi bi-person-circle"></i><span>{{ \Illuminate\Support\Str::limit(auth()->user()->name ?? 'Admin', 14) }}</span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ route($backRoute) }}"><i class="bi bi-collection me-2"></i>My Events</a></li>
+                        @if($switchableEvents->count())
+                        <li><h6 class="dropdown-header">Switch Event</h6></li>
+                        @foreach($switchableEvents as $switchEvent)
+                        <li><a class="dropdown-item" href="{{ route('admin.events.console', $switchEvent->event_id) }}"><i class="bi bi-arrow-left-right me-2"></i>{{ $switchEvent->event_name }}</a></li>
+                        @endforeach
+                        <li><hr class="dropdown-divider"></li>
+                        @endif
+                        <li><a class="dropdown-item" href="{{ route($backRoute) }}"><i class="bi bi-collection me-2"></i>All Events</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{{ route('logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
@@ -307,7 +331,6 @@
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     @endif
-                    <a class="sidebar-link" href="{{ route($backRoute) }}"><i class="bi bi-collection"></i><span>My Events</span></a>
                 </div>
                 <div class="sidebar-decoration">
                     <svg viewBox="0 0 200 130" aria-hidden="true">
@@ -527,31 +550,20 @@
 
                             <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-currency-dollar"></i></span>Donation Amount</div>
 
-                            <div class="field-row">
-                                <div class="field-group">
-                                    <label class="field-label">Donation Type</label>
-                                    <i class="bi bi-tag field-icon"></i>
-                                    <select id="qeDonationType"></select>
-                                </div>
-                            </div>
-                            <div class="qty-row" id="qeQtyWrap" style="display:none;">
-                                <label>Quantity</label>
-                                <input type="number" min="1" value="1" class="form-control" id="qeQty">
+                            <!-- Event has configured donation types: pick one or more, total is computed. -->
+                            <div id="qeTiersWrap" style="display:none;">
+                                <div id="qeTiers"></div>
+                                <div class="tier-total-row"><span>Total</span><span id="qeTierTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
                             </div>
 
-                            <div class="quick-amount-row" id="qeQuickAmounts"></div>
-
-                            <div class="field-row">
-                                <div class="field-group">
+                            <!-- No donation types configured: a plain, compact amount field. -->
+                            <div id="qeSimpleAmountWrap">
+                                <div class="quick-amount-row" id="qeQuickAmounts"></div>
+                                <div class="field-group compact" style="margin-top:10px;">
                                     <label class="field-label">Amount (AUD)</label>
                                     <i class="bi bi-currency-dollar field-icon"></i>
                                     <input type="number" step="0.01" id="qeAmount" placeholder="0.00">
                                 </div>
-                            </div>
-
-                            <div class="checkbox-field">
-                                <input type="checkbox" id="qeGeneralDonation">
-                                <label for="qeGeneralDonation">General Donation (Optional)<span class="checkbox-note">Mark as general donation (not for a specific purpose)</span></label>
                             </div>
 
                             <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-file-earmark-text-fill"></i></span>Additional Information</div>
@@ -724,6 +736,28 @@
                                 <input type="checkbox" name="require_donor_contact_details" id="settingsRequireContact" value="1" {{ $event->require_donor_contact_details ? 'checked' : '' }}>
                                 <label for="settingsRequireContact">Require donor name, email &amp; mobile on this event's donation form</label>
                             </div>
+
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-credit-card-fill"></i></span>Payment Methods</div>
+                            @php $eventMethodsOverride = $event->paymentMethodsOverride(); @endphp
+                            <div class="checkbox-field">
+                                <input type="hidden" name="use_global_payment_methods" value="0">
+                                <input type="checkbox" name="use_global_payment_methods" id="settingsUseGlobalMethods" value="1" {{ $eventMethodsOverride === null ? 'checked' : '' }}>
+                                <label for="settingsUseGlobalMethods">Use the global donation settings<span class="checkbox-note">Uncheck to choose which payment methods are available for this event specifically (e.g. disable Stripe just for this event).</span></label>
+                            </div>
+                            <div id="settingsPaymentMethodsList" style="{{ $eventMethodsOverride === null ? 'display:none;' : '' }} margin-bottom:20px;">
+                                <div class="row g-2">
+                                    @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $method)
+                                    <div class="col-6 col-md-4">
+                                        <div class="checkbox-field" style="margin-bottom:0;">
+                                            <input type="checkbox" name="enabled_payment_methods[]" value="{{ $method }}" id="settingsMethod{{ strtolower(str_replace(' ', '', $method)) }}"
+                                                {{ in_array($method, $eventMethodsOverride ?? $globalPaymentMethods, true) ? 'checked' : '' }}>
+                                            <label for="settingsMethod{{ strtolower(str_replace(' ', '', $method)) }}">{{ $method }}</label>
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
                             <div class="field-row two-col">
                                 <div class="field-group">
                                     <label class="field-label">Header Image Path</label>
@@ -1021,15 +1055,26 @@
             setTimeout(function () { hint.remove(); }, 4000);
         }
 
+        // Settings: show the per-event payment-method checkboxes only when overriding the
+        // global defaults.
+        const useGlobalMethodsCheckbox = document.getElementById('settingsUseGlobalMethods');
+        const paymentMethodsList = document.getElementById('settingsPaymentMethodsList');
+        if (useGlobalMethodsCheckbox && paymentMethodsList) {
+            useGlobalMethodsCheckbox.addEventListener('change', function () {
+                paymentMethodsList.style.display = this.checked ? 'none' : 'block';
+            });
+        }
+
         @if($canAddDonation)
         const DEVOTEES = @json($devotees);
         const EVENT_OPTIONS = @json($eventOptionsForJs);
-        const ENABLED_PAYMENT_METHODS = @json($enabledPaymentMethods);
+        const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
         const STORE_DEVOTEE_URL = @json(route('admin.events.console.storeDevotee', $event->event_id));
         const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [101, 501, 1001, 2001];
+        const CURRENCY_CODE = @json($temple['currency'] ?? '');
 
         let qeMode = 'guest';
         const toggleDevoteeBtn = document.getElementById('qeToggleDevotee');
@@ -1100,109 +1145,119 @@
             return div.innerHTML;
         }
 
-        // Quick-amount preset buttons for the Amount field, plus a "Custom Amount" chip that
-        // just clears the preset selection and focuses the field for manual typing.
         const amountInput = document.getElementById('qeAmount');
         const quickAmountsRow = document.getElementById('qeQuickAmounts');
-        QUICK_AMOUNTS.forEach(function (amt) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'quick-amount-btn';
-            btn.textContent = '$' + amt.toLocaleString();
-            btn.addEventListener('click', function () {
-                amountInput.value = amt.toFixed(2);
-                amountInput.dispatchEvent(new Event('input'));
-                quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
-                btn.classList.add('active');
-            });
-            quickAmountsRow.appendChild(btn);
-        });
-        const customAmountBtn = document.createElement('button');
-        customAmountBtn.type = 'button';
-        customAmountBtn.className = 'quick-amount-btn custom-amount-btn';
-        customAmountBtn.textContent = 'Custom Amount';
-        customAmountBtn.addEventListener('click', function () {
-            quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
-            amountInput.value = '';
-            amountInput.focus();
-        });
-        quickAmountsRow.appendChild(customAmountBtn);
-        amountInput.addEventListener('input', function () {
-            quickAmountsRow.querySelectorAll('.quick-amount-btn:not(.custom-amount-btn)').forEach(function (b) {
-                b.classList.toggle('active', parseFloat(b.textContent.replace(/[^0-9.]/g, '')) === parseFloat(amountInput.value));
-            });
-        });
-
-        // Donation Type — a single dropdown of the event's configured options (backend-driven)
-        // plus a "General Donation" default. Feeds the one Amount field/quick-amount row above.
-        const donationTypeSelect = document.getElementById('qeDonationType');
-        const qtyWrap = document.getElementById('qeQtyWrap');
-        const qtyInput = document.getElementById('qeQty');
-        const generalDonationCheckbox = document.getElementById('qeGeneralDonation');
+        const tiersWrap = document.getElementById('qeTiersWrap');
+        const simpleAmountWrap = document.getElementById('qeSimpleAmountWrap');
+        const tiersContainer = document.getElementById('qeTiers');
+        const tierTotalDisplay = document.getElementById('qeTierTotal');
         let selections = [];
         let purposeValue = 'Event Donation';
 
-        (function populateDonationTypes() {
-            const generalOpt = document.createElement('option');
-            generalOpt.value = '';
-            generalOpt.textContent = 'General Donation';
-            donationTypeSelect.appendChild(generalOpt);
+        if (EVENT_OPTIONS.length) {
+            // Event has configured donation types — a multi-select checkbox list (same
+            // pattern as admin/manage-donations), summing into a computed Total.
+            tiersWrap.style.display = 'block';
+            simpleAmountWrap.style.display = 'none';
+
+            let html = '';
             EVENT_OPTIONS.forEach(function (opt, idx) {
-                const o = document.createElement('option');
-                o.value = idx;
-                o.textContent = opt.label + (opt.amount !== null ? ' (' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each)' : ')') : ' (any amount)');
-                donationTypeSelect.appendChild(o);
+                const hasAmount = opt.amount !== null;
+                html += '<div class="donation-tier-option" data-idx="' + idx + '">'
+                    + '<label><input type="checkbox" class="tier-cb" data-idx="' + idx + '">'
+                    + '<span><strong>' + escapeHtmlQe(opt.label) + '</strong><br><span class="text-muted small">'
+                    + (hasAmount ? (CURRENCY_CODE + ' ' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
+                    + '</span></span></label>'
+                    + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="tier-qty" style="display:none;">' : '')
+                    + (!hasAmount ? '<div class="d-flex flex-column"><input type="number" min="0" step="0.01" placeholder="Amount" class="tier-free">'
+                        + '<div class="tier-free-quick-amounts"></div></div>' : '')
+                    + '</div>';
             });
-        })();
+            tiersContainer.innerHTML = html;
 
-        function currentOption() {
-            if (generalDonationCheckbox.checked || donationTypeSelect.value === '') { return null; }
-            return EVENT_OPTIONS[donationTypeSelect.value];
-        }
+            // Quick-amount mini chips for each free-amount tier.
+            tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) {
+                const quickWrap = row.querySelector('.tier-free-quick-amounts');
+                if (!quickWrap) { return; }
+                const freeInput = row.querySelector('.tier-free');
+                const cb = row.querySelector('.tier-cb');
+                QUICK_AMOUNTS.forEach(function (amt) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'quick-amount-btn';
+                    b.textContent = '$' + amt.toLocaleString();
+                    b.addEventListener('click', function () {
+                        cb.checked = true;
+                        freeInput.value = amt.toFixed(2);
+                        freeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+                    quickWrap.appendChild(b);
+                });
+            });
 
-        function recalcDonationType() {
-            const opt = currentOption();
-            const amount = parseFloat(amountInput.value) || 0;
-
-            if (!opt) {
-                qtyWrap.style.display = 'none';
-                purposeValue = 'Event Donation';
+            function recalcTiers() {
+                let total = 0;
+                const labels = [];
                 selections = [];
-                return;
+                tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) {
+                    const idx = row.dataset.idx;
+                    const cb = row.querySelector('.tier-cb');
+                    const qtyInput = row.querySelector('.tier-qty');
+                    const freeInput = row.querySelector('.tier-free');
+                    if (qtyInput) { qtyInput.style.display = cb.checked ? 'inline-block' : 'none'; }
+                    row.classList.toggle('selected', cb.checked);
+                    if (!cb.checked) { return; }
+                    const opt = EVENT_OPTIONS[idx];
+                    let label = opt.label;
+                    let qty = null;
+                    let amount = 0;
+                    if (opt.amount !== null) {
+                        qty = (qtyInput && opt.allow_quantity) ? (parseInt(qtyInput.value, 10) || 1) : 1;
+                        amount = opt.amount * qty;
+                        if (opt.allow_quantity && qty > 1) { label += ' (x' + qty + ')'; }
+                    } else {
+                        amount = freeInput ? (parseFloat(freeInput.value) || 0) : 0;
+                    }
+                    if (amount > 0) {
+                        total += amount;
+                        labels.push(label);
+                        selections.push({ option_id: opt.id, label: label, quantity: qty, amount: amount });
+                    }
+                });
+                amountInput.value = total > 0 ? total.toFixed(2) : '';
+                tierTotalDisplay.textContent = CURRENCY_CODE + ' ' + total.toFixed(2);
+                purposeValue = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
             }
 
-            const showQty = opt.allow_quantity && opt.amount !== null;
-            qtyWrap.style.display = showQty ? 'flex' : 'none';
-            const qty = showQty ? (parseInt(qtyInput.value, 10) || 1) : null;
+            tiersContainer.addEventListener('change', recalcTiers);
+            tiersContainer.addEventListener('input', recalcTiers);
+        } else {
+            // No donation types configured for this event — a plain, compact amount field
+            // with quick-amount presets; typing directly into the field covers any custom
+            // value, so there's no separate "Custom Amount" control.
+            tiersWrap.style.display = 'none';
+            simpleAmountWrap.style.display = 'block';
 
-            purposeValue = opt.label + (showQty && qty > 1 ? ' (x' + qty + ')' : '');
-            selections = amount > 0 ? [{ option_id: opt.id, label: purposeValue, quantity: qty, amount: amount }] : [];
+            QUICK_AMOUNTS.forEach(function (amt) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'quick-amount-btn';
+                btn.textContent = '$' + amt.toLocaleString();
+                btn.addEventListener('click', function () {
+                    amountInput.value = amt.toFixed(2);
+                    amountInput.dispatchEvent(new Event('input'));
+                    quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                });
+                quickAmountsRow.appendChild(btn);
+            });
+            amountInput.addEventListener('input', function () {
+                quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) {
+                    b.classList.toggle('active', parseFloat(b.textContent.replace(/[^0-9.]/g, '')) === parseFloat(amountInput.value));
+                });
+            });
+            purposeValue = 'Event Donation';
         }
-
-        donationTypeSelect.addEventListener('change', function () {
-            const opt = currentOption();
-            if (opt && opt.amount !== null) {
-                qtyInput.value = 1;
-                amountInput.value = opt.amount.toFixed(2);
-                amountInput.dispatchEvent(new Event('input'));
-            }
-            recalcDonationType();
-        });
-        qtyInput.addEventListener('input', function () {
-            const opt = currentOption();
-            if (opt && opt.amount !== null) {
-                amountInput.value = (opt.amount * (parseInt(qtyInput.value, 10) || 1)).toFixed(2);
-                amountInput.dispatchEvent(new Event('input'));
-            }
-            recalcDonationType();
-        });
-        amountInput.addEventListener('input', recalcDonationType);
-
-        generalDonationCheckbox.addEventListener('change', function () {
-            donationTypeSelect.disabled = this.checked;
-            if (this.checked) { donationTypeSelect.value = ''; }
-            recalcDonationType();
-        });
 
         function showToast(message, isError) {
             const toast = document.getElementById('qeToast');
@@ -1226,11 +1281,12 @@
             document.getElementById('qeDetails').value = '';
             amountInput.value = '';
             quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
-            donationTypeSelect.value = '';
-            donationTypeSelect.disabled = false;
-            generalDonationCheckbox.checked = false;
-            qtyInput.value = 1;
-            qtyWrap.style.display = 'none';
+            if (tiersContainer) {
+                tiersContainer.querySelectorAll('.tier-cb').forEach(function (cb) { cb.checked = false; });
+                tiersContainer.querySelectorAll('.tier-free').forEach(function (i) { i.value = ''; });
+                tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) { row.classList.remove('selected'); });
+                if (tierTotalDisplay) { tierTotalDisplay.textContent = CURRENCY_CODE + ' 0.00'; }
+            }
             const today = new Date().toISOString().slice(0, 10);
             donationDateInput.value = today;
             donationDateDevoteeInput.value = today;

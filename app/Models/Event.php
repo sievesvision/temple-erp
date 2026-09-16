@@ -24,6 +24,7 @@ class Event extends Model
         'flyer_image',
         'qr_code_image',
         'gallery_images',
+        'enabled_payment_methods',
         'show_donation_summary',
         'require_donor_contact_details',
         'coordinator_emails',
@@ -112,6 +113,20 @@ class Event extends Model
             ->filter(fn ($path) => $path !== '')
             ->values()
             ->all();
+    }
+
+    /**
+     * This event's own payment-method override, or null to inherit whatever is configured
+     * globally (Settings::get('enabled_payment_methods') + the global Stripe toggle).
+     */
+    public function paymentMethodsOverride(): ?array
+    {
+        if ($this->enabled_payment_methods === null || $this->enabled_payment_methods === '') {
+            return null;
+        }
+
+        $decoded = json_decode($this->enabled_payment_methods, true);
+        return is_array($decoded) ? array_values($decoded) : null;
     }
 
     /**

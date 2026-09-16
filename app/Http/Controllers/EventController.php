@@ -135,6 +135,15 @@ class EventController extends Controller
         $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
         $validated['date_tbc'] = $request->boolean('date_tbc');
 
+        // Per-event payment method override — absent entirely (the older Manage Events modal
+        // doesn't send this at all) defaults to "use global", same as an explicit uncheck.
+        if ($request->boolean('use_global_payment_methods', true)) {
+            $validated['enabled_payment_methods'] = null;
+        } else {
+            $methods = array_values(array_filter((array) $request->input('enabled_payment_methods', [])));
+            $validated['enabled_payment_methods'] = $methods ? json_encode($methods) : null;
+        }
+
         try {
             $event = Event::findOrFail($id);
             $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date'], $event->event_id);

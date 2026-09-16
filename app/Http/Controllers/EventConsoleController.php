@@ -74,6 +74,33 @@ class EventConsoleController extends Controller
             ->get();
 
         $enabledPaymentMethods = json_decode(Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
+        // The global baseline includes Stripe only when it's globally enabled — Stripe isn't
+        // part of the enabled_payment_methods array itself, it's its own toggle.
+        $globalPaymentMethods = $enabledPaymentMethods;
+        if ((bool) Setting::get('stripe_enabled', true)) {
+            $globalPaymentMethods[] = 'Stripe';
+        }
+        // An event's own override (if set in Settings) replaces the global list entirely for
+        // this event's Quick Entry payment method choices — e.g. disabling Stripe just here.
+        $effectivePaymentMethods = $event->paymentMethodsOverride() ?? $globalPaymentMethods;
+
+        // Other events this user can switch to from the topbar — Admin/Committee see every
+        // event, an Event Coordinator only the ones they're assigned to.
+        if ($activeRole === 'Event Coordinator') {
+            $switchableEvents = DB::table('event_coordinators')
+                ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
+                ->where('event_coordinators.user_id', $user->id)
+                ->where('events.event_id', '!=', $event->event_id)
+                ->orderBy('events.event_date')
+                ->select('events.event_id', 'events.event_name')
+                ->get();
+        } else {
+            $switchableEvents = DB::table('events')
+                ->where('event_id', '!=', $event->event_id)
+                ->orderBy('event_date')
+                ->select('event_id', 'event_name')
+                ->get();
+        }
 
         $eventOptionsForJs = $options->map(fn ($o) => [
             'id' => $o->id,
@@ -98,6 +125,9 @@ class EventConsoleController extends Controller
             'summary',
             'devotees',
             'enabledPaymentMethods',
+            'globalPaymentMethods',
+            'effectivePaymentMethods',
+            'switchableEvents',
             'eventOptionsForJs',
             'canAddDonation',
             'canEditDonation',
