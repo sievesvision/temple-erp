@@ -9,14 +9,11 @@
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
     <style>
         :root {
-            /* Contrastive Hindu spiritual palette: deep kumkum maroon for structure/borders,
-               saffron + turmeric for vibrant interactive accents, teal kept for "paid/success". */
-            --maroon: #7a1f30;
-            --maroon-dark: #4a1220;
-            --saffron: #e2711d;
-            --saffron-light: #f0934f;
-            --turmeric: #f0b429;
+            --gold: #b8863a;
+            --gold-light: #e0ac4f;
             --teal: #0f9d6a;
+            --navy: #1e293b;
+            --navy-dark: #0f172a;
             --ink: #1e2530;
             --muted: #64748b;
             --cream: #f6f7f9;
@@ -27,7 +24,7 @@
         body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--ink); }
 
         .console-topbar {
-            background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+            background: linear-gradient(135deg, var(--navy), var(--navy-dark));
             color: white;
             padding: 16px 28px;
             display: flex;
@@ -57,7 +54,7 @@
             align-items: center;
             gap: 8px;
         }
-        .console-tab-btn.active { background: linear-gradient(135deg, var(--saffron), var(--turmeric)); color: white; box-shadow: 0 6px 16px rgba(226,113,29,0.35); }
+        .console-tab-btn.active { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; box-shadow: 0 6px 16px rgba(184,134,58,0.35); }
         .console-tab-btn:not(.active):hover { background: rgba(255,255,255,0.08); color: white; }
         .btn-fullscreen { background: rgba(255,255,255,0.12); border: none; color: white; padding: 12px 20px; border-radius: 40px; font-weight: 700; font-size: 0.85rem; }
         .btn-fullscreen:hover { background: rgba(255,255,255,0.2); color: white; }
@@ -91,7 +88,7 @@
 
         .quick-entry-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
         .quick-entry-toggle button { flex: 1; padding: 16px; min-height: 54px; border-radius: 8px; border: 1.5px solid #dde3ea; background: #f7f9fb; font-weight: 700; font-size: 1.02rem; color: var(--muted); transition: 0.2s; }
-        .quick-entry-toggle button.active { border-color: var(--saffron); background: var(--saffron); color: white; box-shadow: 0 4px 14px rgba(226,113,29,0.3); }
+        .quick-entry-toggle button.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 4px 14px rgba(184,134,58,0.28); }
 
         .qe-field { margin-bottom: 1.1rem; }
         .qe-field:last-child { margin-bottom: 0; }
@@ -101,7 +98,7 @@
            than a plain borderless input floating on the page. Stacks (label on top) on
            narrow phones; sits to the left from tablet width up. */
         .qe-input-group { display: flex; flex-direction: column; border: 1.5px solid #d5dce4; border-radius: 8px; background: #fff; overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s; }
-        .qe-input-group:focus-within { border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(226,113,29,0.16); }
+        .qe-input-group:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,134,58,0.14); }
         .qe-input-group .qe-input-label { background: #eef2f6; color: #51606f; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 9px 14px; border-bottom: 1.5px solid #d5dce4; }
         .qe-input-group input, .qe-input-group select, .qe-input-group textarea { border: none; background: transparent; padding: 14px; font-size: 1.02rem; width: 100%; font-family: inherit; min-height: 50px; }
         .qe-input-group textarea { min-height: auto; }
@@ -113,9 +110,9 @@
         }
 
         .quick-amount-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-        .quick-amount-btn { background: #fff; border: 1.5px solid #f0d4bc; color: var(--saffron); font-weight: 700; padding: 12px 20px; min-height: 46px; min-width: 64px; border-radius: 8px; font-size: 1rem; transition: 0.15s; }
-        .quick-amount-btn:hover { background: #fdf1e6; }
-        .quick-amount-btn.active { background: var(--saffron); border-color: var(--saffron); color: white; box-shadow: 0 4px 12px rgba(226,113,29,0.35); }
+        .quick-amount-btn { background: #fff; border: 1.5px solid #e3d9bf; color: var(--gold); font-weight: 700; padding: 12px 20px; min-height: 46px; min-width: 64px; border-radius: 8px; font-size: 1rem; transition: 0.15s; }
+        .quick-amount-btn:hover { background: #fbf6ea; }
+        .quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 4px 12px rgba(184,134,58,0.35); }
 
         .devotee-combobox-wrap { position: relative; }
         .devotee-combobox-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #d5dce4; border-radius: 8px; max-height: 280px; overflow-y: auto; z-index: 20; box-shadow: 0 16px 40px rgba(0,0,0,0.12); display: none; margin-top: 6px; }
@@ -125,13 +122,13 @@
 
         .donation-tier-option { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px 18px 26px; min-height: 64px; border: 1.5px solid #e3e8ee; border-radius: 8px; background: #fff; margin-bottom: 12px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; }
         .donation-tier-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: #dde3ea; border-radius: 8px 0 0 8px; transition: background 0.15s; }
-        .donation-tier-option.selected { border-color: var(--saffron); background: #fdf3ea; box-shadow: 0 4px 14px rgba(226,113,29,0.14); }
-        .donation-tier-option.selected::before { background: var(--saffron); }
+        .donation-tier-option.selected { border-color: var(--gold); background: #fefaf2; box-shadow: 0 4px 14px rgba(184,134,58,0.12); }
+        .donation-tier-option.selected::before { background: var(--gold); }
         .donation-tier-option label { font-size: 1.05rem; margin: 0; cursor: pointer; }
-        .donation-tier-option input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--saffron); cursor: pointer; flex-shrink: 0; }
+        .donation-tier-option input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; }
 
         .btn-save-next { position: fixed; bottom: 0; left: 0; right: 0; padding: 20px 28px; background: white; border-top: 1px solid var(--card-line); box-shadow: 0 -10px 30px rgba(0,0,0,0.06); z-index: 30; }
-        .btn-save-next button { width: 100%; max-width: 1444px; margin: 0 auto; display: block; padding: 20px; font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, var(--saffron), var(--turmeric)); color: white; border: none; border-radius: 10px; box-shadow: 0 10px 24px rgba(226,113,29,0.32); }
+        .btn-save-next button { width: 100%; max-width: 1444px; margin: 0 auto; display: block; padding: 20px; font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; border: none; border-radius: 10px; box-shadow: 0 10px 24px rgba(184,134,58,0.3); }
         .btn-save-next button:disabled { opacity: 0.6; }
 
         .qe-toast { position: fixed; bottom: 100px; right: 24px; background: var(--teal); color: white; padding: 18px 26px; border-radius: 16px; font-weight: 700; box-shadow: 0 14px 34px rgba(0,0,0,0.18); z-index: 999; display: none; font-size: 1.05rem; }
@@ -160,16 +157,16 @@
             border: none; padding: 7px 14px; border-radius: 40px; font-weight: 700; font-size: 0.72rem; transition: 0.2s;
             display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; margin: 2px;
         }
-        .btn-action-edit { background: rgba(122,31,48,0.1); color: var(--maroon); }
-        .btn-action-edit:hover { background: var(--maroon); color: white; }
+        .btn-action-edit { background: rgba(184,134,58,0.1); color: var(--gold); }
+        .btn-action-edit:hover { background: var(--gold); color: white; }
         .btn-action-delete { background: rgba(220,53,69,0.1); color: #dc3545; }
         .btn-action-delete:hover { background: #dc3545; color: white; }
         .btn-action-resend { background: rgba(42,111,219,0.1); color: #2a6fdb; }
         .btn-action-resend:hover { background: #2a6fdb; color: white; }
         .btn-action-approve { background: rgba(15,157,106,0.1); color: var(--teal); }
         .btn-action-approve:hover { background: var(--teal); color: white; }
-        .btn-action-checkstatus { background: rgba(240,180,41,0.16); color: #a8790a; }
-        .btn-action-checkstatus:hover { background: var(--turmeric); color: white; }
+        .btn-action-checkstatus { background: rgba(139,92,246,0.1); color: #8b5cf6; }
+        .btn-action-checkstatus:hover { background: #8b5cf6; color: white; }
 
         .fullscreen-hint { position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: rgba(34,32,28,0.9); color: white; padding: 10px 22px; border-radius: 40px; font-size: 0.85rem; font-weight: 600; z-index: 200; box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
     </style>
@@ -198,13 +195,13 @@
                     <div class="stat-tile"><div class="stat-icon" style="background:var(--teal);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Paid Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div></div></div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--turmeric);"><i class="bi bi-hourglass-split"></i></div><div class="stat-text"><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
+                    <div class="stat-tile"><div class="stat-icon" style="background:#e0a638;"><i class="bi bi-hourglass-split"></i></div><div class="stat-text"><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--maroon);"><i class="bi bi-check2-circle"></i></div><div class="stat-text"><div class="label">Paid Donations</div><div class="value">{{ $summary['paid_count'] }}</div></div></div>
+                    <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-check2-circle"></i></div><div class="stat-text"><div class="label">Paid Donations</div><div class="value">{{ $summary['paid_count'] }}</div></div></div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <div class="stat-tile"><div class="stat-icon" style="background:var(--saffron);"><i class="bi bi-people-fill"></i></div><div class="stat-text"><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
+                    <div class="stat-tile"><div class="stat-icon" style="background:#8b5cf6;"><i class="bi bi-people-fill"></i></div><div class="stat-text"><div class="label">Total Donations</div><div class="value">{{ $summary['donation_count'] }}</div></div></div>
                 </div>
             </div>
             @if($options->count())
@@ -274,7 +271,7 @@
                 </div>
 
                 <div class="qe-panel">
-                    <div class="qe-panel-title"><span class="bar" style="background:var(--maroon);"></span>Donor Details</div>
+                    <div class="qe-panel-title"><span class="bar" style="background:var(--gold);"></span>Donor Details</div>
 
                     <div id="qeDevoteeFields" style="display:none;">
                         <div class="qe-field devotee-combobox-wrap">
@@ -330,7 +327,7 @@
                 </div>
 
                 <div class="qe-panel">
-                    <div class="qe-panel-title"><span class="bar" style="background:var(--turmeric);"></span>Payment Details</div>
+                    <div class="qe-panel-title"><span class="bar" style="background:#8b5cf6;"></span>Payment Details</div>
                     <div class="qe-field">
                         <div class="qe-input-group">
                             <span class="qe-input-label">Method</span>
