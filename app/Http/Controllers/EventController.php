@@ -141,13 +141,17 @@ class EventController extends Controller
         $validated['require_donor_contact_details'] = $request->boolean('require_donor_contact_details');
         $validated['date_tbc'] = $request->boolean('date_tbc');
 
-        // Per-event payment method override — absent entirely (the older Manage Events modal
-        // doesn't send this at all) defaults to "use global", same as an explicit uncheck.
-        if ($request->boolean('use_global_payment_methods', true)) {
-            $validated['enabled_payment_methods'] = null;
-        } else {
-            $methods = array_values(array_filter((array) $request->input('enabled_payment_methods', [])));
-            $validated['enabled_payment_methods'] = $methods ? json_encode($methods) : null;
+        // Per-event payment method override. The older Manage Events modal doesn't have
+        // this field at all and never sends it — a save from there must leave whatever
+        // override is already set untouched, not silently reset it to "use global" just
+        // because the field was absent from that particular form.
+        if ($request->has('use_global_payment_methods')) {
+            if ($request->boolean('use_global_payment_methods')) {
+                $validated['enabled_payment_methods'] = null;
+            } else {
+                $methods = array_values(array_filter((array) $request->input('enabled_payment_methods', [])));
+                $validated['enabled_payment_methods'] = $methods ? json_encode($methods) : null;
+            }
         }
 
         try {
