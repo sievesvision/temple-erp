@@ -174,6 +174,11 @@
         .tier-free-quick-amounts .quick-amount-btn { padding: 5px 10px; font-size: 0.76rem; min-height: auto; }
         .tier-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); padding: 10px 4px 4px; }
 
+        /* A single donation option has nothing to choose between — it's always "on", so no
+           checkbox is shown at all rather than making the user click one pointless toggle. */
+        .donation-tier-option.single-option input[type="checkbox"] { display: none; }
+        .donation-tier-option.single-option label { cursor: default; }
+
         /* A small, compact amount box for the "no donation types configured" case. */
         .field-group.compact { max-width: 180px; }
         .field-group.compact input { padding: 8px 10px 8px 34px; font-size: 0.9rem; min-height: 36px; }
@@ -481,8 +486,8 @@
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-heart-fill"></i></div>
                         <div>
-                            <h2>Manage Donations</h2>
-                            <p>Add, view and manage donations for {{ $event->event_name }}</p>
+                            <h2>Log New Donation</h2>
+                            <p>Record a new donation received for {{ $event->event_name }}</p>
                         </div>
                         <div class="page-header-actions">
                             <button type="button" class="btn-view-all" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
@@ -491,14 +496,6 @@
 
                     <div class="donation-grid">
                         <div class="card-panel">
-                            <div class="panel-header">
-                                <div class="panel-icon"><i class="bi bi-person-plus-fill"></i></div>
-                                <div>
-                                    <h3>Log New Donation</h3>
-                                    <p>Record a new donation received</p>
-                                </div>
-                            </div>
-
                             <div class="mode-toggle">
                                 <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
                                 <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
@@ -1030,10 +1027,7 @@
         tickClock();
         setInterval(tickClock, 30000);
 
-        // Fullscreen: explicit button, plus a one-tap-anywhere fallback so the console
-        // effectively "opens in fullscreen" as soon as the admin starts using it — browsers
-        // block requestFullscreen() from firing automatically on page load with no user
-        // gesture, so the very first tap on the page is used to satisfy that requirement.
+        // Fullscreen — only the explicit topbar button triggers it; no tap-anywhere fallback.
         function goFullscreen() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(function () {});
@@ -1042,18 +1036,6 @@
         document.getElementById('fullscreenBtn').addEventListener('click', function () {
             if (!document.fullscreenElement) { goFullscreen(); } else { document.exitFullscreen(); }
         });
-        if (!document.fullscreenElement) {
-            const hint = document.createElement('div');
-            hint.className = 'fullscreen-hint';
-            hint.textContent = 'Tap anywhere to enter fullscreen';
-            document.body.appendChild(hint);
-            document.body.addEventListener('click', function onceHandler() {
-                goFullscreen();
-                hint.remove();
-                document.body.removeEventListener('click', onceHandler);
-            }, { once: true });
-            setTimeout(function () { hint.remove(); }, 4000);
-        }
 
         // Settings: show the per-event payment-method checkboxes only when overriding the
         // global defaults.
@@ -1160,15 +1142,19 @@
             tiersWrap.style.display = 'block';
             simpleAmountWrap.style.display = 'none';
 
+            // A single option has nothing to pick between — auto-select it with no checkbox
+            // to click, rather than making the user check the one and only box.
+            const singleOption = EVENT_OPTIONS.length === 1;
+
             let html = '';
             EVENT_OPTIONS.forEach(function (opt, idx) {
                 const hasAmount = opt.amount !== null;
-                html += '<div class="donation-tier-option" data-idx="' + idx + '">'
-                    + '<label><input type="checkbox" class="tier-cb" data-idx="' + idx + '">'
+                html += '<div class="donation-tier-option' + (singleOption ? ' single-option selected' : '') + '" data-idx="' + idx + '">'
+                    + '<label><input type="checkbox" class="tier-cb" data-idx="' + idx + '"' + (singleOption ? ' checked' : '') + '>'
                     + '<span><strong>' + escapeHtmlQe(opt.label) + '</strong><br><span class="text-muted small">'
                     + (hasAmount ? (CURRENCY_CODE + ' ' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
                     + '</span></span></label>'
-                    + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="tier-qty" style="display:none;">' : '')
+                    + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="tier-qty" style="' + (singleOption ? '' : 'display:none;') + '">' : '')
                     + (!hasAmount ? '<div class="d-flex flex-column"><input type="number" min="0" step="0.01" placeholder="Amount" class="tier-free">'
                         + '<div class="tier-free-quick-amounts"></div></div>' : '')
                     + '</div>';
@@ -1231,6 +1217,7 @@
 
             tiersContainer.addEventListener('change', recalcTiers);
             tiersContainer.addEventListener('input', recalcTiers);
+            if (singleOption) { recalcTiers(); }
         } else {
             // No donation types configured for this event — a plain, compact amount field
             // with quick-amount presets; typing directly into the field covers any custom
@@ -1282,9 +1269,15 @@
             amountInput.value = '';
             quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
             if (tiersContainer) {
-                tiersContainer.querySelectorAll('.tier-cb').forEach(function (cb) { cb.checked = false; });
+                // A single-option row has no checkbox to click — it stays permanently
+                // selected across a reset, same as it starts out.
+                tiersContainer.querySelectorAll('.tier-cb').forEach(function (cb) {
+                    if (!cb.closest('.donation-tier-option').classList.contains('single-option')) { cb.checked = false; }
+                });
                 tiersContainer.querySelectorAll('.tier-free').forEach(function (i) { i.value = ''; });
-                tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) { row.classList.remove('selected'); });
+                tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) {
+                    if (!row.classList.contains('single-option')) { row.classList.remove('selected'); }
+                });
                 if (tierTotalDisplay) { tierTotalDisplay.textContent = CURRENCY_CODE + ' 0.00'; }
             }
             const today = new Date().toISOString().slice(0, 10);

@@ -45,7 +45,9 @@ class EventCoordinatorController extends Controller
             ->orderBy('events.event_date', 'desc')
             ->get();
 
-        return view('admin.event-coordinator-my-events', compact('events'));
+        $temple = Setting::templeBranding();
+
+        return view('admin.event-coordinator-my-events', compact('events', 'temple'));
     }
 
     /**
