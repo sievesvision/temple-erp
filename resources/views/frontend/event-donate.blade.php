@@ -24,6 +24,13 @@
         .raised-pill { background:rgba(255,255,255,.12); border-radius:999px; padding:.6rem 1.2rem; display:inline-flex; gap:.5rem; align-items:center; margin-top:1.25rem; margin-right:.75rem; }
         .btn-donate-hero { display:inline-flex; align-items:center; gap:.5rem; background:linear-gradient(135deg, var(--accent), var(--primary)); color:#fff; font-weight:800; font-size:1.05rem; padding:.85rem 1.75rem; border-radius:999px; text-decoration:none; margin-top:1.25rem; box-shadow:0 14px 30px rgba(0,0,0,.25); transition:transform .15s; }
         .btn-donate-hero:hover { color:#fff; transform:translateY(-2px); }
+        .closed-badge { display:inline-flex; align-items:center; gap:.5rem; background:rgba(255,255,255,.1); color:#e8e4d8; font-weight:700; font-size:.95rem; padding:.75rem 1.5rem; border-radius:999px; margin-top:1.25rem; border:1px solid rgba(255,255,255,.22); }
+
+        .contact-pill-list { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.4rem; }
+        .contact-pill { display:inline-flex; align-items:center; gap:.5rem; background:linear-gradient(135deg, var(--primary), var(--accent)); color:#fff; padding:.55rem 1.1rem; border-radius:999px; font-size:.85rem; font-weight:700; box-shadow:0 6px 16px rgba(0,0,0,.14); }
+        .contact-pill i { font-size:.85rem; opacity:.9; }
+        .contact-pill a { color:#fff; text-decoration:underline; font-weight:600; }
+        .contact-pill a:hover { color:#fff; opacity:.85; }
 
         .section-pad { padding:4rem 0; }
         .donate-tabs-card { background:#fff; border-radius:10px; padding:2rem; box-shadow:0 16px 35px rgba(37,35,31,.08); }
@@ -100,7 +107,11 @@
                     <div class="raised-pill"><i class="bi bi-heart-fill" style="color:var(--accent)"></i> {{ $temple['currency'] }} {{ number_format($raised, 2) }} raised so far</div>
                 @endif
             </div>
-            <a href="#donate-now" class="btn-donate-hero"><i class="bi bi-hand-thumbs-up-fill"></i> Donate Now</a>
+            @if($isClosed)
+                <span class="closed-badge"><i class="bi bi-lock-fill"></i> Donations Closed</span>
+            @else
+                <a href="#donate-now" class="btn-donate-hero"><i class="bi bi-hand-thumbs-up-fill"></i> Donate Now</a>
+            @endif
         </div>
     </div>
 
@@ -173,11 +184,12 @@
                             @endif
                             @if($event->contactList())
                                 <span class="bank-label">Contact</span>
-                                <div class="row g-2 mt-0">
+                                <div class="contact-pill-list">
                                     @foreach($event->contactList() as $contact)
-                                    <div class="col-sm-6">
-                                        <span class="bank-value" style="font-size:.95rem;">{{ $contact['name'] }}@if($contact['phone']) — {{ $contact['phone'] }}@endif</span>
-                                    </div>
+                                    <span class="contact-pill">
+                                        <i class="bi bi-person-fill"></i>{{ $contact['name'] }}
+                                        @if($contact['phone'])<a href="tel:{{ preg_replace('/[^0-9+]/', '', $contact['phone']) }}">{{ $contact['phone'] }}</a>@endif
+                                    </span>
                                     @endforeach
                                 </div>
                             @endif
@@ -188,15 +200,23 @@
             @endif
 
             <div id="donate-now" class="donate-section-anchor">
-                <div class="section-heading">
-                    <div class="icon-badge"><i class="bi bi-hand-thumbs-up-fill"></i></div>
-                    <h2>Make Your Donation</h2>
-                </div>
+                @if($isClosed)
+                    <div class="section-heading">
+                        <div class="icon-badge" style="background:#94a3b8;"><i class="bi bi-lock-fill"></i></div>
+                        <h2>Donations Closed</h2>
+                    </div>
+                    <p class="mb-0" style="color:var(--muted); line-height:1.8;">This event is marked <strong>{{ $event->status }}</strong> and is no longer accepting donations. Thank you to everyone who contributed — your generosity made this possible.</p>
+                @else
+                    <div class="section-heading">
+                        <div class="icon-badge"><i class="bi bi-hand-thumbs-up-fill"></i></div>
+                        <h2>Make Your Donation</h2>
+                    </div>
 
-                @if(session('success_donation'))<div class="alert alert-success">{{ session('success_donation') }}</div>@endif
-                @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+                    @if(session('success_donation'))<div class="alert alert-success">{{ session('success_donation') }}</div>@endif
+                    @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
-                @include('frontend.partials.donate-form', ['temple' => $temple, 'lockedEvent' => $event, 'donationOptions' => $donationOptions, 'formAction' => route('donate.without.login'), 'formId' => 'event-donate-form', 'stripeEnabled' => $stripeEnabled, 'requireContactDetails' => $requireContactDetails])
+                    @include('frontend.partials.donate-form', ['temple' => $temple, 'lockedEvent' => $event, 'donationOptions' => $donationOptions, 'formAction' => route('donate.without.login'), 'formId' => 'event-donate-form', 'stripeEnabled' => $stripeEnabled, 'requireContactDetails' => $requireContactDetails])
+                @endif
             </div>
 
             @if($event->flyer_image)

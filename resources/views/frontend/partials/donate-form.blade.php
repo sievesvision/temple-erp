@@ -5,7 +5,11 @@
     $lockedEvent = $lockedEvent ?? null;
     $events = $events ?? collect();
     $donationOptions = $donationOptions ?? collect();
-    $useTiers = $lockedEvent && $donationOptions->isNotEmpty();
+    // A single configured option (e.g. one plain "General Donation") is always included —
+    // there's nothing to choose between, so it isn't shown as a selectable checkbox tier.
+    $singleOption = ($lockedEvent && $donationOptions->count() === 1) ? $donationOptions->first() : null;
+    $useTiers = $lockedEvent && $donationOptions->count() > 1;
+    $showPlainAmountField = !$lockedEvent || ($lockedEvent && $donationOptions->isEmpty());
     $stripeEnabled = $stripeEnabled ?? true;
     $prefillName = $prefillName ?? null;
     $prefillEmail = $prefillEmail ?? null;
@@ -27,6 +31,10 @@
         background: var(--primary, #b8863a);
         color: white;
     }
+    .single-tier-badge { display:flex; align-items:center; gap:.75rem; background: linear-gradient(135deg, rgba(226,113,29,.12), rgba(240,180,41,.12)); border:1px solid rgba(226,113,29,.3); border-left:4px solid var(--primary, #e2711d); border-radius:8px; padding:.9rem 1.1rem; }
+    .single-tier-badge i { color: var(--primary, #e2711d); font-size:1.4rem; flex-shrink:0; }
+    .single-tier-badge strong { display:block; color: var(--dark, #25231f); font-size:1.05rem; }
+    .single-tier-badge .single-tier-note { color: var(--muted, #716c64); font-size:.82rem; }
 </style>
 <div class="donate-tabs-card">
     <ul class="nav nav-pills donate-method-tabs mb-4" id="{{ $formId }}-tabs" role="tablist">
@@ -92,7 +100,7 @@
                 <label for="{{ $formId }}-mobile">Mobile{{ $requireContactDetails ? '' : ' (optional)' }}</label>
                 <input class="form-control" id="{{ $formId }}-mobile" name="mobile" @if($requireContactDetails) required @endif>
             </div>
-            @if(!$useTiers)
+            @if($showPlainAmountField)
             <div class="col-md-6">
                 <label for="{{ $formId }}-amount">Amount ({{ $temple['currency'] }})</label>
                 <input class="form-control" id="{{ $formId }}-amount" name="amount" type="number" min="1" step=".01" required>
@@ -111,7 +119,45 @@
                     <div class="locked-event-badge"><i class="bi bi-calendar-heart me-2"></i>{{ $lockedEvent->event_name }}</div>
                 </div>
 
-                @if($useTiers)
+                @if($singleOption)
+                    <div class="col-12">
+                        <div class="single-tier-badge">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <div>
+                                <strong>{{ $singleOption->label }}</strong>
+                                <span class="single-tier-note d-block">
+                                    @if($singleOption->amount !== null && !$singleOption->allow_quantity)
+                                        Fixed amount — {{ $temple['currency'] }} {{ number_format($singleOption->amount, 2) }}
+                                    @else
+                                        This is the only donation option for this event, so it's always included — no need to select it.
+                                    @endif
+                                </span>
+                            </div>
+                        </div>
+
+                        @if($singleOption->amount === null)
+                            <label for="{{ $formId }}-amount" class="mt-3">Amount ({{ $temple['currency'] }})</label>
+                            <input class="form-control" id="{{ $formId }}-amount" name="amount" type="number" min="1" step=".01" required>
+                            <div class="quick-amount-row d-flex flex-wrap gap-2 mt-2" id="{{ $formId }}-quick-amounts">
+                                @foreach([101, 501, 1001, 2001] as $qa)
+                                    <button type="button" class="quick-amount-chip" data-amount="{{ $qa }}">{{ $qa }}</button>
+                                @endforeach
+                            </div>
+                            <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json" value="">
+                        @elseif($singleOption->allow_quantity)
+                            <div class="d-flex align-items-center gap-2 mt-3" style="max-width:180px;">
+                                <label class="mb-0 small">Quantity</label>
+                                <input type="number" min="1" value="1" class="form-control" id="{{ $formId }}-single-qty">
+                            </div>
+                            <input type="hidden" name="amount" id="{{ $formId }}-amount" value="{{ $singleOption->amount }}">
+                            <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json">
+                        @else
+                            <input type="hidden" name="amount" value="{{ $singleOption->amount }}">
+                            <input type="hidden" name="selections_json" value="{{ json_encode([['option_id' => $singleOption->id, 'label' => $singleOption->label, 'quantity' => null, 'amount' => (float) $singleOption->amount]]) }}">
+                        @endif
+                        <input type="hidden" name="purpose" value="{{ $singleOption->label }}">
+                    </div>
+                @elseif($useTiers)
                     <div class="col-12">
                         <label>Choose how you'd like to contribute (select as many as you like)</label>
                         <div class="donation-tier-options" id="{{ $formId }}-tiers">
@@ -231,6 +277,50 @@
     }
 })();
 </script>
+@if($singleOption && $singleOption->amount === null)
+<script>
+(function () {
+    // The single free-amount option is always "selected" — no checkbox — so its
+    // selections_json needs to track the plain Amount field directly instead of a tier recalc.
+    var amountField = document.getElementById('{{ $formId }}-amount');
+    var selectionsHidden = document.getElementById('{{ $formId }}-selections-json');
+    if (!amountField || !selectionsHidden) { return; }
+    var optionId = {{ (int) $singleOption->id }};
+    var label = @json($singleOption->label);
+
+    function recalc() {
+        var amount = parseFloat(amountField.value) || 0;
+        selectionsHidden.value = amount > 0 ? JSON.stringify([{ option_id: optionId, label: label, quantity: null, amount: amount }]) : '';
+    }
+    amountField.addEventListener('input', recalc);
+    recalc();
+})();
+</script>
+@endif
+@if($singleOption && $singleOption->allow_quantity)
+<script>
+(function () {
+    var qtyInput = document.getElementById('{{ $formId }}-single-qty');
+    var amountHidden = document.getElementById('{{ $formId }}-amount');
+    var selectionsHidden = document.getElementById('{{ $formId }}-selections-json');
+    if (!qtyInput || !amountHidden) { return; }
+    var baseAmount = {{ (float) $singleOption->amount }};
+    var optionId = {{ (int) $singleOption->id }};
+    var label = @json($singleOption->label);
+
+    function recalc() {
+        var qty = parseInt(qtyInput.value, 10) || 1;
+        var total = baseAmount * qty;
+        amountHidden.value = total.toFixed(2);
+        if (selectionsHidden) {
+            selectionsHidden.value = JSON.stringify([{ option_id: optionId, label: label, quantity: qty, amount: total }]);
+        }
+    }
+    qtyInput.addEventListener('input', recalc);
+    recalc();
+})();
+</script>
+@endif
 @if($useTiers)
 <script>
 (function () {

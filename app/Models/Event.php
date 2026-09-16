@@ -60,6 +60,16 @@ class Event extends Model
     }
 
     /**
+     * Completed and Cancelled events are done/off — the public donation page should stop
+     * collecting new pledges for them rather than silently keep accepting money for
+     * something that already happened or was called off.
+     */
+    public function isClosedForDonations(): bool
+    {
+        return in_array($this->status, ['Completed', 'Cancelled'], true);
+    }
+
+    /**
      * Parse the contacts JSON column ([{name, phone}, ...]) into a clean array, dropping
      * any row missing a name (a phone-only or fully blank row from an unused repeater slot).
      */

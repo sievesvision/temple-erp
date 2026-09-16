@@ -30,8 +30,9 @@ class EventController extends Controller
 
         $donationOptions = $event->donationOptions;
         $requireContactDetails = (bool) $event->require_donor_contact_details;
+        $isClosed = $event->isClosedForDonations();
 
-        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled', 'requireContactDetails'));
+        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled', 'requireContactDetails', 'isClosed'));
     }
 
     /**

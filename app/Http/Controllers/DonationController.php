@@ -1272,8 +1272,14 @@ class DonationController extends Controller
     {
         // Some events (e.g. those needing to trace every donor for a receipt/audit trail)
         // require contact details — the event itself decides via require_donor_contact_details.
-        $requireContact = $request->filled('event_id')
-            && Event::where('event_id', $request->input('event_id'))->value('require_donor_contact_details');
+        $lockedEvent = $request->filled('event_id') ? Event::find($request->input('event_id')) : null;
+        $requireContact = $lockedEvent && $lockedEvent->require_donor_contact_details;
+
+        // Defense in depth: the public page already hides the form for a closed event, but a
+        // direct POST (stale tab, replay) must not be allowed to record a donation either.
+        if ($lockedEvent && $lockedEvent->isClosedForDonations()) {
+            return redirect()->back()->with('error', 'This event is now closed and is no longer accepting donations.');
+        }
 
         $validated = $request->validate([
             'donor_name' => 'required|string|max:255',
