@@ -737,6 +737,7 @@ class DonationController extends Controller
             'remarks' => 'nullable|string|max:2000',
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
+            'payment_status' => 'nullable|string|in:Paid,Pending',
         ]);
 
         try {
@@ -745,7 +746,7 @@ class DonationController extends Controller
                 'event_id' => $validated['event_id'] ?? null,
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_mode'],
-                'payment_status' => 'Paid',
+                'payment_status' => $validated['payment_status'] ?? 'Paid',
                 'transaction_id' => $validated['transaction_id'] ?? 'OFFLINE-' . strtoupper(uniqid()),
                 // 'purpose' carries the selected event donation option(s) when the admin
                 // picked from an event's tiers; 'remarks' stays the free-text note either way.
@@ -763,7 +764,7 @@ class DonationController extends Controller
                 ->select('users.name', 'users.email')
                 ->first();
 
-            DonationReceiptService::send([
+            $receiptPayload = [
                 'donor_name' => $devoteeUser->name ?? 'Devotee',
                 'donor_email' => $devoteeUser->email ?? null,
                 'amount' => $validated['amount'],
@@ -772,7 +773,12 @@ class DonationController extends Controller
                 'event_id' => $validated['event_id'] ?? null,
                 'donation_date' => $validated['donation_date'],
                 'transaction_id' => $validated['transaction_id'] ?? null,
-            ]);
+            ];
+            if (($validated['payment_status'] ?? 'Paid') === 'Pending') {
+                DonationReceiptService::sendPendingNotice($receiptPayload);
+            } else {
+                DonationReceiptService::send($receiptPayload);
+            }
 
             if ($request->wantsJson()) {
                 return response()->json(['success' => true, 'message' => 'Devotee donation recorded successfully.']);
@@ -819,6 +825,7 @@ class DonationController extends Controller
             'bank_branch' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
+            'payment_status' => 'nullable|string|in:Paid,Pending',
         ]);
 
         try {
@@ -831,6 +838,7 @@ class DonationController extends Controller
                 'purpose' => $validated['purpose'],
                 'purpose_details' => $validated['purpose_details'] ?? null,
                 'payment_method' => $validated['payment_method'],
+                'payment_status' => $validated['payment_status'] ?? 'Paid',
                 'transaction_id' => $validated['transaction_id'] ?? 'GUEST-' . strtoupper(uniqid()),
                 'bank_name' => $validated['bank_name'] ?? null,
                 'bank_account_no' => $validated['bank_account_no'] ?? null,
@@ -842,7 +850,7 @@ class DonationController extends Controller
             ]);
             $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
 
-            DonationReceiptService::send([
+            $receiptPayload = [
                 'donor_name' => $validated['donor_name'],
                 'donor_email' => $validated['email'] ?? null,
                 'amount' => $validated['amount'],
@@ -851,7 +859,12 @@ class DonationController extends Controller
                 'event_id' => $validated['event_id'] ?? null,
                 'donation_date' => $validated['donation_date'],
                 'transaction_id' => $validated['transaction_id'] ?? null,
-            ]);
+            ];
+            if (($validated['payment_status'] ?? 'Paid') === 'Pending') {
+                DonationReceiptService::sendPendingNotice($receiptPayload);
+            } else {
+                DonationReceiptService::send($receiptPayload);
+            }
 
             if ($request->wantsJson()) {
                 return response()->json(['success' => true, 'message' => 'Guest donation recorded successfully.']);

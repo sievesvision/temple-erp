@@ -40,12 +40,21 @@ class EventConsoleController extends Controller
 
         $paidRows = $rows->where('payment_status', 'Paid');
         $pendingRows = $rows->where('payment_status', 'Pending');
+        $todayRows = $paidRows->where('donation_date', now()->toDateString());
+        // A rough donor headcount: distinct devotees by id, distinct guests by whichever
+        // identifying detail they gave (email, else mobile, else just their name) — good
+        // enough for an at-a-glance summary tile, not a dedupe-for-billing guarantee.
+        $totalDonors = $paidRows->map(fn ($r) => $r->donation_type === 'devotee'
+            ? 'devotee:' . $r->devotee_id
+            : 'guest:' . strtolower(trim($r->email ?: $r->mobile ?: $r->display_name)))->unique()->count();
         $summary = [
             'paid_total' => $paidRows->sum('amount'),
             'paid_count' => $paidRows->count(),
             'pending_total' => $pendingRows->sum('amount'),
             'pending_count' => $pendingRows->count(),
             'donation_count' => $rows->count(),
+            'today_total' => $todayRows->sum('amount'),
+            'total_donors' => $totalDonors,
             'option_totals' => $options->mapWithKeys(fn ($opt) => [
                 $opt->id => $paidRows->sum(fn ($r) => $r->option_amounts[$opt->id] ?? 0),
             ]),

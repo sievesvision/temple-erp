@@ -39,7 +39,13 @@
         }
         .console-topbar .back-link { color: rgba(255,255,255,0.6); font-size: 0.82rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
         .console-topbar .back-link:hover { color: white; }
-        .console-topbar h1 { font-size: 1.4rem; font-weight: 800; margin: 2px 0 0; letter-spacing: -0.01em; }
+        .console-topbar h1 { font-size: 1.25rem; font-weight: 800; margin: 2px 0 0; letter-spacing: -0.01em; }
+        .topbar-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .topbar-brand { display: flex; align-items: center; gap: 10px; }
+        .topbar-logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
+        .topbar-temple-name { font-weight: 800; font-size: 0.92rem; line-height: 1.2; }
+        .topbar-temple-sub { font-size: 0.7rem; color: rgba(255,255,255,0.55); line-height: 1.2; }
+        .topbar-divider { width: 1px; height: 32px; background: rgba(255,255,255,0.15); }
         .console-tabs { display: flex; gap: 8px; flex-wrap: wrap; background: rgba(255,255,255,0.06); padding: 6px; border-radius: 18px; }
         .console-tab-btn {
             background: transparent;
@@ -120,17 +126,6 @@
         .devotee-combobox-item { padding: 14px 18px; cursor: pointer; border-bottom: 1px solid #eef2f6; }
         .devotee-combobox-item:hover, .devotee-combobox-item.highlighted { background: #f7f9fb; }
 
-        .donation-tier-option { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 20px 18px 26px; min-height: 64px; border: 1.5px solid #e3e8ee; border-radius: 8px; background: #fff; margin-bottom: 12px; cursor: pointer; transition: 0.15s; flex-wrap: wrap; }
-        .donation-tier-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: #dde3ea; border-radius: 8px 0 0 8px; transition: background 0.15s; }
-        .donation-tier-option.selected { border-color: var(--gold); background: #fefaf2; box-shadow: 0 4px 14px rgba(184,134,58,0.12); }
-        .donation-tier-option.selected::before { background: var(--gold); }
-        .donation-tier-option label { font-size: 1.05rem; margin: 0; cursor: pointer; }
-        .donation-tier-option input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--gold); cursor: pointer; flex-shrink: 0; }
-
-        .btn-save-next { position: fixed; bottom: 0; left: 0; right: 0; padding: 20px 28px; background: white; border-top: 1px solid var(--card-line); box-shadow: 0 -10px 30px rgba(0,0,0,0.06); z-index: 30; }
-        .btn-save-next button { width: 100%; max-width: 1444px; margin: 0 auto; display: block; padding: 20px; font-size: 1.25rem; font-weight: 800; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; border: none; border-radius: 10px; box-shadow: 0 10px 24px rgba(184,134,58,0.3); }
-        .btn-save-next button:disabled { opacity: 0.6; }
-
         .qe-toast { position: fixed; bottom: 100px; right: 24px; background: var(--teal); color: white; padding: 18px 26px; border-radius: 16px; font-weight: 700; box-shadow: 0 14px 34px rgba(0,0,0,0.18); z-index: 999; display: none; font-size: 1.05rem; }
         .qe-toast.error { background: #dc3545; }
 
@@ -169,14 +164,69 @@
         .btn-action-checkstatus:hover { background: #8b5cf6; color: white; }
 
         .fullscreen-hint { position: fixed; top: 90px; left: 50%; transform: translateX(-50%); background: rgba(34,32,28,0.9); color: white; padding: 10px 22px; border-radius: 40px; font-size: 0.85rem; font-weight: 600; z-index: 200; box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
+
+        /* --- Manage Donations workspace (Quick Entry pane) --- */
+        .qe-page-header { margin-bottom: 16px; }
+        .qe-page-header h2 { font-size: 1.4rem; font-weight: 800; color: var(--ink); margin: 0 0 3px; }
+        .qe-page-header p { color: var(--muted); font-size: 0.87rem; margin: 0; }
+
+        .qe-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+        @media (min-width: 992px) { .qe-grid { grid-template-columns: 1.9fr 1fr; } }
+
+        .qe-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .qe-card-header .icon-circle { width: 42px; height: 42px; border-radius: 50%; background: rgba(184,134,58,0.12); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0; }
+        .qe-card-header h3 { margin: 0; font-size: 1.02rem; font-weight: 800; color: var(--ink); }
+        .qe-card-header p { margin: 0; font-size: 0.78rem; color: var(--muted); }
+
+        .qe-checkbox-field { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; background: #f7f9fb; border: 1px solid #e3e8ee; border-radius: 8px; margin-bottom: 1.1rem; }
+        .qe-checkbox-field input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
+        .qe-checkbox-field label { font-weight: 700; font-size: 0.88rem; color: var(--ink); cursor: pointer; margin: 0; }
+        .qe-checkbox-field .qe-checkbox-note { display: block; font-weight: 400; font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+        .qe-qty-wrap { display: flex; align-items: center; gap: 10px; margin-top: 10px; max-width: 200px; }
+        .qe-qty-wrap label { font-size: 0.8rem; font-weight: 700; color: var(--muted); margin: 0; white-space: nowrap; }
+
+        .qe-actions { display: flex; gap: 12px; margin-top: 22px; }
+        .qe-btn-reset { flex: 0 0 auto; padding: 14px 26px; border-radius: 8px; border: 1.5px solid #dde3ea; background: #fff; color: var(--muted); font-weight: 700; font-size: 0.95rem; }
+        .qe-btn-reset:hover { background: #f7f9fb; }
+        .qe-btn-save { flex: 1; padding: 14px 26px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: white; font-weight: 800; font-size: 1.02rem; box-shadow: 0 8px 20px rgba(184,134,58,0.28); }
+        .qe-btn-save:disabled { opacity: 0.6; }
+
+        .qe-summary-card h4 { font-size: 0.98rem; font-weight: 800; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; color: var(--ink); }
+        .qe-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .qe-summary-tile { background: #f7f9fb; border: 1px solid #e3e8ee; border-radius: 8px; padding: 14px; min-width: 0; }
+        .qe-summary-tile .label { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
+        .qe-summary-tile .value { font-size: 1.1rem; font-weight: 800; color: var(--ink); overflow-wrap: break-word; }
+        .qe-view-pending-btn { display: block; width: 100%; text-align: center; margin-top: 4px; padding: 10px; border-radius: 8px; border: 1.5px solid #e3d9bf; background: #fff; color: var(--gold); font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+        .qe-view-pending-btn:hover { background: #fbf6ea; }
+
+        .qe-quote-card { background: linear-gradient(135deg, #fdf6ea, #fbeed6); border: 1px solid #f0e2c4; border-radius: 10px; padding: 20px; text-align: center; margin-top: 16px; }
+        .qe-quote-card i { font-size: 1.3rem; color: var(--gold); margin-bottom: 8px; display: block; }
+        .qe-quote-card p { font-style: italic; color: #7a6a4a; font-size: 0.86rem; margin: 0; line-height: 1.5; }
+
+        .qe-recent-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .qe-recent-header h4 { margin: 0; font-size: 1rem; font-weight: 800; color: var(--ink); }
+        .qe-recent-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+        .qe-search-input, .qe-filter-select { padding: 9px 14px; border-radius: 8px; border: 1.5px solid #d5dce4; font-size: 0.85rem; }
+        .qe-search-input { min-width: 220px; }
     </style>
 </head>
 <body>
     <div class="console-topbar">
-        <div>
-            @php $backRoute = session('active_role', auth()->user()->role ?? null) === 'Event Coordinator' ? 'event-coordinator.my-events' : 'admin.events.index'; @endphp
-            <a href="{{ route($backRoute) }}" class="back-link"><i class="bi bi-arrow-left"></i>Back to {{ $backRoute === 'event-coordinator.my-events' ? 'My Events' : 'Events' }}</a>
-            <h1>{{ $event->event_name }}</h1>
+        <div class="topbar-left">
+            <div class="topbar-brand">
+                @if($temple['logo'] ?? null)<img src="{{ $temple['logo'] }}" class="topbar-logo" alt="">@endif
+                <div>
+                    <div class="topbar-temple-name">{{ $temple['name'] ?? 'Temple' }}</div>
+                    @if($temple['subtitle'] ?? null)<div class="topbar-temple-sub">{{ $temple['subtitle'] }}</div>@endif
+                </div>
+            </div>
+            <div class="topbar-divider"></div>
+            <div>
+                @php $backRoute = session('active_role', auth()->user()->role ?? null) === 'Event Coordinator' ? 'event-coordinator.my-events' : 'admin.events.index'; @endphp
+                <a href="{{ route($backRoute) }}" class="back-link"><i class="bi bi-arrow-left"></i>Back to {{ $backRoute === 'event-coordinator.my-events' ? 'My Events' : 'Events' }}</a>
+                <h1>{{ $event->event_name }}</h1>
+            </div>
         </div>
         <div class="console-tabs">
             @if($canAddDonation)
@@ -262,96 +312,224 @@
         </div>
 
         @if($canAddDonation)
-        <!-- QUICK ENTRY (default pane; Guest is the default mode for fast walk-up entry) -->
+        <!-- QUICK ENTRY / MANAGE DONATIONS WORKSPACE (default pane; Guest is the default mode) -->
         <div class="console-pane active" id="pane-entry">
-            <div class="console-card pane-narrow" style="background:transparent; border:none; box-shadow:none; padding:0;">
-                <div class="quick-entry-toggle">
-                    <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
-                    <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
-                </div>
+            <div class="qe-page-header">
+                <h2>Manage Donations</h2>
+                <p>Add, view and manage donations for {{ $event->event_name }}</p>
+            </div>
 
-                <div class="qe-panel">
-                    <div class="qe-panel-title"><span class="bar" style="background:var(--gold);"></span>Donor Details</div>
-
-                    <div id="qeDevoteeFields" style="display:none;">
-                        <div class="qe-field devotee-combobox-wrap">
-                            <div class="qe-input-group">
-                                <span class="qe-input-label">Search Devotee</span>
-                                <input type="text" id="qeDevoteeSearch" placeholder="Name, email, or mobile...">
-                            </div>
-                            <input type="hidden" id="qeDevoteeId">
-                            <div class="devotee-combobox-results" id="qeDevoteeResults"></div>
-                        </div>
-                    </div>
-
-                    <div id="qeGuestFields">
-                        <div class="qe-field">
-                            <div class="qe-input-group">
-                                <span class="qe-input-label">Donor Name</span>
-                                <input type="text" id="qeGuestName" placeholder="Full name">
+            <div class="qe-grid">
+                <div>
+                    <div class="console-card">
+                        <div class="qe-card-header">
+                            <div class="icon-circle"><i class="bi bi-person-plus-fill"></i></div>
+                            <div>
+                                <h3>Log New Donation</h3>
+                                <p>Record a new donation received</p>
                             </div>
                         </div>
-                        <div class="row g-3">
-                            <div class="col-md-6 qe-field">
-                                <div class="qe-input-group">
-                                    <span class="qe-input-label">Email</span>
-                                    <input type="email" id="qeGuestEmail" placeholder="Optional">
+
+                        <div class="quick-entry-toggle">
+                            <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
+                            <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
+                        </div>
+
+                        <div class="qe-panel">
+                            <div class="qe-panel-title"><span class="bar" style="background:var(--gold);"></span>Donor Details</div>
+
+                            <div id="qeDevoteeFields" style="display:none;">
+                                <div class="qe-field devotee-combobox-wrap">
+                                    <div class="qe-input-group">
+                                        <span class="qe-input-label">Search Devotee</span>
+                                        <input type="text" id="qeDevoteeSearch" placeholder="Name, email, or mobile...">
+                                    </div>
+                                    <input type="hidden" id="qeDevoteeId">
+                                    <div class="devotee-combobox-results" id="qeDevoteeResults"></div>
                                 </div>
                             </div>
-                            <div class="col-md-6 qe-field">
-                                <div class="qe-input-group">
-                                    <span class="qe-input-label">Mobile</span>
-                                    <input type="text" id="qeGuestMobile" placeholder="Optional">
+
+                            <div id="qeGuestFields">
+                                <div class="row g-3">
+                                    <div class="col-md-6 qe-field">
+                                        <div class="qe-input-group">
+                                            <span class="qe-input-label">Donor Name</span>
+                                            <input type="text" id="qeGuestName" placeholder="Full name">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 qe-field">
+                                        <div class="qe-input-group">
+                                            <span class="qe-input-label">Email</span>
+                                            <input type="email" id="qeGuestEmail" placeholder="Optional">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="qe-field">
+                                    <div class="qe-input-group">
+                                        <span class="qe-input-label">Mobile</span>
+                                        <input type="text" id="qeGuestMobile" placeholder="Optional">
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        <div class="qe-panel">
+                            <div class="qe-panel-title"><span class="bar" style="background:var(--teal);"></span>Donation Details</div>
+
+                            <div class="qe-field">
+                                <div class="qe-input-group">
+                                    <span class="qe-input-label">Donation Type</span>
+                                    <select id="qeDonationType"></select>
+                                </div>
+                                <div class="qe-qty-wrap" id="qeQtyWrap" style="display:none;">
+                                    <label>Quantity</label>
+                                    <input type="number" min="1" value="1" class="form-control" id="qeQty">
+                                </div>
+                            </div>
+
+                            <div class="qe-field">
+                                <div class="qe-input-group">
+                                    <span class="qe-input-label">Amount</span>
+                                    <input type="number" step="0.01" id="qeAmount" placeholder="0.00">
+                                </div>
+                                <div class="quick-amount-row" id="qeQuickAmounts"></div>
+                            </div>
+
+                            <div class="qe-checkbox-field">
+                                <input type="checkbox" id="qeGeneralDonation">
+                                <label for="qeGeneralDonation">General Donation (Optional)<span class="qe-checkbox-note">Mark as general donation (not for a specific purpose)</span></label>
+                            </div>
+                        </div>
+
+                        <div class="qe-panel">
+                            <div class="qe-panel-title"><span class="bar" style="background:#8b5cf6;"></span>Payment Details</div>
+                            <div class="row g-3">
+                                <div class="col-md-6 qe-field">
+                                    <div class="qe-input-group">
+                                        <span class="qe-input-label">Method</span>
+                                        <select id="qePaymentMethod"></select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 qe-field">
+                                    <div class="qe-input-group">
+                                        <span class="qe-input-label">Reference</span>
+                                        <input type="text" id="qeTransactionId" placeholder="Optional">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6 qe-field">
+                                    <div class="qe-input-group">
+                                        <span class="qe-input-label">Date</span>
+                                        <input type="date" id="qeDonationDate">
+                                    </div>
+                                </div>
+                                <div class="col-md-6 qe-field">
+                                    <div class="qe-input-group">
+                                        <span class="qe-input-label">Status</span>
+                                        <select id="qePaymentStatus">
+                                            <option value="Paid">Received</option>
+                                            <option value="Pending">Pending</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="qe-panel">
+                            <div class="qe-panel-title"><span class="bar" style="background:var(--muted);"></span>Additional Information</div>
+                            <div class="qe-field">
+                                <div class="qe-input-group">
+                                    <span class="qe-input-label">Notes</span>
+                                    <textarea id="qeDetails" rows="2" placeholder="Optional — e.g. in memory of..., family name, special request..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="qe-actions">
+                            <button type="button" class="qe-btn-reset" id="qeResetBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
+                            <button type="button" class="qe-btn-save" id="qeSaveBtn"><i class="bi bi-lightning-charge-fill me-2"></i>Save &amp; Next</button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="qe-panel">
-                    <div class="qe-panel-title"><span class="bar" style="background:var(--teal);"></span>Donation Amount</div>
-                    <div id="qeTiers" class="mb-3"></div>
-                    <div class="qe-field">
-                        <div class="qe-input-group">
-                            <span class="qe-input-label">Amount</span>
-                            <input type="number" step="0.01" id="qeAmount" placeholder="0.00">
+                <div>
+                    <div class="console-card qe-summary-card">
+                        <h4><i class="bi bi-pie-chart-fill" style="color:var(--gold);"></i>Donation Summary</h4>
+                        <div class="qe-summary-grid">
+                            <div class="qe-summary-tile">
+                                <div class="label"><i class="bi bi-cash-coin"></i>Total Collected</div>
+                                <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div>
+                            </div>
+                            <div class="qe-summary-tile">
+                                <div class="label"><i class="bi bi-people-fill"></i>Total Donors</div>
+                                <div class="value">{{ $summary['total_donors'] }}</div>
+                            </div>
+                            <div class="qe-summary-tile">
+                                <div class="label"><i class="bi bi-calendar-check"></i>Today's Collection</div>
+                                <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div>
+                            </div>
+                            <div class="qe-summary-tile">
+                                <div class="label"><i class="bi bi-hourglass-split"></i>Pending Transfers</div>
+                                <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div>
+                            </div>
                         </div>
-                        <div class="quick-amount-row" id="qeQuickAmounts"></div>
+                        <button type="button" class="qe-view-pending-btn" onclick='document.querySelector(".console-tab-btn[data-pane=pane-table]").click()'>View Pending ({{ $summary['pending_count'] }})</button>
                     </div>
-                    <div class="qe-field">
-                        <div class="qe-input-group">
-                            <span class="qe-input-label">Details</span>
-                            <textarea id="qeDetails" rows="2" placeholder="Optional — any extra detail about this donation..."></textarea>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="qe-panel">
-                    <div class="qe-panel-title"><span class="bar" style="background:#8b5cf6;"></span>Payment Details</div>
-                    <div class="qe-field">
-                        <div class="qe-input-group">
-                            <span class="qe-input-label">Method</span>
-                            <select id="qePaymentMethod"></select>
-                        </div>
-                    </div>
-                    <div class="qe-field">
-                        <div class="qe-input-group">
-                            <span class="qe-input-label">Txn ID</span>
-                            <input type="text" id="qeTransactionId" placeholder="Optional">
-                        </div>
+                    <div class="qe-quote-card">
+                        <i class="bi bi-flower1"></i>
+                        <p>&ldquo;A small contribution creates a lasting legacy.&rdquo;</p>
                     </div>
                 </div>
+            </div>
+
+            <div class="console-card mt-3">
+                <div class="qe-recent-header">
+                    <h4><i class="bi bi-clock-history me-1" style="color:var(--gold);"></i>Recent Donations</h4>
+                    <div class="qe-recent-controls">
+                        <input type="text" class="qe-search-input" id="qeRecentSearch" placeholder="Search by name, email, mobile...">
+                        <select class="qe-filter-select" id="qeRecentFilter">
+                            <option value="">All Donations</option>
+                            <option value="Paid">Received</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-scroll-wrap" style="max-height:420px;">
+                <table class="console-table" id="qeRecentTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Donor Name</th><th>Type</th><th class="col-amount">Amount</th><th>Payment Method</th><th>Status</th><th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($rows->take(25) as $row)
+                        <tr data-status="{{ $row->payment_status }}" data-search="{{ strtolower($row->display_name . ' ' . ($row->email ?? '') . ' ' . ($row->mobile ?? '')) }}">
+                            <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
+                            <td class="col-name">{{ $row->display_name }}</td>
+                            <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
+                            <td class="col-amount total">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</td>
+                            <td>{{ $row->payment_method }}</td>
+                            <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Received' : $row->payment_status }}</span></td>
+                            <td class="text-end">@include('admin.partials.donation-actions', ['row' => $row])</td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="7" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+                </div>
+                @if($rows->count() > 25)
+                <div class="text-center mt-3">
+                    <button type="button" class="btn-refresh" onclick='document.querySelector(".console-tab-btn[data-pane=pane-table]").click()'>View All {{ $rows->count() }} Donations</button>
+                </div>
+                @endif
             </div>
         </div>
         @endif
 
     </div>
-
-    @if($canAddDonation)
-    <div class="btn-save-next" id="paneEntryFooter">
-        <button type="button" id="qeSaveBtn"><i class="bi bi-lightning-charge-fill me-2"></i>Save &amp; Next</button>
-    </div>
-    @endif
 
     <div class="qe-toast" id="qeToast"></div>
 
@@ -527,14 +705,12 @@
         }
 
         // Tab switching
-        const entryFooter = document.getElementById('paneEntryFooter');
         document.querySelectorAll('.console-tab-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 document.querySelectorAll('.console-tab-btn').forEach(function (b) { b.classList.remove('active'); });
                 document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.remove('active'); });
                 this.classList.add('active');
                 document.getElementById(this.dataset.pane).classList.add('active');
-                if (entryFooter) { entryFooter.style.display = (this.dataset.pane === 'pane-entry') ? 'block' : 'none'; }
             });
         });
 
@@ -664,93 +840,83 @@
             });
         });
 
-        // Tier picker — same computation pattern as the admin Add Donation modals, laid out
-        // full-width/touch-friendly here. Each free-amount tier also gets its own
-        // quick-amount row.
-        const tiersContainer = document.getElementById('qeTiers');
+        // Donation Type — a single dropdown of the event's configured options (backend-driven,
+        // same EVENT_OPTIONS data the old multi-tier checkboxes used) plus a "General Donation"
+        // default. Only one type is picked at a time, feeding the one Amount field/quick-amount
+        // row above — no per-type duplicate controls.
+        const donationTypeSelect = document.getElementById('qeDonationType');
+        const qtyWrap = document.getElementById('qeQtyWrap');
+        const qtyInput = document.getElementById('qeQty');
+        const generalDonationCheckbox = document.getElementById('qeGeneralDonation');
         let selections = [];
-        // Default so a manually-typed amount (no tier checked) still submits a valid
-        // purpose — matches the public donate-form's own "no tier selected" fallback.
         let purposeValue = 'Event Donation';
 
-        if (EVENT_OPTIONS.length) {
-            let html = '';
+        (function populateDonationTypes() {
+            const generalOpt = document.createElement('option');
+            generalOpt.value = '';
+            generalOpt.textContent = 'General Donation';
+            donationTypeSelect.appendChild(generalOpt);
             EVENT_OPTIONS.forEach(function (opt, idx) {
-                const hasAmount = opt.amount !== null;
-                html += '<div class="donation-tier-option" data-idx="' + idx + '">'
-                    + '<label class="d-flex align-items-center gap-2 mb-0" style="flex:1; min-width:200px;">'
-                    + '<input type="checkbox" class="tier-cb" data-idx="' + idx + '">'
-                    + '<span><strong>' + escapeHtmlQe(opt.label) + '</strong><br><span class="text-muted small">'
-                    + (hasAmount ? (opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
-                    + '</span></span></label>'
-                    + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="form-control tier-qty" style="width:90px; min-height:46px; font-size:1rem; display:none;">' : '')
-                    + (!hasAmount ? '<div class="d-flex flex-column gap-2"><input type="number" min="0" step="0.01" placeholder="Amount" class="form-control tier-free" style="width:150px; min-height:46px; font-size:1rem;">'
-                        + '<div class="d-flex gap-2 flex-wrap tier-quick-amounts"></div></div>' : '')
-                    + '</div>';
+                const o = document.createElement('option');
+                o.value = idx;
+                o.textContent = opt.label + (opt.amount !== null ? ' (' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each)' : ')') : ' (any amount)');
+                donationTypeSelect.appendChild(o);
             });
-            tiersContainer.innerHTML = html;
+        })();
 
-            // Wire up quick-amount mini-buttons for each free-amount tier row.
-            tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) {
-                const quickWrap = row.querySelector('.tier-quick-amounts');
-                if (!quickWrap) { return; }
-                const freeInput = row.querySelector('.tier-free');
-                const cb = row.querySelector('.tier-cb');
-                QUICK_AMOUNTS.forEach(function (amt) {
-                    const b = document.createElement('button');
-                    b.type = 'button';
-                    b.className = 'quick-amount-btn';
-                    b.style.padding = '10px 16px';
-                    b.style.minHeight = '42px';
-                    b.style.fontSize = '0.88rem';
-                    b.textContent = amt;
-                    b.addEventListener('click', function () {
-                        cb.checked = true;
-                        freeInput.value = amt.toFixed(2);
-                        freeInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    });
-                    quickWrap.appendChild(b);
-                });
-            });
+        function currentOption() {
+            if (generalDonationCheckbox.checked || donationTypeSelect.value === '') { return null; }
+            return EVENT_OPTIONS[donationTypeSelect.value];
+        }
 
-            function recalcTiers() {
-                let total = 0;
-                const labels = [];
+        // Recompute the submitted purpose/selection whenever the type, qty, or amount changes.
+        function recalcDonationType() {
+            const opt = currentOption();
+            const amount = parseFloat(amountInput.value) || 0;
+
+            if (!opt) {
+                qtyWrap.style.display = 'none';
+                purposeValue = 'Event Donation';
                 selections = [];
-                tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) {
-                    const idx = row.dataset.idx;
-                    const cb = row.querySelector('.tier-cb');
-                    const qtyInput = row.querySelector('.tier-qty');
-                    const freeInput = row.querySelector('.tier-free');
-                    if (qtyInput) { qtyInput.style.display = cb.checked ? 'inline-block' : 'none'; }
-                    row.classList.toggle('selected', cb.checked);
-                    if (!cb.checked) { return; }
-                    const opt = EVENT_OPTIONS[idx];
-                    let label = opt.label;
-                    let qty = null;
-                    let amount = 0;
-                    if (opt.amount !== null) {
-                        qty = (qtyInput && opt.allow_quantity) ? (parseInt(qtyInput.value, 10) || 1) : 1;
-                        amount = opt.amount * qty;
-                        if (opt.allow_quantity && qty > 1) { label += ' (x' + qty + ')'; }
-                    } else {
-                        amount = freeInput ? (parseFloat(freeInput.value) || 0) : 0;
-                    }
-                    if (amount > 0) {
-                        total += amount;
-                        labels.push(label);
-                        selections.push({ option_id: opt.id, label: label, quantity: qty, amount: amount });
-                    }
-                });
-                amountInput.value = total > 0 ? total.toFixed(2) : '';
-                purposeValue = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
+                return;
             }
 
-            tiersContainer.addEventListener('change', recalcTiers);
-            tiersContainer.addEventListener('input', recalcTiers);
-        } else {
-            purposeValue = 'Event Donation';
+            const showQty = opt.allow_quantity && opt.amount !== null;
+            qtyWrap.style.display = showQty ? 'flex' : 'none';
+            const qty = showQty ? (parseInt(qtyInput.value, 10) || 1) : null;
+
+            purposeValue = opt.label + (showQty && qty > 1 ? ' (x' + qty + ')' : '');
+            selections = amount > 0 ? [{ option_id: opt.id, label: purposeValue, quantity: qty, amount: amount }] : [];
         }
+
+        // Selecting a type (or changing qty) pre-fills the Amount field for a fixed-price
+        // option — the admin can still override it manually afterwards.
+        donationTypeSelect.addEventListener('change', function () {
+            const opt = currentOption();
+            if (opt && opt.amount !== null) {
+                qtyInput.value = 1;
+                amountInput.value = opt.amount.toFixed(2);
+                amountInput.dispatchEvent(new Event('input'));
+            }
+            recalcDonationType();
+        });
+        qtyInput.addEventListener('input', function () {
+            const opt = currentOption();
+            if (opt && opt.amount !== null) {
+                amountInput.value = (opt.amount * (parseInt(qtyInput.value, 10) || 1)).toFixed(2);
+                amountInput.dispatchEvent(new Event('input'));
+            }
+            recalcDonationType();
+        });
+        amountInput.addEventListener('input', recalcDonationType);
+
+        // The "General Donation" checkbox is a shortcut for picking no specific type — it
+        // locks the Donation Type dropdown back to General while checked.
+        generalDonationCheckbox.addEventListener('change', function () {
+            donationTypeSelect.disabled = this.checked;
+            if (this.checked) { donationTypeSelect.value = ''; }
+            recalcDonationType();
+        });
 
         function showToast(message, isError) {
             const toast = document.getElementById('qeToast');
@@ -759,6 +925,9 @@
             toast.style.display = 'block';
             setTimeout(function () { toast.style.display = 'none'; }, 2500);
         }
+
+        const donationDateInput = document.getElementById('qeDonationDate');
+        const paymentStatusSelect = document.getElementById('qePaymentStatus');
 
         function resetQuickEntry() {
             devoteeSearch.value = '';
@@ -770,12 +939,18 @@
             document.getElementById('qeDetails').value = '';
             amountInput.value = '';
             quickAmountsRow.querySelectorAll('.quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
-            tiersContainer.querySelectorAll('.tier-cb').forEach(function (cb) { cb.checked = false; });
-            tiersContainer.querySelectorAll('.tier-free').forEach(function (i) { i.value = ''; });
-            tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) { row.classList.remove('selected'); });
+            donationTypeSelect.value = '';
+            donationTypeSelect.disabled = false;
+            generalDonationCheckbox.checked = false;
+            qtyInput.value = 1;
+            qtyWrap.style.display = 'none';
+            donationDateInput.value = new Date().toISOString().slice(0, 10);
+            paymentStatusSelect.value = 'Paid';
             selections = [];
             purposeValue = 'Event Donation';
         }
+        resetQuickEntry();
+        document.getElementById('qeResetBtn').addEventListener('click', resetQuickEntry);
 
         document.getElementById('qeSaveBtn').addEventListener('click', function () {
             const amount = parseFloat(amountInput.value);
@@ -784,20 +959,20 @@
             const btn = this;
             btn.disabled = true;
 
-            const today = new Date().toISOString().slice(0, 10);
             const body = new URLSearchParams();
             body.set('event_id', EVENT_ID);
             body.set('amount', amount.toFixed(2));
-            body.set('payment_method', paymentSelect.value);
             body.set('transaction_id', document.getElementById('qeTransactionId').value);
             body.set('selections_json', JSON.stringify(selections));
-            body.set('donation_date', today);
+            body.set('donation_date', donationDateInput.value || new Date().toISOString().slice(0, 10));
+            body.set('payment_status', paymentStatusSelect.value);
 
             let url;
             if (qeMode === 'devotee') {
                 if (!devoteeIdInput.value) { showToast('Search and select a devotee first.', true); btn.disabled = false; return; }
                 url = STORE_DEVOTEE_URL;
                 body.set('devotee_id', devoteeIdInput.value);
+                // Devotee donations only accept Cash/UPI/Bank Transfer/Cheque.
                 body.set('payment_mode', paymentSelect.value);
                 body.set('purpose', purposeValue);
                 body.set('remarks', document.getElementById('qeDetails').value);
@@ -808,6 +983,9 @@
                 body.set('donor_name', name);
                 body.set('email', document.getElementById('qeGuestEmail').value);
                 body.set('mobile', document.getElementById('qeGuestMobile').value);
+                // Guest donations only accept Cash/UPI/Bank — translate the shared payment
+                // method list's "Bank Transfer" label to the value this route actually accepts.
+                body.set('payment_method', paymentSelect.value === 'Bank Transfer' ? 'Bank' : paymentSelect.value);
                 body.set('purpose', purposeValue);
                 body.set('purpose_details', document.getElementById('qeDetails').value);
             }
@@ -832,6 +1010,26 @@
                     showToast('Network error — please try again.', true);
                 });
         });
+
+        // Recent Donations: client-side search + status filter over the already-rendered rows.
+        (function () {
+            const searchInput = document.getElementById('qeRecentSearch');
+            const filterSelect = document.getElementById('qeRecentFilter');
+            const rows = document.querySelectorAll('#qeRecentTable tbody tr[data-search]');
+            function applyFilters() {
+                const q = searchInput.value.trim().toLowerCase();
+                const status = filterSelect.value;
+                rows.forEach(function (row) {
+                    const matchesSearch = !q || row.dataset.search.includes(q);
+                    const matchesStatus = !status || row.dataset.status === status;
+                    row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+                });
+            }
+            if (searchInput && filterSelect) {
+                searchInput.addEventListener('input', applyFilters);
+                filterSelect.addEventListener('change', applyFilters);
+            }
+        })();
         @endif
     </script>
 </body>
