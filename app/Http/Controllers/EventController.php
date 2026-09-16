@@ -109,7 +109,11 @@ class EventController extends Controller
     public function update(Request $request, $id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'events', 'edit')) {
+        $activeRole = session('active_role', $user->role ?? null);
+        $isCoordinatorForEvent = $user && $activeRole === 'Event Coordinator'
+            && DB::table('event_coordinators')->where('user_id', $user->id)->where('event_id', $id)->exists();
+
+        if (!$user || !(RolePermission::can($activeRole, 'events', 'edit') || $isCoordinatorForEvent)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

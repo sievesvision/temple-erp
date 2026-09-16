@@ -324,6 +324,17 @@ class AuthController extends Controller
         Auth::login($user);
         $user->update(['last_login_at' => now()]);
 
+        // An Event Coordinator managing a single event lands straight on that event's
+        // console (their actual workspace) instead of a list with only one row to click;
+        // one coordinating several events still lands on the list to pick from.
+        if ($role === 'Event Coordinator') {
+            $coordinatedEventIds = \Illuminate\Support\Facades\DB::table('event_coordinators')->where('user_id', $user->id)->pluck('event_id');
+            if ($coordinatedEventIds->count() === 1) {
+                return redirect()->route('admin.events.console', $coordinatedEventIds->first());
+            }
+            return redirect()->route('event-coordinator.my-events');
+        }
+
         return redirect()->route($this->dashboardRouteForRole($role));
     }
 

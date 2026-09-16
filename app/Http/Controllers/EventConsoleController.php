@@ -85,10 +85,9 @@ class EventConsoleController extends Controller
         $canAddDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'add') || $isCoordinatorForEvent;
         $canEditDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'edit') || $isCoordinatorForEvent;
         $canDeleteDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete');
-        // Event settings (donation options, contacts, gallery, status, etc.) are edited via
-        // the same Edit Event modal used on Manage Events — a bigger capability than just
-        // recording donations, so a plain Event Coordinator doesn't get this link.
-        $canEditEvent = $activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit');
+        // Event settings (donation options, contacts, gallery, status, etc.) — an Event
+        // Coordinator may edit these too, but only for the event they're scoped to.
+        $canEditEvent = $activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit') || $isCoordinatorForEvent;
 
         $temple = Setting::templeBranding();
 

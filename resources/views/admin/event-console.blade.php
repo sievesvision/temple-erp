@@ -33,13 +33,14 @@
         h1, h2, h3, h4 { font-family: var(--serif); }
         button, input, select, textarea { font-family: inherit; }
 
-        /* ---------- App shell: sidebar + main ---------- */
-        .app-shell { display: flex; min-height: 100vh; }
+        /* ---------- App shell: full-width topbar on top, sidebar + main below it ---------- */
+        .app-shell-wrap { display: flex; flex-direction: column; height: 100vh; }
+        .app-shell { flex: 1; min-height: 0; display: flex; }
 
         .app-sidebar {
             width: 240px; flex-shrink: 0; background: var(--white); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; justify-content: space-between;
-            position: sticky; top: 0; height: 100vh; z-index: 50; transition: transform 0.25s ease;
+            overflow-y: auto; transition: transform 0.25s ease;
         }
         .sidebar-nav { padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; }
         .sidebar-link {
@@ -55,9 +56,9 @@
         .sidebar-decoration p { font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.85rem; line-height: 1.5; margin: 0; }
         .sidebar-decoration .lotus-divider { width: 60px; height: auto; margin: 12px auto 0; display: block; }
 
-        .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
 
-        /* ---------- Topbar ---------- */
+        /* ---------- Topbar (full width, above the sidebar+main row) ---------- */
         .console-topbar {
             background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
             background-image:
@@ -65,7 +66,7 @@
                 radial-gradient(circle at 92% 70%, rgba(255,255,255,0.05) 0%, transparent 45%),
                 linear-gradient(135deg, var(--maroon), var(--maroon-dark));
             color: white; padding: 14px 24px; display: flex; align-items: center; gap: 16px;
-            position: sticky; top: 0; z-index: 40; box-shadow: 0 4px 18px rgba(74,10,18,0.25);
+            flex-shrink: 0; z-index: 40; box-shadow: 0 4px 18px rgba(74,10,18,0.25);
         }
         .sidebar-toggle { display: none; background: rgba(255,255,255,0.12); border: none; color: white; width: 38px; height: 38px; border-radius: 10px; font-size: 1.1rem; flex-shrink: 0; }
         .topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -176,17 +177,14 @@
         .btn-view-pending { display: block; width: 100%; text-align: center; margin-top: 14px; padding: 11px; border-radius: 10px; border: 1.5px solid var(--gold); background: var(--white); color: var(--gold-hover); font-weight: 700; font-size: 0.85rem; cursor: pointer; }
         .btn-view-pending:hover { background: var(--cream); }
 
-        .quote-card { background: linear-gradient(135deg, #FDF6EA, #FBEED6); border: 1px solid var(--border); border-radius: 14px; padding: 24px 20px; text-align: center; margin-top: 18px; }
-        .quote-card svg { width: 90px; height: auto; margin: 0 auto 12px; display: block; }
-        .quote-card p { font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.92rem; margin: 0; line-height: 1.55; }
-
-        .recent-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-        .recent-header h4 { margin: 0; font-size: 1.02rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-        .recent-controls { display: flex; gap: 8px; flex-wrap: wrap; }
-        .search-input, .filter-select { padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border); font-size: 0.85rem; background: var(--white); }
-        .search-input { min-width: 220px; padding-left: 36px; }
-        .search-input-wrap { position: relative; }
-        .search-input-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem; }
+        .recent-mini-card h4 { font-size: 0.98rem; font-weight: 800; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+        .recent-mini-list { display: flex; flex-direction: column; gap: 12px; max-height: 360px; overflow-y: auto; }
+        .recent-mini-item { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+        .recent-mini-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .recent-mini-top { display: flex; justify-content: space-between; gap: 8px; }
+        .recent-mini-name { font-weight: 700; font-size: 0.87rem; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .recent-mini-amount { font-weight: 800; font-size: 0.87rem; color: var(--text-primary); flex-shrink: 0; }
+        .recent-mini-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; font-size: 0.75rem; color: var(--text-secondary); }
 
         .table-scroll-wrap { overflow: auto; border-radius: 10px; }
         table.console-table { width: 100%; border-collapse: collapse; }
@@ -244,9 +242,9 @@
         /* ---------- Responsive / iPad ---------- */
         @media (max-width: 1023px) {
             .sidebar-toggle { display: inline-flex; align-items: center; justify-content: center; }
-            .app-sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); box-shadow: 0 0 40px rgba(0,0,0,0.2); }
+            .app-sidebar { position: fixed; left: 0; top: 70px; height: calc(100vh - 70px); transform: translateX(-100%); box-shadow: 0 0 40px rgba(0,0,0,0.2); z-index: 50; }
             .app-sidebar.open { transform: translateX(0); }
-            .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(31,42,55,0.4); z-index: 45; }
+            .sidebar-backdrop { display: none; position: fixed; left: 0; right: 0; top: 70px; bottom: 0; background: rgba(31,42,55,0.4); z-index: 45; }
             .sidebar-backdrop.show { display: block; }
         }
         @media (max-width: 600px) {
@@ -260,80 +258,83 @@
         $backRoute = session('active_role', auth()->user()->role ?? null) === 'Event Coordinator' ? 'event-coordinator.my-events' : 'admin.events.index';
         $backLabel = $backRoute === 'event-coordinator.my-events' ? 'My Events' : 'Events';
     @endphp
-    <div class="app-shell">
-        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-        <aside class="app-sidebar" id="appSidebar">
-            <div class="sidebar-nav">
-                <button type="button" class="sidebar-link" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
-                @if($canAddDonation)
-                <button type="button" class="sidebar-link active" data-pane="pane-entry"><i class="bi bi-heart-fill"></i><span>Donations</span></button>
-                @endif
-                <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Donations</span></button>
-                @if($canEditEvent)
-                <a class="sidebar-link" href="{{ route('admin.events.index') }}?edit={{ $event->event_id }}"><i class="bi bi-gear-fill"></i><span>Settings</span></a>
-                @endif
-                <a class="sidebar-link" href="{{ route($backRoute) }}"><i class="bi bi-arrow-left"></i><span>Back to {{ $backLabel }}</span></a>
+    <div class="app-shell-wrap">
+        <header class="console-topbar">
+            <button type="button" class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-list"></i></button>
+            <div class="topbar-brand">
+                @if($temple['logo'] ?? null)<img src="{{ $temple['logo'] }}" class="topbar-logo" alt="">@endif
+                <div>
+                    <div class="topbar-temple-name">{{ $temple['name'] ?? 'Temple' }}</div>
+                    @if($temple['subtitle'] ?? null)<div class="topbar-temple-sub">{{ $temple['subtitle'] }}</div>@endif
+                </div>
             </div>
-            <div class="sidebar-decoration">
-                <svg viewBox="0 0 200 130" aria-hidden="true">
-                    <polygon points="100,6 112,24 88,24" fill="var(--gold)"/>
-                    <rect x="93" y="24" width="14" height="8" fill="var(--gold)"/>
-                    <polygon points="100,20 120,38 80,38" fill="var(--gold)" opacity="0.88"/>
-                    <rect x="72" y="38" width="56" height="10" fill="var(--gold)" opacity="0.88"/>
-                    <polygon points="100,34 130,54 70,54" fill="var(--gold)" opacity="0.74"/>
-                    <rect x="60" y="54" width="80" height="12" fill="var(--gold)" opacity="0.74"/>
-                    <polygon points="100,50 142,72 58,72" fill="var(--gold)" opacity="0.6"/>
-                    <rect x="45" y="72" width="110" height="16" fill="var(--gold)" opacity="0.6"/>
-                    <rect x="35" y="88" width="130" height="28" fill="var(--gold)" opacity="0.48"/>
-                    <rect x="55" y="100" width="14" height="16" fill="var(--cream)"/>
-                    <rect x="131" y="100" width="14" height="16" fill="var(--cream)"/>
-                    <rect x="92" y="96" width="16" height="20" fill="var(--maroon)"/>
-                </svg>
-                <p>&ldquo;A small contribution creates a lasting legacy.&rdquo;</p>
-                <svg class="lotus-divider" viewBox="0 0 60 20" aria-hidden="true">
-                    <path d="M30 18 C22 18 16 12 16 6 C22 6 27 10 30 16 C33 10 38 6 44 6 C44 12 38 18 30 18 Z" fill="var(--gold)" opacity="0.8"/>
-                </svg>
+            <div class="topbar-event-title">
+                <span class="flourish-line"></span>
+                <div class="topbar-event-title-text">
+                    <h1>{{ $event->event_name }}</h1>
+                    <div class="event-motto">Our Temple &bull; Our Community &bull; A Brighter Tomorrow</div>
+                </div>
+                <span class="flourish-line"></span>
             </div>
-        </aside>
+            <div class="topbar-right">
+                <div class="topbar-clock" id="topbarClock">
+                    <div class="clock-date"><i class="bi bi-calendar3 me-1"></i><span id="clockDate"></span></div>
+                    <div class="clock-time" id="clockTime"></div>
+                </div>
+                <button type="button" class="btn-fullscreen-icon" id="fullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+                <div class="dropdown">
+                    <button class="admin-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i><span>{{ \Illuminate\Support\Str::limit(auth()->user()->name ?? 'Admin', 14) }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ route($backRoute) }}"><i class="bi bi-collection me-2"></i>My Events</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ route('logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
 
-        <div class="app-main">
-            <header class="console-topbar">
-                <button type="button" class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-list"></i></button>
-                <div class="topbar-brand">
-                    @if($temple['logo'] ?? null)<img src="{{ $temple['logo'] }}" class="topbar-logo" alt="">@endif
-                    <div>
-                        <div class="topbar-temple-name">{{ $temple['name'] ?? 'Temple' }}</div>
-                        @if($temple['subtitle'] ?? null)<div class="topbar-temple-sub">{{ $temple['subtitle'] }}</div>@endif
-                    </div>
+        <div class="app-shell">
+            <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+            <aside class="app-sidebar" id="appSidebar">
+                <div class="sidebar-nav">
+                    <button type="button" class="sidebar-link" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
+                    @if($canAddDonation)
+                    <button type="button" class="sidebar-link active" data-pane="pane-entry"><i class="bi bi-heart-fill"></i><span>New Donation</span></button>
+                    @endif
+                    <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Donations</span></button>
+                    @if($canEditEvent)
+                    <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
+                    @endif
+                    <a class="sidebar-link" href="{{ route($backRoute) }}"><i class="bi bi-collection"></i><span>My Events</span></a>
                 </div>
-                <div class="topbar-event-title">
-                    <span class="flourish-line"></span>
-                    <div class="topbar-event-title-text">
-                        <h1>{{ $event->event_name }}</h1>
-                        <div class="event-motto">Our Temple &bull; Our Community &bull; A Brighter Tomorrow</div>
-                    </div>
-                    <span class="flourish-line"></span>
+                <div class="sidebar-decoration">
+                    <svg viewBox="0 0 200 130" aria-hidden="true">
+                        <polygon points="100,6 112,24 88,24" fill="var(--gold)"/>
+                        <rect x="93" y="24" width="14" height="8" fill="var(--gold)"/>
+                        <polygon points="100,20 120,38 80,38" fill="var(--gold)" opacity="0.88"/>
+                        <rect x="72" y="38" width="56" height="10" fill="var(--gold)" opacity="0.88"/>
+                        <polygon points="100,34 130,54 70,54" fill="var(--gold)" opacity="0.74"/>
+                        <rect x="60" y="54" width="80" height="12" fill="var(--gold)" opacity="0.74"/>
+                        <polygon points="100,50 142,72 58,72" fill="var(--gold)" opacity="0.6"/>
+                        <rect x="45" y="72" width="110" height="16" fill="var(--gold)" opacity="0.6"/>
+                        <rect x="35" y="88" width="130" height="28" fill="var(--gold)" opacity="0.48"/>
+                        <rect x="55" y="100" width="14" height="16" fill="var(--cream)"/>
+                        <rect x="131" y="100" width="14" height="16" fill="var(--cream)"/>
+                        <rect x="92" y="96" width="16" height="20" fill="var(--maroon)"/>
+                    </svg>
+                    <p>&ldquo;A small contribution creates a lasting legacy.&rdquo;</p>
+                    <svg class="lotus-divider" viewBox="0 0 60 20" aria-hidden="true">
+                        <path d="M30 18 C22 18 16 12 16 6 C22 6 27 10 30 16 C33 10 38 6 44 6 C44 12 38 18 30 18 Z" fill="var(--gold)" opacity="0.8"/>
+                    </svg>
                 </div>
-                <div class="topbar-right">
-                    <div class="topbar-clock" id="topbarClock">
-                        <div class="clock-date"><i class="bi bi-calendar3 me-1"></i><span id="clockDate"></span></div>
-                        <div class="clock-time" id="clockTime"></div>
-                    </div>
-                    <button type="button" class="btn-fullscreen-icon" id="fullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
-                    <div class="dropdown">
-                        <button class="admin-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle"></i><span>{{ \Illuminate\Support\Str::limit(auth()->user()->name ?? 'Admin', 14) }}</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{{ route($backRoute) }}"><i class="bi bi-arrow-left me-2"></i>Back to {{ $backLabel }}</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ route('logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </header>
+            </aside>
 
-            <div class="console-body">
+            <div class="app-main">
+                <div class="console-body">
+                @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+                @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
                 <!-- DASHBOARD -->
                 <div class="console-pane {{ $canAddDonation ? '' : '' }}" id="pane-dashboard">
                     <div class="page-header">
@@ -614,72 +615,154 @@
                                 <button type="button" class="btn-view-pending" data-pane="pane-table">View Pending ({{ $summary['pending_count'] }})</button>
                             </div>
 
-                            <div class="quote-card">
-                                <svg viewBox="0 0 100 60" aria-hidden="true">
-                                    <polygon points="50,4 58,16 42,16" fill="var(--gold)"/>
-                                    <rect x="45" y="16" width="10" height="6" fill="var(--gold)"/>
-                                    <polygon points="50,14 62,26 38,26" fill="var(--gold)" opacity="0.85"/>
-                                    <rect x="33" y="26" width="34" height="8" fill="var(--gold)" opacity="0.85"/>
-                                    <rect x="20" y="34" width="60" height="16" fill="var(--gold)" opacity="0.6"/>
-                                    <rect x="30" y="40" width="8" height="10" fill="var(--cream)"/>
-                                    <rect x="62" y="40" width="8" height="10" fill="var(--cream)"/>
-                                    <rect x="46" y="38" width="8" height="12" fill="var(--maroon)"/>
-                                </svg>
-                                <p>&ldquo;Every contribution builds a stronger temple and community.&rdquo;</p>
+                            <div class="card-panel mt-3 recent-mini-card">
+                                <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
+                                <div class="recent-mini-list">
+                                    @forelse($rows->take(8) as $row)
+                                        <div class="recent-mini-item">
+                                            <div class="recent-mini-top">
+                                                <span class="recent-mini-name">{{ $row->display_name }}</span>
+                                                <span class="recent-mini-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
+                                            </div>
+                                            <div class="recent-mini-bottom">
+                                                <span>{{ date('d M', strtotime($row->donation_date)) }}</span>
+                                                <span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span>
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <p class="text-muted small mb-0">No donations recorded for this event yet.</p>
+                                    @endforelse
+                                </div>
+                                <button type="button" class="btn-view-all w-100 mt-3 justify-content-center" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
                             </div>
                         </div>
                     </div>
+                </div>
+                @endif
 
-                    <div class="card-panel mt-3">
-                        <div class="recent-header">
-                            <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
-                            <div class="recent-controls">
-                                <div class="search-input-wrap">
-                                    <i class="bi bi-search"></i>
-                                    <input type="text" class="search-input" id="qeRecentSearch" placeholder="Search by name, email, mobile...">
+                @if($canEditEvent)
+                <!-- SETTINGS -->
+                <div class="console-pane" id="pane-settings">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-gear-fill"></i></div>
+                        <div>
+                            <h2>Event Settings</h2>
+                            <p>Manage details, donation options, contacts and gallery for {{ $event->event_name }}</p>
+                        </div>
+                    </div>
+
+                    <div class="card-panel">
+                        <form action="{{ route('admin.events.update', $event->event_id) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="slug" value="{{ $event->slug }}">
+
+                            <div class="section-title" style="margin-top:0;"><span class="icon-badge-sm"><i class="bi bi-info-circle-fill"></i></span>Event Details</div>
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <label class="field-label">Event Name <span class="required">*</span></label>
+                                    <i class="bi bi-tag field-icon"></i>
+                                    <input type="text" name="event_name" value="{{ $event->event_name }}" required>
                                 </div>
-                                <select class="filter-select" id="qeRecentFilter">
-                                    <option value="">All Donations</option>
-                                    <option value="Paid">Completed</option>
-                                    <option value="Pending">Pending</option>
-                                </select>
                             </div>
-                        </div>
-                        <div class="table-scroll-wrap" style="max-height:420px;">
-                        <table class="console-table" id="qeRecentTable">
-                            <thead>
-                                <tr>
-                                    <th>Date</th><th>Donor Name</th><th class="col-amount">Amount</th><th>Payment Method</th><th>General Donation</th><th>Status</th><th class="text-end">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($rows->take(25) as $row)
-                                    @php $isGeneral = collect($row->option_amounts ?? [])->sum() <= 0.01; @endphp
-                                    <tr data-status="{{ $row->payment_status }}" data-search="{{ strtolower($row->display_name . ' ' . ($row->email ?? '') . ' ' . ($row->mobile ?? '')) }}">
-                                        <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
-                                        <td class="col-name">{{ $row->display_name }}</td>
-                                        <td class="col-amount total">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</td>
-                                        <td>{{ $row->payment_method }}</td>
-                                        <td>{{ $isGeneral ? 'Yes' : '—' }}</td>
-                                        <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
-                                        <td class="text-end">@include('admin.partials.donation-actions', ['row' => $row])</td>
-                                    </tr>
-                                @empty
-                                <tr><td colspan="7" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                        </div>
-                        @if($rows->count() > 25)
-                        <div class="text-center mt-3">
-                            <button type="button" class="btn-refresh" data-pane="pane-table">View All {{ $rows->count() }} Donations</button>
-                        </div>
-                        @endif
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <label class="field-label">Description</label>
+                                    <textarea name="description" rows="3">{{ $event->description }}</textarea>
+                                </div>
+                            </div>
+                            <div class="field-row two-col">
+                                <div class="field-group">
+                                    <label class="field-label">Event Date <span class="required">*</span></label>
+                                    <i class="bi bi-calendar3 field-icon"></i>
+                                    <input type="date" name="event_date" value="{{ $event->event_date }}" required>
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label">Location / Venue <span class="required">*</span></label>
+                                    <i class="bi bi-geo-alt field-icon"></i>
+                                    <input type="text" name="location" value="{{ $event->location }}" required>
+                                </div>
+                            </div>
+                            <div class="checkbox-field">
+                                <input type="checkbox" name="date_tbc" id="settingsDateTbc" value="1" {{ $event->date_tbc ? 'checked' : '' }}>
+                                <label for="settingsDateTbc">Date to be confirmed<span class="checkbox-note">Shows "Date to be confirmed" publicly instead of the date above (still used internally for sorting).</span></label>
+                            </div>
+                            <div class="field-row two-col">
+                                <div class="field-group">
+                                    <label class="field-label">Start Time <span class="required">*</span></label>
+                                    <i class="bi bi-clock field-icon"></i>
+                                    <input type="time" name="start_time" value="{{ date('H:i', strtotime($event->start_time)) }}" required>
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label">End Time <span class="required">*</span></label>
+                                    <i class="bi bi-clock-history field-icon"></i>
+                                    <input type="time" name="end_time" value="{{ date('H:i', strtotime($event->end_time)) }}" required>
+                                </div>
+                            </div>
+                            <div class="field-row two-col">
+                                <div class="field-group">
+                                    <label class="field-label">Status</label>
+                                    <i class="bi bi-flag field-icon"></i>
+                                    <select name="status">
+                                        @foreach(['Upcoming', 'Ongoing', 'Completed', 'Cancelled'] as $status)
+                                            <option value="{{ $status }}" {{ $event->status === $status ? 'selected' : '' }}>{{ $status }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label">Coordinator Emails</label>
+                                    <i class="bi bi-envelope field-icon"></i>
+                                    <input type="text" name="coordinator_emails" value="{{ $event->coordinator_emails }}" placeholder="cc1@example.com, cc2@example.com">
+                                </div>
+                            </div>
+
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-window"></i></span>Public Page</div>
+                            <div class="checkbox-field">
+                                <input type="checkbox" name="show_donation_summary" id="settingsShowSummary" value="1" {{ $event->show_donation_summary ? 'checked' : '' }}>
+                                <label for="settingsShowSummary">Show "amount raised so far" on the public event page</label>
+                            </div>
+                            <div class="checkbox-field">
+                                <input type="checkbox" name="require_donor_contact_details" id="settingsRequireContact" value="1" {{ $event->require_donor_contact_details ? 'checked' : '' }}>
+                                <label for="settingsRequireContact">Require donor name, email &amp; mobile on this event's donation form</label>
+                            </div>
+                            <div class="field-row two-col">
+                                <div class="field-group">
+                                    <label class="field-label">Header Image Path</label>
+                                    <i class="bi bi-image field-icon"></i>
+                                    <input type="text" name="header_image" value="{{ $event->header_image }}" placeholder="images/events/header.jpg">
+                                </div>
+                                <div class="field-group">
+                                    <label class="field-label">Flyer Image Path</label>
+                                    <i class="bi bi-file-earmark-image field-icon"></i>
+                                    <input type="text" name="flyer_image" value="{{ $event->flyer_image }}" placeholder="images/events/flyer.png">
+                                </div>
+                            </div>
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <label class="field-label">QR Code Image Path</label>
+                                    <i class="bi bi-qr-code field-icon"></i>
+                                    <input type="text" name="qr_code_image" value="{{ $event->qr_code_image }}" placeholder="images/events/qr.png">
+                                </div>
+                            </div>
+
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-cash-coin"></i></span>Donation Options</div>
+                            @include('admin.partials.event-donation-options-fields', ['options' => $options, 'formSuffix' => 'settings'])
+
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-telephone-fill"></i></span>Public Contacts</div>
+                            @include('admin.partials.event-contacts-fields', ['contacts' => $event->contactList(), 'formSuffix' => 'settings'])
+
+                            <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-images"></i></span>Gallery Images</div>
+                            @include('admin.partials.event-gallery-fields', ['galleryImages' => $event->galleryImages(), 'formSuffix' => 'settings'])
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn-save"><i class="bi bi-save2-fill me-2"></i>Save Settings</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
                 @endif
             </div>
         </div>
+    </div>
     </div>
 
     <div class="qe-toast" id="qeToast"></div>
@@ -884,6 +967,23 @@
             });
         }
         sidebarBackdrop.addEventListener('click', closeSidebarDrawer);
+
+        // The Settings form is a plain full-page POST/redirect (not AJAX), so the client-side
+        // "which pane is active" state would otherwise reset back to New Donation after
+        // saving. Remember the pane across that one navigation via localStorage.
+        document.querySelectorAll('#pane-settings form').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                try { localStorage.setItem('consoleActivePane', 'pane-settings'); } catch (e) {}
+            });
+        });
+        (function restoreActivePane() {
+            let savedPane = null;
+            try { savedPane = localStorage.getItem('consoleActivePane'); } catch (e) {}
+            if (savedPane && document.getElementById(savedPane)) {
+                switchPane(savedPane);
+                try { localStorage.removeItem('consoleActivePane'); } catch (e) {}
+            }
+        })();
 
         // Live clock in the topbar.
         function tickClock() {
@@ -1201,25 +1301,6 @@
                 });
         });
 
-        // Recent Donations: client-side search + status filter over the already-rendered rows.
-        (function () {
-            const searchInput = document.getElementById('qeRecentSearch');
-            const filterSelect = document.getElementById('qeRecentFilter');
-            const rows = document.querySelectorAll('#qeRecentTable tbody tr[data-search]');
-            function applyFilters() {
-                const q = searchInput.value.trim().toLowerCase();
-                const status = filterSelect.value;
-                rows.forEach(function (row) {
-                    const matchesSearch = !q || row.dataset.search.includes(q);
-                    const matchesStatus = !status || row.dataset.status === status;
-                    row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
-                });
-            }
-            if (searchInput && filterSelect) {
-                searchInput.addEventListener('input', applyFilters);
-                filterSelect.addEventListener('change', applyFilters);
-            }
-        })();
         @endif
     </script>
 </body>

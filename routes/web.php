@@ -446,7 +446,6 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     // Event CRUD & Scheduling Routes
     Route::get('/admin/manage-events', [\App\Http\Controllers\EventController::class, 'manageEvents'])->name('admin.events.index');
     Route::post('/admin/event/store', [\App\Http\Controllers\EventController::class, 'store'])->name('admin.events.store');
-    Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
     Route::delete('/admin/event/delete/{id}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('admin.events.delete');
 
     // Event Coordinator assignment (per-event) — controller enforces Admin-only itself,
@@ -510,6 +509,10 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
     Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
     Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
+    // Also reachable here so the console's inline Settings pane works for an Event
+    // Coordinator scoped to their own event — EventController::update() does the finer
+    // per-event_id check itself, same pattern as the console route above.
+    Route::post('/admin/event/update/{id}', [\App\Http\Controllers\EventController::class, 'update'])->name('admin.events.update');
 });
 
 // Export needs its own group: the main Manage Donations page's export button is used by
