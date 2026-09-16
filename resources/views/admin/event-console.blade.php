@@ -209,13 +209,18 @@
         .recent-mini-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; font-size: 0.75rem; color: var(--text-secondary); }
 
         .table-scroll-wrap { overflow: auto; border-radius: 10px; }
-        table.console-table { width: 100%; border-collapse: collapse; }
-        table.console-table th, table.console-table td { padding: 12px 14px; text-align: left; font-size: 0.85rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
-        table.console-table th { background: var(--cream); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; position: sticky; top: 0; z-index: 5; }
-        table.console-table td.col-name { white-space: normal; min-width: 140px; font-weight: 600; }
+        table.console-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        table.console-table th, table.console-table td { padding: 8px 8px; text-align: left; font-size: 0.8rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        /* Headers wrap onto 2-3 lines instead of forcing wide columns for long donation
+           option labels ("Sponsorship for a Conch") — the data underneath is just numbers. */
+        table.console-table th { background: var(--cream); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.02em; line-height: 1.25; position: sticky; top: 0; z-index: 5; white-space: normal; vertical-align: bottom; }
+        table.console-table td.col-name { white-space: normal; min-width: 110px; max-width: 160px; font-weight: 600; }
         table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-variant-numeric: tabular-nums; }
+        table.console-table th.col-amount { max-width: 80px; }
         table.console-table td.col-amount.total { font-weight: 800; color: var(--text-primary); }
-        table.console-table td.col-txn { max-width: 130px; overflow: hidden; text-overflow: ellipsis; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.78rem; color: var(--text-secondary); }
+        table.console-table td.col-contact { white-space: normal; max-width: 130px; }
+        table.console-table td.col-contact .contact-email { display: block; font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+        table.console-table td.col-txn { max-width: 100px; overflow: hidden; text-overflow: ellipsis; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.74rem; color: var(--text-secondary); }
         table.console-table tbody tr:hover { background: var(--cream); }
         .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
         .status-pill.status-paid { background: var(--success-bg); color: var(--success); }
@@ -453,9 +458,9 @@
                                     <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
                                     <td><strong>{{ $row->display_id }}</strong></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
-                                    <td>
+                                    <td class="col-contact">
                                         @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
-                                        @if($row->email)<div class="text-muted" style="font-size:0.78rem;">{{ $row->email }}</div>@endif
+                                        @if($row->email)<div class="text-muted contact-email" title="{{ $row->email }}">{{ $row->email }}</div>@endif
                                         @if(!$row->mobile && !$row->email)—@endif
                                     </td>
                                     @foreach($options as $opt)

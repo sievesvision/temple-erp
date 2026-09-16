@@ -23,7 +23,13 @@ class EventController extends Controller
         }
 
         $temple = Setting::templeBranding();
-        $stripeEnabled = (bool) Setting::get('stripe_enabled', true);
+        // This event's own payment-method override (if set) replaces the global Stripe
+        // toggle entirely for its public donation page — same source of truth the console's
+        // Quick Entry already uses via Event::paymentMethodsOverride().
+        $paymentMethodsOverride = $event->paymentMethodsOverride();
+        $stripeEnabled = $paymentMethodsOverride !== null
+            ? in_array('Stripe', $paymentMethodsOverride, true)
+            : (bool) Setting::get('stripe_enabled', true);
 
         $raised = DB::table('donations_without_logins')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount')
             + DB::table('donations')->where('event_id', $event->event_id)->where('payment_status', 'Paid')->sum('amount');
