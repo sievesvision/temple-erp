@@ -835,7 +835,7 @@
                                             </div>
                                             <div id="settingsPaymentMethodsList" style="{{ $eventMethodsOverride === null ? 'display:none;' : '' }}">
                                                 <div class="d-flex flex-wrap gap-3">
-                                                    @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $method)
+                                                    @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Terminal', 'Stripe'] as $method)
                                                     <div class="form-check">
                                                         <input type="checkbox" name="enabled_payment_methods[]" value="{{ $method }}" class="form-check-input" id="settingsMethod{{ strtolower(str_replace(' ', '', $method)) }}"
                                                             {{ in_array($method, $eventMethodsOverride ?? $globalPaymentMethods, true) ? 'checked' : '' }}>
@@ -1102,7 +1102,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Mode</label>
                                     <select name="payment_mode" class="form-select rounded-3" required>
-                                        @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $mode)
+                                        @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Terminal', 'Stripe'] as $mode)
                                             <option value="{{ $mode }}" {{ $row->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
                                         @endforeach
                                     </select>
@@ -1206,7 +1206,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Method</label>
                                     <select name="payment_method" class="form-select rounded-3" required>
-                                        @foreach(['Cash', 'UPI', 'Bank', 'Stripe'] as $method)
+                                        @foreach(['Cash', 'UPI', 'Bank', 'EFT Terminal', 'Stripe'] as $method)
                                             <option value="{{ $method }}" {{ $row->payment_method === $method ? 'selected' : '' }}>{{ $method }}</option>
                                         @endforeach
                                     </select>

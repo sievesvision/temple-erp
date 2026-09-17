@@ -74,6 +74,7 @@ class DonationReceiptMail extends Mailable
     {
         $pdfData = [
             'temple' => Setting::templeBranding(),
+            'bgImagePath' => public_path('images/donation_receipt_bg.png'),
             'donorName' => $this->donorName,
             'donorMobile' => $this->donorMobile,
             'amount' => $this->amount,
@@ -86,7 +87,10 @@ class DonationReceiptMail extends Mailable
             'receiptNumber' => $this->receiptNumber,
         ];
 
-        $pdf = Pdf::loadView('emails.donation_receipt_pdf', $pdfData);
+        // Matches the background letterhead image's own pixel dimensions exactly (points,
+        // not the usual A4/Letter preset) so the overlaid text lines up with it precisely.
+        $pdf = Pdf::loadView('emails.donation_receipt_pdf', $pdfData)
+            ->setPaper([0, 0, 1102, 1427], 'portrait');
         $filename = 'Donation-Receipt-' . date('Ymd', strtotime($this->donationDate)) . '.pdf';
 
         return [

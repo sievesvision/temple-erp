@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <title>{{ $temple['name'] }} · Donation Receipt</title>
 </head>
-<body style="background-color: #f5f3ef; margin: 0; padding: 20px; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #2d2520;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2ddd3;">
+<body style="background-color: #f7f0e3; margin: 0; padding: 20px; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #2d2520;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e8d9b5;">
     <!-- Header -->
-    <div style="background-color: {{ $temple['dark_color'] }}; padding: 24px 30px; text-align: left; border-bottom: 3px solid {{ $temple['primary_color'] }};">
+    <div style="background-color: #6B0F1A; padding: 24px 30px; text-align: left; border-bottom: 3px solid #C89B3C;">
       <h1 style="margin: 0; color: #ffffff; font-family: 'DM Sans', sans-serif; font-size: 19px; font-weight: 700;">
         {{ $temple['legal_name'] ?: $temple['name'] }}
       </h1>
       @if(!empty($temple['legal_name']) && $temple['legal_name'] !== $temple['name'])
-      <p style="margin: 2px 0 0 0; color: #d9d4c9; font-size: 12px;">{{ $temple['name'] }}</p>
+      <p style="margin: 2px 0 0 0; color: #e8d9b5; font-size: 12px;">{{ $temple['name'] }}</p>
       @endif
-      <p style="margin: 6px 0 0 0; color: #d9d4c9; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
+      <p style="margin: 6px 0 0 0; color: #e8d9b5; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
         Donation Receipt @if(!empty($receiptNumber)) &middot; No. {{ $receiptNumber }} @endif
       </p>
     </div>
@@ -36,33 +36,33 @@
       @endif
 
       <!-- Donation details -->
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e2ddd3; border-collapse: collapse; margin: 0 0 22px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e8d9b5; border-collapse: collapse; margin: 0 0 22px 0;">
         <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px; width: 40%;">Amount</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #17110a; font-size: 15px; font-weight: 700;">{{ $currency }} {{ number_format($amount, 2) }}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; background-color: #FDF6EA; color: #8a6d2f; font-size: 13px; width: 40%;">Amount</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; color: #6B0F1A; font-size: 15px; font-weight: 700;">{{ $currency }} {{ number_format($amount, 2) }}</td>
         </tr>
         @if($eventName)
         <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Event</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 14px;">{{ $eventName }}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; background-color: #FDF6EA; color: #8a6d2f; font-size: 13px;">Event</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; color: #2d2520; font-size: 14px;">{{ $eventName }}</td>
         </tr>
         @elseif($purpose)
         <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Purpose</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 14px;">{{ $purpose }}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; background-color: #FDF6EA; color: #8a6d2f; font-size: 13px;">Purpose</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; color: #2d2520; font-size: 14px;">{{ $purpose }}</td>
         </tr>
         @endif
         <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Payment Method</td>
-          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 14px;">{{ $paymentMethod }}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; background-color: #FDF6EA; color: #8a6d2f; font-size: 13px;">Payment Method</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e8d9b5; color: #2d2520; font-size: 14px;">{{ $paymentMethod }}</td>
         </tr>
         <tr>
-          <td style="padding: 12px 16px; {{ $transactionId ? 'border-bottom: 1px solid #e2ddd3;' : '' }} color: #7b6b5a; font-size: 13px;">Donation Date</td>
-          <td style="padding: 12px 16px; {{ $transactionId ? 'border-bottom: 1px solid #e2ddd3;' : '' }} color: #2d2520; font-size: 14px;">{{ date('d M Y', strtotime($donationDate)) }}</td>
+          <td style="padding: 12px 16px; {{ $transactionId ? 'border-bottom: 1px solid #e8d9b5;' : '' }} background-color: #FDF6EA; color: #8a6d2f; font-size: 13px;">Donation Date</td>
+          <td style="padding: 12px 16px; {{ $transactionId ? 'border-bottom: 1px solid #e8d9b5;' : '' }} color: #2d2520; font-size: 14px;">{{ date('d M Y', strtotime($donationDate)) }}</td>
         </tr>
         @if($transactionId)
         <tr>
-          <td style="padding: 12px 16px; color: #7b6b5a; font-size: 13px;">Reference</td>
+          <td style="padding: 12px 16px; background-color: #FDF6EA; color: #8a6d2f; font-size: 13px;">Reference</td>
           <td style="padding: 12px 16px; color: #2d2520; font-size: 14px; font-family: monospace;">{{ $transactionId }}</td>
         </tr>
         @endif
@@ -75,8 +75,8 @@
     </div>
 
     <!-- Footer -->
-    <div style="background-color: #f5f3ef; color: #7b6b5a; text-align: left; padding: 16px 30px; font-size: 11px; border-top: 1px solid #e2ddd3; line-height: 1.6;">
-      {{ $temple['legal_name'] ?: $temple['name'] }}@if(!empty($temple['abn'])) &middot; ABN {{ $temple['abn'] }}@endif<br>
+    <div style="background-color: #FDF6EA; color: #8a6d2f; text-align: left; padding: 16px 30px; font-size: 11px; border-top: 1px solid #e8d9b5; line-height: 1.6;">
+      {{ rtrim($temple['legal_name'] ?: $temple['name'], '.') }}@if(!empty($temple['abn'])) &middot; ABN {{ $temple['abn'] }}@endif<br>
       @if(!empty($temple['address'])){{ $temple['address'] }}<br>@endif
       @if(!empty($temple['phone'])){{ $temple['phone'] }}@endif @if(!empty($temple['website'])) &middot; {{ $temple['website'] }}@endif
     </div>

@@ -439,7 +439,7 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Payment Mode</label>
                                         <select name="payment_mode" class="form-select rounded-3" required>
-                                            @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Stripe'] as $mode)
+                                            @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Terminal', 'Stripe'] as $mode)
                                                 <option value="{{ $mode }}" {{ $d->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
                                             @endforeach
                                         </select>
@@ -549,7 +549,7 @@
                                     <div class="col-md-6">
                                         <label class="form-label fw-semibold">Payment Method</label>
                                         <select name="payment_method" class="form-select rounded-3" required>
-                                            @foreach(['Cash', 'UPI', 'Bank', 'Stripe'] as $method)
+                                            @foreach(['Cash', 'UPI', 'Bank', 'EFT Terminal', 'Stripe'] as $method)
                                                 <option value="{{ $method }}" {{ $g->payment_method === $method ? 'selected' : '' }}>{{ $method }}</option>
                                             @endforeach
                                         </select>
