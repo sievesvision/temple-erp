@@ -184,7 +184,13 @@
         .donation-tier-option.single-option label { cursor: default; }
 
         /* ---------- Event Settings: same sidebar-nav + categorized-panel structure as
-           admin/settings, in the console's own palette. ---------- */
+           admin/settings, in the console's own palette. A fixed-width flex column (not a
+           percentage-based Bootstrap column) keeps the nav a sensible width on wide desktop
+           monitors instead of stretching wider as the viewport grows, leaving the panel
+           content the rest of the space. ---------- */
+        .settings-layout { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+        .settings-sidebar-col { flex: 0 0 200px; max-width: 200px; }
+        .settings-content-col { flex: 1 1 420px; min-width: 0; }
         .settings-nav { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 90px; }
         .settings-nav-link { display: flex; align-items: center; gap: 10px; text-align: left; background: transparent; border: none; border-radius: 12px; padding: 12px 16px; font-weight: 600; font-size: 0.9rem; color: var(--text-secondary); transition: 0.15s; width: 100%; }
         .settings-nav-link:hover { background: var(--cream); color: var(--gold-hover); }
@@ -198,6 +204,8 @@
         .settings-section .form-control, .settings-section .form-select { border-color: var(--border); }
         .settings-section .form-control:focus, .settings-section .form-select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
         @media (max-width: 991.98px) {
+            .settings-layout { flex-direction: column; }
+            .settings-sidebar-col { flex-basis: auto; max-width: 100%; width: 100%; }
             .settings-nav { flex-direction: row; overflow-x: auto; position: static; }
             .settings-nav-link { white-space: nowrap; }
         }
@@ -359,6 +367,7 @@
                     <button type="button" class="sidebar-link" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
                     @if($canAddDonation)
                     <button type="button" class="sidebar-link active" data-pane="pane-entry"><i class="bi bi-heart-fill"></i><span>New Donation</span></button>
+                    <a href="{{ route('admin.events.pos', $event->event_id) }}" class="sidebar-link"><i class="bi bi-lightning-charge-fill"></i><span>POS Mode</span></a>
                     @endif
                     <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Donations</span></button>
                     @if($canEditEvent)
@@ -694,8 +703,8 @@
                     <div class="card-panel">
                         <form action="{{ route('admin.events.update', $event->event_id) }}" method="POST">
                             @csrf
-                            <div class="row g-4">
-                                <div class="col-lg-3">
+                            <div class="settings-layout">
+                                <div class="settings-sidebar-col">
                                     <div class="settings-nav">
                                         <button type="button" class="settings-nav-link active" data-panel="details"><i class="bi bi-info-circle-fill"></i> Event Details</button>
                                         <button type="button" class="settings-nav-link" data-panel="public-page"><i class="bi bi-window"></i> Public Page</button>
@@ -707,7 +716,7 @@
                                     </div>
                                 </div>
 
-                                <div class="col-lg-9">
+                                <div class="settings-content-col">
                                     <!-- EVENT DETAILS -->
                                     <div class="settings-panel active" data-panel-content="details">
                                         <div class="settings-section">
