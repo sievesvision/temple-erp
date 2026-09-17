@@ -144,6 +144,9 @@
     <li class="nav-item">
       <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"><i class="bi bi-person-vcard-fill"></i> System Users</a>
     </li>
+    <li class="nav-item">
+      <a href="{{ route('admin.logs.index') }}" class="nav-link {{ request()->routeIs('admin.logs.*') ? 'active' : '' }}"><i class="bi bi-journal-text"></i> Audit Logs</a>
+    </li>
     @endif
 
     <li class="nav-item">

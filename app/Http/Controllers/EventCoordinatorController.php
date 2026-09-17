@@ -196,7 +196,7 @@ class EventCoordinatorController extends Controller
                 'updated_at' => now(),
             ]);
 
-            AuditLogService::log("Added Event Coordinator: {$request->email} for {$event->event_name}");
+            AuditLogService::log("Added Event Coordinator: {$request->email} for {$event->event_name}", null, $event->event_id);
             DB::commit();
 
             if ($existingUser) {
@@ -277,7 +277,7 @@ class EventCoordinatorController extends Controller
         $newStatus = $targetUser->status === 'Active' ? 'Inactive' : 'Active';
         $targetUser->update(['status' => $newStatus]);
 
-        AuditLogService::log(($newStatus === 'Active' ? 'Unlocked' : 'Locked') . " account: {$targetUser->email}");
+        AuditLogService::log(($newStatus === 'Active' ? 'Unlocked' : 'Locked') . " account: {$targetUser->email}", null, $eventId);
 
         return $this->redirectAfterAction($request, $eventId)->with('success', $targetUser->name . ($newStatus === 'Active' ? ' has been unlocked.' : ' has been locked out.'));
     }
@@ -300,7 +300,7 @@ class EventCoordinatorController extends Controller
         $targetUser = User::findOrFail($userId);
         Password::sendResetLink(['email' => $targetUser->email]);
         $targetUser->update(['last_reset_email_sent_at' => now()]);
-        AuditLogService::log("Sent password reset link to {$targetUser->email}");
+        AuditLogService::log("Sent password reset link to {$targetUser->email}", null, $eventId);
 
         return $this->redirectAfterAction($request, $eventId)->with('success', "Reset link sent to {$targetUser->name}.");
     }

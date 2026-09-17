@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Setting;
 use App\Models\RolePermission;
 use App\Models\Event;
+use App\Services\AuditLogService;
 use App\Services\DonationReceiptService;
 use App\Services\EventCoordinatorLevel;
 use App\Services\StripeConfigService;
@@ -804,6 +805,12 @@ class DonationController extends Controller
                 DonationReceiptService::send($receiptPayload);
             }
 
+            AuditLogService::log(
+                "Recorded devotee donation of {$validated['amount']} ({$validated['payment_mode']})",
+                null,
+                $validated['event_id'] ?? null
+            );
+
             if ($request->wantsJson()) {
                 return response()->json(['success' => true, 'message' => 'Devotee donation recorded successfully.']);
             }
@@ -891,6 +898,12 @@ class DonationController extends Controller
             } else {
                 DonationReceiptService::send($receiptPayload);
             }
+
+            AuditLogService::log(
+                "Recorded guest donation of {$validated['amount']} from {$validated['donor_name']} ({$validated['payment_method']})",
+                null,
+                $validated['event_id'] ?? null
+            );
 
             if ($request->wantsJson()) {
                 return response()->json(['success' => true, 'message' => 'Guest donation recorded successfully.']);
@@ -1089,6 +1102,8 @@ class DonationController extends Controller
             'receipt_number' => DonationReceiptService::receiptNumber($type === 'devotee' ? 'D' : 'G', $donation->id),
         ], false);
 
+        AuditLogService::log("Resent {$type} donation receipt to {$donation->donor_name}", null, $donation->event_id);
+
         return redirect()->back()->with('success', 'Receipt email resent successfully.');
     }
 
@@ -1166,6 +1181,12 @@ class DonationController extends Controller
             'receipt_number' => DonationReceiptService::receiptNumber('G', $donation->id),
         ]);
 
+        AuditLogService::log(
+            "Approved guest donation of {$donation->amount} from {$donation->donor_name}",
+            null,
+            $donation->event_id
+        );
+
         return redirect()->back()->with('success', 'Donation approved and marked as received.');
     }
 
@@ -1215,6 +1236,12 @@ class DonationController extends Controller
             'transaction_id' => $donation->transaction_id,
             'receipt_number' => DonationReceiptService::receiptNumber('D', $donation->id),
         ]);
+
+        AuditLogService::log(
+            "Approved devotee donation of {$donation->amount} from {$donation->donor_name}",
+            null,
+            $donation->event_id
+        );
 
         return redirect()->back()->with('success', 'Donation approved and marked as received.');
     }

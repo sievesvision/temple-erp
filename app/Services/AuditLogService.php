@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Request;
 
 class AuditLogService
 {
-    public static function log($action, $userId = null)
+    public static function log($action, $userId = null, $eventId = null)
     {
         if (!$userId && Auth::check()) {
             $userId = Auth::user()->id;
@@ -18,6 +18,7 @@ class AuditLogService
             DB::table('audit_logs')->insert([
                 'action' => $action,
                 'performed_by' => $userId,
+                'event_id' => $eventId,
                 'ip_address' => Request::ip(),
                 'created_at' => now(),
                 'updated_at' => now()

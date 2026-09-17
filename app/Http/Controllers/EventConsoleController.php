@@ -147,6 +147,22 @@ class EventConsoleController extends Controller
             $allUsersForCoordinators = DB::table('users')->select('id', 'name', 'email')->orderBy('name')->get();
         }
 
+        // The Logs pane is an event-admin-only view (same ceiling as coordinator management)
+        // — event-entry/event-view coordinators run donations day-to-day but don't get to
+        // audit who did what. Capped at the 200 most recent entries; this is a console pane,
+        // not the full paginated admin-wide log viewer (see LogController).
+        $canViewEventLogs = $canManageEventCoordinators;
+        $eventLogs = collect();
+        if ($canViewEventLogs) {
+            $eventLogs = DB::table('audit_logs')
+                ->leftJoin('users', 'audit_logs.performed_by', '=', 'users.id')
+                ->where('audit_logs.event_id', $event->event_id)
+                ->select('audit_logs.action', 'audit_logs.ip_address', 'audit_logs.created_at', 'users.name as performed_by_name')
+                ->orderBy('audit_logs.created_at', 'desc')
+                ->limit(200)
+                ->get();
+        }
+
         $temple = Setting::templeBranding();
 
         return view('admin.event-console', compact(
@@ -167,6 +183,8 @@ class EventConsoleController extends Controller
             'canManageEventCoordinators',
             'eventCoordinators',
             'allUsersForCoordinators',
+            'canViewEventLogs',
+            'eventLogs',
             'activeRole',
             'temple'
         ));

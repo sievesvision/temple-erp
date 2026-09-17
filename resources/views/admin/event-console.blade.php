@@ -376,6 +376,9 @@
                     @if($canManageEventCoordinators)
                     <button type="button" class="sidebar-link" data-pane="pane-coordinators"><i class="bi bi-people-fill"></i><span>Event Coordinators</span></button>
                     @endif
+                    @if($canViewEventLogs)
+                    <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
+                    @endif
                 </div>
                 <div class="sidebar-decoration">
                     <svg viewBox="0 0 200 130" aria-hidden="true">
@@ -1024,6 +1027,42 @@
                                 </tr>
                                 @empty
                                 <tr><td colspan="7" class="text-center text-muted py-4">No coordinators assigned yet.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
+                @if($canViewEventLogs)
+                <!-- EVENT LOGS -->
+                <div class="console-pane" id="pane-logs">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-journal-text"></i></div>
+                        <div>
+                            <h2>Logs</h2>
+                            <p>Recent recorded actions for {{ $event->event_name }} (most recent 200)</p>
+                        </div>
+                    </div>
+                    <div class="card-panel" style="padding:0;">
+                        <div class="table-scroll-wrap" style="max-height: calc(100vh - 220px);">
+                        <table class="console-table">
+                            <thead>
+                                <tr>
+                                    <th>Date/Time</th><th>Action</th><th>Performed By</th><th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($eventLogs as $log)
+                                <tr>
+                                    <td>{{ \Carbon\Carbon::parse($log->created_at)->format('d M Y, h:i A') }}</td>
+                                    <td>{{ $log->action }}</td>
+                                    <td>{{ $log->performed_by_name ?? 'System' }}</td>
+                                    <td>{{ $log->ip_address ?? '—' }}</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="4" class="text-center text-muted py-5">No log entries recorded for this event yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
