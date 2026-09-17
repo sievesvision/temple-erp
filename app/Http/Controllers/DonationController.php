@@ -90,9 +90,22 @@ class DonationController extends Controller
                 : ($g->purpose_details ?: $g->purpose);
         });
 
+        // The Linkly-generated POS transaction reference (e.g. "EFT091716500372") for any
+        // EFT Terminal donation — a different identifier from the donation's own
+        // transaction_id (Linkly's RRN/auth code, the donor/bank-facing reference on the
+        // receipt) — see EventDonationBreakdown::forEvent()'s own copy of this same lookup
+        // for the per-event console's table.
+        $linklyRefs = LinklyTransaction::where('txn_type', 'purchase')
+            ->whereNotNull('donation_id')
+            ->get()
+            ->keyBy(fn ($t) => $t->donation_type . ':' . $t->donation_id);
+
         $allDonations = $devoteeDonations->concat($guestDonations)
             ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
-            ->values();
+            ->values()
+            ->each(function ($row) use ($linklyRefs) {
+                $row->linkly_txn_ref = $linklyRefs[$row->donation_type . ':' . $row->id]->pos_txn_ref ?? null;
+            });
 
         // Event-wise donation tracking — totals per event, Paid-only (matches the totals
         // above), plus a Pending figure so admins can see what's still awaiting approval.
@@ -830,12 +843,6 @@ class DonationController extends Controller
     }
 
     /**
-     * Drives a purchase transaction on the paired EFT terminal — called by the POS page and
-     * the console's Quick Entry *before* storeGuestDonation(), so a donation is only ever
-     * recorded once the terminal actually confirms the card was charged. A declined/failed
-     * transaction never reaches storeGuestDonation() at all.
-     */
-    /**
      * The URI Linkly posts async notifications back to for a session — {{type}} is reliably
      * substituted by Linkly, but {{sessionId}} is not (confirmed against real webhook
      * traffic — it can arrive as the literal, unsubstituted string), so the URL never carries
@@ -848,6 +855,16 @@ class DonationController extends Controller
         return url('/admin/eft/webhook/{{type}}');
     }
 
+    /**
+     * Drives a purchase transaction on the paired EFT terminal — called by the POS page
+     * before the donation is ever saved. The donor details are captured here too (in the
+     * ledger row's meta, not yet as a real donation) purely so pollEftCharge() can recover
+     * and save the donation on its own if the browser never gets the chance to (a crash, a
+     * refresh, or the Cancel-button incident this was added after — see
+     * createDonationFromApprovedPurchase()). The normal path still has the browser call
+     * storeGuestDonation() itself once it sees an approved result; that call is idempotent
+     * against this fallback via linkLedgerToDonation()'s own "already linked?" check.
+     */
     public function startEftCharge(Request $request)
     {
         $user = Auth::user();
@@ -864,6 +881,15 @@ class DonationController extends Controller
             // always gets a brand new one from the browser.
             'client_ref' => 'required|string|max:64',
             'event_id' => 'nullable|exists:events,event_id',
+            // Donor details — not validated as strictly as storeGuestDonation()'s own copy
+            // (e.g. event-required email/mobile), since these are only ever used for the
+            // server-side recovery fallback; the browser's own storeGuestDonation() call
+            // remains the primary path and does the real enforcement.
+            'donor_name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'mobile' => 'nullable|string|max:20',
+            'purpose' => 'nullable|string|max:100',
+            'purpose_details' => 'nullable|string|max:2000',
         ]);
 
         // Resume-in-place: if this exact attempt already has a non-final Linkly session
@@ -909,6 +935,13 @@ class DonationController extends Controller
                 'currency_code' => Setting::get('currency_code', 'AUD'),
                 'status' => 'initiated',
                 'initiated_by' => $user->id,
+                'meta' => [
+                    'donor_name' => $validated['donor_name'] ?? null,
+                    'email' => $validated['email'] ?? null,
+                    'mobile' => $validated['mobile'] ?? null,
+                    'purpose' => $validated['purpose'] ?? null,
+                    'purpose_details' => $validated['purpose_details'] ?? null,
+                ],
             ]);
         }
 
@@ -926,6 +959,7 @@ class DonationController extends Controller
         $result = LinklyEftService::pollTransaction($sessionId);
         $this->syncLedgerFromPoll($sessionId, $result);
         $this->markDonationCancelledIfRefundJustApproved($sessionId, $result);
+        $result['donation_id'] = $this->createDonationIfApprovedPurchaseUnrecorded($sessionId, $result);
 
         // A transaction that's been neither approved/declined/cancelled nor failed for far
         // longer than Linkly's own ~3-minute transaction window is genuinely UNKNOWN, not
@@ -1012,6 +1046,115 @@ class DonationController extends Controller
             'donation_type' => $donationType,
             'donation_id' => $donationId,
         ]);
+    }
+
+    /**
+     * Inserts one guest donation row, sends its receipt, and writes the audit log entry —
+     * shared by storeGuestDonation() (the normal path, driven by the browser's own form) and
+     * createDonationIfApprovedPurchaseUnrecorded() (the server-side EFT recovery fallback, so
+     * the two paths can never drift into recording a donation differently depending on which
+     * one happened to save it). $fields matches storeGuestDonation()'s own validated shape;
+     * 'selections_json' is deliberately not handled here — the fallback path never has a
+     * tiered breakdown to save, only the flat purpose/amount.
+     */
+    private function insertGuestDonationRecord(array $fields): int
+    {
+        $donationId = DB::table('donations_without_logins')->insertGetId([
+            'donor_name' => $fields['donor_name'],
+            'event_id' => $fields['event_id'] ?? null,
+            'email' => $fields['email'] ?? null,
+            'mobile' => $fields['mobile'] ?? null,
+            'amount' => $fields['amount'],
+            'purpose' => $fields['purpose'],
+            'purpose_details' => $fields['purpose_details'] ?? null,
+            'payment_method' => $fields['payment_method'],
+            'payment_status' => $fields['payment_status'] ?? 'Paid',
+            'transaction_id' => $fields['transaction_id'] ?? null,
+            'bank_name' => $fields['bank_name'] ?? null,
+            'bank_account_no' => $fields['bank_account_no'] ?? null,
+            'bank_ifsc' => $fields['bank_ifsc'] ?? null,
+            'bank_branch' => $fields['bank_branch'] ?? null,
+            'donation_date' => $fields['donation_date'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $receiptPayload = [
+            'donor_name' => $fields['donor_name'],
+            'donor_email' => $fields['email'] ?? null,
+            'donor_mobile' => $fields['mobile'] ?? null,
+            'amount' => $fields['amount'],
+            'payment_method' => $fields['payment_method'],
+            'purpose' => $fields['purpose_details'] ?? $fields['purpose'],
+            'event_id' => $fields['event_id'] ?? null,
+            'donation_date' => $fields['donation_date'],
+            'transaction_id' => $fields['transaction_id'] ?? null,
+            'receipt_number' => DonationReceiptService::receiptNumber('G', $donationId),
+        ];
+        if (($fields['payment_status'] ?? 'Paid') === 'Pending') {
+            DonationReceiptService::sendPendingNotice($receiptPayload);
+        } else {
+            DonationReceiptService::send($receiptPayload);
+        }
+
+        AuditLogService::log(
+            "Recorded guest donation of {$fields['amount']} from {$fields['donor_name']} ({$fields['payment_method']})",
+            null,
+            $fields['event_id'] ?? null
+        );
+
+        return $donationId;
+    }
+
+    /**
+     * Server-side safety net: if an EFT Terminal purchase is confirmed approved but its
+     * ledger row still has no linked donation (the browser never got the chance to call
+     * storeGuestDonation() itself — a crash, a refresh, or the exact Cancel-button incident
+     * this was added after, where the terminal completed the charge after the browser had
+     * already stopped watching), save the donation here instead, from the donor details
+     * captured at startEftCharge() time. Runs on every poll (including a manual "Check
+     * Status" click from the EFTPOS pane — same endpoint), not just the browser's own
+     * auto-poll loop, so a charged card is never left unrecorded regardless of how the
+     * approval is discovered. Returns the donation id (existing or newly created), or null if
+     * there's nothing to do or nothing usable to create from.
+     */
+    private function createDonationIfApprovedPurchaseUnrecorded(string $sessionId, array $result): ?int
+    {
+        if (!($result['done'] && $result['success'])) {
+            return null;
+        }
+
+        $txn = LinklyTransaction::where('linkly_session_id', $sessionId)->where('txn_type', 'purchase')->first();
+        if (!$txn) {
+            return null;
+        }
+        if ($txn->donation_id) {
+            return $txn->donation_id;
+        }
+
+        $meta = $txn->meta ?? [];
+        if (empty($meta['donor_name'])) {
+            // Nothing was captured to create from (e.g. an older transaction from before this
+            // fallback existed) — leave it to the browser's own storeGuestDonation() call.
+            return null;
+        }
+
+        $donationId = $this->insertGuestDonationRecord([
+            'donor_name' => $meta['donor_name'],
+            'event_id' => $txn->event_id,
+            'email' => $meta['email'] ?? null,
+            'mobile' => $meta['mobile'] ?? null,
+            'amount' => $txn->amount,
+            'purpose' => $meta['purpose'] ?: 'General Donation',
+            'purpose_details' => $meta['purpose_details'] ?? null,
+            'payment_method' => 'EFT Terminal',
+            'payment_status' => 'Paid',
+            'transaction_id' => $result['rrn'] ?: ($result['auth_code'] ?: $txn->pos_txn_ref),
+            'donation_date' => now()->toDateString(),
+        ]);
+        $this->linkLedgerToDonation($sessionId, 'guest', $donationId);
+
+        return $donationId;
     }
 
     /**
@@ -1319,8 +1462,25 @@ class DonationController extends Controller
             'linkly_session_id' => 'nullable|string|max:64',
         ]);
 
+        // Idempotency against createDonationIfApprovedPurchaseUnrecorded(): that fallback can
+        // already have saved this exact donation server-side (e.g. the browser's own poll
+        // loop discovered the approval and both saved it and is now also calling this route,
+        // or the operator used "Check Status" from the EFTPOS pane in the meantime) — detect
+        // that via the ledger row this session is linked to and just confirm success rather
+        // than inserting a second donation for the same charge.
+        $linklySessionId = $validated['linkly_session_id'] ?? null;
+        if ($linklySessionId) {
+            $existingTxn = LinklyTransaction::where('linkly_session_id', $linklySessionId)->first();
+            if ($existingTxn && $existingTxn->donation_id) {
+                if ($request->wantsJson()) {
+                    return response()->json(['success' => true, 'message' => 'Guest donation recorded successfully.', 'donation_id' => $existingTxn->donation_id]);
+                }
+                return redirect()->back()->with('success', 'Guest donation recorded successfully.');
+            }
+        }
+
         try {
-            $donationId = DB::table('donations_without_logins')->insertGetId([
+            $donationId = $this->insertGuestDonationRecord([
                 'donor_name' => $validated['donor_name'],
                 'event_id' => $validated['event_id'] ?? null,
                 'email' => $validated['email'] ?? null,
@@ -1336,35 +1496,9 @@ class DonationController extends Controller
                 'bank_ifsc' => $validated['bank_ifsc'] ?? null,
                 'bank_branch' => $validated['bank_branch'] ?? null,
                 'donation_date' => $validated['donation_date'],
-                'created_at' => now(),
-                'updated_at' => now(),
             ]);
             $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
-            $this->linkLedgerToDonation($validated['linkly_session_id'] ?? null, 'guest', $donationId);
-
-            $receiptPayload = [
-                'donor_name' => $validated['donor_name'],
-                'donor_email' => $validated['email'] ?? null,
-                'donor_mobile' => $validated['mobile'] ?? null,
-                'amount' => $validated['amount'],
-                'payment_method' => $validated['payment_method'],
-                'purpose' => $validated['purpose_details'] ?? $validated['purpose'],
-                'event_id' => $validated['event_id'] ?? null,
-                'donation_date' => $validated['donation_date'],
-                'transaction_id' => $validated['transaction_id'] ?? null,
-                'receipt_number' => DonationReceiptService::receiptNumber('G', $donationId),
-            ];
-            if (($validated['payment_status'] ?? 'Paid') === 'Pending') {
-                DonationReceiptService::sendPendingNotice($receiptPayload);
-            } else {
-                DonationReceiptService::send($receiptPayload);
-            }
-
-            AuditLogService::log(
-                "Recorded guest donation of {$validated['amount']} from {$validated['donor_name']} ({$validated['payment_method']})",
-                null,
-                $validated['event_id'] ?? null
-            );
+            $this->linkLedgerToDonation($linklySessionId, 'guest', $donationId);
 
             if ($request->wantsJson()) {
                 return response()->json(['success' => true, 'message' => 'Guest donation recorded successfully.']);

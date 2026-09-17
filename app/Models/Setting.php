@@ -43,6 +43,18 @@ class Setting extends Model
     }
 
     /**
+     * Test-only escape hatch: PHPUnit runs many tests in one PHP process (unlike a real web
+     * request, where this cache naturally starts empty), so without this a test that never
+     * touches Setting can silently read a previous test's in-memory snapshot even after
+     * RefreshDatabase has wiped the settings table out from under it. Called from
+     * Tests\TestCase::setUp().
+     */
+    public static function clearCache(): void
+    {
+        self::$cache = null;
+    }
+
+    /**
      * The canonical temple branding/currency context used across the site —
      * public pages, every role dashboard, and the auth screens.
      */

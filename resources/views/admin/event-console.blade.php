@@ -510,7 +510,12 @@
                                     <td class="col-amount">@if($row->other_amount > 0){{ number_format($row->other_amount, 2) }}@else — @endif</td>
                                     <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
                                     <td>{{ $row->payment_method }}</td>
-                                    <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
+                                    <td class="col-txn" title="{{ $row->transaction_id }}">
+                                        {{ $row->transaction_id ?: '—' }}
+                                        @if(!empty($row->linkly_txn_ref))
+                                        <div class="text-muted small" title="Linkly reference: {{ $row->linkly_txn_ref }}">Linkly: {{ $row->linkly_txn_ref }}</div>
+                                        @endif
+                                    </td>
                                     <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
                                     <td class="text-end">
@@ -1102,7 +1107,9 @@
                                     <td class="col-txn"><span id="txnref-{{ $txn->id }}">{{ $txn->pos_txn_ref }}</span></td>
                                     <td>
                                         @if($txn->donation_id)
-                                        <span class="text-capitalize">{{ $txn->donation_type }}</span> #{{ $txn->donation_id }}
+                                        {{-- Same 'DN'/'GD' + zero-padded id format used everywhere else a donation is
+                                             identified (see EventDonationBreakdown::forEvent()'s display_id). --}}
+                                        {{ ($txn->donation_type === 'devotee' ? 'DN' : 'GD') . str_pad($txn->donation_id, 5, '0', STR_PAD_LEFT) }}
                                         @else
                                         <span class="text-muted">—</span>
                                         @endif

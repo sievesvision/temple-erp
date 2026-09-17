@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Event;
+use App\Models\LinklyTransaction;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -47,12 +48,23 @@ class EventDonationBreakdown
         $donationSelections = DB::table('donation_selections')->get()
             ->groupBy(fn ($s) => $s->donation_type . ':' . $s->donation_id);
 
+        // The Linkly-generated POS transaction reference (e.g. "EFT091716500372") for any
+        // EFT Terminal donation — a different identifier from the donation's own
+        // transaction_id (which holds Linkly's RRN/auth code, the donor/bank-facing
+        // reference), so both need to be visible to actually cross-reference a row here
+        // against the EFTPOS pane's transaction ledger. One bulk lookup avoids an N+1 query.
+        $linklyRefs = LinklyTransaction::where('event_id', $eventId)
+            ->where('txn_type', 'purchase')
+            ->whereNotNull('donation_id')
+            ->get()
+            ->keyBy(fn ($t) => $t->donation_type . ':' . $t->donation_id);
+
         $options = $event->donationOptions;
 
         $rows = $devoteeDonations->concat($guestDonations)
             ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
             ->values()
-            ->map(function ($row) use ($options, $donationSelections) {
+            ->map(function ($row) use ($options, $donationSelections, $linklyRefs) {
                 $selections = $donationSelections[$row->donation_type . ':' . $row->id] ?? collect();
                 $optionAmounts = [];
                 $matchedTotal = 0;
@@ -66,6 +78,7 @@ class EventDonationBreakdown
                 if ($row->other_amount < 0.01) {
                     $row->other_amount = 0;
                 }
+                $row->linkly_txn_ref = $linklyRefs[$row->donation_type . ':' . $row->id]->pos_txn_ref ?? null;
                 return $row;
             });
 

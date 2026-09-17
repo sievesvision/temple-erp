@@ -18,7 +18,12 @@
     <td><span class="fw-bold text-success">{{ $temple['currency'] }} {{ number_format($row->amount, 2) }}</span></td>
     <td>{{ $purposeOverride ?? $row->display_purpose }}</td>
     <td><span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $row->payment_method }}</span></td>
-    <td><code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $row->transaction_id }}">{{ $row->transaction_id }}</code></td>
+    <td>
+        <code class="small text-dark d-inline-block text-truncate" style="max-width: 110px;" title="{{ $row->transaction_id }}">{{ $row->transaction_id }}</code>
+        @if(!empty($row->linkly_txn_ref))
+        <div class="small text-muted text-truncate" style="max-width: 110px;" title="Linkly reference: {{ $row->linkly_txn_ref }}">Linkly: {{ $row->linkly_txn_ref }}</div>
+        @endif
+    </td>
     <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
     <td>
         @php

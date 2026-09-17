@@ -468,4 +468,131 @@ class LinklyCorePaymentsTest extends TestCase
             'payment_status' => 'Cancelled',
         ]);
     }
+
+    // The server-side recovery fallback this was all added for: if the browser never gets to
+    // call storeGuestDonation() itself (a crash, a refresh, or the Cancel-button incident that
+    // motivated this), an approved purchase's donation is still saved automatically the
+    // moment ANY poll (the browser's own loop, or a manual "Check Status" click — same
+    // endpoint either way) discovers the approval, using the donor details captured back at
+    // startEftCharge() time.
+    public function test_approved_purchase_auto_creates_donation_without_a_separate_save_call(): void
+    {
+        $eventId = $this->createEvent();
+        $user = $this->adminUser();
+
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*' => function ($request) {
+                if (strtoupper($request->method()) === 'GET') {
+                    return Http::response(['response' => ['success' => true, 'responseCode' => '00', 'authCode' => 5, 'rrn' => '000005']], 200);
+                }
+                return Http::response('', 202);
+            },
+        ]);
+
+        $start = $this->actingAs($user)->postJson('/admin/eft/charge/start', [
+            'amount' => '30.00',
+            'client_ref' => 'auto-create-test',
+            'event_id' => $eventId,
+            'donor_name' => 'Auto Created Donor',
+            'email' => 'donor@example.com',
+            'purpose' => 'General Donation',
+        ]);
+        $sessionId = $start->json('session_id');
+
+        // Only ever poll — deliberately never call storeGuestDonation() in this test.
+        $poll = $this->actingAs($user)->getJson("/admin/eft/charge/status/{$sessionId}?event_id={$eventId}");
+        $poll->assertOk()->assertJson(['payment_status' => 'approved', 'done' => true, 'success' => true]);
+        $this->assertNotNull($poll->json('donation_id'));
+
+        $this->assertDatabaseHas('donations_without_logins', [
+            'id' => $poll->json('donation_id'),
+            'donor_name' => 'Auto Created Donor',
+            'amount' => 30,
+            'payment_method' => 'EFT Terminal',
+            'payment_status' => 'Paid',
+        ]);
+        $this->assertDatabaseHas('linkly_transactions', [
+            'linkly_session_id' => $sessionId,
+            'donation_type' => 'guest',
+            'donation_id' => $poll->json('donation_id'),
+        ]);
+    }
+
+    // Polling twice after approval (e.g. the browser's own loop, then a manual "Check Status"
+    // click) must not create a second donation for the same charge.
+    public function test_polling_twice_after_approval_does_not_duplicate_the_donation(): void
+    {
+        $eventId = $this->createEvent();
+        $user = $this->adminUser();
+
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*' => function ($request) {
+                if (strtoupper($request->method()) === 'GET') {
+                    return Http::response(['response' => ['success' => true, 'responseCode' => '00', 'authCode' => 6, 'rrn' => '000006']], 200);
+                }
+                return Http::response('', 202);
+            },
+        ]);
+
+        $start = $this->actingAs($user)->postJson('/admin/eft/charge/start', [
+            'amount' => '15.00',
+            'client_ref' => 'double-poll-test',
+            'event_id' => $eventId,
+            'donor_name' => 'Double Poll Donor',
+        ]);
+        $sessionId = $start->json('session_id');
+
+        $first = $this->actingAs($user)->getJson("/admin/eft/charge/status/{$sessionId}?event_id={$eventId}");
+        $second = $this->actingAs($user)->getJson("/admin/eft/charge/status/{$sessionId}?event_id={$eventId}");
+
+        $this->assertSame($first->json('donation_id'), $second->json('donation_id'));
+        $this->assertSame(1, DB::table('donations_without_logins')->where('donor_name', 'Double Poll Donor')->count());
+    }
+
+    // If the browser's own storeGuestDonation() call arrives anyway after the server-side
+    // fallback already saved the donation, it must confirm success without inserting a
+    // second row (or sending a second receipt email).
+    public function test_store_guest_donation_is_idempotent_after_auto_create(): void
+    {
+        $eventId = $this->createEvent();
+        $user = $this->adminUser();
+
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*' => function ($request) {
+                if (strtoupper($request->method()) === 'GET') {
+                    return Http::response(['response' => ['success' => true, 'responseCode' => '00', 'authCode' => 7, 'rrn' => '000007']], 200);
+                }
+                return Http::response('', 202);
+            },
+        ]);
+
+        $start = $this->actingAs($user)->postJson('/admin/eft/charge/start', [
+            'amount' => '12.00',
+            'client_ref' => 'idempotent-save-test',
+            'event_id' => $eventId,
+            'donor_name' => 'Idempotent Donor',
+        ]);
+        $sessionId = $start->json('session_id');
+
+        $poll = $this->actingAs($user)->getJson("/admin/eft/charge/status/{$sessionId}?event_id={$eventId}");
+        $autoCreatedId = $poll->json('donation_id');
+        $this->assertNotNull($autoCreatedId);
+
+        $store = $this->actingAs($user)->postJson('/admin/donation/store-guest', [
+            'donor_name' => 'Idempotent Donor',
+            'event_id' => $eventId,
+            'amount' => '12.00',
+            'purpose' => 'General Donation',
+            'payment_method' => 'EFT Terminal',
+            'transaction_id' => '000007',
+            'donation_date' => now()->toDateString(),
+            'linkly_session_id' => $sessionId,
+        ]);
+
+        $store->assertOk()->assertJson(['success' => true, 'donation_id' => $autoCreatedId]);
+        $this->assertSame(1, DB::table('donations_without_logins')->where('donor_name', 'Idempotent Donor')->count());
+    }
 }

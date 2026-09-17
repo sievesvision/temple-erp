@@ -630,7 +630,18 @@
             // (not one blocking call) so the terminal's live prompts ("ENTER PIN", etc.,
             // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
-                startOrResumeEftPurchase(btn, { clientRef: newClientRef(), amount: amount, name: name, email: emailValue, mobile: mobileValue });
+                startOrResumeEftPurchase(btn, {
+                    clientRef: newClientRef(),
+                    amount: amount,
+                    name: name,
+                    email: emailValue,
+                    mobile: mobileValue,
+                    // Sent on to startEftCharge() too (not just kept for submitGuestDonation
+                    // later) so the server can save the donation itself if the browser never
+                    // gets the chance to — see createDonationIfApprovedPurchaseUnrecorded().
+                    purpose: purposeValue,
+                    purposeDetails: document.getElementById('posDetails').value,
+                });
                 return;
             }
 
@@ -652,6 +663,11 @@
             startBody.set('event_id', EVENT_ID);
             startBody.set('amount', attempt.amount.toFixed(2));
             startBody.set('client_ref', attempt.clientRef);
+            startBody.set('donor_name', attempt.name || '');
+            startBody.set('email', attempt.email || '');
+            startBody.set('mobile', attempt.mobile || '');
+            startBody.set('purpose', attempt.purpose || '');
+            startBody.set('purpose_details', attempt.purposeDetails || '');
 
             fetch(EFT_CHARGE_START_URL, {
                 method: 'POST',
