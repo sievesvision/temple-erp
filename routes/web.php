@@ -343,7 +343,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'stripe_enabled' => 'nullable|boolean',
             'stripe_mode' => 'nullable|string|in:test,live',
             'enabled_payment_methods' => 'nullable|array',
-            'enabled_payment_methods.*' => 'string|in:Cash,UPI,Bank Transfer,Cheque',
+            'enabled_payment_methods.*' => 'string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal',
             'system_notification_email' => 'nullable|email|max:255',
             'temple_opening_time' => 'required|string|max:10',
             'temple_closing_time' => 'required|string|max:10',

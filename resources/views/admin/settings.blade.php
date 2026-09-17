@@ -414,6 +414,10 @@
                                     <input class="form-check-input" type="checkbox" name="enabled_payment_methods[]" value="Cheque" id="pm_cheque" {{ in_array('Cheque', $enabledPaymentMethods) ? 'checked' : '' }}>
                                     <label class="form-check-label" for="pm_cheque">Cheque</label>
                                 </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="enabled_payment_methods[]" value="EFT Terminal" id="pm_eft_terminal" {{ in_array('EFT Terminal', $enabledPaymentMethods) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="pm_eft_terminal">EFT Terminal</label>
+                                </div>
                             </div>
                         </div>
                     </div>

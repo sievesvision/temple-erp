@@ -70,6 +70,9 @@
         .pos-tier-option input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--gold); flex-shrink: 0; }
         .pos-tier-option .pos-tier-qty { width: 70px; padding: 10px; font-size: 1rem; border: 2px solid var(--border); border-radius: 10px; }
         .pos-tier-option .pos-tier-free { width: 120px; padding: 10px; font-size: 1rem; border: 2px solid var(--border); border-radius: 10px; }
+        .pos-tier-free-quick-amounts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; width: 100%; justify-content: flex-end; }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; padding: 8px 14px; min-height: 40px; border-radius: 10px; font-size: 0.85rem; }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
         .pos-tier-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.1rem; color: var(--text-primary); padding: 10px 4px; }
 
         .pos-method-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
@@ -229,7 +232,7 @@
         // Payment method — big buttons instead of a dropdown.
         const methodRow = document.getElementById('posMethodRow');
         let selectedMethod = null;
-        const methodIcons = { Cash: 'bi-cash-coin', UPI: 'bi-phone-fill', 'Bank Transfer': 'bi-bank2', Cheque: 'bi-postcard-fill', Stripe: 'bi-credit-card-fill' };
+        const methodIcons = { Cash: 'bi-cash-coin', UPI: 'bi-phone-fill', 'Bank Transfer': 'bi-bank2', Cheque: 'bi-postcard-fill', 'EFT Terminal': 'bi-credit-card-2-front-fill', Stripe: 'bi-credit-card-fill' };
         (ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash']).forEach(function (m, idx) {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -270,11 +273,34 @@
                     + (hasAmount ? (CURRENCY_CODE + ' ' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
                     + '</span></span></label>'
                     + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="pos-tier-qty" style="' + (singleOption ? '' : 'display:none;') + '">' : '')
-                    + (!hasAmount ? '<input type="text" inputmode="decimal" placeholder="Amount" class="pos-tier-free">' : '')
+                    + (!hasAmount ? '<div class="d-flex flex-column" style="flex:1 1 100%;"><input type="text" inputmode="decimal" placeholder="Amount" class="pos-tier-free">'
+                        + '<div class="pos-tier-free-quick-amounts"></div></div>' : '')
                     + '</div>';
             });
             tiersContainer.innerHTML = html;
             tiersContainer.querySelectorAll('.pos-tier-free').forEach(bindDecimalSanitizer);
+
+            // Quick-amount mini chips for each free-amount tier — the only place amount
+            // pills appear once an event has any donation options configured, since the
+            // top-level pills (posQuickAmounts) only render when an event has none at all.
+            tiersContainer.querySelectorAll('.pos-tier-option').forEach(function (row) {
+                const quickWrap = row.querySelector('.pos-tier-free-quick-amounts');
+                if (!quickWrap) { return; }
+                const freeInput = row.querySelector('.pos-tier-free');
+                const cb = row.querySelector('.pos-tier-cb');
+                QUICK_AMOUNTS.forEach(function (amt) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'pos-tier-quick-btn';
+                    b.textContent = '$' + amt.toLocaleString();
+                    b.addEventListener('click', function () {
+                        cb.checked = true;
+                        freeInput.value = amt.toFixed(2);
+                        freeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+                    quickWrap.appendChild(b);
+                });
+            });
 
             function recalcTiers() {
                 let total = 0;
@@ -428,7 +454,11 @@
             body.set('event_id', EVENT_ID);
             body.set('amount', amount.toFixed(2));
             body.set('selections_json', JSON.stringify(selections));
-            body.set('payment_status', 'Paid');
+            // Cash, UPI and an EFT terminal all confirm the money on the spot, so those record
+            // as Paid immediately. A Bank Transfer claim can't be verified at the counter — it
+            // sits Pending until an admin checks the account and approves it, same as the
+            // public donation form.
+            body.set('payment_status', selectedMethod === 'Bank Transfer' ? 'Pending' : 'Paid');
             body.set('transaction_id', '');
             body.set('donor_name', name);
             body.set('donation_date', today);
@@ -447,7 +477,8 @@
                 .then(function (result) {
                     btn.disabled = false;
                     if (result.status >= 200 && result.status < 300 && result.data.success) {
-                        showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2));
+                        const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
+                        showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
                         addSessionOrder({ name: name, amount: amount, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
                         resetPosForm();
                         document.getElementById('posGuestName').focus();
