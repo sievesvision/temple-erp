@@ -135,15 +135,43 @@ class LinklyEftService
     }
 
     /**
-     * Starts a purchase transaction in async mode and returns immediately — the operator
-     * sees the terminal's live prompts via pollTransaction() (fed by the webhook) rather
-     * than this call blocking until the card is actually tapped/inserted. $amount is in
-     * dollars; Linkly's API wants cents.
+     * The three mandatory Core Payments Purchase Analysis Data tags (per Linkly's REST
+     * documentation): OPR (operator reference — "id|name"), AMT (total sale amount in cents,
+     * same value as AmtPurchase since this app never adds tips/surcharges), and PCM (POS
+     * Capabilities Matrix — "0000" is Linkly's own documented default for a POS with none of
+     * the optional capabilities the matrix's digits represent). LINKLY CONFIRMATION REQUIRED:
+     * the exact meaning of each PCM digit isn't in the pages this was built from — "0000"
+     * should be re-confirmed against the current official spec before accreditation testing.
+     *
+     * @return array<string, string>
+     */
+    private static function corePad(int $amtCents, ?int $operatorId, ?string $operatorName): array
+    {
+        return [
+            'OPR' => trim(($operatorId ?? '0') . '|' . ($operatorName ?? 'POS')),
+            'AMT' => (string) $amtCents,
+            'PCM' => '0000',
+        ];
+    }
+
+    /**
+     * Shared by startPurchase()/startRefund() — both are just a TxnType difference (and a
+     * refund additionally carries the original purchase's TxnRef back as the PAD "RFN" tag,
+     * per Linkly's "all refunds must be matched to an original purchase" requirement) on the
+     * same session-based async transaction call.
      *
      * @return array{success: bool, message: string, session_id: ?string}
      */
-    public static function startPurchase(float $amount, string $txnRef, string $currencyCode, string $notificationUri): array
-    {
+    private static function startSession(
+        string $txnType,
+        float $amount,
+        string $txnRef,
+        string $currencyCode,
+        string $notificationUri,
+        ?int $operatorId,
+        ?string $operatorName,
+        ?string $refundOfTxnRef = null
+    ): array {
         if (!LinklyConfigService::isPaired()) {
             return ['success' => false, 'message' => 'No EFT terminal is paired yet.', 'session_id' => null];
         }
@@ -161,6 +189,11 @@ class LinklyEftService
 
         // TxnRef is capped at 16 characters by the terminal.
         $txnRef = substr($txnRef, 0, 16);
+        $amtCents = (int) round($amount * 100);
+        $pad = self::corePad($amtCents, $operatorId, $operatorName);
+        if ($refundOfTxnRef !== null) {
+            $pad['RFN'] = substr($refundOfTxnRef, 0, 16);
+        }
 
         try {
             $response = Http::timeout(30)
@@ -168,13 +201,14 @@ class LinklyEftService
                 ->post(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/transaction?async=true", [
                     'Request' => [
                         'Merchant' => '00',
-                        'TxnType' => 'P',
-                        'AmtPurchase' => (int) round($amount * 100),
+                        'TxnType' => $txnType,
+                        'AmtPurchase' => $amtCents,
                         'TxnRef' => $txnRef,
                         'CurrencyCode' => $currencyCode,
                         'CutReceipt' => '0',
                         'ReceiptAutoPrint' => '0',
                         'Application' => '00',
+                        'PurchaseAnalysisData' => $pad,
                     ],
                     'Notification' => [
                         'Uri' => $notificationUri,
@@ -182,16 +216,143 @@ class LinklyEftService
                     ],
                 ]);
         } catch (\Exception $e) {
-            Log::error('Linkly startPurchase request exception', ['message' => $e->getMessage()]);
+            Log::error('Linkly startSession request exception', ['txn_type' => $txnType, 'message' => $e->getMessage()]);
             return ['success' => false, 'message' => 'Could not reach the EFT terminal service: ' . $e->getMessage(), 'session_id' => null];
         }
 
         if (!$response->successful()) {
-            Log::warning('Linkly startPurchase failed', ['status' => $response->status(), 'body' => $response->body()]);
+            Log::warning('Linkly startSession failed', ['txn_type' => $txnType, 'status' => $response->status(), 'body' => $response->body()]);
             return ['success' => false, 'message' => 'EFT terminal request failed (' . $response->status() . ').', 'session_id' => null];
         }
 
         return ['success' => true, 'message' => 'Transaction started.', 'session_id' => $sessionId];
+    }
+
+    /**
+     * Starts a purchase transaction in async mode and returns immediately — the operator
+     * sees the terminal's live prompts via pollTransaction() (fed by the webhook) rather
+     * than this call blocking until the card is actually tapped/inserted. $amount is in
+     * dollars; Linkly's API wants cents.
+     *
+     * @return array{success: bool, message: string, session_id: ?string}
+     */
+    public static function startPurchase(
+        float $amount,
+        string $txnRef,
+        string $currencyCode,
+        string $notificationUri,
+        ?int $operatorId = null,
+        ?string $operatorName = null
+    ): array {
+        return self::startSession('P', $amount, $txnRef, $currencyCode, $notificationUri, $operatorId, $operatorName);
+    }
+
+    /**
+     * Starts a refund transaction in async mode. $originalTxnRef is the POS-generated TxnRef
+     * of the purchase being refunded — sent back to Linkly as the PAD "RFN" tag so the refund
+     * is matched to that original sale, per Linkly's Core Payments refund requirement. This
+     * never re-sends the original session id: a refund is always its own new Linkly session.
+     *
+     * @return array{success: bool, message: string, session_id: ?string}
+     */
+    public static function startRefund(
+        float $amount,
+        string $txnRef,
+        string $originalTxnRef,
+        string $currencyCode,
+        string $notificationUri,
+        ?int $operatorId = null,
+        ?string $operatorName = null
+    ): array {
+        return self::startSession('R', $amount, $txnRef, $currencyCode, $notificationUri, $operatorId, $operatorName, $originalTxnRef);
+    }
+
+    /**
+     * Logs on to the terminal — confirms the paired terminal is reachable and configured,
+     * without moving any money. Run synchronously (no webhook/polling plumbing) since a
+     * Logon completes immediately rather than waiting on card/PIN entry.
+     * LINKLY CONFIRMATION REQUIRED: Linkly's own accreditation minimums list Purchase,
+     * Refund, Reprint Receipt and Transaction Status, but do not clearly list Logon as
+     * mandatory for Core Payments — this exists so it's available if requested during
+     * testing, not because its absence is assumed to fail accreditation.
+     *
+     * @return array{success: bool, message: string}
+     */
+    public static function logon(): array
+    {
+        if (!LinklyConfigService::isPaired()) {
+            return ['success' => false, 'message' => 'No EFT terminal is paired yet.'];
+        }
+
+        $token = self::getToken();
+        if (!$token) {
+            return ['success' => false, 'message' => 'Could not authenticate with the EFT terminal service.'];
+        }
+
+        $sessionId = (string) Str::uuid();
+
+        try {
+            $response = Http::timeout(30)
+                ->withToken($token)
+                ->post(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/transaction?async=false", [
+                    'Request' => [
+                        'Merchant' => '00',
+                        'TxnType' => 'L',
+                        'Application' => '00',
+                    ],
+                ]);
+        } catch (\Exception $e) {
+            Log::error('Linkly logon request exception', ['message' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'Could not reach the EFT terminal service: ' . $e->getMessage()];
+        }
+
+        if (!$response->successful()) {
+            Log::warning('Linkly logon failed', ['status' => $response->status(), 'body' => $response->body()]);
+            return ['success' => false, 'message' => 'Logon request failed (' . $response->status() . ').'];
+        }
+
+        $txnResponse = $response->json('response') ?? [];
+        $success = (bool) ($txnResponse['success'] ?? false);
+        $responseText = trim($txnResponse['responseText'] ?? '') ?: null;
+
+        return [
+            'success' => $success,
+            'message' => $success ? 'Logon successful.' : ($responseText ?? 'Logon failed.'),
+        ];
+    }
+
+    /**
+     * Asks the terminal to reprint the receipt for a completed session — used from the
+     * accreditation/EFTPOS admin pane, never automatically. LINKLY CONFIRMATION REQUIRED:
+     * built against the documented /reprintreceipt path with no body; re-confirm the exact
+     * request/response shape against the sandbox before relying on it for accreditation.
+     *
+     * @return array{success: bool, message: string}
+     */
+    public static function reprintReceipt(string $sessionId): array
+    {
+        $token = self::getToken();
+        if (!$token) {
+            return ['success' => false, 'message' => 'Could not authenticate with the EFT terminal service.'];
+        }
+
+        try {
+            $response = Http::timeout(30)
+                ->withToken($token)
+                ->post(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/reprintreceipt?async=false", [
+                    'Request' => new \stdClass(),
+                ]);
+        } catch (\Exception $e) {
+            Log::error('Linkly reprintReceipt request exception', ['session_id' => $sessionId, 'message' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'Could not reach the EFT terminal service.'];
+        }
+
+        if (!$response->successful()) {
+            Log::warning('Linkly reprintReceipt failed', ['session_id' => $sessionId, 'status' => $response->status()]);
+            return ['success' => false, 'message' => 'The terminal could not reprint that receipt (it may no longer be available).'];
+        }
+
+        return ['success' => true, 'message' => 'Receipt reprint requested.'];
     }
 
     /**
@@ -286,6 +447,48 @@ class LinklyEftService
     {
         $expected = Cache::get(self::webhookTokenCacheKey($sessionId));
         return $expected && $bearerToken && hash_equals($expected, $bearerToken);
+    }
+
+    private static function receiptCacheKey(string $sessionId): string
+    {
+        return "linkly_receipt_{$sessionId}";
+    }
+
+    /**
+     * Defense in depth for the "never log/store sensitive cardholder data" requirement:
+     * Linkly's own receipt text is expected to already carry a masked PAN (industry-standard
+     * truncated form), but this blanks any run of 8+ consecutive digits anyway before the
+     * text is ever cached or logged, in case a misconfigured terminal/merchant profile were
+     * to emit an unmasked one.
+     */
+    private static function maskPossiblePan(string $text): string
+    {
+        return preg_replace('/\d{8,}/', '[MASKED]', $text) ?? '[MASKED]';
+    }
+
+    /**
+     * Records a "receipt" postback from Linkly (the merchant/customer receipt text for a
+     * completed transaction) — kept only so the accreditation admin pane has something to
+     * show for "receipt handling", per Core Payments' receipt requirement. Never used to
+     * decide payment_status; that still only ever comes from pollTransaction()'s GET.
+     *
+     * @param array<mixed> $lines
+     */
+    public static function recordReceipt(string $sessionId, array $lines): void
+    {
+        $cleaned = array_map(
+            fn ($l) => self::maskPossiblePan(trim((string) $l)),
+            self::cleanDisplayLines($lines)
+        );
+        Cache::put(self::receiptCacheKey($sessionId), $cleaned, 900);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getReceipt(string $sessionId): array
+    {
+        return Cache::get(self::receiptCacheKey($sessionId), []);
     }
 
     /**

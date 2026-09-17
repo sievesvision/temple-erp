@@ -532,6 +532,14 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::post('/admin/eft/charge/start', [\App\Http\Controllers\DonationController::class, 'startEftCharge'])->name('admin.eft.charge.start');
     Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
     Route::post('/admin/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('admin.eft.charge.cancel');
+    // Event-admin-only EFTPOS management (Refund/Logon/Reprint/Pairing) — DonationController's
+    // own canManageEftForEvent() does the finer per-event, admin-level check; this route group
+    // only gets the request as far as "some kind of console user", same broader-than-capability
+    // pattern as everything else in this group.
+    Route::post('/admin/events/{event}/eft/refund/{transaction}', [\App\Http\Controllers\DonationController::class, 'refundEftCharge'])->name('admin.events.eft.refund');
+    Route::post('/admin/events/{event}/eft/logon', [\App\Http\Controllers\DonationController::class, 'logonLinkly'])->name('admin.events.eft.logon');
+    Route::post('/admin/events/{event}/eft/reprint/{sessionId}', [\App\Http\Controllers\DonationController::class, 'reprintEftReceipt'])->name('admin.events.eft.reprint');
+    Route::post('/admin/events/{event}/eft/pair', [\App\Http\Controllers\DonationController::class, 'pairEftFromConsole'])->name('admin.events.eft.pair');
     // The kiosk-style POS donation page — a pos-level coordinator's only reachable page;
     // everyone else who can add donations can use it too as a faster alternative to the
     // full console's Quick Entry. Saves through the same storeDevotee/storeGuest routes above.

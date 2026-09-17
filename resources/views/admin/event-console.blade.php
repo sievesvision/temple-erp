@@ -376,6 +376,9 @@
                     @if($canManageEventCoordinators)
                     <button type="button" class="sidebar-link" data-pane="pane-coordinators"><i class="bi bi-people-fill"></i><span>Event Coordinators</span></button>
                     @endif
+                    @if($canEditEvent)
+                    <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
+                    @endif
                     @if($canViewEventLogs)
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
                     @endif
@@ -1035,6 +1038,96 @@
                 </div>
                 @endif
 
+                @if($canEditEvent)
+                <!-- EFTPOS / LINKLY CORE PAYMENTS -->
+                <div class="console-pane" id="pane-eftpos">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
+                        <div>
+                            <h2>EFTPOS — Linkly Core Payments</h2>
+                            <p>Terminal pairing, accreditation testing and per-transaction refunds for this event.</p>
+                        </div>
+                    </div>
+
+                    <div class="card-panel mb-3">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-3"><strong>Terminal</strong><div class="text-muted small">CBA Essential Plus</div></div>
+                            <div class="col-md-3"><strong>Pairing</strong><div><span class="status-pill status-{{ $linklyPaired ? 'paid' : 'cancelled' }}">{{ $linklyPaired ? 'Paired' : 'Not paired' }}</span></div></div>
+                            <div class="col-md-3"><strong>Environment</strong><div class="text-muted small text-uppercase">{{ $linklyMode }}</div></div>
+                            <div class="col-md-3"><strong>Cloud ID</strong><div class="text-muted small text-break">{{ $linklyPosId }}</div></div>
+                        </div>
+                        <hr>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                                <form action="{{ route('admin.events.eft.pair', $event->event_id) }}" method="POST" class="d-flex gap-2">
+                                    @csrf
+                                    <input type="text" name="pair_code" class="form-control rounded-3" placeholder="Pair / repair code" required maxlength="10">
+                                    <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
+                                </form>
+                            </div>
+                            <div class="col-md-3">
+                                <form action="{{ route('admin.events.eft.logon', $event->event_id) }}" method="POST" onsubmit="return confirm('Run a Logon against the paired terminal now?')">
+                                    @csrf
+                                    <button type="submit" class="btn btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i>Logon</button>
+                                </form>
+                            </div>
+                            <div class="col-md-5 text-md-end">
+                                <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-panel" style="padding:0;">
+                        <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Linkly Transactions</h5></div>
+                        <div class="table-scroll-wrap" style="max-height: calc(100vh - 420px);">
+                        <table class="console-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th><th class="col-amount">Amount</th><th>Transaction Reference</th><th>Date/Time</th><th>Result</th><th>Response Code</th><th>Session ID</th><th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($linklyTransactions as $txn)
+                                @php
+                                    $pillClass = match($txn->status) {
+                                        'approved' => 'paid',
+                                        'initiated', 'in_progress' => 'pending',
+                                        default => 'cancelled',
+                                    };
+                                    $canRefundRow = $txn->txn_type === 'purchase' && $txn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $txn->id && in_array($t->status, ['initiated', 'in_progress', 'approved']));
+                                @endphp
+                                <tr>
+                                    <td class="text-capitalize">{{ $txn->txn_type }}</td>
+                                    <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
+                                    <td class="col-txn"><span id="txnref-{{ $txn->id }}">{{ $txn->pos_txn_ref }}</span></td>
+                                    <td><span id="txntime-{{ $txn->id }}">{{ $txn->created_at->format('d M Y H:i:s') }}</span></td>
+                                    <td><span class="status-pill status-{{ $pillClass }}">{{ ucfirst($txn->status) }}</span></td>
+                                    <td>{{ $txn->response_code ?: '—' }}</td>
+                                    <td class="text-muted small text-break">{{ $txn->linkly_session_id ?: '—' }}</td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference + timestamp" onclick="copyEftRef('{{ $txn->id }}')"><i class="bi bi-clipboard"></i></button>
+                                        @if($txn->linkly_session_id)
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Check transaction status" onclick="checkEftStatus('{{ $txn->linkly_session_id }}')"><i class="bi bi-arrow-clockwise"></i></button>
+                                        <form action="{{ route('admin.events.eft.reprint', [$event->event_id, $txn->linkly_session_id]) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Reprint receipt"><i class="bi bi-receipt"></i></button>
+                                        </form>
+                                        @endif
+                                        @if($canRefundRow)
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openEftRefundModal({{ $txn->id }}, {{ $txn->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="8" class="text-center text-muted py-4">No Linkly transactions recorded for this event yet.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 @if($canViewEventLogs)
                 <!-- EVENT LOGS -->
                 <div class="console-pane" id="pane-logs">
@@ -1076,6 +1169,38 @@
     </div>
 
     <div class="qe-toast" id="qeToast"></div>
+
+    @if($canEditEvent)
+    <!-- EFTPOS REFUND MODAL — a real terminal transaction (the customer may need to
+         re-present their card), so it runs the same async start+poll+cancel flow as a
+         Purchase, just against the refund-start endpoint instead. -->
+    <div class="modal fade" id="eftRefundModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-counterclockwise text-danger me-2"></i>Refund Transaction</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="eftRefundCloseBtn"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <div id="eftRefundFormArea">
+                        <label class="form-label">Refund amount</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control rounded-3" id="eftRefundAmount">
+                        <p class="text-muted small mt-2 mb-0">The customer may be asked to present their card again on the terminal to complete the refund.</p>
+                    </div>
+                    <div id="eftRefundStatusArea" style="display:none;" class="text-center py-3">
+                        <div class="spinner-border text-danger mb-2" role="status"></div>
+                        <div class="fw-bold" id="eftRefundStatusLine1">Starting…</div>
+                        <div class="text-muted small" id="eftRefundStatusLine2"></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger" id="eftRefundConfirmBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Confirm Refund</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <!-- EDIT MODALS (devotee + guest) — same fields as the main Manage Donations page -->
     @if($canEditDonation)
@@ -1360,6 +1485,9 @@
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
         const REQUIRE_MOBILE = @json((bool) $event->require_donor_mobile);
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
+        const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
+        const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));
+        const EFT_REFUND_URL_BASE = @json(url('/admin/events/' . $event->event_id . '/eft/refund'));
 
         let qeMode = 'guest';
         const toggleDevoteeBtn = document.getElementById('qeToggleDevotee');
@@ -1677,6 +1805,122 @@
                 });
         });
 
+        @endif
+
+        @if($canEditEvent)
+        // ---------- EFTPOS / Linkly accreditation pane ----------
+        function copyEftRef(txnId) {
+            const ref = document.getElementById('txnref-' + txnId).textContent;
+            const time = document.getElementById('txntime-' + txnId).textContent;
+            const text = ref + '\t' + time;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function () { showToast('Copied: ' + text); }, function () { showToast('Could not copy.', true); });
+            } else {
+                showToast('Copy not supported in this browser.', true);
+            }
+        }
+
+        function checkEftStatus(sessionId) {
+            showToast('Checking status…');
+            fetch(EFT_CHARGE_STATUS_URL_BASE + '/' + encodeURIComponent(sessionId) + '?event_id=' + encodeURIComponent(EVENT_ID), { headers: { 'Accept': 'application/json' } })
+                .then(function (res) { return res.json(); })
+                .then(function () { location.reload(); })
+                .catch(function () { showToast('Could not check status — network error.', true); });
+        }
+
+        let eftRefundTransactionId = null;
+        let eftRefundPollCancelled = false;
+        const eftRefundModalEl = document.getElementById('eftRefundModal');
+        const eftRefundBsModal = eftRefundModalEl ? new bootstrap.Modal(eftRefundModalEl) : null;
+
+        function openEftRefundModal(transactionId, amount) {
+            eftRefundTransactionId = transactionId;
+            eftRefundPollCancelled = false;
+            document.getElementById('eftRefundAmount').value = Number(amount).toFixed(2);
+            document.getElementById('eftRefundFormArea').style.display = '';
+            document.getElementById('eftRefundStatusArea').style.display = 'none';
+            document.getElementById('eftRefundConfirmBtn').style.display = '';
+            document.getElementById('eftRefundConfirmBtn').disabled = false;
+            if (eftRefundBsModal) { eftRefundBsModal.show(); }
+        }
+
+        function setEftRefundStatus(line1, line2) {
+            document.getElementById('eftRefundStatusLine1').textContent = line1 || '';
+            document.getElementById('eftRefundStatusLine2').textContent = line2 || '';
+        }
+
+        document.getElementById('eftRefundConfirmBtn') && document.getElementById('eftRefundConfirmBtn').addEventListener('click', function () {
+            const amount = parseFloat(document.getElementById('eftRefundAmount').value);
+            if (!amount || amount <= 0) { showToast('Enter a valid refund amount.', true); return; }
+            if (!confirm('Refund ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' on the terminal now?')) { return; }
+
+            document.getElementById('eftRefundFormArea').style.display = 'none';
+            document.getElementById('eftRefundStatusArea').style.display = '';
+            document.getElementById('eftRefundConfirmBtn').style.display = 'none';
+            setEftRefundStatus('Starting refund…', '');
+            eftRefundPollCancelled = false;
+
+            const clientRef = 'refund-' + eftRefundTransactionId + '-' + Date.now();
+            const body = new URLSearchParams();
+            body.set('amount', amount.toFixed(2));
+            body.set('client_ref', clientRef);
+
+            fetch(EFT_REFUND_URL_BASE + '/' + encodeURIComponent(eftRefundTransactionId), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            })
+                .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+                .then(function (result) {
+                    if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
+                        setEftRefundStatus('Could not start refund', result.data.message || '');
+                        showToast(result.data.message || 'Could not start the refund.', true);
+                        return;
+                    }
+                    pollEftRefund(result.data.session_id, Date.now());
+                })
+                .catch(function () {
+                    setEftRefundStatus('Network error', 'Please try again.');
+                    showToast('Could not reach the EFT terminal — please try again.', true);
+                });
+        });
+
+        function pollEftRefund(sessionId, startedAt) {
+            if (eftRefundPollCancelled) { return; }
+            if (Date.now() - startedAt > 180000) {
+                setEftRefundStatus('Timed out', 'Check Transaction Status before retrying.');
+                return;
+            }
+
+            fetch(EFT_CHARGE_STATUS_URL_BASE + '/' + encodeURIComponent(sessionId) + '?event_id=' + encodeURIComponent(EVENT_ID), { headers: { 'Accept': 'application/json' } })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (eftRefundPollCancelled) { return; }
+                    if (data.display && data.display.length) { setEftRefundStatus(data.display[0], data.display[1] || ''); }
+                    if (!data.done) {
+                        setTimeout(function () { pollEftRefund(sessionId, startedAt); }, 1200);
+                        return;
+                    }
+                    if (data.success) {
+                        setEftRefundStatus('REFUND APPROVED', data.auth_code ? 'Auth ' + data.auth_code : '');
+                        showToast('Refund approved.');
+                        setTimeout(function () { location.reload(); }, 1200);
+                    } else {
+                        setEftRefundStatus('REFUND ' + (data.payment_status || 'NOT COMPLETED').toUpperCase(), data.message || '');
+                        showToast(data.message || 'Refund was not completed.', true);
+                        document.getElementById('eftRefundConfirmBtn').style.display = '';
+                    }
+                })
+                .catch(function () {
+                    setTimeout(function () { pollEftRefund(sessionId, startedAt); }, 1200);
+                });
+        }
+
+        if (eftRefundModalEl) {
+            eftRefundModalEl.addEventListener('hidden.bs.modal', function () {
+                eftRefundPollCancelled = true;
+            });
+        }
         @endif
     </script>
 </body>

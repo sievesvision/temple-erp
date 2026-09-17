@@ -229,6 +229,15 @@
 
     <div class="pos-toast" id="posToast"></div>
 
+    <!-- Shown only if a previous EFT Terminal attempt was left unresolved by a refresh/
+         crash — see the DOMContentLoaded handler and startOrResumeEftPurchase() below.
+         Hidden by default; never auto-triggers a new charge on its own. -->
+    <div id="eftResumeBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:2000; background:#7a1f1f; color:#fff; padding:12px 18px; align-items:center; gap:14px; flex-wrap:wrap; justify-content:center;">
+        <span id="eftResumeBannerText"></span>
+        <button type="button" id="eftResumeBannerBtn" style="background:#fff; color:#7a1f1f; border:none; border-radius:8px; padding:6px 16px; font-weight:700;">Resume Checking</button>
+        <button type="button" id="eftResumeBannerDismissBtn" style="background:transparent; color:#fff; border:1px solid #fff; border-radius:8px; padding:6px 16px;">Dismiss</button>
+    </div>
+
     <div class="eft-modal-overlay" id="eftModalOverlay">
         <div class="eft-modal">
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
@@ -461,6 +470,27 @@
         const eftModalStatusLine1 = document.getElementById('eftModalStatusLine1');
         const eftModalStatusLine2 = document.getElementById('eftModalStatusLine2');
 
+        // Recovery/idempotency: one in-flight EFT attempt at a time is remembered here (not
+        // just in a JS variable, so it survives a browser refresh) — a client-generated
+        // client_ref the backend uses to resume the SAME Linkly session instead of starting a
+        // second one, for both a re-clicked Pay button and a reload mid-payment. Cleared once
+        // Linkly gives a final, terminal answer (approved/declined/cancelled/failed); left in
+        // place on a timeout/unknown result so a resume is still possible, per "an UNKNOWN
+        // transaction must not be treated as declined, and must not risk a double charge".
+        const EFT_ATTEMPT_KEY = 'eftAttempt_' + EVENT_ID;
+        function newClientRef() {
+            return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
+        }
+        function saveEftAttempt(attempt) {
+            try { sessionStorage.setItem(EFT_ATTEMPT_KEY, JSON.stringify(attempt)); } catch (e) { /* private browsing etc. — recovery just won't survive a refresh */ }
+        }
+        function loadEftAttempt() {
+            try { return JSON.parse(sessionStorage.getItem(EFT_ATTEMPT_KEY) || 'null'); } catch (e) { return null; }
+        }
+        function clearEftAttempt() {
+            try { sessionStorage.removeItem(EFT_ATTEMPT_KEY); } catch (e) {}
+        }
+
         let eftModalLastSignature = null;
         function showEftModal(amount) {
             eftModalAmount.textContent = CURRENCY_CODE + ' ' + amount.toFixed(2);
@@ -531,7 +561,7 @@
             if (window.posResetTiers) { window.posResetTiers(); }
         }
 
-        function submitGuestDonation(btn, amount, name, emailValue, mobileValue, transactionId) {
+        function submitGuestDonation(btn, amount, name, emailValue, mobileValue, transactionId, linklySessionId) {
             const today = new Date().toISOString().slice(0, 10);
             const body = new URLSearchParams();
             body.set('event_id', EVENT_ID);
@@ -543,6 +573,9 @@
             // public donation form.
             body.set('payment_status', selectedMethod === 'Bank Transfer' ? 'Pending' : 'Paid');
             body.set('transaction_id', transactionId || '');
+            // Links this donation back to its Linkly accreditation ledger row — set only for
+            // an EFT Terminal payment (see DonationController::linkLedgerToDonation()).
+            if (linklySessionId) { body.set('linkly_session_id', linklySessionId); }
             body.set('donor_name', name);
             body.set('donation_date', today);
             body.set('email', emailValue);
@@ -597,39 +630,51 @@
             // (not one blocking call) so the terminal's live prompts ("ENTER PIN", etc.,
             // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
-                eftPollCancelled = false;
-                eftCurrentSessionId = null;
-                showEftModal(amount);
-                const startBody = new URLSearchParams();
-                startBody.set('event_id', EVENT_ID);
-                startBody.set('amount', amount.toFixed(2));
-
-                fetch(EFT_CHARGE_START_URL, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: startBody.toString(),
-                })
-                    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
-                    .then(function (result) {
-                        if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
-                            btn.disabled = false;
-                            hideEftModal();
-                            showToast(result.data.message || 'Could not start the terminal transaction.', true);
-                            return;
-                        }
-                        eftCurrentSessionId = result.data.session_id;
-                        pollEftTransaction(result.data.session_id, btn, amount, name, emailValue, mobileValue, Date.now());
-                    })
-                    .catch(function () {
-                        btn.disabled = false;
-                        hideEftModal();
-                        showToast('Could not reach the EFT terminal — please try again.', true);
-                    });
+                startOrResumeEftPurchase(btn, { clientRef: newClientRef(), amount: amount, name: name, email: emailValue, mobile: mobileValue });
                 return;
             }
 
-            submitGuestDonation(btn, amount, name, emailValue, mobileValue, '');
+            submitGuestDonation(btn, amount, name, emailValue, mobileValue, '', '');
         });
+
+        // Shared by a fresh Pay click and the "Resume" recovery banner — an existing,
+        // not-yet-finished attempt (passed in by resumeEftAttempt()) always wins over
+        // starting a brand new one, so a re-clicked Pay button or a page reload mid-payment
+        // never starts a second Linkly session for the same checkout.
+        function startOrResumeEftPurchase(btn, freshAttempt) {
+            const attempt = loadEftAttempt() || freshAttempt;
+            saveEftAttempt(attempt);
+
+            eftPollCancelled = false;
+            eftCurrentSessionId = null;
+            showEftModal(attempt.amount);
+            const startBody = new URLSearchParams();
+            startBody.set('event_id', EVENT_ID);
+            startBody.set('amount', attempt.amount.toFixed(2));
+            startBody.set('client_ref', attempt.clientRef);
+
+            fetch(EFT_CHARGE_START_URL, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: startBody.toString(),
+            })
+                .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+                .then(function (result) {
+                    if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
+                        btn.disabled = false;
+                        hideEftModal();
+                        showToast(result.data.message || 'Could not start the terminal transaction.', true);
+                        return;
+                    }
+                    eftCurrentSessionId = result.data.session_id;
+                    pollEftTransaction(result.data.session_id, btn, attempt.amount, attempt.name, attempt.email, attempt.mobile, Date.now());
+                })
+                .catch(function () {
+                    btn.disabled = false;
+                    hideEftModal();
+                    showToast('Could not reach the EFT terminal — please try again.', true);
+                });
+        }
 
         // Set true by the modal's Cancel button — checked at the top of every poll tick so
         // an abandoned wait actually stops instead of continuing in the background.
@@ -644,6 +689,10 @@
             const btn = document.getElementById('posSaveBtn');
             hideEftModal();
             btn.disabled = false;
+            // An explicit Cancel is a deliberate end to this attempt — the next Pay click
+            // should start a brand new one rather than resume it (unlike a timeout/unknown
+            // result, where resuming is exactly what's wanted).
+            clearEftAttempt();
 
             if (!sessionId) {
                 showToast('Payment cancelled.', true);
@@ -671,11 +720,17 @@
         function pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt) {
             if (eftPollCancelled) { return; }
 
+            // This local ~3-minute guard just stops the browser polling forever — it does
+            // NOT clear the saved attempt, and startOrResumeEftPurchase() always resumes an
+            // existing attempt rather than starting a new one, so clicking Pay again here is
+            // safe (it re-attaches to this same Linkly session instead of double-charging).
+            // The server independently reaches the same "unknown" conclusion around 200s in
+            // pollEftCharge() if this client-side guard is somehow bypassed.
             if (Date.now() - startedAt > 180000) {
                 btn.disabled = false;
-                setEftModalStatus(['Timed out'], 'error');
-                setTimeout(hideEftModal, 1500);
-                showToast('Terminal timed out — please try again.', true);
+                setEftModalStatus(['No response from the terminal yet', 'Press Pay to keep checking — this will not charge twice'], 'error');
+                setTimeout(hideEftModal, 2200);
+                showToast('No final result yet — press Pay to keep checking (safe, will not double-charge).', true);
                 return;
             }
 
@@ -695,10 +750,22 @@
                         return;
                     }
                     if (data.success) {
+                        // A genuine final answer — this checkout attempt is over either way,
+                        // so the next Pay click must start a fresh one, not resume this.
+                        clearEftAttempt();
                         setEftModalStatus(['PAYMENT APPROVED', data.auth_code ? 'Auth ' + data.auth_code : 'Saving donation…'], 'success');
                         setTimeout(hideEftModal, 1200);
-                        submitGuestDonation(btn, amount, name, emailValue, mobileValue, data.rrn || data.auth_code || '');
+                        submitGuestDonation(btn, amount, name, emailValue, mobileValue, data.rrn || data.auth_code || '', sessionId);
+                    } else if (data.payment_status === 'unknown') {
+                        // Per Linkly's Core Payments recovery requirement: never treat this as
+                        // a decline, and never let it look "safe to just try again" without
+                        // the resume mechanism — so the attempt stays saved for a real resume.
+                        setEftModalStatus(['RESULT UNKNOWN', 'Check the terminal/bank statement, then press Pay to resume checking'], 'error');
+                        setTimeout(hideEftModal, 2600);
+                        btn.disabled = false;
+                        showToast(data.message || 'No final result was received — check before retrying.', true);
                     } else {
+                        clearEftAttempt();
                         setEftModalStatus(['PAYMENT DECLINED', data.message || ''], 'error');
                         setTimeout(hideEftModal, 1800);
                         btn.disabled = false;
@@ -713,6 +780,30 @@
                     }, 1200);
                 });
         }
+
+        // Resume-after-refresh: if a previous attempt is still sitting in sessionStorage when
+        // this page loads (the operator refreshed or the browser crashed mid-payment), never
+        // silently start anything — just surface a banner so the operator can explicitly
+        // resume checking it. See startOrResumeEftPurchase()/EFT_ATTEMPT_KEY above.
+        document.addEventListener('DOMContentLoaded', function () {
+            const attempt = loadEftAttempt();
+            const banner = document.getElementById('eftResumeBanner');
+            if (attempt && banner) {
+                document.getElementById('eftResumeBannerText').textContent =
+                    'A previous EFT Terminal payment (' + CURRENCY_CODE + ' ' + Number(attempt.amount).toFixed(2) + ' for ' + attempt.name + ') did not finish. It may already be approved on the terminal.';
+                banner.style.display = 'flex';
+                document.getElementById('eftResumeBannerBtn').addEventListener('click', function () {
+                    banner.style.display = 'none';
+                    const btn = document.getElementById('posSaveBtn');
+                    btn.disabled = true;
+                    startOrResumeEftPurchase(btn, attempt);
+                });
+                document.getElementById('eftResumeBannerDismissBtn').addEventListener('click', function () {
+                    banner.style.display = 'none';
+                    clearEftAttempt();
+                });
+            }
+        });
     </script>
 </body>
 </html>

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LinklyTransaction;
 use App\Models\RolePermission;
 use App\Models\Setting;
 use App\Services\EventCoordinatorLevel;
 use App\Services\EventDonationBreakdown;
+use App\Services\LinklyConfigService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -163,6 +165,21 @@ class EventConsoleController extends Controller
                 ->get();
         }
 
+        // EFTPOS/Linkly accreditation pane — event-admin only (same tier as Settings/
+        // Coordinators/Logs above). The terminal itself is a single shared resource (not
+        // per-event), so pairing status/mode/Cloud ID are global; only the recent
+        // transactions list is scoped to this event.
+        $linklyTransactions = collect();
+        if ($canEditEvent) {
+            $linklyTransactions = LinklyTransaction::where('event_id', $event->event_id)
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get();
+        }
+        $linklyPaired = LinklyConfigService::isPaired();
+        $linklyMode = LinklyConfigService::mode();
+        $linklyPosId = LinklyConfigService::posId();
+
         $temple = Setting::templeBranding();
 
         return view('admin.event-console', compact(
@@ -186,7 +203,11 @@ class EventConsoleController extends Controller
             'canViewEventLogs',
             'eventLogs',
             'activeRole',
-            'temple'
+            'temple',
+            'linklyTransactions',
+            'linklyPaired',
+            'linklyMode',
+            'linklyPosId'
         ));
     }
 }

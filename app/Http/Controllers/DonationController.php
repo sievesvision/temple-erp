@@ -13,6 +13,7 @@ use App\Services\AuditLogService;
 use App\Services\DonationReceiptService;
 use App\Services\EventCoordinatorLevel;
 use App\Services\LinklyEftService;
+use App\Models\LinklyTransaction;
 use App\Services\StripeConfigService;
 use Stripe\StripeClient;
 use Stripe\Webhook;
@@ -762,6 +763,9 @@ class DonationController extends Controller
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
             'payment_status' => 'nullable|string|in:Paid,Pending',
+            // Set only when payment_mode is EFT Terminal — links this donation back to its
+            // Linkly accreditation ledger row (see linkLedgerToDonation()).
+            'linkly_session_id' => 'nullable|string|max:64',
         ]);
 
         try {
@@ -771,7 +775,7 @@ class DonationController extends Controller
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_mode'],
                 'payment_status' => $validated['payment_status'] ?? 'Paid',
-                'transaction_id' => $validated['transaction_id'] ?? 'OFFLINE-' . strtoupper(uniqid()),
+                'transaction_id' => ($validated['transaction_id'] ?? '') !== '' ? $validated['transaction_id'] : 'OFFLINE-' . strtoupper(uniqid()),
                 // 'purpose' carries the selected event donation option(s) when the admin
                 // picked from an event's tiers; 'remarks' stays the free-text note either way.
                 'purpose' => $validated['purpose'] ?? null,
@@ -781,6 +785,7 @@ class DonationController extends Controller
                 'updated_at' => now(),
             ]);
             $this->saveDonationSelections('devotee', $donationId, $validated['selections_json'] ?? null);
+            $this->linkLedgerToDonation($validated['linkly_session_id'] ?? null, 'devotee', $donationId);
 
             $devoteeUser = DB::table('devotees')
                 ->join('users', 'devotees.user_id', '=', 'users.id')
@@ -830,6 +835,19 @@ class DonationController extends Controller
      * recorded once the terminal actually confirms the card was charged. A declined/failed
      * transaction never reaches storeGuestDonation() at all.
      */
+    /**
+     * The URI Linkly posts async notifications back to for a session — {{type}} is reliably
+     * substituted by Linkly, but {{sessionId}} is not (confirmed against real webhook
+     * traffic — it can arrive as the literal, unsubstituted string), so the URL never carries
+     * it at all; linklyWebhook() resolves the session id from the postback body instead. Uses
+     * url() rather than route() because route() URL-encodes parameters, which would mangle
+     * the "{{"/"}}" braces into something Linkly's template substitution wouldn't recognise.
+     */
+    private function eftNotificationUri(): string
+    {
+        return url('/admin/eft/webhook/{{type}}');
+    }
+
     public function startEftCharge(Request $request)
     {
         $user = Auth::user();
@@ -840,23 +858,59 @@ class DonationController extends Controller
 
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1',
+            // A per-attempt idempotency key the browser generates once and reuses for every
+            // retry of the *same* checkout attempt (double-clicking Pay, or resuming after a
+            // refresh/network drop) — see the lookup below. A brand new donation attempt
+            // always gets a brand new one from the browser.
+            'client_ref' => 'required|string|max:64',
+            'event_id' => 'nullable|exists:events,event_id',
         ]);
 
-        $txnRef = 'EFT' . now()->format('mdHis');
-        // {{type}} is reliably substituted by Linkly when it posts back to this URI, but
-        // {{sessionId}} is not (confirmed against real webhook traffic — it can arrive as
-        // the literal, unsubstituted string) — linklyWebhook() reads the session id from the
-        // postback body instead, so the URL never needs to carry it at all. url() (not
-        // route()) is used because route() URL-encodes parameters, which would mangle the
-        // "{{" / "}}" braces into something Linkly's template substitution wouldn't recognise.
-        $notificationUri = url('/admin/eft/webhook/{{type}}');
+        // Resume-in-place: if this exact attempt already has a non-final Linkly session
+        // (started moments ago, then the browser refreshed or the operator clicked Pay
+        // again before the first click's request even finished), hand back that same
+        // session instead of starting a second one on the terminal. This is the mechanism
+        // behind both "protect against double-clicking Pay" and safe recovery after a
+        // browser/network interruption (Linkly Core Payments requirement) — never blindly
+        // start a new payment for a checkout attempt that might already be in flight.
+        $existing = LinklyTransaction::where('client_ref', $validated['client_ref'])
+            ->where('txn_type', 'purchase')
+            ->whereNotIn('status', LinklyTransaction::TERMINAL_STATUSES)
+            ->latest('id')
+            ->first();
+        if ($existing && $existing->linkly_session_id) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Resuming existing transaction.',
+                'session_id' => $existing->linkly_session_id,
+                'resumed' => true,
+            ]);
+        }
+
+        $txnRef = 'EFT' . now()->format('mdHis') . rand(10, 99);
 
         $result = LinklyEftService::startPurchase(
             (float) $validated['amount'],
             $txnRef,
             Setting::get('currency_code', 'AUD'),
-            $notificationUri
+            $this->eftNotificationUri(),
+            $user->id,
+            $user->name
         );
+
+        if ($result['success']) {
+            LinklyTransaction::create([
+                'pos_txn_ref' => $txnRef,
+                'client_ref' => $validated['client_ref'],
+                'linkly_session_id' => $result['session_id'],
+                'txn_type' => 'purchase',
+                'event_id' => $validated['event_id'] ?? null,
+                'amount' => $validated['amount'],
+                'currency_code' => Setting::get('currency_code', 'AUD'),
+                'status' => 'initiated',
+                'initiated_by' => $user->id,
+            ]);
+        }
 
         return response()->json($result, $result['success'] ? 200 : 422);
     }
@@ -869,7 +923,58 @@ class DonationController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
-        return response()->json(LinklyEftService::pollTransaction($sessionId));
+        $result = LinklyEftService::pollTransaction($sessionId);
+        $this->syncLedgerFromPoll($sessionId, $result);
+        $this->markDonationRefundedIfJustApproved($sessionId, $result);
+
+        // A transaction that's been neither approved/declined/cancelled nor failed for far
+        // longer than Linkly's own ~3-minute transaction window is genuinely UNKNOWN, not
+        // safely assumable as declined — Linkly may have charged the card without us ever
+        // hearing back. Reporting it as 'unknown' (rather than endlessly 'in_progress' or,
+        // worse, guessing 'declined') stops the browser's auto-poll loop while making clear
+        // a fresh Purchase must not be started for the same order without checking first.
+        if (!$result['done']) {
+            $txn = LinklyTransaction::where('linkly_session_id', $sessionId)->first();
+            if ($txn && !$txn->isTerminal() && $txn->created_at->diffInSeconds(now()) > 200) {
+                $txn->update(['status' => 'unknown']);
+                $result['payment_status'] = 'unknown';
+                $result['done'] = true;
+                $result['success'] = null;
+                $result['message'] = 'No final result was received from the terminal in time. Check the terminal and the customer\'s bank statement before attempting another charge.';
+            }
+        }
+
+        return response()->json($result);
+    }
+
+    /**
+     * Keeps the accreditation ledger (linkly_transactions) in step with what pollTransaction()
+     * just found out — called from every poll rather than only once, since a poll can be the
+     * first time a terminal outcome is seen. Never overwrites a row that's already reached a
+     * terminal status (approved/declined/cancelled/failed): once Linkly has given its final
+     * word, a later stray/duplicate poll response must not un-finalise it.
+     */
+    private function syncLedgerFromPoll(string $sessionId, array $result): void
+    {
+        $txn = LinklyTransaction::where('linkly_session_id', $sessionId)->first();
+        if (!$txn || $txn->isTerminal()) {
+            return;
+        }
+
+        if (!$result['done']) {
+            if ($txn->status !== 'in_progress') {
+                $txn->update(['status' => 'in_progress']);
+            }
+            return;
+        }
+
+        $txn->update([
+            'status' => $result['payment_status'],
+            'response_code' => $result['response_code'] ?? null,
+            'response_text' => $result['message'] ?? null,
+            'auth_code' => $result['auth_code'] ?? null,
+            'rrn' => $result['rrn'] ?? null,
+        ]);
     }
 
     /**
@@ -888,6 +993,216 @@ class DonationController extends Controller
         }
 
         return response()->json(LinklyEftService::cancel($sessionId));
+    }
+
+    /**
+     * Links a just-created donation record back to the Linkly ledger row its EFT Terminal
+     * payment started — a no-op for every other payment method (no session id is ever sent).
+     * This is what makes a refund possible later (payment_method + ledger status are checked
+     * from the donation side) and what the accreditation transaction view can use to show
+     * "which donation did this Linkly transaction end up recording".
+     */
+    private function linkLedgerToDonation(?string $sessionId, string $donationType, int $donationId): void
+    {
+        if (!$sessionId) {
+            return;
+        }
+
+        LinklyTransaction::where('linkly_session_id', $sessionId)->update([
+            'donation_type' => $donationType,
+            'donation_id' => $donationId,
+        ]);
+    }
+
+    /**
+     * "event-coordinator-admin" level for a specific event — Admin/Committee (via the
+     * existing "events" edit grant) or an Event Coordinator at 'admin' level for this event.
+     * Gates every EFTPOS management action (pairing, Logon, Refund, Reprint) the same way
+     * EventConsoleController::show() gates the console's own Settings/Coordinators/Logs
+     * panes, since these are exactly that same admin tier of the event console — never a
+     * pos-entry/general-entry level user, per Linkly's Core Payments refund-authorisation
+     * requirement.
+     */
+    private function canManageEftForEvent($user, ?string $activeRole, $eventId): bool
+    {
+        if ($activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit')) {
+            return true;
+        }
+
+        if ($activeRole === 'Event Coordinator' && $eventId) {
+            return EventCoordinatorLevel::atLeast(EventCoordinatorLevel::of((int) $eventId, $user->id), 'admin');
+        }
+
+        return false;
+    }
+
+    /**
+     * Starts a refund for a completed EFT Terminal purchase. Gated to event-admin level,
+     * never pos-entry/general-entry — Core Payments requires refunds to be protected from
+     * unauthorised use, enforced here server-side regardless of what any UI shows. Runs
+     * through the same async start+poll+modal flow as a purchase (see startEftCharge()/
+     * pollEftCharge()) since a refund is a real terminal transaction, not a database edit.
+     */
+    public function refundEftCharge(Request $request, int $transactionId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $original = LinklyTransaction::find($transactionId);
+        if (!$original || $original->txn_type !== 'purchase') {
+            return response()->json(['success' => false, 'message' => 'Original transaction not found.'], 404);
+        }
+
+        if (!$this->canManageEftForEvent($user, $activeRole, $original->event_id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        if ($original->status !== 'approved') {
+            return response()->json(['success' => false, 'message' => 'Only an approved purchase can be refunded.'], 422);
+        }
+
+        // Duplicate-refund protection: block a second attempt while one is already in
+        // flight or has already succeeded for this same purchase.
+        $alreadyRefunded = LinklyTransaction::where('original_transaction_id', $original->id)
+            ->whereIn('status', ['initiated', 'in_progress', 'approved'])
+            ->exists();
+        if ($alreadyRefunded) {
+            return response()->json(['success' => false, 'message' => 'This transaction has already been refunded, or a refund is already in progress.'], 422);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01|max:' . (float) $original->amount,
+            'client_ref' => 'required|string|max:64',
+        ]);
+
+        $refundTxnRef = 'RFD' . now()->format('mdHis') . rand(10, 99);
+
+        $result = LinklyEftService::startRefund(
+            (float) $validated['amount'],
+            $refundTxnRef,
+            $original->pos_txn_ref,
+            $original->currency_code ?? Setting::get('currency_code', 'AUD'),
+            $this->eftNotificationUri(),
+            $user->id,
+            $user->name
+        );
+
+        if ($result['success']) {
+            LinklyTransaction::create([
+                'pos_txn_ref' => $refundTxnRef,
+                'client_ref' => $validated['client_ref'],
+                'linkly_session_id' => $result['session_id'],
+                'txn_type' => 'refund',
+                'event_id' => $original->event_id,
+                'donation_type' => $original->donation_type,
+                'donation_id' => $original->donation_id,
+                'amount' => $validated['amount'],
+                'currency_code' => $original->currency_code,
+                'status' => 'initiated',
+                'original_transaction_id' => $original->id,
+                'initiated_by' => $user->id,
+                'authorised_by' => $user->id,
+            ]);
+        }
+
+        return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * Marks the underlying donation row 'Refunded' once a refund transaction is confirmed
+     * approved — called from pollEftCharge() right after syncLedgerFromPoll(), so the
+     * temple's own totals (which only ever sum payment_status = 'Paid') stop counting it
+     * without needing a separate admin step. Only ever runs on the authoritative polled
+     * result, same "never decide from DisplayText" rule as every other status change here.
+     */
+    private function markDonationRefundedIfJustApproved(string $sessionId, array $result): void
+    {
+        if (!($result['done'] && $result['success'])) {
+            return;
+        }
+
+        $txn = LinklyTransaction::where('linkly_session_id', $sessionId)->where('txn_type', 'refund')->first();
+        if (!$txn || !$txn->donation_type || !$txn->donation_id) {
+            return;
+        }
+
+        $table = $txn->donation_type === 'devotee' ? 'donations' : 'donations_without_logins';
+        DB::table($table)->where('id', $txn->donation_id)->update(['payment_status' => 'Refunded', 'updated_at' => now()]);
+    }
+
+    /**
+     * Logs on to the paired terminal — confirms it's reachable/configured without moving any
+     * money. Same event-admin authorization as Refund/pairing. Plain POST-redirect (not the
+     * async modal flow) since a Logon resolves immediately, matching the console's existing
+     * Settings/Coordinators forms.
+     */
+    public function logonLinkly(Request $request, int $eventId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$this->canManageEftForEvent($user, $activeRole, $eventId)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $result = LinklyEftService::logon();
+
+        LinklyTransaction::create([
+            'pos_txn_ref' => 'LGN' . now()->format('mdHis') . rand(10, 99),
+            'txn_type' => 'logon',
+            'event_id' => $eventId,
+            'status' => $result['success'] ? 'approved' : 'failed',
+            'response_text' => $result['message'],
+            'initiated_by' => $user->id,
+            'authorised_by' => $user->id,
+        ]);
+
+        AuditLogService::log('Linkly terminal Logon: ' . $result['message'], null, $eventId);
+
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
+     * Reprints the acquirer/EFTPOS receipt for a completed session. Same event-admin
+     * authorization as Refund/Logon/pairing.
+     */
+    public function reprintEftReceipt(Request $request, int $eventId, string $sessionId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$this->canManageEftForEvent($user, $activeRole, $eventId)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $result = LinklyEftService::reprintReceipt($sessionId);
+        AuditLogService::log('Linkly receipt reprint requested for session ' . $sessionId . ': ' . $result['message'], null, $eventId);
+
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
+     * Repairs the (single, shared) EFT terminal from inside an event-admin's own console —
+     * same underlying pairing as LinklyController::pair() (the Settings-page, Admin-only
+     * entry point, left unchanged), just reachable by an event-admin coordinator too and
+     * returning back to the console instead of Settings. Pairing is a whole-terminal action
+     * (there is one physical/virtual PIN pad, not one per event), so this intentionally
+     * doesn't scope anything to $eventId beyond deciding who's allowed to trigger it.
+     */
+    public function pairEftFromConsole(Request $request, int $eventId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$this->canManageEftForEvent($user, $activeRole, $eventId)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'pair_code' => 'required|string|max:10',
+        ]);
+
+        $result = LinklyEftService::pair($validated['pair_code']);
+        AuditLogService::log('EFT terminal pairing ' . ($result['success'] ? 'succeeded' : 'failed') . ' (from event console)', null, $eventId);
+
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     /**
@@ -938,6 +1253,16 @@ class DonationController extends Controller
             // a "transaction"/"receipt" postback (unlike "display") can carry card data
             // (PAN, track2), so nothing from this webhook is ever logged wholesale.
             Log::info('Linkly display notification', ['session_id' => $sessionId, 'display' => $cleanedLines]);
+        } elseif ($responseType === 'receipt') {
+            // The merchant/customer receipt text for a completed transaction — kept only for
+            // the accreditation pane's Reprint/receipt evidence, never used to decide
+            // payment_status. recordReceipt() masks any run of digits long enough to be a PAN
+            // before anything is cached, and nothing here is ever logged wholesale (same
+            // "never log raw postback body" rule as above).
+            $receiptResponse = $request->input('Response') ?? $request->input('response') ?? [];
+            $lines = $receiptResponse['ReceiptText'] ?? $receiptResponse['receiptText'] ?? [];
+            LinklyEftService::recordReceipt($sessionId, is_array($lines) ? $lines : []);
+            Log::info('Linkly receipt notification received', ['session_id' => $sessionId]);
         }
 
         return response()->json(['received' => true]);
@@ -984,6 +1309,9 @@ class DonationController extends Controller
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
             'payment_status' => 'nullable|string|in:Paid,Pending',
+            // Set only when payment_method is EFT Terminal — links this donation back to its
+            // Linkly accreditation ledger row (see linkLedgerToDonation()).
+            'linkly_session_id' => 'nullable|string|max:64',
         ]);
 
         try {
@@ -997,7 +1325,7 @@ class DonationController extends Controller
                 'purpose_details' => $validated['purpose_details'] ?? null,
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => $validated['payment_status'] ?? 'Paid',
-                'transaction_id' => $validated['transaction_id'] ?? 'GUEST-' . strtoupper(uniqid()),
+                'transaction_id' => ($validated['transaction_id'] ?? '') !== '' ? $validated['transaction_id'] : 'GUEST-' . strtoupper(uniqid()),
                 'bank_name' => $validated['bank_name'] ?? null,
                 'bank_account_no' => $validated['bank_account_no'] ?? null,
                 'bank_ifsc' => $validated['bank_ifsc'] ?? null,
@@ -1007,6 +1335,7 @@ class DonationController extends Controller
                 'updated_at' => now(),
             ]);
             $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
+            $this->linkLedgerToDonation($validated['linkly_session_id'] ?? null, 'guest', $donationId);
 
             $receiptPayload = [
                 'donor_name' => $validated['donor_name'],
