@@ -576,12 +576,12 @@
                                 </div>
                                 <div class="field-row two-col">
                                     <div class="field-group">
-                                        <label class="field-label">Email (Optional)</label>
+                                        <label class="field-label">Email{{ $event->require_donor_email ? ' *' : ' (Optional)' }}</label>
                                         <i class="bi bi-envelope field-icon"></i>
                                         <input type="email" id="qeGuestEmail" placeholder="example@email.com">
                                     </div>
                                     <div class="field-group">
-                                        <label class="field-label">Mobile (Optional)</label>
+                                        <label class="field-label">Mobile{{ $event->require_donor_mobile ? ' *' : ' (Optional)' }}</label>
                                         <i class="bi bi-telephone field-icon"></i>
                                         <input type="text" id="qeGuestMobile" placeholder="04XX XXX XXX">
                                     </div>
@@ -602,7 +602,7 @@
                                 <div class="field-group compact" style="margin-top:10px;">
                                     <label class="field-label">Amount (AUD)</label>
                                     <i class="bi bi-currency-dollar field-icon"></i>
-                                    <input type="number" step="0.01" id="qeAmount" placeholder="0.00">
+                                    <input type="text" inputmode="decimal" id="qeAmount" placeholder="0.00">
                                 </div>
                             </div>
 
@@ -1357,6 +1357,8 @@
         const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [101, 501, 1001, 2001];
+        const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
+        const REQUIRE_MOBILE = @json((bool) $event->require_donor_mobile);
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
 
         let qeMode = 'guest';
@@ -1428,6 +1430,24 @@
             return div.innerHTML;
         }
 
+        // Amount fields use type="text" + inputmode="decimal" rather than type="number" — a
+        // plain type="number" input silently reports an empty .value (not the text visible
+        // on screen) whenever the browser's own numeric grammar rejects what was typed, which
+        // is exactly what could produce "Enter a valid amount" even though a number was
+        // clearly entered. Sanitizing on input (digits + at most one decimal point) keeps the
+        // same numeric-only behaviour without that failure mode.
+        function sanitizeDecimalInputQe(el) {
+            let v = el.value.replace(/[^0-9.]/g, '');
+            const firstDot = v.indexOf('.');
+            if (firstDot !== -1) {
+                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+            }
+            el.value = v;
+        }
+        function bindDecimalSanitizerQe(el) {
+            el.addEventListener('input', function () { sanitizeDecimalInputQe(el); });
+        }
+
         const amountInput = document.getElementById('qeAmount');
         const quickAmountsRow = document.getElementById('qeQuickAmounts');
         const tiersWrap = document.getElementById('qeTiersWrap');
@@ -1456,11 +1476,12 @@
                     + (hasAmount ? (CURRENCY_CODE + ' ' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
                     + '</span></span></label>'
                     + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="tier-qty" style="' + (singleOption ? '' : 'display:none;') + '">' : '')
-                    + (!hasAmount ? '<div class="d-flex flex-column"><input type="number" min="0" step="0.01" placeholder="Amount" class="tier-free">'
+                    + (!hasAmount ? '<div class="d-flex flex-column"><input type="text" inputmode="decimal" placeholder="Amount" class="tier-free">'
                         + '<div class="tier-free-quick-amounts"></div></div>' : '')
                     + '</div>';
             });
             tiersContainer.innerHTML = html;
+            tiersContainer.querySelectorAll('.tier-free').forEach(bindDecimalSanitizerQe);
 
             // Quick-amount mini chips for each free-amount tier.
             tiersContainer.querySelectorAll('.donation-tier-option').forEach(function (row) {
@@ -1525,6 +1546,7 @@
             // value, so there's no separate "Custom Amount" control.
             tiersWrap.style.display = 'none';
             simpleAmountWrap.style.display = 'block';
+            bindDecimalSanitizerQe(amountInput);
 
             QUICK_AMOUNTS.forEach(function (amt) {
                 const btn = document.createElement('button');
@@ -1592,7 +1614,7 @@
         document.getElementById('qeResetBtn').addEventListener('click', resetQuickEntry);
 
         document.getElementById('qeSaveBtn').addEventListener('click', function () {
-            const amount = parseFloat(amountInput.value);
+            const amount = parseFloat((amountInput.value || '').trim());
             if (!amount || amount <= 0) { showToast('Enter a valid amount.', true); return; }
 
             const btn = this;
@@ -1618,11 +1640,15 @@
             } else {
                 const name = document.getElementById('qeGuestName').value.trim();
                 if (!name) { showToast('Enter the donor name.', true); btn.disabled = false; return; }
+                const guestEmail = document.getElementById('qeGuestEmail').value.trim();
+                if (REQUIRE_EMAIL && !guestEmail) { showToast('Enter the donor email.', true); btn.disabled = false; return; }
+                const guestMobile = document.getElementById('qeGuestMobile').value.trim();
+                if (REQUIRE_MOBILE && !guestMobile) { showToast('Enter the donor mobile number.', true); btn.disabled = false; return; }
                 url = STORE_GUEST_URL;
                 body.set('donor_name', name);
                 body.set('donation_date', donationDateInput.value || new Date().toISOString().slice(0, 10));
-                body.set('email', document.getElementById('qeGuestEmail').value);
-                body.set('mobile', document.getElementById('qeGuestMobile').value);
+                body.set('email', guestEmail);
+                body.set('mobile', guestMobile);
                 // Guest donations only accept Cash/UPI/Bank — translate the shared payment
                 // method list's "Bank Transfer" label to the value this route actually accepts.
                 body.set('payment_method', paymentSelect.value === 'Bank Transfer' ? 'Bank' : paymentSelect.value);

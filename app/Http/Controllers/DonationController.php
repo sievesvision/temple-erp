@@ -837,11 +837,18 @@ class DonationController extends Controller
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
+        // Same per-event email/mobile requirement as the public donation form
+        // (storePublic()) — an event admin can require either independently for every guest
+        // donation recorded here, whether from the full console's Quick Entry or the POS page.
+        $lockedEvent = $request->filled('event_id') ? Event::find($request->input('event_id')) : null;
+        $requireEmail = $lockedEvent && $lockedEvent->require_donor_email;
+        $requireMobile = $lockedEvent && $lockedEvent->require_donor_mobile;
+
         $validated = $request->validate([
             'donor_name' => 'required|string|max:255',
             'event_id' => 'nullable|exists:events,event_id',
-            'email' => 'nullable|email|max:255',
-            'mobile' => 'nullable|string|max:20',
+            'email' => ($requireEmail ? 'required' : 'nullable') . '|email|max:255',
+            'mobile' => ($requireMobile ? 'required' : 'nullable') . '|string|max:20',
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',

@@ -145,11 +145,11 @@
             </div>
             <div class="pos-row two-col">
                 <div>
-                    <label class="pos-field-label">Mobile (optional)</label>
+                    <label class="pos-field-label">Mobile{{ $event->require_donor_mobile ? '' : ' (optional)' }}</label>
                     <input type="text" class="pos-input" id="posGuestMobile" placeholder="04XX XXX XXX" autocomplete="off">
                 </div>
                 <div>
-                    <label class="pos-field-label">Email (optional)</label>
+                    <label class="pos-field-label">Email{{ $event->require_donor_email ? '' : ' (optional)' }}</label>
                     <input type="email" class="pos-input" id="posGuestEmail" placeholder="example@email.com" autocomplete="off">
                 </div>
             </div>
@@ -161,7 +161,7 @@
             </div>
             <div id="posSimpleAmountWrap">
                 <div class="pos-quick-amounts" id="posQuickAmounts"></div>
-                <input type="number" step="0.01" class="pos-input" id="posAmount" placeholder="Amount ({{ $temple['currency'] ?? '' }})">
+                <input type="text" inputmode="decimal" class="pos-input" id="posAmount" placeholder="Amount ({{ $temple['currency'] ?? '' }})">
             </div>
 
             <div class="pos-section-title">Details (optional)</div>
@@ -191,13 +191,33 @@
         const CSRF_TOKEN = @json(csrf_token());
         const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
         const EVENT_ID = {{ $event->event_id }};
-        const QUICK_AMOUNTS = [101, 501, 1001, 2001];
+        const QUICK_AMOUNTS = [51, 101, 201, 501, 1001];
+        const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
+        const REQUIRE_MOBILE = @json((bool) $event->require_donor_mobile);
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
 
         function escapeHtmlPos(str) {
             const div = document.createElement('div');
             div.textContent = str || '';
             return div.innerHTML;
+        }
+
+        // Amount fields use type="text" + inputmode="decimal" rather than type="number" —
+        // a plain type="number" input silently reports an empty .value (not the text the
+        // clerk can see on screen) whenever the browser's own numeric grammar rejects what
+        // was typed, which is exactly what produced "Enter a valid amount" even though a
+        // number was clearly entered. Sanitizing on input (digits + at most one decimal
+        // point) keeps the same numeric-only behaviour without that failure mode.
+        function sanitizeDecimalInput(el) {
+            let v = el.value.replace(/[^0-9.]/g, '');
+            const firstDot = v.indexOf('.');
+            if (firstDot !== -1) {
+                v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+            }
+            el.value = v;
+        }
+        function bindDecimalSanitizer(el) {
+            el.addEventListener('input', function () { sanitizeDecimalInput(el); });
         }
 
         // Fullscreen — explicit button only.
@@ -250,10 +270,11 @@
                     + (hasAmount ? (CURRENCY_CODE + ' ' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
                     + '</span></span></label>'
                     + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="pos-tier-qty" style="' + (singleOption ? '' : 'display:none;') + '">' : '')
-                    + (!hasAmount ? '<input type="number" min="0" step="0.01" placeholder="Amount" class="pos-tier-free">' : '')
+                    + (!hasAmount ? '<input type="text" inputmode="decimal" placeholder="Amount" class="pos-tier-free">' : '')
                     + '</div>';
             });
             tiersContainer.innerHTML = html;
+            tiersContainer.querySelectorAll('.pos-tier-free').forEach(bindDecimalSanitizer);
 
             function recalcTiers() {
                 let total = 0;
@@ -321,6 +342,7 @@
                 });
                 quickAmountsRow.appendChild(btn);
             });
+            bindDecimalSanitizer(amountInput);
             amountInput.addEventListener('input', function () {
                 quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) {
                     b.classList.toggle('active', parseFloat(b.textContent.replace(/[^0-9.]/g, '')) === parseFloat(amountInput.value));
@@ -386,11 +408,17 @@
         }
 
         document.getElementById('posSaveBtn').addEventListener('click', function () {
-            const amount = parseFloat(amountInput.value);
+            const amount = parseFloat((amountInput.value || '').trim());
             if (!amount || amount <= 0) { showToast('Enter a valid amount.', true); return; }
 
             const name = document.getElementById('posGuestName').value.trim();
             if (!name) { showToast('Enter the donor name.', true); return; }
+
+            const emailValue = document.getElementById('posGuestEmail').value.trim();
+            if (REQUIRE_EMAIL && !emailValue) { showToast('Enter the donor email.', true); return; }
+
+            const mobileValue = document.getElementById('posGuestMobile').value.trim();
+            if (REQUIRE_MOBILE && !mobileValue) { showToast('Enter the donor mobile number.', true); return; }
 
             const btn = this;
             btn.disabled = true;
@@ -404,8 +432,8 @@
             body.set('transaction_id', '');
             body.set('donor_name', name);
             body.set('donation_date', today);
-            body.set('email', document.getElementById('posGuestEmail').value);
-            body.set('mobile', document.getElementById('posGuestMobile').value);
+            body.set('email', emailValue);
+            body.set('mobile', mobileValue);
             body.set('payment_method', selectedMethod === 'Bank Transfer' ? 'Bank' : selectedMethod);
             body.set('purpose', purposeValue);
             body.set('purpose_details', document.getElementById('posDetails').value);
