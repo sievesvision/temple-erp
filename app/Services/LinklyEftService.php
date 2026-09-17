@@ -195,6 +195,58 @@ class LinklyEftService
     }
 
     /**
+     * Sends a soft-key press back to the terminal for an in-progress async transaction —
+     * used to let the POS operator cancel a wait (e.g. "PRESENT CARD"/"ENTER PIN") from the
+     * browser instead of only being able to cancel on the physical terminal itself. Per
+     * Linkly's docs, "0" is CANCEL, "1" is YES/OK, "2" is NO, "3" is AUTHORISE — kept as raw
+     * key codes here rather than named constants since only cancel() is wired up yet.
+     * Whether a cancel actually lands depends on the transaction's current stage (e.g. it
+     * can arrive too late once the card has already been read/approved) — either way, the
+     * authoritative outcome still only ever comes from pollTransaction()'s GET, never
+     * assumed from this call succeeding.
+     *
+     * @return array{success: bool, message: string}
+     */
+    public static function sendKey(string $sessionId, string $key): array
+    {
+        $token = self::getToken();
+        if (!$token) {
+            return ['success' => false, 'message' => 'Could not authenticate with the EFT terminal service.'];
+        }
+
+        try {
+            $response = Http::timeout(15)
+                ->withToken($token)
+                ->post(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/sendkey?async=true", [
+                    'Request' => [
+                        'Key' => $key,
+                        'InputData' => '',
+                    ],
+                ]);
+        } catch (\Exception $e) {
+            Log::warning('Linkly sendKey request exception', ['session_id' => $sessionId, 'message' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'Could not reach the EFT terminal service.'];
+        }
+
+        if (!$response->successful()) {
+            Log::warning('Linkly sendKey failed', ['session_id' => $sessionId, 'status' => $response->status()]);
+            return ['success' => false, 'message' => 'The terminal did not accept the cancel request — it may have already moved past that step.'];
+        }
+
+        return ['success' => true, 'message' => 'Cancel sent to the terminal.'];
+    }
+
+    /**
+     * Sends the CANCEL soft-key ("0") for an in-progress async transaction.
+     *
+     * @return array{success: bool, message: string}
+     */
+    public static function cancel(string $sessionId): array
+    {
+        return self::sendKey($sessionId, '0');
+    }
+
+    /**
      * Trims each line and drops blank ones, so e.g. Linkly's fixed-width, space-padded
      * ["     SWIPE CARD     ", "                    "] becomes just ["SWIPE CARD"], while a
      * genuinely two-line prompt like ["SELECT ACCOUNT", "SAV CHQ CR"] keeps both lines.

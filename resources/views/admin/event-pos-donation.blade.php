@@ -254,6 +254,7 @@
         const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
         const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
+        const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [51, 101, 201, 501, 1001];
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
@@ -483,6 +484,7 @@
         }
         function hideEftModal() {
             eftModalOverlay.classList.remove('active');
+            eftCurrentSessionId = null;
         }
 
         // "Orders this session" — sessionStorage only, so it survives a reload of this same
@@ -596,6 +598,7 @@
             // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
                 eftPollCancelled = false;
+                eftCurrentSessionId = null;
                 showEftModal(amount);
                 const startBody = new URLSearchParams();
                 startBody.set('event_id', EVENT_ID);
@@ -614,6 +617,7 @@
                             showToast(result.data.message || 'Could not start the terminal transaction.', true);
                             return;
                         }
+                        eftCurrentSessionId = result.data.session_id;
                         pollEftTransaction(result.data.session_id, btn, amount, name, emailValue, mobileValue, Date.now());
                     })
                     .catch(function () {
@@ -628,16 +632,36 @@
         });
 
         // Set true by the modal's Cancel button — checked at the top of every poll tick so
-        // an abandoned wait actually stops instead of continuing in the background. This
-        // only gives up on watching this browser's side; if the terminal is still showing a
-        // prompt, the operator should also cancel there.
+        // an abandoned wait actually stops instead of continuing in the background.
         let eftPollCancelled = false;
+        // The in-flight transaction's session id, so the Cancel button can tell Linkly to
+        // actually cancel it (via cancelEftCharge -> LinklyEftService::cancel(), a sendkey
+        // "0" to the terminal) rather than only dismissing the modal locally.
+        let eftCurrentSessionId = null;
         document.getElementById('eftModalCancelBtn').addEventListener('click', function () {
             eftPollCancelled = true;
-            hideEftModal();
+            const sessionId = eftCurrentSessionId;
             const btn = document.getElementById('posSaveBtn');
+            hideEftModal();
             btn.disabled = false;
-            showToast('Payment cancelled. If the terminal is still waiting, cancel it there too.', true);
+
+            if (!sessionId) {
+                showToast('Payment cancelled.', true);
+                return;
+            }
+
+            showToast('Cancelling…');
+            fetch(EFT_CHARGE_CANCEL_URL_BASE + '/' + encodeURIComponent(sessionId) + '?event_id=' + encodeURIComponent(EVENT_ID), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    showToast(data.success ? 'Cancel sent to the terminal.' : (data.message || 'The terminal may have already moved past the cancel step.'), !data.success);
+                })
+                .catch(function () {
+                    showToast('Could not reach the terminal to cancel — if it is still waiting, cancel it there too.', true);
+                });
         });
 
         // Polls every ~1.2s for up to ~3 minutes (matching Linkly's own pairing/transaction

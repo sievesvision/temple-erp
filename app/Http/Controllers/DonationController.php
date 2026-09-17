@@ -873,6 +873,24 @@ class DonationController extends Controller
     }
 
     /**
+     * Sends a CANCEL key-press to the terminal for an in-progress async transaction — wired
+     * to the POS modal's Cancel button so it actually reaches the terminal (e.g. while it's
+     * waiting for a card tap or PIN) instead of only dismissing the modal locally. Same
+     * authorization as starting/polling the charge; the eventual approved/declined/cancelled
+     * outcome still only ever comes from pollEftCharge()'s authoritative GET.
+     */
+    public function cancelEftCharge(Request $request, string $sessionId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        return response()->json(LinklyEftService::cancel($sessionId));
+    }
+
+    /**
      * Receives Linkly's postback notifications for an in-progress async transaction — the
      * PIN pad's live display prompts ("ENTER PIN", etc.) — so pollEftCharge() has something
      * to hand the browser. Not behind the usual admin auth (Linkly itself calls this, not a

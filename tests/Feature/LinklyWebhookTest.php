@@ -280,4 +280,63 @@ class LinklyWebhookTest extends TestCase
         $response->assertOk();
         $this->assertNull(Cache::get("linkly_display_{$sessionId}"));
     }
+
+    // Cancel endpoint: unauthenticated requests are rejected before ever reaching Linkly.
+    public function test_cancel_endpoint_rejects_unauthenticated_requests(): void
+    {
+        $response = $this->postJson('/admin/eft/charge/cancel/' . Str::uuid());
+
+        $response->assertStatus(401);
+    }
+
+    // Cancel endpoint: a role with no donation permission and no event_id is rejected, same
+    // authorization rule as starting/polling a charge.
+    public function test_cancel_endpoint_rejects_role_without_donation_permission(): void
+    {
+        $coordinator = User::factory()->create([
+            'role' => 'Event Coordinator',
+            'mobile' => fake()->unique()->numerify('04########'),
+        ]);
+
+        $response = $this->actingAs($coordinator)->postJson('/admin/eft/charge/cancel/' . Str::uuid());
+
+        $response->assertStatus(403)
+            ->assertJson(['success' => false, 'message' => 'Unauthorized access.']);
+    }
+
+    // Cancel endpoint: an authorized user's cancel click sends a sendkey "0" request to
+    // Linkly and reports success back to the browser.
+    public function test_cancel_endpoint_sends_cancel_key_to_linkly(): void
+    {
+        $sessionId = (string) Str::uuid();
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*/sendkey*' => Http::response(['response' => ['success' => true]], 200),
+        ]);
+
+        $response = $this->actingAs($this->adminUser())->postJson("/admin/eft/charge/cancel/{$sessionId}");
+
+        $response->assertOk()->assertJson(['success' => true]);
+
+        Http::assertSent(function ($request) use ($sessionId) {
+            return str_contains($request->url(), "/sessions/{$sessionId}/sendkey")
+                && $request['Request']['Key'] === '0';
+        });
+    }
+
+    // Cancel endpoint: if Linkly rejects the sendkey (e.g. the transaction already moved
+    // past the point where a cancel is possible), the endpoint reports failure rather than
+    // pretending it worked.
+    public function test_cancel_endpoint_reports_failure_when_linkly_rejects_it(): void
+    {
+        $sessionId = (string) Str::uuid();
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*/sendkey*' => Http::response(null, 409),
+        ]);
+
+        $response = $this->actingAs($this->adminUser())->postJson("/admin/eft/charge/cancel/{$sessionId}");
+
+        $response->assertOk()->assertJson(['success' => false]);
+    }
 }

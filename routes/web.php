@@ -531,6 +531,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
     Route::post('/admin/eft/charge/start', [\App\Http\Controllers\DonationController::class, 'startEftCharge'])->name('admin.eft.charge.start');
     Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
+    Route::post('/admin/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('admin.eft.charge.cancel');
     // The kiosk-style POS donation page — a pos-level coordinator's only reachable page;
     // everyone else who can add donations can use it too as a faster alternative to the
     // full console's Quick Entry. Saves through the same storeDevotee/storeGuest routes above.
