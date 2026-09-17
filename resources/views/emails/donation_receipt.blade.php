@@ -7,12 +7,15 @@
 <body style="background-color: #f5f3ef; margin: 0; padding: 20px; font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #2d2520;">
   <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2ddd3;">
     <!-- Header -->
-    <div style="background-color: {{ $temple['dark_color'] }}; padding: 28px 30px; text-align: left; border-bottom: 3px solid {{ $temple['primary_color'] }};">
-      <h1 style="margin: 0; color: #ffffff; font-family: 'DM Sans', sans-serif; font-size: 20px; font-weight: 700;">
-        {{ $temple['name'] }}
+    <div style="background-color: {{ $temple['dark_color'] }}; padding: 24px 30px; text-align: left; border-bottom: 3px solid {{ $temple['primary_color'] }};">
+      <h1 style="margin: 0; color: #ffffff; font-family: 'DM Sans', sans-serif; font-size: 19px; font-weight: 700;">
+        {{ $temple['legal_name'] ?: $temple['name'] }}
       </h1>
-      <p style="margin: 4px 0 0 0; color: #d9d4c9; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
-        Donation Receipt
+      @if(!empty($temple['legal_name']) && $temple['legal_name'] !== $temple['name'])
+      <p style="margin: 2px 0 0 0; color: #d9d4c9; font-size: 12px;">{{ $temple['name'] }}</p>
+      @endif
+      <p style="margin: 6px 0 0 0; color: #d9d4c9; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
+        Donation Receipt @if(!empty($receiptNumber)) &middot; No. {{ $receiptNumber }} @endif
       </p>
     </div>
 
@@ -72,8 +75,10 @@
     </div>
 
     <!-- Footer -->
-    <div style="background-color: #f5f3ef; color: #7b6b5a; text-align: left; padding: 16px 30px; font-size: 12px; border-top: 1px solid #e2ddd3;">
-      © {{ date('Y') }} {{ $temple['name'] }}. All rights reserved.
+    <div style="background-color: #f5f3ef; color: #7b6b5a; text-align: left; padding: 16px 30px; font-size: 11px; border-top: 1px solid #e2ddd3; line-height: 1.6;">
+      {{ $temple['legal_name'] ?: $temple['name'] }}@if(!empty($temple['abn'])) &middot; ABN {{ $temple['abn'] }}@endif<br>
+      @if(!empty($temple['address'])){{ $temple['address'] }}<br>@endif
+      @if(!empty($temple['phone'])){{ $temple['phone'] }}@endif @if(!empty($temple['website'])) &middot; {{ $temple['website'] }}@endif
     </div>
   </div>
 </body>

@@ -203,6 +203,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $templeAddress = \App\Models\Setting::get('temple_address', '4915-4923 Mount Lindesay Hwy, South Maclean QLD 4280');
         $templePhone = \App\Models\Setting::get('temple_phone', '+61 7 5547 8064');
         $templeEmail = \App\Models\Setting::get('temple_email', 'hasq.president@gmail.com');
+        $templeAbn = \App\Models\Setting::get('temple_abn', '42 694 249 621');
+        $templeWebsite = \App\Models\Setting::get('temple_website', 'http://www.sriselvavinayakar.org');
+        $templeLegalName = \App\Models\Setting::get('temple_legal_name', 'Hindu Ahlaya Sangam (QLD) Inc.');
         $donationAccountName = \App\Models\Setting::get('donation_account_name', 'HINDU AHLAYA SANGAM QLD INC');
         $donationBankName = \App\Models\Setting::get('donation_bank_name', 'Commonwealth Bank');
         $donationBsb = \App\Models\Setting::get('donation_bsb', '064 000');
@@ -250,6 +253,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'templeAddress',
             'templePhone',
             'templeEmail',
+            'templeAbn',
+            'templeWebsite',
+            'templeLegalName',
             'donationAccountName',
             'donationBankName',
             'donationBsb',
@@ -303,6 +309,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'temple_address' => 'required|string|max:255',
             'temple_phone' => 'required|string|max:50',
             'temple_email' => 'required|email|max:255',
+            'temple_abn' => 'nullable|string|max:50',
+            'temple_website' => 'nullable|string|max:255',
+            'temple_legal_name' => 'nullable|string|max:255',
             'donation_account_name' => 'required|string|max:255',
             'donation_bank_name' => 'required|string|max:255',
             'donation_bsb' => 'required|string|max:20',
@@ -368,6 +377,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('temple_address', $request->temple_address);
         \App\Models\Setting::set('temple_phone', $request->temple_phone);
         \App\Models\Setting::set('temple_email', $request->temple_email);
+        \App\Models\Setting::set('temple_abn', $request->temple_abn);
+        \App\Models\Setting::set('temple_website', $request->temple_website);
+        \App\Models\Setting::set('temple_legal_name', $request->temple_legal_name);
         \App\Models\Setting::set('donation_account_name', $request->donation_account_name);
         \App\Models\Setting::set('donation_bank_name', $request->donation_bank_name);
         \App\Models\Setting::set('donation_bsb', $request->donation_bsb);

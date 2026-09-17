@@ -266,6 +266,19 @@
                                     <label class="form-label fw-semibold text-dark">Public Email</label>
                                     <input type="email" name="temple_email" class="form-control rounded-3" value="{{ $templeEmail }}" required>
                                 </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-dark">Legal / Registered Entity Name</label>
+                                    <input type="text" name="temple_legal_name" class="form-control rounded-3" value="{{ $templeLegalName }}" placeholder="e.g. Hindu Ahlaya Sangam (QLD) Inc.">
+                                    <div class="form-text">Shown on donation receipts, alongside the temple name above.</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold text-dark">ABN</label>
+                                    <input type="text" name="temple_abn" class="form-control rounded-3" value="{{ $templeAbn }}" placeholder="e.g. 42 694 249 621">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold text-dark">Website</label>
+                                    <input type="text" name="temple_website" class="form-control rounded-3" value="{{ $templeWebsite }}" placeholder="https://...">
+                                </div>
                             </div>
                         </div>
                     </div>

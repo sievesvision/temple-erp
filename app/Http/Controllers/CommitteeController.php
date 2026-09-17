@@ -6,11 +6,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use App\Services\AccountSetupService;
 use App\Services\AuditLogService;
-use App\Mail\WelcomeMail;
-use App\Models\Setting;
 use App\Models\RolePermission;
+use App\Models\User;
 
 class CommitteeController extends Controller
 {
@@ -80,7 +80,9 @@ class CommitteeController extends Controller
             'position' => 'required|string|max:100',
         ]);
 
-        $password = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // Never shown or emailed anywhere — the account is only reachable via the
+        // password-setup link sent below (AccountSetupService), never this value.
+        $password = Str::random(40);
 
         DB::beginTransaction();
         try {
@@ -125,49 +127,27 @@ class CommitteeController extends Controller
             DB::commit();
 
             // An existing user's real password is never touched (see the $existingUser
-            // branch above) — $password here was only ever generated for a brand-new
-            // account, so it must never be emailed or flashed for a granted-role user; that
-            // would show a "password" that was never actually saved as theirs.
+            // branch above) — no setup link is needed, they already have working credentials.
             if ($existingUser) {
                 return redirect()->route('admin.committee.index')
                     ->with('success', "{$request->name} has been granted Committee access — they can log in choosing the Committee role with their existing password.");
             }
 
-            $systemMode = Setting::get('system_mode', 'Testing Mode');
-            $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
+            $setup = AccountSetupService::sendPasswordSetupLink(User::find($userId));
+            $message = 'Committee Member Added Successfully!' . ($setup['emailed'] ? ' A password setup link has been emailed to them.' : '');
 
-            $sendEmail = false;
-            $flashPassword = false;
-
-            if ($systemMode === 'Testing Mode') {
-                $flashPassword = true;
-                if ($emailHandling === 'Send Emails') {
-                    $sendEmail = true;
-                }
-            } else {
-                $sendEmail = true;
-            }
-
-            if ($sendEmail) {
-                try {
-                    Mail::to($request->email)->send(new WelcomeMail($request->name, 'Committee', $request->email, $password));
-                } catch (\Exception $e) {
-                    // Log or handle mail error silently
-                }
-            }
-
-            if ($flashPassword) {
+            if ($setup['show_link']) {
                 return redirect()->route('admin.committee.index')
-                    ->with('success', 'Committee Member Added Successfully!')
+                    ->with('success', $message)
                     ->with('success_user_created', [
                         'name' => $request->name,
                         'email' => $request->email,
-                        'password' => $password,
+                        'setup_url' => $setup['url'],
                         'role' => 'Committee',
                     ]);
             }
 
-            return redirect()->route('admin.committee.index')->with('success', 'Committee Member Added Successfully!');
+            return redirect()->route('admin.committee.index')->with('success', $message);
 
         } catch (\Exception $e) {
             DB::rollBack();

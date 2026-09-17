@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Setting;
+use App\Services\DonationReceiptService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -16,6 +17,7 @@ class DonationReceiptMail extends Mailable
     use Queueable, SerializesModels;
 
     public $donorName;
+    public $donorMobile;
     public $amount;
     public $currency;
     public $paymentMethod;
@@ -23,14 +25,16 @@ class DonationReceiptMail extends Mailable
     public $eventName;
     public $donationDate;
     public $transactionId;
+    public $receiptNumber;
     public $isDonorCopy;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($donorName, $amount, $currency, $paymentMethod, $purpose, $eventName, $donationDate, $transactionId, $isDonorCopy = true)
+    public function __construct($donorName, $amount, $currency, $paymentMethod, $purpose, $eventName, $donationDate, $transactionId, $isDonorCopy = true, $donorMobile = null, $receiptNumber = null)
     {
         $this->donorName = $donorName;
+        $this->donorMobile = $donorMobile;
         $this->amount = $amount;
         $this->currency = $currency;
         $this->paymentMethod = $paymentMethod;
@@ -38,6 +42,7 @@ class DonationReceiptMail extends Mailable
         $this->eventName = $eventName;
         $this->donationDate = $donationDate;
         $this->transactionId = $transactionId;
+        $this->receiptNumber = $receiptNumber ?? DonationReceiptService::receiptNumber('R', now()->timestamp);
         $this->isDonorCopy = $isDonorCopy;
     }
 
@@ -70,6 +75,7 @@ class DonationReceiptMail extends Mailable
         $pdfData = [
             'temple' => Setting::templeBranding(),
             'donorName' => $this->donorName,
+            'donorMobile' => $this->donorMobile,
             'amount' => $this->amount,
             'currency' => $this->currency,
             'paymentMethod' => $this->paymentMethod,
@@ -77,6 +83,7 @@ class DonationReceiptMail extends Mailable
             'eventName' => $this->eventName,
             'donationDate' => $this->donationDate,
             'transactionId' => $this->transactionId,
+            'receiptNumber' => $this->receiptNumber,
         ];
 
         $pdf = Pdf::loadView('emails.donation_receipt_pdf', $pdfData);

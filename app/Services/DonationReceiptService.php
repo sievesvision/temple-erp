@@ -23,31 +23,46 @@ class DonationReceiptService
             $devoteeUser = DB::table('devotees')
                 ->join('users', 'devotees.user_id', '=', 'users.id')
                 ->where('devotees.devotee_id', $donation->devotee_id)
-                ->select('users.name', 'users.email')
+                ->select('users.name', 'users.email', 'users.mobile')
                 ->first();
 
             return [
                 'donor_name' => $devoteeUser->name ?? 'Devotee',
                 'donor_email' => $devoteeUser->email ?? null,
+                'donor_mobile' => $devoteeUser->mobile ?? null,
                 'amount' => $donation->amount,
                 'payment_method' => 'Stripe',
                 'purpose' => $donation->remarks ?: $donation->purpose,
                 'event_id' => $donation->event_id,
                 'donation_date' => $donation->donation_date,
                 'transaction_id' => $donation->transaction_id,
+                'receipt_number' => self::receiptNumber('D', $donation->id),
             ];
         }
 
         return [
             'donor_name' => $donation->donor_name,
             'donor_email' => $donation->email,
+            'donor_mobile' => $donation->mobile ?? null,
             'amount' => $donation->amount,
             'payment_method' => 'Stripe',
             'purpose' => $donation->purpose_details ?? $donation->purpose,
             'event_id' => $donation->event_id,
             'donation_date' => $donation->donation_date,
             'transaction_id' => $donation->transaction_id,
+            'receipt_number' => self::receiptNumber('G', $donation->id),
         ];
+    }
+
+    /**
+     * A human-facing receipt number — there's no dedicated sequential-number column, so this
+     * derives a stable one from the donation's own primary key, prefixed by which table it
+     * came from (D = devotee-linked 'donations', G = guest 'donations_without_logins') since
+     * both tables auto-increment independently and would otherwise collide on the same number.
+     */
+    public static function receiptNumber(string $prefix, $donationId): string
+    {
+        return $prefix . '-' . str_pad((string) $donationId, 6, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -55,11 +70,12 @@ class DonationReceiptService
      * confirmed 'Paid' (immediately for Stripe, or once an admin approves a Bank/Cash
      * donation). See sendPendingNotice() for the earlier, unconfirmed-donation email.
      */
-    public static function send(array $donation): void
+    public static function send(array $donation, bool $ccCoordinators = true): void
     {
         self::dispatch($donation, function (bool $isDonorCopy, ?string $eventName) use ($donation) {
             return new DonationReceiptMail(
                 donorName: $donation['donor_name'] ?? 'Devotee',
+                donorMobile: $donation['donor_mobile'] ?? null,
                 amount: (float) ($donation['amount'] ?? 0),
                 currency: $donation['currency'] ?? Setting::get('currency_code', 'AUD'),
                 paymentMethod: $donation['payment_method'] ?? 'N/A',
@@ -67,9 +83,10 @@ class DonationReceiptService
                 eventName: $eventName,
                 donationDate: $donation['donation_date'] ?? now()->toDateString(),
                 transactionId: $donation['transaction_id'] ?? null,
+                receiptNumber: $donation['receipt_number'] ?? null,
                 isDonorCopy: $isDonorCopy,
             );
-        });
+        }, $ccCoordinators);
     }
 
     /**
@@ -92,7 +109,7 @@ class DonationReceiptService
                 transactionId: $donation['transaction_id'] ?? null,
                 isDonorCopy: $isDonorCopy,
             );
-        });
+        }, true);
     }
 
     /**
@@ -103,7 +120,7 @@ class DonationReceiptService
      * coordinator list (if any) becomes the primary recipient instead, so a donation
      * without a donor email still generates a notification.
      */
-    private static function dispatch(array $donation, \Closure $mailableFactory): void
+    private static function dispatch(array $donation, \Closure $mailableFactory, bool $ccCoordinators = true): void
     {
         $systemMode = Setting::get('system_mode', 'Testing Mode');
         $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
@@ -118,16 +135,21 @@ class DonationReceiptService
         $eventName = null;
         $coordinatorEmails = [];
 
-        if (!empty($donation['event_id'])) {
-            $event = Event::find($donation['event_id']);
-            if ($event) {
-                $eventName = $event->event_name;
-                $coordinatorEmails = $event->coordinatorEmailList();
+        if ($ccCoordinators) {
+            if (!empty($donation['event_id'])) {
+                $event = Event::find($donation['event_id']);
+                if ($event) {
+                    $eventName = $event->event_name;
+                    $coordinatorEmails = $event->coordinatorEmailList();
+                }
             }
-        }
 
-        if (empty($coordinatorEmails)) {
-            $coordinatorEmails = self::parseEmailList(Setting::get('donation_coordinator_emails', ''));
+            if (empty($coordinatorEmails)) {
+                $coordinatorEmails = self::parseEmailList(Setting::get('donation_coordinator_emails', ''));
+            }
+        } elseif (!empty($donation['event_id'])) {
+            // Still resolve the event name for the receipt body even when not CC'ing anyone.
+            $eventName = Event::find($donation['event_id'])->event_name ?? null;
         }
 
         if (!$donorEmail && empty($coordinatorEmails)) {

@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\WelcomeMail;
+use Illuminate\Support\Str;
+use App\Services\AccountSetupService;
 use App\Models\Setting;
 use App\Models\RolePermission;
+use App\Models\User;
 
 
 class DevoteeController extends Controller
@@ -206,7 +207,9 @@ public function dashboard(Request $request)
             'verified' => 'required|boolean',
         ]);
 
-        $password = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // Never shown or emailed anywhere — the account is only reachable via the
+        // password-setup link sent below (AccountSetupService), never this value.
+        $password = Str::random(40);
 
         DB::beginTransaction();
 
@@ -282,44 +285,27 @@ public function dashboard(Request $request)
 
             DB::commit();
 
-            // Handling System Mode
-            $systemMode = Setting::get('system_mode', 'Testing Mode');
-            $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
-
-            $sendEmail = false;
-            $flashPassword = false;
-
-            if ($systemMode === 'Testing Mode') {
-                $flashPassword = true;
-                if ($emailHandling === 'Send Emails') {
-                    $sendEmail = true;
-                }
-            } else {
-                $sendEmail = true;
+            // An existing user's real password is never touched (see the $existingUser
+            // branch above) — no setup link is needed, they already have working credentials.
+            if ($existingUser) {
+                return redirect()->route('admin.devotees.index')->with('success', 'User promoted to Devotee successfully!');
             }
 
-            if ($sendEmail) {
-                try {
-                    Mail::to($request->email)->send(new WelcomeMail($request->name, 'Devotee', $request->email, $password));
-                } catch (\Exception $e) {
-                    // Ignore mail errors
-                }
-            }
+            $setup = AccountSetupService::sendPasswordSetupLink(User::find($userId));
+            $message = 'Devotee Added Successfully!' . ($setup['emailed'] ? ' A password setup link has been emailed to them.' : '');
 
-            $message = $existingUser ? 'User promoted to Devotee successfully!' : 'Devotee Added Successfully!';
-
-            if ($flashPassword) {
+            if ($setup['show_link']) {
                 return redirect()->route('admin.devotees.index')
                     ->with('success', $message)
                     ->with('success_user_created', [
                         'name' => $request->name,
                         'email' => $request->email,
-                        'password' => $password,
+                        'setup_url' => $setup['url'],
                         'role' => 'Devotee'
                     ]);
-            } else {
-                return redirect()->route('admin.devotees.index')->with('success', $message);
             }
+
+            return redirect()->route('admin.devotees.index')->with('success', $message);
 
         } catch (\Exception $e) {
             DB::rollBack();

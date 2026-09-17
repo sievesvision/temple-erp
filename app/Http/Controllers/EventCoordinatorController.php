@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\WelcomeMail;
 use App\Models\Event;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\AccountSetupService;
 use App\Services\AuditLogService;
 use App\Services\EventCoordinatorLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 /**
  * Assigns/removes the "Event Coordinator" role's per-event scope and level
@@ -154,7 +154,9 @@ class EventCoordinatorController extends Controller
             'mobile' => 'required|string|max:15',
         ]);
 
-        $password = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // Never shown or emailed anywhere — the account is only reachable via the
+        // password-setup link sent below (AccountSetupService), never this value.
+        $password = Str::random(40);
 
         DB::beginTransaction();
         try {
@@ -201,41 +203,21 @@ class EventCoordinatorController extends Controller
                 return $this->redirectAfterAction($request, $eventId)->with('success', "{$request->name} has been granted Event Coordinator access for {$event->event_name} — they can log in and switch to it from the topbar.");
             }
 
-            $systemMode = Setting::get('system_mode', 'Testing Mode');
-            $emailHandling = Setting::get('testing_email_handling', 'Do Not Send Emails');
+            $setup = AccountSetupService::sendPasswordSetupLink(User::find($userId));
+            $msg = 'Event Coordinator Added Successfully!' . ($setup['emailed'] ? ' A password setup link has been emailed to them.' : '');
 
-            $sendEmail = false;
-            $flashPassword = false;
-
-            if ($systemMode === 'Testing Mode') {
-                $flashPassword = true;
-                if ($emailHandling === 'Send Emails') {
-                    $sendEmail = true;
-                }
-            } else {
-                $sendEmail = true;
-            }
-
-            if ($sendEmail) {
-                try {
-                    Mail::to($request->email)->send(new WelcomeMail($request->name, 'Event Coordinator', $request->email, $password));
-                } catch (\Exception $e) {
-                    // Log or handle mail error silently
-                }
-            }
-
-            if ($flashPassword) {
+            if ($setup['show_link']) {
                 return $this->redirectAfterAction($request, $eventId)
-                    ->with('success', 'Event Coordinator Added Successfully!')
+                    ->with('success', $msg)
                     ->with('success_user_created', [
                         'name' => $request->name,
                         'email' => $request->email,
-                        'password' => $password,
+                        'setup_url' => $setup['url'],
                         'role' => 'Event Coordinator',
                     ]);
             }
 
-            return $this->redirectAfterAction($request, $eventId)->with('success', 'Event Coordinator Added Successfully!');
+            return $this->redirectAfterAction($request, $eventId)->with('success', $msg);
         } catch (\Exception $e) {
             DB::rollBack();
             return $this->redirectAfterAction($request, $eventId)->with('error', 'Failed to add Event Coordinator: ' . $e->getMessage())->withInput();

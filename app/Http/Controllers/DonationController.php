@@ -783,18 +783,20 @@ class DonationController extends Controller
             $devoteeUser = DB::table('devotees')
                 ->join('users', 'devotees.user_id', '=', 'users.id')
                 ->where('devotees.devotee_id', $validated['devotee_id'])
-                ->select('users.name', 'users.email')
+                ->select('users.name', 'users.email', 'users.mobile')
                 ->first();
 
             $receiptPayload = [
                 'donor_name' => $devoteeUser->name ?? 'Devotee',
                 'donor_email' => $devoteeUser->email ?? null,
+                'donor_mobile' => $devoteeUser->mobile ?? null,
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_mode'],
                 'purpose' => $validated['remarks'] ?? 'General Temple Fund',
                 'event_id' => $validated['event_id'] ?? null,
                 'donation_date' => $validated['donation_date'],
                 'transaction_id' => $validated['transaction_id'] ?? null,
+                'receipt_number' => DonationReceiptService::receiptNumber('D', $donationId),
             ];
             if (($validated['payment_status'] ?? 'Paid') === 'Pending') {
                 DonationReceiptService::sendPendingNotice($receiptPayload);
@@ -875,12 +877,14 @@ class DonationController extends Controller
             $receiptPayload = [
                 'donor_name' => $validated['donor_name'],
                 'donor_email' => $validated['email'] ?? null,
+                'donor_mobile' => $validated['mobile'] ?? null,
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_method'],
                 'purpose' => $validated['purpose_details'] ?? $validated['purpose'],
                 'event_id' => $validated['event_id'] ?? null,
                 'donation_date' => $validated['donation_date'],
                 'transaction_id' => $validated['transaction_id'] ?? null,
+                'receipt_number' => DonationReceiptService::receiptNumber('G', $donationId),
             ];
             if (($validated['payment_status'] ?? 'Paid') === 'Pending') {
                 DonationReceiptService::sendPendingNotice($receiptPayload);
@@ -1047,7 +1051,7 @@ class DonationController extends Controller
                 ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
                 ->join('users', 'devotees.user_id', '=', 'users.id')
                 ->where('donations.id', $id)
-                ->select('donations.*', 'users.name as donor_name', 'users.email')
+                ->select('donations.*', 'users.name as donor_name', 'users.email', 'users.mobile')
                 ->first();
         } elseif ($type === 'guest') {
             $donation = DB::table('donations_without_logins')->where('id', $id)->first();
@@ -1070,16 +1074,20 @@ class DonationController extends Controller
 
         $purpose = $type === 'devotee' ? ($donation->remarks ?? 'General Temple Fund') : ($donation->purpose_details ?? $donation->purpose);
 
+        // Resending a receipt should only ever reach the donor themselves, never CC the
+        // event/coordinator list again — that already happened on the original send.
         DonationReceiptService::send([
             'donor_name' => $donation->donor_name,
             'donor_email' => $donation->email,
+            'donor_mobile' => $donation->mobile,
             'amount' => $donation->amount,
             'payment_method' => $donation->payment_method,
             'purpose' => $purpose,
             'event_id' => $donation->event_id,
             'donation_date' => $donation->donation_date,
             'transaction_id' => $donation->transaction_id,
-        ]);
+            'receipt_number' => DonationReceiptService::receiptNumber($type === 'devotee' ? 'D' : 'G', $donation->id),
+        ], false);
 
         return redirect()->back()->with('success', 'Receipt email resent successfully.');
     }
@@ -1148,12 +1156,14 @@ class DonationController extends Controller
         DonationReceiptService::send([
             'donor_name' => $donation->donor_name,
             'donor_email' => $donation->email,
+            'donor_mobile' => $donation->mobile,
             'amount' => $donation->amount,
             'payment_method' => $donation->payment_method,
             'purpose' => $donation->purpose_details ?? $donation->purpose,
             'event_id' => $donation->event_id,
             'donation_date' => $donation->donation_date,
             'transaction_id' => $donation->transaction_id,
+            'receipt_number' => DonationReceiptService::receiptNumber('G', $donation->id),
         ]);
 
         return redirect()->back()->with('success', 'Donation approved and marked as received.');
@@ -1173,7 +1183,7 @@ class DonationController extends Controller
             ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
             ->join('users', 'devotees.user_id', '=', 'users.id')
             ->where('donations.id', $id)
-            ->select('donations.*', 'users.name as donor_name', 'users.email')
+            ->select('donations.*', 'users.name as donor_name', 'users.email', 'users.mobile')
             ->first();
 
         if (!$donation) {
@@ -1196,12 +1206,14 @@ class DonationController extends Controller
         DonationReceiptService::send([
             'donor_name' => $donation->donor_name,
             'donor_email' => $donation->email,
+            'donor_mobile' => $donation->mobile,
             'amount' => $donation->amount,
             'payment_method' => $donation->payment_method,
             'purpose' => $donation->remarks ?: $donation->purpose,
             'event_id' => $donation->event_id,
             'donation_date' => $donation->donation_date,
             'transaction_id' => $donation->transaction_id,
+            'receipt_number' => DonationReceiptService::receiptNumber('D', $donation->id),
         ]);
 
         return redirect()->back()->with('success', 'Donation approved and marked as received.');

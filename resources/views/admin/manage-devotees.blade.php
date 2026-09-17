@@ -819,7 +819,7 @@
                 <h4 class="modal-title fw-bold text-success mt-2">User Created (Testing Mode)</h4>
             </div>
             <div class="modal-body py-4 px-4">
-                <p class="text-muted text-center mb-4">Since the system is in <strong>Testing Mode</strong>, the credentials are shown below. No emails are sent unless configured otherwise.</p>
+                <p class="text-muted text-center mb-4">Since the system is in <strong>Testing Mode</strong>, a one-time password-setup link is shown below instead of being emailed. It expires in 60 minutes and can only be used once.</p>
                 <div class="bg-white p-3 rounded-3 border mb-3">
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">Name:</span>
@@ -834,8 +834,8 @@
                         <span class="fw-bold"><span class="badge bg-warning text-dark">{{ session('success_user_created.role') }}</span></span>
                     </div>
                     <div class="d-flex justify-content-between">
-                        <span class="text-muted">Temporary Password:</span>
-                        <span class="fw-bold text-danger">{{ session('success_user_created.password') }}</span>
+                        <span class="text-muted">Set Password:</span>
+                        <a href="{{ session('success_user_created.setup_url') }}" target="_blank" class="fw-bold">Click to set password</a>
                     </div>
                 </div>
             </div>
