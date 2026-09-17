@@ -534,6 +534,8 @@
               <a href="{{ route('forgot-password') }}?restart=1" class="small text-decoration-none" style="color: var(--primary-saffron); font-weight:500;">Forgot Password?</a>
             </div>
 
+            @include('partials.recaptcha-widget')
+
             <button class="btn btn-login font-divine py-3" type="submit">
               <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to Portal
             </button>

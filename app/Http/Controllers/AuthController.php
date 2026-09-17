@@ -43,6 +43,12 @@ class AuthController extends Controller
             'password.confirmed' => 'Passwords do not match.',
         ]);
 
+        // See login()'s own comment: a manual check, not a validate() rule, since a Closure
+        // rule is silently skipped when the field is entirely absent from the request.
+        if (!\App\Services\RecaptchaService::verify($request->input('g-recaptcha-response'), $request->ip())) {
+            return back()->withErrors(['g-recaptcha-response' => 'Please complete the reCAPTCHA verification.'])->withInput();
+        }
+
         // Generate 6-digit OTP
         $otp = sprintf("%06d", mt_rand(100000, 999999));
 
@@ -376,6 +382,14 @@ class AuthController extends Controller
             'email' => 'required|email',
             'password' => 'required',
         ]);
+
+        // A plain manual check (not a validate() rule) because a Closure validation rule is
+        // silently skipped by Laravel when the field is entirely absent from the request —
+        // exactly the case for a request with no g-recaptcha-response at all, which must
+        // still be rejected once reCAPTCHA is enabled, not pass through undetected.
+        if (!\App\Services\RecaptchaService::verify($request->input('g-recaptcha-response'), $request->ip())) {
+            return back()->withErrors(['g-recaptcha-response' => 'Please complete the reCAPTCHA verification.'])->withInput();
+        }
 
         // Find user by email
         $user = User::where('email', $request->email)->first();

@@ -567,6 +567,8 @@
             </div>
           </div>
 
+          @include('partials.recaptcha-widget')
+
           <button class="btn btn-register font-divine py-3 mt-3" type="submit">
             <i class="bi bi-person-plus me-1"></i> Register Account
           </button>

@@ -61,4 +61,15 @@ return [
         'live_password' => env('LINKLY_LIVE_PASSWORD'),
     ],
 
+    // Google reCAPTCHA v2 ("I'm not a robot") keys — get a pair from
+    // https://www.google.com/recaptcha/admin for this site's domain(s). Whether the
+    // widget actually shows up on login/registration/donation forms is a separate
+    // Setting ("recaptcha_enabled", Admin > Settings > Security) so it can be added to
+    // .env ahead of time and switched on only once verified — see App\Services\
+    // RecaptchaService rather than reading config('services.recaptcha.*') directly.
+    'recaptcha' => [
+        'site_key' => env('RECAPTCHA_SITE_KEY'),
+        'secret_key' => env('RECAPTCHA_SECRET_KEY'),
+    ],
+
 ];

@@ -250,6 +250,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $lowStockThreshold = \App\Models\Setting::get('low_stock_threshold', '10.00');
         $maxAdvanceBookingDays = \App\Models\Setting::get('max_advance_booking_days', '90');
         $onlinePoojaShippingCharge = \App\Models\Setting::get('online_pooja_shipping_charge', '50.00');
+        $recaptchaEnabled = (bool) \App\Models\Setting::get('recaptcha_enabled', false);
+        $recaptchaConfigured = (bool) \App\Services\RecaptchaService::siteKey();
 
         return view('admin.settings', compact(
             'systemMode', 
@@ -299,7 +301,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'templeClosingTime',
             'lowStockThreshold',
             'maxAdvanceBookingDays',
-            'onlinePoojaShippingCharge'
+            'onlinePoojaShippingCharge',
+            'recaptchaEnabled',
+            'recaptchaConfigured'
         ));
     })->name('admin.settings');
 
@@ -357,6 +361,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'low_stock_threshold' => 'required|numeric|min:0',
             'max_advance_booking_days' => 'required|integer|min:1',
             'online_pooja_shipping_charge' => 'required|numeric|min:0',
+            'recaptcha_enabled' => 'nullable|boolean',
         ]);
 
         // Image path settings should stay portable between environments (local vs production
@@ -432,6 +437,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('low_stock_threshold', $request->low_stock_threshold);
         \App\Models\Setting::set('max_advance_booking_days', $request->max_advance_booking_days);
         \App\Models\Setting::set('online_pooja_shipping_charge', $request->online_pooja_shipping_charge);
+        \App\Models\Setting::set('recaptcha_enabled', $request->boolean('recaptcha_enabled') ? '1' : '0');
 
         return redirect()->back()->with('success', 'System settings updated successfully.');
     })->name('admin.settings.update');

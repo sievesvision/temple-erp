@@ -159,6 +159,7 @@
                         <button type="button" class="settings-nav-link" data-panel="donations"><i class="bi bi-wallet2"></i> Donations & Payments</button>
                         <button type="button" class="settings-nav-link" data-panel="stripe"><i class="bi bi-credit-card"></i> Stripe</button>
                         <button type="button" class="settings-nav-link" data-panel="eft-terminal"><i class="bi bi-credit-card-2-front-fill"></i> EFT Terminal</button>
+                        <button type="button" class="settings-nav-link" data-panel="security"><i class="bi bi-shield-check"></i> Security</button>
                         <button type="button" class="settings-nav-link" data-panel="hours"><i class="bi bi-clock"></i> Temple Hours</button>
                         <button type="button" class="settings-nav-link" data-panel="inventory"><i class="bi bi-sliders"></i> Inventory & Booking</button>
                     </div>
@@ -478,6 +479,27 @@
                                         <input type="number" step="0.01" name="online_pooja_shipping_charge" class="form-control rounded-end-3" value="{{ $onlinePoojaShippingCharge }}" required>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-panel" data-panel-content="security">
+                        <div class="settings-section">
+                            <h5><i class="bi bi-shield-check me-2"></i>Google reCAPTCHA</h5>
+                            <p class="text-muted small mb-3">Adds an "I'm not a robot" check to Login, Devotee Registration, and the public donation forms — added after a past incident where a no-cooldown form let bots hammer the mail server. Get a site/secret key pair for this domain at <a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">google.com/recaptcha/admin</a> (reCAPTCHA v2 "Checkbox" type) and add them to the server's <code>.env</code> as <code>RECAPTCHA_SITE_KEY</code> / <code>RECAPTCHA_SECRET_KEY</code> before turning this on.</p>
+
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <span class="badge {{ $recaptchaConfigured ? 'bg-success' : 'bg-secondary' }} px-3 py-2 rounded-pill">
+                                    {{ $recaptchaConfigured ? 'Keys configured' : 'No keys configured' }}
+                                </span>
+                                @if(!$recaptchaConfigured)
+                                <span class="text-muted small">Add the keys to <code>.env</code> first — the toggle below has no effect until then.</span>
+                                @endif
+                            </div>
+
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="recaptcha_enabled" id="recaptcha_enabled" value="1" {{ $recaptchaEnabled ? 'checked' : '' }} {{ $recaptchaConfigured ? '' : 'disabled' }}>
+                                <label class="form-check-label fw-semibold text-dark" for="recaptcha_enabled">Enable reCAPTCHA on Login, Registration and Donation forms</label>
                             </div>
                         </div>
                     </div>

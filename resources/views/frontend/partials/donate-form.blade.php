@@ -234,6 +234,11 @@
                 <textarea class="form-control" id="{{ $formId }}-purpose_details" name="purpose_details" rows="2" placeholder="In honour of... or any other details about this donation"></textarea>
             </div>
             <input type="hidden" name="transaction_id" value="">
+            @if($requireCaptcha ?? false)
+            <div class="col-12">
+                @include('partials.recaptcha-widget')
+            </div>
+            @endif
             <div class="col-12">
                 <button class="btn w-100 py-3" type="submit" data-label-Bank="Record my bank transfer" data-label-Cash="Record my cash pledge" data-label-Stripe="Continue with Stripe">Record my bank transfer</button>
                 <small class="text-muted d-block mt-2"><i class="bi bi-shield-check me-1"></i>Secure {{ $temple['currency'] }} donation processing</small>

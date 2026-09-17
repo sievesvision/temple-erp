@@ -684,32 +684,50 @@
         // "0" to the terminal) rather than only dismissing the modal locally.
         let eftCurrentSessionId = null;
         document.getElementById('eftModalCancelBtn').addEventListener('click', function () {
-            eftPollCancelled = true;
             const sessionId = eftCurrentSessionId;
-            const btn = document.getElementById('posSaveBtn');
-            hideEftModal();
-            btn.disabled = false;
-            // An explicit Cancel is a deliberate end to this attempt — the next Pay click
-            // should start a brand new one rather than resume it (unlike a timeout/unknown
-            // result, where resuming is exactly what's wanted).
-            clearEftAttempt();
 
+            // Nothing has actually started on the terminal yet — safe to just abandon
+            // locally, nothing to reconcile.
             if (!sessionId) {
+                eftPollCancelled = true;
+                clearEftAttempt();
+                hideEftModal();
+                document.getElementById('posSaveBtn').disabled = false;
                 showToast('Payment cancelled.', true);
                 return;
             }
 
-            showToast('Cancelling…');
+            // Deliberately does NOT set eftPollCancelled / hide the modal / clear the
+            // attempt yet. A previous version did this unconditionally, which caused a real
+            // incident: the terminal rejected the cancel (it had already moved past that
+            // step) but the browser had already stopped watching, so the transaction went on
+            // to be approved with no donation ever recorded for the charge. Only a CONFIRMED
+            // cancel is allowed to stop the poll loop below; on failure the already-scheduled
+            // poll keeps running and will still catch the real approved/declined outcome.
+            const cancelBtn = this;
+            cancelBtn.disabled = true;
+            setEftModalStatus(['Cancelling…'], 'pending');
+
             fetch(EFT_CHARGE_CANCEL_URL_BASE + '/' + encodeURIComponent(sessionId) + '?event_id=' + encodeURIComponent(EVENT_ID), {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
             })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
-                    showToast(data.success ? 'Cancel sent to the terminal.' : (data.message || 'The terminal may have already moved past the cancel step.'), !data.success);
+                    cancelBtn.disabled = false;
+                    if (data.success) {
+                        eftPollCancelled = true;
+                        clearEftAttempt();
+                        hideEftModal();
+                        document.getElementById('posSaveBtn').disabled = false;
+                        showToast('Cancelled on the terminal.');
+                    } else {
+                        showToast(data.message || 'Could not cancel — the transaction may still complete. Please wait for the result.', true);
+                    }
                 })
                 .catch(function () {
-                    showToast('Could not reach the terminal to cancel — if it is still waiting, cancel it there too.', true);
+                    cancelBtn.disabled = false;
+                    showToast('Could not reach the terminal to cancel — the transaction may still complete. Please wait for the result.', true);
                 });
         });
 

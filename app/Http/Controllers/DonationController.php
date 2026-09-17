@@ -1814,6 +1814,13 @@ class DonationController extends Controller
             return redirect()->back()->with('error', 'This event is now closed and is no longer accepting donations.');
         }
 
+        // A manual check, not a validate() rule — see AuthController::login()'s own comment:
+        // a Closure validation rule is silently skipped when the field is entirely absent
+        // from the request, which must still be rejected once reCAPTCHA is enabled.
+        if (!\App\Services\RecaptchaService::verify($request->input('g-recaptcha-response'), $request->ip())) {
+            return redirect()->back()->withErrors(['g-recaptcha-response' => 'Please complete the reCAPTCHA verification.'])->withInput();
+        }
+
         $validated = $request->validate([
             'donor_name' => 'required|string|max:255',
             'event_id' => 'nullable|exists:events,event_id',
