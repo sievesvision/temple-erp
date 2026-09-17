@@ -23,11 +23,18 @@ class EventConsoleController extends Controller
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
 
-        // A coordinator's level (view/entry/admin) — null if they're not a coordinator for
-        // this event at all. Every capability below is derived from this single lookup.
+        // A coordinator's level (view/entry/admin/pos) — null if they're not a coordinator
+        // for this event at all. Every capability below is derived from this single lookup.
         $coordinatorLevel = $activeRole === 'Event Coordinator'
             ? EventCoordinatorLevel::of((int) $eventId, $user->id)
             : null;
+
+        // A pos-level coordinator never gets the general console — only the dedicated kiosk
+        // page. Send them there instead of a bare 403 if they land on this URL somehow.
+        if ($coordinatorLevel === 'pos') {
+            return redirect()->route('admin.events.pos', $eventId);
+        }
+
         $isCoordinatorForEvent = $coordinatorLevel !== null;
 
         if (!($activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'view') || $isCoordinatorForEvent)) {

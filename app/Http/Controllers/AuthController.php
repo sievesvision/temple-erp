@@ -332,18 +332,23 @@ class AuthController extends Controller
         Auth::login($user);
         $user->update(['last_login_at' => now()]);
 
-        // An Event Coordinator always lands straight on a console — their actual
-        // workspace — rather than a list to click through first. With more than one
-        // assigned event, the earliest (by event date) is the default; the console's own
-        // topbar has a "Switch Event" menu for the rest.
+        // An Event Coordinator always lands straight on their workspace — the console for
+        // view/entry/admin level, or the kiosk-style POS page for pos level — rather than a
+        // list to click through first. With more than one assigned event, the earliest (by
+        // event date) is the default; both pages have their own "Switch Event" menu for the
+        // rest. A pos-level coordinator never reaches the console at all — this is their
+        // only page.
         if ($role === 'Event Coordinator') {
-            $firstEventId = \Illuminate\Support\Facades\DB::table('event_coordinators')
+            $firstAssignment = \Illuminate\Support\Facades\DB::table('event_coordinators')
                 ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
                 ->where('event_coordinators.user_id', $user->id)
                 ->orderBy('events.event_date')
-                ->value('events.event_id');
-            if ($firstEventId) {
-                return redirect()->route('admin.events.console', $firstEventId);
+                ->select('events.event_id', 'event_coordinators.level')
+                ->first();
+            if ($firstAssignment) {
+                return $firstAssignment->level === 'pos'
+                    ? redirect()->route('admin.events.pos', $firstAssignment->event_id)
+                    : redirect()->route('admin.events.console', $firstAssignment->event_id);
             }
             return redirect()->route('event-coordinator.my-events');
         }

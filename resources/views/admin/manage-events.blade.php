@@ -312,6 +312,7 @@
                                             <select name="level" class="form-select rounded-3" style="max-width:130px;">
                                                 <option value="admin">Admin</option>
                                                 <option value="entry" selected>Entry</option>
+                                                <option value="pos">POS</option>
                                                 <option value="view">View</option>
                                             </select>
                                             <button type="submit" class="btn-add" style="padding: 8px 20px; white-space:nowrap;">Add</button>
@@ -334,6 +335,7 @@
                                                     <select name="level" class="form-select form-select-sm rounded-3">
                                                         <option value="admin">Admin</option>
                                                         <option value="entry" selected>Entry</option>
+                                                        <option value="pos">POS</option>
                                                         <option value="view">View</option>
                                                     </select>
                                                 </div>

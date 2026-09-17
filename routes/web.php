@@ -503,6 +503,10 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
     Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
     Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
+    // The kiosk-style POS donation page — a pos-level coordinator's only reachable page;
+    // everyone else who can add donations can use it too as a faster alternative to the
+    // full console's Quick Entry. Saves through the same storeDevotee/storeGuest routes above.
+    Route::get('/admin/events/{event}/pos', [\App\Http\Controllers\PosDonationController::class, 'show'])->name('admin.events.pos');
     // Also reachable here so the console's inline Settings pane works for an Event
     // Coordinator scoped to their own event — EventController::update() does the finer
     // per-event_id check itself, same pattern as the console route above.

@@ -920,6 +920,7 @@
                                     </select>
                                     <select name="level" class="form-select" style="max-width:160px;">
                                         <option value="entry" selected>Entry</option>
+                                        <option value="pos">POS</option>
                                         <option value="view">View</option>
                                         @if($activeRole === 'Admin')
                                         <option value="admin">Admin</option>
@@ -942,6 +943,7 @@
                                             <label class="field-label">Access Level</label>
                                             <select name="level">
                                                 <option value="entry" selected>Entry</option>
+                                                <option value="pos">POS</option>
                                                 <option value="view">View</option>
                                                 @if($activeRole === 'Admin')
                                                 <option value="admin">Admin</option>
@@ -975,6 +977,7 @@
                                             <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
                                                 <option value="view" {{ $coord->level === 'view' ? 'selected' : '' }}>View</option>
                                                 <option value="entry" {{ $coord->level === 'entry' ? 'selected' : '' }}>Entry</option>
+                                                <option value="pos" {{ $coord->level === 'pos' ? 'selected' : '' }}>POS</option>
                                                 @if($activeRole === 'Admin')
                                                 <option value="admin" {{ $coord->level === 'admin' ? 'selected' : '' }}>Admin</option>
                                                 @endif
