@@ -23,7 +23,11 @@
         }
         * { box-sizing: border-box; }
         body { margin: 0; min-height: 100vh; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--text-primary); }
-        h1, h2 { font-family: var(--serif); }
+        /* Serif is reserved for the one big page title, same as the console — event names
+           and everything else stay in the plain sans body font, matching how names render
+           everywhere else in the admin panel (donation rows, console tables, etc.) instead
+           of an inconsistent small-bold-serif treatment. */
+        .page-header h2 { font-family: var(--serif); }
 
         .topbar {
             background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
@@ -41,38 +45,40 @@
         .admin-pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
         .admin-pill:hover, .admin-pill:focus { background: rgba(255,255,255,0.18); color: white; }
 
-        /* ---------- Same page-header / card-panel idiom as the Event Console ---------- */
-        .page-wrap { max-width: 920px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 32px) 48px; }
+        .page-wrap { max-width: 860px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 32px) 48px; }
         .page-header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; flex-wrap: wrap; }
         .page-header-icon { width: 46px; height: 46px; border-radius: 50%; background: var(--maroon); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
         .page-header h2 { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0; }
         .page-header p { color: var(--text-secondary); font-size: 0.87rem; margin: 2px 0 0; }
 
-        .card-panel { background: var(--white); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 1px 3px rgba(31,42,55,0.04); overflow: hidden; }
+        /* A fixed min-height keeps every card the same height regardless of how long an
+           event's name/location text is, so the button lands at the same vertical position
+           on every card instead of drifting card to card. */
+        .my-event-card {
+            background: var(--white); border: 1px solid var(--border); border-radius: 14px;
+            box-shadow: 0 1px 3px rgba(31,42,55,0.04); padding: 18px 22px; margin-bottom: 14px;
+            min-height: 78px; display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 16px; transition: border-color 0.15s;
+        }
+        .my-event-card:hover { border-color: var(--gold); }
+        .my-event-card .event-name { font-weight: 700; font-size: 1.02rem; color: var(--text-primary); margin: 0 0 4px; }
+        .my-event-card .meta { color: var(--text-secondary); font-size: 0.83rem; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+        .my-event-card .meta span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 
-        table.my-events-table { width: 100%; border-collapse: collapse; }
-        table.my-events-table th, table.my-events-table td { padding: 16px 20px; text-align: left; font-size: 0.88rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
-        table.my-events-table tbody tr:last-child th, table.my-events-table tbody tr:last-child td { border-bottom: none; }
-        table.my-events-table th { background: var(--cream); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; }
-        table.my-events-table td.col-event { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }
-        table.my-events-table td.col-meta { color: var(--text-secondary); white-space: nowrap; }
-        table.my-events-table td.col-meta i { margin-right: 4px; }
-        table.my-events-table td.col-action { text-align: right; }
-
-        .btn-open-console { background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 6px 16px rgba(200,155,60,0.3); white-space: nowrap; }
+        .btn-open-console {
+            background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; border: none;
+            padding: 11px 22px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 6px 16px rgba(200,155,60,0.3);
+            white-space: nowrap; flex-shrink: 0;
+        }
         .btn-open-console:hover { color: white; opacity: 0.92; }
 
         .empty-state { background: var(--white); border: 1px dashed var(--border); border-radius: 14px; padding: 48px 24px; text-align: center; color: var(--text-secondary); }
         .empty-state i { font-size: 2.2rem; color: var(--gold); display: block; margin-bottom: 12px; }
 
-        @media (max-width: 640px) {
-            table.my-events-table, table.my-events-table tbody, table.my-events-table tr { display: block; width: 100%; }
-            table.my-events-table thead { display: none; }
-            table.my-events-table tr { border-bottom: 1px solid var(--border); padding: 16px 20px; }
-            table.my-events-table tr:last-child { border-bottom: none; }
-            table.my-events-table td { display: block; padding: 2px 0; border-bottom: none; }
-            table.my-events-table td.col-action { text-align: left; margin-top: 12px; }
-            table.my-events-table td.col-action .btn-open-console { width: 100%; justify-content: center; }
+        @media (max-width: 480px) {
+            .my-event-card { flex-direction: column; align-items: stretch; }
+            .btn-open-console { justify-content: center; }
         }
     </style>
 </head>
@@ -108,29 +114,18 @@
         </div>
 
         @forelse($events as $event)
-        @if($loop->first)
-        <div class="card-panel">
-            <table class="my-events-table">
-                <thead>
-                    <tr><th>Event</th><th>Date</th><th>Location</th><th class="text-end">Action</th></tr>
-                </thead>
-                <tbody>
-        @endif
-                    <tr>
-                        <td class="col-event">{{ $event->event_name }}</td>
-                        <td class="col-meta"><i class="bi bi-calendar-event"></i>{{ $event->date_tbc ? 'Date to be confirmed' : date('d M Y', strtotime($event->event_date)) }}</td>
-                        <td class="col-meta">@if($event->location)<i class="bi bi-geo-alt"></i>{{ $event->location }}@else — @endif</td>
-                        <td class="col-action">
-                            <a href="{{ route('admin.events.console', $event->event_id) }}" class="btn-open-console">
-                                <i class="bi bi-arrow-right-circle-fill"></i>Open Console
-                            </a>
-                        </td>
-                    </tr>
-        @if($loop->last)
-                </tbody>
-            </table>
+        <div class="my-event-card">
+            <div>
+                <div class="event-name">{{ $event->event_name }}</div>
+                <div class="meta">
+                    <span><i class="bi bi-calendar-event"></i>{{ $event->date_tbc ? 'Date to be confirmed' : date('d M Y', strtotime($event->event_date)) }}</span>
+                    @if($event->location)<span><i class="bi bi-geo-alt"></i>{{ $event->location }}</span>@endif
+                </div>
+            </div>
+            <a href="{{ route('admin.events.console', $event->event_id) }}" class="btn-open-console">
+                <i class="bi bi-arrow-right-circle-fill"></i>Open Console
+            </a>
         </div>
-        @endif
         @empty
         <div class="empty-state">
             <i class="bi bi-calendar-x"></i>
