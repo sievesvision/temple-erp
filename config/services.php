@@ -48,4 +48,17 @@ return [
         'live_webhook_secret' => env('STRIPE_LIVE_WEBHOOK_SECRET'),
     ],
 
+    // Sandbox and Live credential pairs both live here side by side; which one is
+    // actually used is decided at runtime by the "linkly_mode" Setting, resolved via
+    // App\Services\LinklyConfigService — see that class rather than reading
+    // config('services.linkly.*') directly anywhere in application code. Unlike Stripe,
+    // these are the Cloud EFT Client username/password used only to *pair* a PIN pad —
+    // the resulting pairing secret (one per mode) is stored as a Setting, not here.
+    'linkly' => [
+        'sandbox_username' => env('LINKLY_SANDBOX_USERNAME'),
+        'sandbox_password' => env('LINKLY_SANDBOX_PASSWORD'),
+        'live_username' => env('LINKLY_LIVE_USERNAME'),
+        'live_password' => env('LINKLY_LIVE_PASSWORD'),
+    ],
+
 ];

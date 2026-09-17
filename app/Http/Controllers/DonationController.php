@@ -12,6 +12,7 @@ use App\Models\Event;
 use App\Services\AuditLogService;
 use App\Services\DonationReceiptService;
 use App\Services\EventCoordinatorLevel;
+use App\Services\LinklyEftService;
 use App\Services\StripeConfigService;
 use Stripe\StripeClient;
 use Stripe\Webhook;
@@ -821,6 +822,30 @@ class DonationController extends Controller
             }
             return redirect()->back()->with('error', 'Failed to record donation: ' . $e->getMessage())->withInput();
         }
+    }
+
+    /**
+     * Drives a purchase transaction on the paired EFT terminal — called by the POS page and
+     * the console's Quick Entry *before* storeGuestDonation(), so a donation is only ever
+     * recorded once the terminal actually confirms the card was charged. A declined/failed
+     * transaction never reaches storeGuestDonation() at all.
+     */
+    public function chargeEftTerminal(Request $request)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:1',
+        ]);
+
+        $txnRef = 'EFT' . now()->format('mdHis');
+        $result = LinklyEftService::purchase((float) $validated['amount'], $txnRef, Setting::get('currency_code', 'AUD'));
+
+        return response()->json($result, $result['success'] ? 200 : 422);
     }
 
     /**

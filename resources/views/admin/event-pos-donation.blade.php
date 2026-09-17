@@ -193,6 +193,7 @@
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
         const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
+        const EFT_CHARGE_URL = @json(route('admin.eft.charge'));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [51, 101, 201, 501, 1001];
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
@@ -433,22 +434,7 @@
             if (window.posResetTiers) { window.posResetTiers(); }
         }
 
-        document.getElementById('posSaveBtn').addEventListener('click', function () {
-            const amount = parseFloat((amountInput.value || '').trim());
-            if (!amount || amount <= 0) { showToast('Enter a valid amount.', true); return; }
-
-            const name = document.getElementById('posGuestName').value.trim();
-            if (!name) { showToast('Enter the donor name.', true); return; }
-
-            const emailValue = document.getElementById('posGuestEmail').value.trim();
-            if (REQUIRE_EMAIL && !emailValue) { showToast('Enter the donor email.', true); return; }
-
-            const mobileValue = document.getElementById('posGuestMobile').value.trim();
-            if (REQUIRE_MOBILE && !mobileValue) { showToast('Enter the donor mobile number.', true); return; }
-
-            const btn = this;
-            btn.disabled = true;
-
+        function submitGuestDonation(btn, amount, name, emailValue, mobileValue, transactionId) {
             const today = new Date().toISOString().slice(0, 10);
             const body = new URLSearchParams();
             body.set('event_id', EVENT_ID);
@@ -459,7 +445,7 @@
             // sits Pending until an admin checks the account and approves it, same as the
             // public donation form.
             body.set('payment_status', selectedMethod === 'Bank Transfer' ? 'Pending' : 'Paid');
-            body.set('transaction_id', '');
+            body.set('transaction_id', transactionId || '');
             body.set('donor_name', name);
             body.set('donation_date', today);
             body.set('email', emailValue);
@@ -490,6 +476,55 @@
                     btn.disabled = false;
                     showToast('Network error — please try again.', true);
                 });
+        }
+
+        document.getElementById('posSaveBtn').addEventListener('click', function () {
+            const amount = parseFloat((amountInput.value || '').trim());
+            if (!amount || amount <= 0) { showToast('Enter a valid amount.', true); return; }
+
+            const name = document.getElementById('posGuestName').value.trim();
+            if (!name) { showToast('Enter the donor name.', true); return; }
+
+            const emailValue = document.getElementById('posGuestEmail').value.trim();
+            if (REQUIRE_EMAIL && !emailValue) { showToast('Enter the donor email.', true); return; }
+
+            const mobileValue = document.getElementById('posGuestMobile').value.trim();
+            if (REQUIRE_MOBILE && !mobileValue) { showToast('Enter the donor mobile number.', true); return; }
+
+            const btn = this;
+            btn.disabled = true;
+
+            // EFT Terminal charges the physical/virtual PIN pad and waits for the donor to
+            // tap/insert their card before recording anything — a declined or failed
+            // transaction never reaches storeGuestDonation() at all.
+            if (selectedMethod === 'EFT Terminal') {
+                showToast('Waiting for card on terminal…');
+                const chargeBody = new URLSearchParams();
+                chargeBody.set('event_id', EVENT_ID);
+                chargeBody.set('amount', amount.toFixed(2));
+
+                fetch(EFT_CHARGE_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: chargeBody.toString(),
+                })
+                    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+                    .then(function (result) {
+                        if (result.status >= 200 && result.status < 300 && result.data.success) {
+                            submitGuestDonation(btn, amount, name, emailValue, mobileValue, result.data.rrn || result.data.auth_code || '');
+                        } else {
+                            btn.disabled = false;
+                            showToast(result.data.message || 'Card declined.', true);
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        showToast('Could not reach the EFT terminal — please try again.', true);
+                    });
+                return;
+            }
+
+            submitGuestDonation(btn, amount, name, emailValue, mobileValue, '');
         });
     </script>
 </body>

@@ -484,6 +484,30 @@
             </div>
         </form>
     </div>
+
+    <div class="settings-card mt-4">
+        <h2><i class="bi bi-credit-card-2-front-fill text-warning me-2"></i>EFT Terminal (Linkly)</h2>
+        <p class="text-muted small mb-3">Pairs a physical (or, for testing, virtual) EFTPOS PIN pad to this app via Linkly Cloud, so the "EFT Terminal" payment option on the POS page can charge it directly instead of just recording a manual entry.</p>
+
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <span class="badge {{ $linklyPaired ? 'bg-success' : 'bg-secondary' }} px-3 py-2 rounded-pill">
+                {{ $linklyPaired ? 'Paired' : 'Not Paired' }}
+            </span>
+            <span class="text-muted small">Mode: <strong class="text-uppercase">{{ $linklyMode }}</strong> (set by the <code>LINKLY_*</code> credentials configured on the server)</span>
+        </div>
+
+        <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-2 align-items-end">
+            @csrf
+            <div class="col-md-4">
+                <label class="form-label fw-semibold text-dark">Pairing Code</label>
+                <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required>
+                <div class="form-text">Generate this on the PIN pad (or virtual PIN pad) right before submitting — it expires after about 3 minutes.</div>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-submit">{{ $linklyPaired ? 'Re-pair Terminal' : 'Pair Terminal' }}</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 @section('page-js')

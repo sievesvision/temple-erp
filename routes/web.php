@@ -239,6 +239,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         // UPI is excluded by default — only Cash/Bank Transfer/Cheque show up in the manual
         // "Log Donation" forms out of the box; an admin opts UPI back in here if they use it.
         $enabledPaymentMethods = json_decode(\App\Models\Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
+        $linklyMode = \App\Services\LinklyConfigService::mode();
+        $linklyPaired = \App\Services\LinklyConfigService::isPaired();
         $systemNotificationEmail = \App\Models\Setting::get('system_notification_email', 'admin@hasq.org');
         $templeOpeningTime = \App\Models\Setting::get('temple_opening_time', '06:00');
         $templeClosingTime = \App\Models\Setting::get('temple_closing_time', '21:00');
@@ -287,6 +289,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'stripeEnabled',
             'stripeMode',
             'enabledPaymentMethods',
+            'linklyMode',
+            'linklyPaired',
             'systemNotificationEmail',
             'templeOpeningTime',
             'templeClosingTime',
@@ -429,6 +433,8 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         return redirect()->back()->with('success', 'System settings updated successfully.');
     })->name('admin.settings.update');
 
+    Route::post('/admin/eft/pair', [\App\Http\Controllers\LinklyController::class, 'pair'])->name('admin.eft.pair');
+
     // Role Permissions (configurable access grid per role)
     Route::get('/admin/role-permissions', [\App\Http\Controllers\RolePermissionController::class, 'index'])->name('admin.role-permissions.index');
     Route::post('/admin/role-permissions/{role}', [\App\Http\Controllers\RolePermissionController::class, 'update'])->name('admin.role-permissions.update');
@@ -520,6 +526,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
     Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
     Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
+    Route::post('/admin/eft/charge', [\App\Http\Controllers\DonationController::class, 'chargeEftTerminal'])->name('admin.eft.charge');
     // The kiosk-style POS donation page — a pos-level coordinator's only reachable page;
     // everyone else who can add donations can use it too as a faster alternative to the
     // full console's Quick Entry. Saves through the same storeDevotee/storeGuest routes above.
