@@ -36,6 +36,9 @@ Route::post('/donate-without-login', [\App\Http\Controllers\DonationController::
 Route::get('/donate/stripe/success', [\App\Http\Controllers\DonationController::class, 'stripeSuccess'])->name('donate.stripe.success');
 Route::get('/donate/stripe/cancel', [\App\Http\Controllers\DonationController::class, 'stripeCancel'])->name('donate.stripe.cancel');
 Route::post('/stripe/webhook', [\App\Http\Controllers\DonationController::class, 'stripeWebhook'])->name('stripe.webhook');
+// Linkly's own servers call this directly (not a logged-in browser) — authenticated by the
+// per-session bearer token startEftCharge() generates, not the usual admin auth/CSRF.
+Route::post('/admin/eft/webhook/{sessionId}/{type}', [\App\Http\Controllers\DonationController::class, 'linklyWebhook'])->name('admin.eft.webhook');
 
 // ============================================
 // AUTHENTICATION ROUTES
@@ -526,7 +529,8 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
     Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
     Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
-    Route::post('/admin/eft/charge', [\App\Http\Controllers\DonationController::class, 'chargeEftTerminal'])->name('admin.eft.charge');
+    Route::post('/admin/eft/charge/start', [\App\Http\Controllers\DonationController::class, 'startEftCharge'])->name('admin.eft.charge.start');
+    Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
     // The kiosk-style POS donation page — a pos-level coordinator's only reachable page;
     // everyone else who can add donations can use it too as a faster alternative to the
     // full console's Quick Entry. Saves through the same storeDevotee/storeGuest routes above.

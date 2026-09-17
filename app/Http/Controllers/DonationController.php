@@ -830,7 +830,7 @@ class DonationController extends Controller
      * recorded once the terminal actually confirms the card was charged. A declined/failed
      * transaction never reaches storeGuestDonation() at all.
      */
-    public function chargeEftTerminal(Request $request)
+    public function startEftCharge(Request $request)
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
@@ -843,9 +843,54 @@ class DonationController extends Controller
         ]);
 
         $txnRef = 'EFT' . now()->format('mdHis');
-        $result = LinklyEftService::purchase((float) $validated['amount'], $txnRef, Setting::get('currency_code', 'AUD'));
+        // The literal "{{sessionId}}"/"{{type}}" placeholders are substituted by Linkly
+        // itself when it posts back to this URI — url() is used instead of route() here
+        // specifically because route() URL-encodes route parameters, which would mangle
+        // the braces into something Linkly's template substitution wouldn't recognise.
+        $notificationUri = url('/admin/eft/webhook/{{sessionId}}/{{type}}');
+
+        $result = LinklyEftService::startPurchase(
+            (float) $validated['amount'],
+            $txnRef,
+            Setting::get('currency_code', 'AUD'),
+            $notificationUri
+        );
 
         return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    public function pollEftCharge(Request $request, string $sessionId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        return response()->json(LinklyEftService::pollTransaction($sessionId));
+    }
+
+    /**
+     * Receives Linkly's postback notifications for an in-progress async transaction — the
+     * PIN pad's live display prompts ("ENTER PIN", etc.) and, sometimes faster than polling
+     * would catch it, the final transaction result. Not behind the usual admin auth (Linkly
+     * itself calls this, not a logged-in browser) — authenticated instead by the bearer
+     * token startEftCharge() generated for this specific session, and exempted from CSRF in
+     * bootstrap/app.php the same way the Stripe webhook is.
+     */
+    public function linklyWebhook(Request $request, string $sessionId, string $type)
+    {
+        $bearer = $request->bearerToken();
+        if (!LinklyEftService::verifyWebhookToken($sessionId, $bearer)) {
+            return response()->json(['message' => 'Invalid or expired session.'], 401);
+        }
+
+        if ($type === 'display') {
+            $lines = $request->input('response.displayText') ?? $request->input('Response.DisplayText') ?? [];
+            LinklyEftService::recordDisplay($sessionId, is_array($lines) ? $lines : []);
+        }
+
+        return response()->json(['received' => true]);
     }
 
     /**

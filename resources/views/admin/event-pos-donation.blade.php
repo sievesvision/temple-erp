@@ -193,7 +193,8 @@
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
         const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
-        const EFT_CHARGE_URL = @json(route('admin.eft.charge'));
+        const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
+        const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [51, 101, 201, 501, 1001];
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
@@ -382,12 +383,24 @@
             };
         }
 
+        let toastHideTimer = null;
         function showToast(message, isError) {
+            if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
             const toast = document.getElementById('posToast');
             toast.textContent = message;
             toast.classList.toggle('error', !!isError);
             toast.style.display = 'block';
-            setTimeout(function () { toast.style.display = 'none'; }, 2200);
+            toastHideTimer = setTimeout(function () { toast.style.display = 'none'; }, 2200);
+        }
+        // Doesn't auto-hide — used while polling the EFT terminal so a live status ("ENTER
+        // PIN", "PROCESSING"...) stays on screen until replaced by the next update or a
+        // final showToast() call.
+        function showStickyToast(message, isError) {
+            if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
+            const toast = document.getElementById('posToast');
+            toast.textContent = message;
+            toast.classList.toggle('error', !!isError);
+            toast.style.display = 'block';
         }
 
         // "Orders this session" — sessionStorage only, so it survives a reload of this same
@@ -496,26 +509,28 @@
 
             // EFT Terminal charges the physical/virtual PIN pad and waits for the donor to
             // tap/insert their card before recording anything — a declined or failed
-            // transaction never reaches storeGuestDonation() at all.
+            // transaction never reaches storeGuestDonation() at all. Runs as start-then-poll
+            // (not one blocking call) so the terminal's live prompts ("ENTER PIN", etc.,
+            // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
-                showToast('Waiting for card on terminal…');
-                const chargeBody = new URLSearchParams();
-                chargeBody.set('event_id', EVENT_ID);
-                chargeBody.set('amount', amount.toFixed(2));
+                showStickyToast('Starting terminal transaction…');
+                const startBody = new URLSearchParams();
+                startBody.set('event_id', EVENT_ID);
+                startBody.set('amount', amount.toFixed(2));
 
-                fetch(EFT_CHARGE_URL, {
+                fetch(EFT_CHARGE_START_URL, {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: chargeBody.toString(),
+                    body: startBody.toString(),
                 })
                     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
                     .then(function (result) {
-                        if (result.status >= 200 && result.status < 300 && result.data.success) {
-                            submitGuestDonation(btn, amount, name, emailValue, mobileValue, result.data.rrn || result.data.auth_code || '');
-                        } else {
+                        if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
                             btn.disabled = false;
-                            showToast(result.data.message || 'Card declined.', true);
+                            showToast(result.data.message || 'Could not start the terminal transaction.', true);
+                            return;
                         }
+                        pollEftTransaction(result.data.session_id, btn, amount, name, emailValue, mobileValue, Date.now());
                     })
                     .catch(function () {
                         btn.disabled = false;
@@ -526,6 +541,47 @@
 
             submitGuestDonation(btn, amount, name, emailValue, mobileValue, '');
         });
+
+        // Polls every ~1.2s for up to ~3 minutes (matching Linkly's own pairing/transaction
+        // window guidance) — each response carries the PIN pad's current display text (if
+        // any arrived via webhook since the last poll) and, once the terminal finishes,
+        // the final approved/declined result.
+        function pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt) {
+            if (Date.now() - startedAt > 180000) {
+                btn.disabled = false;
+                showToast('Terminal timed out — please try again.', true);
+                return;
+            }
+
+            const statusUrl = EFT_CHARGE_STATUS_URL_BASE + '/' + encodeURIComponent(sessionId) + '?event_id=' + encodeURIComponent(EVENT_ID);
+            fetch(statusUrl, { headers: { 'Accept': 'application/json' } })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.display && data.display.length) {
+                        showStickyToast(data.display.join(' — '));
+                    }
+                    if (!data.done) {
+                        setTimeout(function () {
+                            pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt);
+                        }, 1200);
+                        return;
+                    }
+                    if (data.success) {
+                        showStickyToast('Payment approved' + (data.auth_code ? ' — Auth ' + data.auth_code : '') + '. Saving donation…');
+                        submitGuestDonation(btn, amount, name, emailValue, mobileValue, data.rrn || data.auth_code || '');
+                    } else {
+                        btn.disabled = false;
+                        showToast(data.message || 'Card declined.', true);
+                    }
+                })
+                .catch(function () {
+                    // A single failed poll isn't fatal — try again on the next tick rather
+                    // than abandoning a transaction that may still complete on the terminal.
+                    setTimeout(function () {
+                        pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt);
+                    }, 1200);
+                });
+        }
     </script>
 </body>
 </html>

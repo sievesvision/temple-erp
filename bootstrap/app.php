@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', \App\Http\Middleware\RoleSwitchMiddleware::class);
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',
+            'admin/eft/webhook/*',
         ]);
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
