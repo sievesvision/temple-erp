@@ -22,6 +22,7 @@
             --serif: 'Playfair Display', Georgia, serif;
         }
         * { box-sizing: border-box; }
+        html, body { overflow-x: hidden; max-width: 100%; }
         body { margin: 0; min-height: 100vh; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--text-primary); }
         /* Serif is reserved for the one big page title, same as the console — event names
            and everything else stay in the plain sans body font, matching how names render
@@ -53,17 +54,21 @@
 
         /* A fixed min-height keeps every card the same height regardless of how long an
            event's name/location text is, so the button lands at the same vertical position
-           on every card instead of drifting card to card. */
+           on every card instead of drifting card to card. min-width:0 on the text column is
+           what actually matters for phones/tablets — without it, a flex child holding
+           nowrap-ish text refuses to shrink below its own content width and forces the whole
+           row (button included) to overflow sideways instead of wrapping. */
         .my-event-card {
             background: var(--white); border: 1px solid var(--border); border-radius: 14px;
             box-shadow: 0 1px 3px rgba(31,42,55,0.04); padding: 18px 22px; margin-bottom: 14px;
             min-height: 78px; display: flex; justify-content: space-between; align-items: center;
-            flex-wrap: wrap; gap: 16px; transition: border-color 0.15s;
+            flex-wrap: wrap; gap: 12px 16px; transition: border-color 0.15s; max-width: 100%;
         }
         .my-event-card:hover { border-color: var(--gold); }
-        .my-event-card .event-name { font-weight: 700; font-size: 1.02rem; color: var(--text-primary); margin: 0 0 4px; }
+        .my-event-card .card-info { flex: 1 1 220px; min-width: 0; }
+        .my-event-card .event-name { font-weight: 700; font-size: 1.02rem; color: var(--text-primary); margin: 0 0 4px; overflow-wrap: break-word; word-break: break-word; }
         .my-event-card .meta { color: var(--text-secondary); font-size: 0.83rem; display: flex; flex-wrap: wrap; gap: 4px 14px; }
-        .my-event-card .meta span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .my-event-card .meta span { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
 
         .btn-open-console {
             background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; border: none;
@@ -76,9 +81,13 @@
         .empty-state { background: var(--white); border: 1px dashed var(--border); border-radius: 14px; padding: 48px 24px; text-align: center; color: var(--text-secondary); }
         .empty-state i { font-size: 2.2rem; color: var(--gold); display: block; margin-bottom: 12px; }
 
-        @media (max-width: 480px) {
+        /* Stack the button under the text on phones AND tablet-portrait (iPad is 768px) —
+           there's no scenario at these widths where a side-by-side row and a full-width,
+           easy-to-tap button both work, so play it safe rather than risk the row squeezing. */
+        @media (max-width: 820px) {
             .my-event-card { flex-direction: column; align-items: stretch; }
-            .btn-open-console { justify-content: center; }
+            .my-event-card .card-info { flex-basis: auto; }
+            .btn-open-console { justify-content: center; width: 100%; }
         }
     </style>
 </head>
@@ -115,7 +124,7 @@
 
         @forelse($events as $event)
         <div class="my-event-card">
-            <div>
+            <div class="card-info">
                 <div class="event-name">{{ $event->event_name }}</div>
                 <div class="meta">
                     <span><i class="bi bi-calendar-event"></i>{{ $event->date_tbc ? 'Date to be confirmed' : date('d M Y', strtotime($event->event_date)) }}</span>
