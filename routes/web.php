@@ -38,7 +38,7 @@ Route::get('/donate/stripe/cancel', [\App\Http\Controllers\DonationController::c
 Route::post('/stripe/webhook', [\App\Http\Controllers\DonationController::class, 'stripeWebhook'])->name('stripe.webhook');
 // Linkly's own servers call this directly (not a logged-in browser) — authenticated by the
 // per-session bearer token startEftCharge() generates, not the usual admin auth/CSRF.
-Route::post('/admin/eft/webhook/{sessionId}/{type}', [\App\Http\Controllers\DonationController::class, 'linklyWebhook'])->name('admin.eft.webhook');
+Route::post('/admin/eft/webhook/{type}', [\App\Http\Controllers\DonationController::class, 'linklyWebhook'])->name('admin.eft.webhook');
 
 // ============================================
 // AUTHENTICATION ROUTES

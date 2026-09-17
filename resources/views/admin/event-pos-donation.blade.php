@@ -125,18 +125,22 @@
         .eft-modal-amount { font-family: var(--serif); font-size: 2.4rem; font-weight: 800; color: var(--text-primary); margin-bottom: 18px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: 14px;
-            padding: 18px 16px; min-height: 76px; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 4px; margin-bottom: 22px;
+            padding: 18px 16px; min-height: 90px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 6px; margin-bottom: 22px;
         }
+        .eft-modal-spinner {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 3px solid rgba(200,155,60,0.25); border-top-color: var(--gold);
+            animation: eftSpin 0.8s linear infinite; margin-bottom: 4px; display: none;
+        }
+        .eft-modal-status-box.pending .eft-modal-spinner { display: block; }
+        .eft-modal-status-icon { font-size: 1.6rem; margin-bottom: 2px; display: none; }
+        .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
+        .eft-modal-status-box.error .eft-modal-status-icon.icon-error { display: block; color: var(--error); }
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
-        .eft-modal-status-box.pending .eft-modal-status-line:first-child::before {
-            content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%;
-            background: var(--gold); margin-right: 8px; vertical-align: middle;
-            animation: eftPulse 1.1s ease-in-out infinite;
-        }
         .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-line { color: var(--error); }
-        @keyframes eftPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+        @keyframes eftSpin { to { transform: rotate(360deg); } }
         .eft-modal-cancel-btn {
             width: 100%; padding: 14px; border-radius: 12px; border: 2px solid var(--border);
             background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
@@ -231,6 +235,9 @@
             <div class="eft-modal-body">
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
+                    <div class="eft-modal-spinner"></div>
+                    <i class="bi bi-check-circle-fill eft-modal-status-icon icon-success"></i>
+                    <i class="bi bi-x-circle-fill eft-modal-status-icon icon-error"></i>
                     <span class="eft-modal-status-line" id="eftModalStatusLine1">Starting…</span>
                     <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
                 </div>
@@ -453,15 +460,24 @@
         const eftModalStatusLine1 = document.getElementById('eftModalStatusLine1');
         const eftModalStatusLine2 = document.getElementById('eftModalStatusLine2');
 
+        let eftModalLastSignature = null;
         function showEftModal(amount) {
             eftModalAmount.textContent = CURRENCY_CODE + ' ' + amount.toFixed(2);
+            eftModalLastSignature = null;
             setEftModalStatus(['Starting…'], 'pending');
             eftModalOverlay.classList.add('active');
         }
+        // Only touches the DOM when the status/lines actually differ from what's already
+        // shown — polling every ~1.2s would otherwise re-write (and visually flicker) the
+        // same unchanged text on every single tick, most of which return nothing new.
         function setEftModalStatus(lines, state) {
+            lines = lines && lines.length ? lines : ['Please wait…'];
+            const signature = state + '|' + lines.join('|');
+            if (signature === eftModalLastSignature) { return; }
+            eftModalLastSignature = signature;
+
             eftModalStatusBox.classList.remove('pending', 'success', 'error');
             eftModalStatusBox.classList.add(state);
-            lines = lines && lines.length ? lines : ['Please wait…'];
             eftModalStatusLine1.textContent = lines[0] || '';
             eftModalStatusLine2.textContent = lines[1] || '';
         }
@@ -655,11 +671,11 @@
                         return;
                     }
                     if (data.success) {
-                        setEftModalStatus(['Approved' + (data.auth_code ? ' — Auth ' + data.auth_code : ''), 'Saving donation…'], 'success');
+                        setEftModalStatus(['PAYMENT APPROVED', data.auth_code ? 'Auth ' + data.auth_code : 'Saving donation…'], 'success');
                         setTimeout(hideEftModal, 1200);
                         submitGuestDonation(btn, amount, name, emailValue, mobileValue, data.rrn || data.auth_code || '');
                     } else {
-                        setEftModalStatus([data.message || 'Declined'], 'error');
+                        setEftModalStatus(['PAYMENT DECLINED', data.message || ''], 'error');
                         setTimeout(hideEftModal, 1800);
                         btn.disabled = false;
                         showToast(data.message || 'Card declined.', true);

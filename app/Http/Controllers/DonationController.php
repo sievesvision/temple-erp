@@ -843,12 +843,13 @@ class DonationController extends Controller
         ]);
 
         $txnRef = 'EFT' . now()->format('mdHis');
-        // The literal "{{sessionId}}"/"{{type}}" placeholders are substituted by Linkly
-        // itself when it posts back to this URI — url() is used instead of route() here
-        // specifically because route() URL-encodes route parameters, which would mangle
-        // the braces into something Linkly's template substitution wouldn't recognise.
-        $notificationUri = url('/admin/eft/webhook/{{sessionId}}/{{type}}');
-        Log::info('Linkly startEftCharge notification URI', ['uri' => $notificationUri]);
+        // {{type}} is reliably substituted by Linkly when it posts back to this URI, but
+        // {{sessionId}} is not (confirmed against real webhook traffic — it can arrive as
+        // the literal, unsubstituted string) — linklyWebhook() reads the session id from the
+        // postback body instead, so the URL never needs to carry it at all. url() (not
+        // route()) is used because route() URL-encodes parameters, which would mangle the
+        // "{{" / "}}" braces into something Linkly's template substitution wouldn't recognise.
+        $notificationUri = url('/admin/eft/webhook/{{type}}');
 
         $result = LinklyEftService::startPurchase(
             (float) $validated['amount'],
@@ -873,37 +874,52 @@ class DonationController extends Controller
 
     /**
      * Receives Linkly's postback notifications for an in-progress async transaction — the
-     * PIN pad's live display prompts ("ENTER PIN", etc.) and, sometimes faster than polling
-     * would catch it, the final transaction result. Not behind the usual admin auth (Linkly
-     * itself calls this, not a logged-in browser) — authenticated instead by the bearer
-     * token startEftCharge() generated for this specific session, and exempted from CSRF in
-     * bootstrap/app.php the same way the Stripe webhook is.
+     * PIN pad's live display prompts ("ENTER PIN", etc.) — so pollEftCharge() has something
+     * to hand the browser. Not behind the usual admin auth (Linkly itself calls this, not a
+     * logged-in browser) — authenticated instead by the bearer token startEftCharge()
+     * generated for this specific session, and exempted from CSRF in bootstrap/app.php the
+     * same way the Stripe webhook is.
+     *
+     * Two confirmed-against-real-traffic quirks this works around:
+     * - Linkly's own {{sessionId}} URI template placeholder does not reliably get
+     *   substituted (it can arrive as the literal string "{{sessionId}}"), unlike {{type}}
+     *   which does — so the session id is always read from the postback body's own
+     *   "SessionId" field instead of trusted from the URL.
+     * - The postback body uses PascalCase field names ("Response", "DisplayText",
+     *   "CancelKeyFlag"), unlike the lowercase camelCase used by the direct GET/POST API
+     *   responses handled in LinklyEftService::pollTransaction() — these are two genuinely
+     *   different casings from the same provider, not a typo.
      */
-    public function linklyWebhook(Request $request, string $sessionId, string $type)
+    public function linklyWebhook(Request $request)
     {
-        // Temporary — logs every incoming call unconditionally (even one that fails the
-        // bearer check below) to prove whether Linkly is reaching this URL at all, since
-        // that's currently unconfirmed. Safe to remove once confirmed.
-        Log::info('Linkly webhook incoming', [
-            'type' => $type,
-            'session_id' => $sessionId,
-            'has_bearer' => (bool) $request->bearerToken(),
-            'content_type' => $request->header('Content-Type'),
-            'raw_body' => $request->getContent(),
-        ]);
+        $sessionId = $request->input('SessionId') ?? $request->input('sessionId');
+        $responseType = $request->input('ResponseType') ?? $request->input('responseType');
 
-        $bearer = $request->bearerToken();
-        if (!LinklyEftService::verifyWebhookToken($sessionId, $bearer)) {
+        if (!$sessionId || !$responseType) {
+            return response()->json(['message' => 'Malformed notification.'], 400);
+        }
+
+        if (!LinklyEftService::verifyWebhookToken($sessionId, $request->bearerToken())) {
             return response()->json(['message' => 'Invalid or expired session.'], 401);
         }
 
-        if ($type === 'display') {
-            $lines = $request->input('response.displayText')
-                ?? $request->input('Response.DisplayText')
-                ?? $request->input('displayText')
-                ?? $request->input('DisplayText')
-                ?? [];
-            LinklyEftService::recordDisplay($sessionId, is_array($lines) ? $lines : []);
+        if ($responseType === 'display') {
+            $displayResponse = $request->input('Response') ?? $request->input('response') ?? [];
+            $lines = $displayResponse['DisplayText'] ?? $displayResponse['displayText'] ?? [];
+            $flags = [
+                'cancel' => (bool) ($displayResponse['CancelKeyFlag'] ?? $displayResponse['cancelKeyFlag'] ?? false),
+                'ok' => (bool) ($displayResponse['OKKeyFlag'] ?? $displayResponse['okKeyFlag'] ?? false),
+                'yes' => (bool) ($displayResponse['AcceptYesKeyFlag'] ?? $displayResponse['acceptYesKeyFlag'] ?? false),
+                'no' => (bool) ($displayResponse['DeclineNoKeyFlag'] ?? $displayResponse['declineNoKeyFlag'] ?? false),
+                'authorise' => (bool) ($displayResponse['AuthoriseKeyFlag'] ?? $displayResponse['authoriseKeyFlag'] ?? false),
+            ];
+            $cleanedLines = LinklyEftService::cleanDisplayLines(is_array($lines) ? $lines : []);
+            LinklyEftService::recordDisplay($sessionId, is_array($lines) ? $lines : [], $flags);
+
+            // Deliberately logs only the cleaned display text, never the raw postback body —
+            // a "transaction"/"receipt" postback (unlike "display") can carry card data
+            // (PAN, track2), so nothing from this webhook is ever logged wholesale.
+            Log::info('Linkly display notification', ['session_id' => $sessionId, 'display' => $cleanedLines]);
         }
 
         return response()->json(['received' => true]);

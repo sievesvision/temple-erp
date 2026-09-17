@@ -114,6 +114,21 @@ class LinklyEftService
         return "linkly_display_{$sessionId}";
     }
 
+    private static function displayFlagsCacheKey(string $sessionId): string
+    {
+        return "linkly_display_flags_{$sessionId}";
+    }
+
+    private static function displayUpdatedAtCacheKey(string $sessionId): string
+    {
+        return "linkly_display_updated_at_{$sessionId}";
+    }
+
+    private static function emptyControls(): array
+    {
+        return ['cancel' => false, 'ok' => false, 'yes' => false, 'no' => false, 'authorise' => false];
+    }
+
     private static function webhookTokenCacheKey(string $sessionId): string
     {
         return "linkly_webhook_token_{$sessionId}";
@@ -180,14 +195,39 @@ class LinklyEftService
     }
 
     /**
-     * Records a "display" postback from Linkly (the PIN pad's current on-screen prompt) so
-     * pollTransaction() can hand it to the browser on its next poll. Called from the
-     * webhook route — DonationController::linklyWebhook() has already verified the bearer
-     * token before this runs.
+     * Trims each line and drops blank ones, so e.g. Linkly's fixed-width, space-padded
+     * ["     SWIPE CARD     ", "                    "] becomes just ["SWIPE CARD"], while a
+     * genuinely two-line prompt like ["SELECT ACCOUNT", "SAV CHQ CR"] keeps both lines.
+     *
+     * @param array<mixed> $lines
+     * @return array<int, string>
      */
-    public static function recordDisplay(string $sessionId, array $lines): void
+    public static function cleanDisplayLines(array $lines): array
     {
-        Cache::put(self::displayCacheKey($sessionId), array_values(array_filter($lines, fn ($l) => trim((string) $l) !== '')), 300);
+        return array_values(array_filter(
+            array_map(fn ($l) => trim((string) $l), $lines),
+            fn ($l) => $l !== ''
+        ));
+    }
+
+    /**
+     * Records a "display" postback from Linkly (the PIN pad's current on-screen prompt, plus
+     * which of its soft-key actions are currently offered) so pollTransaction() can hand it
+     * to the browser on its next poll. Called from the webhook route —
+     * DonationController::linklyWebhook() has already verified the bearer token and resolved
+     * the real session id (from the postback body, not the URL — see that method) before
+     * this runs. A later call for the same session simply overwrites the previous one, which
+     * is exactly the desired behaviour for duplicate or out-of-order postbacks: the browser
+     * only ever needs the *latest* prompt, not a history of every one that arrived.
+     *
+     * @param array<mixed> $lines
+     * @param array{cancel?: bool, ok?: bool, yes?: bool, no?: bool, authorise?: bool} $flags
+     */
+    public static function recordDisplay(string $sessionId, array $lines, array $flags = []): void
+    {
+        Cache::put(self::displayCacheKey($sessionId), self::cleanDisplayLines($lines), 300);
+        Cache::put(self::displayFlagsCacheKey($sessionId), array_merge(self::emptyControls(), $flags), 300);
+        Cache::put(self::displayUpdatedAtCacheKey($sessionId), now()->toIso8601String(), 300);
     }
 
     public static function verifyWebhookToken(string $sessionId, ?string $bearerToken): bool
@@ -197,20 +237,56 @@ class LinklyEftService
     }
 
     /**
+     * Maps a declined/errored Linkly response onto the app's own payment_status vocabulary
+     * (initiated/in_progress/approved/declined/cancelled/failed) — kept deliberately separate
+     * from the terminal's own free-text responseText/display, per the "don't determine
+     * success from DisplayText" rule: this only ever runs on the authoritative GET-polled
+     * transaction result, never on a display postback.
+     */
+    private static function mapResponseToStatus(bool $success, ?string $responseCode, ?string $responseText): string
+    {
+        if ($success) {
+            return 'approved';
+        }
+
+        $text = strtoupper((string) $responseText);
+        if (str_contains($text, 'CANCEL')) {
+            return 'cancelled';
+        }
+        if (str_contains($text, 'TIMEOUT') || str_contains($text, 'SYSTEM ERROR') || $responseCode === null) {
+            return 'failed';
+        }
+
+        return 'declined';
+    }
+
+    /**
      * Polls Linkly directly for the transaction's real status (the authoritative source —
      * a missed webhook postback must never be the only way the app finds out whether a
-     * charge succeeded) and merges in the latest cached "display" text for on-screen
-     * feedback while it's still in progress.
+     * charge succeeded) and merges in the latest cached "display" text/key-flags for
+     * on-screen feedback while it's still in progress.
      *
-     * @return array{done: bool, display: array<string>, success: ?bool, message: ?string, response_code: ?string, auth_code: ?string, rrn: ?string, txn_ref: ?string}
+     * @return array{
+     *   payment_status: string, done: bool, display: array<string>, display_text: ?string,
+     *   updated_at: ?string, controls: array<string, bool>, success: ?bool, message: ?string,
+     *   response_code: ?string, auth_code: ?string, rrn: ?string, txn_ref: ?string
+     * }
      */
     public static function pollTransaction(string $sessionId): array
     {
         $display = Cache::get(self::displayCacheKey($sessionId), []);
+        $controls = Cache::get(self::displayFlagsCacheKey($sessionId), self::emptyControls());
+        $updatedAt = Cache::get(self::displayUpdatedAtCacheKey($sessionId));
+        $base = [
+            'display' => $display,
+            'display_text' => $display[0] ?? null,
+            'updated_at' => $updatedAt,
+            'controls' => $controls,
+        ];
 
         $token = self::getToken();
         if (!$token) {
-            return ['done' => true, 'display' => $display, 'success' => false, 'message' => 'Could not authenticate with the EFT terminal service.', 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null];
+            return array_merge($base, ['payment_status' => 'failed', 'done' => true, 'success' => false, 'message' => 'Could not authenticate with the EFT terminal service.', 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 
         try {
@@ -219,35 +295,37 @@ class LinklyEftService
         } catch (\Exception $e) {
             // A transient network hiccup while polling isn't fatal — report "still going"
             // so the browser just tries again on its next tick instead of giving up.
-            return ['done' => false, 'display' => $display, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null];
+            return array_merge($base, ['payment_status' => 'in_progress', 'done' => false, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 
         if ($response->status() === 202) {
-            return ['done' => false, 'display' => $display, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null];
+            return array_merge($base, ['payment_status' => 'in_progress', 'done' => false, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 
         if ($response->status() === 404) {
-            return ['done' => true, 'display' => $display, 'success' => false, 'message' => 'Transaction was not accepted by the terminal service.', 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null];
+            return array_merge($base, ['payment_status' => 'failed', 'done' => true, 'success' => false, 'message' => 'Transaction was not accepted by the terminal service.', 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 
         if (!$response->successful()) {
-            return ['done' => false, 'display' => $display, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null];
+            return array_merge($base, ['payment_status' => 'in_progress', 'done' => false, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 
         $txnResponse = $response->json('response') ?? [];
         $success = (bool) ($txnResponse['success'] ?? false);
+        $responseCode = $txnResponse['responseCode'] ?? null;
+        $responseText = trim($txnResponse['responseText'] ?? '') ?: null;
 
-        return [
+        return array_merge($base, [
+            'payment_status' => self::mapResponseToStatus($success, $responseCode, $responseText),
             'done' => true,
-            'display' => $display,
             'success' => $success,
             'message' => $success
                 ? 'Approved' . (!empty($txnResponse['authCode']) ? ' — Auth ' . $txnResponse['authCode'] : '')
-                : trim($txnResponse['responseText'] ?? 'Declined'),
-            'response_code' => $txnResponse['responseCode'] ?? null,
+                : ($responseText ?? 'Declined'),
+            'response_code' => $responseCode,
             'auth_code' => !empty($txnResponse['authCode']) ? $txnResponse['authCode'] : null,
             'rrn' => !empty(trim($txnResponse['rrn'] ?? '')) ? trim($txnResponse['rrn']) : null,
             'txn_ref' => !empty(trim($txnResponse['txnRef'] ?? '')) ? trim($txnResponse['txnRef']) : null,
-        ];
+        ]);
     }
 }
