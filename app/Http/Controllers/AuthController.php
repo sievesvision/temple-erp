@@ -425,6 +425,22 @@ class AuthController extends Controller
      */
     private function startLoginOtp(User $user)
     {
+        // If a still-valid OTP was already emailed to this same account very recently — e.g.
+        // they resubmitted the login form because the first email hadn't arrived yet — don't
+        // fire another one. Just send them back to the same pending verification step instead
+        // of re-sending; repeated logins used to email the same recipient again on every
+        // single attempt with no cooldown at all, which is exactly the kind of burst pattern
+        // that gets a sending mailbox flagged as abusive.
+        $alreadyPending = session('login_otp_user_id') === $user->id
+            && session('login_otp_expires_at')
+            && now()->lessThan(session('login_otp_expires_at'))
+            && session('login_otp_resend_cooldown_expires_at')
+            && now()->lessThan(session('login_otp_resend_cooldown_expires_at'));
+
+        if ($alreadyPending) {
+            return redirect()->route('login.verify-otp');
+        }
+
         $otp = sprintf("%06d", mt_rand(100000, 999999));
 
         session([
