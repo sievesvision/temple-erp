@@ -848,6 +848,7 @@ class DonationController extends Controller
         // specifically because route() URL-encodes route parameters, which would mangle
         // the braces into something Linkly's template substitution wouldn't recognise.
         $notificationUri = url('/admin/eft/webhook/{{sessionId}}/{{type}}');
+        Log::info('Linkly startEftCharge notification URI', ['uri' => $notificationUri]);
 
         $result = LinklyEftService::startPurchase(
             (float) $validated['amount'],
@@ -880,15 +881,21 @@ class DonationController extends Controller
      */
     public function linklyWebhook(Request $request, string $sessionId, string $type)
     {
+        // Temporary — logs every incoming call unconditionally (even one that fails the
+        // bearer check below) to prove whether Linkly is reaching this URL at all, since
+        // that's currently unconfirmed. Safe to remove once confirmed.
+        Log::info('Linkly webhook incoming', [
+            'type' => $type,
+            'session_id' => $sessionId,
+            'has_bearer' => (bool) $request->bearerToken(),
+            'content_type' => $request->header('Content-Type'),
+            'raw_body' => $request->getContent(),
+        ]);
+
         $bearer = $request->bearerToken();
         if (!LinklyEftService::verifyWebhookToken($sessionId, $bearer)) {
             return response()->json(['message' => 'Invalid or expired session.'], 401);
         }
-
-        // Temporary — logs the exact payload shape Linkly sends for each postback type, so
-        // the field-name guesses below can be corrected against real data instead of the
-        // docs (already proven wrong once about casing). Safe to remove once confirmed.
-        Log::info('Linkly webhook received', ['type' => $type, 'session_id' => $sessionId, 'body' => $request->all()]);
 
         if ($type === 'display') {
             $lines = $request->input('response.displayText')
