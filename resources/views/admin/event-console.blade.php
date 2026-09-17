@@ -1083,7 +1083,7 @@
                         <table class="console-table">
                             <thead>
                                 <tr>
-                                    <th>Type</th><th class="col-amount">Amount</th><th>Transaction Reference</th><th>Date/Time</th><th>Result</th><th>Response Code</th><th>Session ID</th><th class="text-end">Actions</th>
+                                    <th>Type</th><th class="col-amount">Amount</th><th>Transaction Reference</th><th>Donation</th><th>Date/Time</th><th>Result</th><th>Response Code</th><th>Session ID</th><th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1100,6 +1100,13 @@
                                     <td class="text-capitalize">{{ $txn->txn_type }}</td>
                                     <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
                                     <td class="col-txn"><span id="txnref-{{ $txn->id }}">{{ $txn->pos_txn_ref }}</span></td>
+                                    <td>
+                                        @if($txn->donation_id)
+                                        <span class="text-capitalize">{{ $txn->donation_type }}</span> #{{ $txn->donation_id }}
+                                        @else
+                                        <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
                                     <td><span id="txntime-{{ $txn->id }}">{{ $txn->created_at->format('d M Y H:i:s') }}</span></td>
                                     <td><span class="status-pill status-{{ $pillClass }}">{{ ucfirst($txn->status) }}</span></td>
                                     <td>{{ $txn->response_code ?: '—' }}</td>
@@ -1119,7 +1126,7 @@
                                     </td>
                                 </tr>
                                 @empty
-                                <tr><td colspan="8" class="text-center text-muted py-4">No Linkly transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted py-4">No Linkly transactions recorded for this event yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>

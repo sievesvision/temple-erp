@@ -376,9 +376,14 @@ class LinklyEftService
         }
 
         try {
+            // async=false (not true): confirmed against production traffic that Linkly
+            // rejects an async sendkey with "Notification cannot be null when async == true"
+            // — a sendkey is a quick key-press acknowledgment, not a long-running wait for
+            // card/PIN entry like a Purchase, so there's no need for the webhook/Notification
+            // plumbing async mode requires. This matches logon()'s own sync pattern below.
             $response = Http::timeout(15)
                 ->withToken($token)
-                ->post(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/sendkey?async=true", [
+                ->post(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/sendkey?async=false", [
                     'Request' => [
                         'Merchant' => '00',
                         'Application' => '00',

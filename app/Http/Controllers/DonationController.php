@@ -925,7 +925,7 @@ class DonationController extends Controller
 
         $result = LinklyEftService::pollTransaction($sessionId);
         $this->syncLedgerFromPoll($sessionId, $result);
-        $this->markDonationRefundedIfJustApproved($sessionId, $result);
+        $this->markDonationCancelledIfRefundJustApproved($sessionId, $result);
 
         // A transaction that's been neither approved/declined/cancelled nor failed for far
         // longer than Linkly's own ~3-minute transaction window is genuinely UNKNOWN, not
@@ -1109,13 +1109,18 @@ class DonationController extends Controller
     }
 
     /**
-     * Marks the underlying donation row 'Refunded' once a refund transaction is confirmed
+     * Marks the underlying donation row 'Cancelled' once a refund transaction is confirmed
      * approved — called from pollEftCharge() right after syncLedgerFromPoll(), so the
      * temple's own totals (which only ever sum payment_status = 'Paid') stop counting it
-     * without needing a separate admin step. Only ever runs on the authoritative polled
-     * result, same "never decide from DisplayText" rule as every other status change here.
+     * without needing a separate admin step. Uses the existing 'Cancelled' status (already
+     * used for a cancelled/reversed Stripe payment — see manageDonations()'s
+     * "Cancelled/Failed (excluded)" handling) rather than inventing a new 'Refunded' value,
+     * since 'Refunded' isn't in updateDevoteeDonation()/updateGuestDonation()'s allowed
+     * payment_status list and would reject a later manual edit. Only ever runs on the
+     * authoritative polled result, same "never decide from DisplayText" rule as every other
+     * status change here.
      */
-    private function markDonationRefundedIfJustApproved(string $sessionId, array $result): void
+    private function markDonationCancelledIfRefundJustApproved(string $sessionId, array $result): void
     {
         if (!($result['done'] && $result['success'])) {
             return;
@@ -1127,7 +1132,7 @@ class DonationController extends Controller
         }
 
         $table = $txn->donation_type === 'devotee' ? 'donations' : 'donations_without_logins';
-        DB::table($table)->where('id', $txn->donation_id)->update(['payment_status' => 'Refunded', 'updated_at' => now()]);
+        DB::table($table)->where('id', $txn->donation_id)->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
     }
 
     /**

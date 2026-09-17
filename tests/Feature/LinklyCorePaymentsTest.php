@@ -357,4 +357,115 @@ class LinklyCorePaymentsTest extends TestCase
             'response_text' => 'TERMINAL BUSY',
         ]);
     }
+
+    // A completed EFT Terminal purchase's ledger row is linked to the resulting donation
+    // record end-to-end (start -> approve -> save), the way the browser actually drives it —
+    // not just asserted at the unit level, since this is the join the EFTPOS pane's
+    // "Donation" column and refund lookups both depend on.
+    public function test_approved_eft_purchase_links_to_the_resulting_donation(): void
+    {
+        $eventId = $this->createEvent();
+        $user = $this->adminUser();
+
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*/transaction*' => Http::response('', 202),
+        ]);
+        $start = $this->actingAs($user)->postJson('/admin/eft/charge/start', [
+            'amount' => '25.00',
+            'client_ref' => 'link-test',
+            'event_id' => $eventId,
+        ]);
+        $sessionId = $start->json('session_id');
+
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*' => Http::response([
+                'response' => ['success' => true, 'responseCode' => '00', 'authCode' => 1, 'rrn' => '000001', 'txnRef' => 'EFTXYZ'],
+            ], 200),
+        ]);
+        $this->actingAs($user)->getJson("/admin/eft/charge/status/{$sessionId}?event_id={$eventId}")->assertOk();
+
+        $store = $this->actingAs($user)->postJson('/admin/donation/store-guest', [
+            'donor_name' => 'Jane Donor',
+            'event_id' => $eventId,
+            'amount' => '25.00',
+            'purpose' => 'General Donation',
+            'payment_method' => 'EFT Terminal',
+            'transaction_id' => '000001',
+            'donation_date' => now()->toDateString(),
+            'linkly_session_id' => $sessionId,
+        ]);
+        $store->assertOk()->assertJson(['success' => true]);
+
+        $donationId = DB::table('donations_without_logins')->where('donor_name', 'Jane Donor')->value('id');
+        $this->assertNotNull($donationId);
+        $this->assertDatabaseHas('linkly_transactions', [
+            'linkly_session_id' => $sessionId,
+            'donation_type' => 'guest',
+            'donation_id' => $donationId,
+        ]);
+    }
+
+    // A refund that Linkly approves marks the underlying donation 'Cancelled' (the existing
+    // status this app already uses for a reversed payment — see the "Cancelled/Failed
+    // (excluded)" handling in manageDonations()), so it stops counting in the temple's totals
+    // without a separate manual edit.
+    public function test_approved_refund_marks_donation_cancelled(): void
+    {
+        $eventId = $this->createEvent();
+        $adminCoordinator = $this->coordinatorUser($eventId, 'admin');
+
+        $donationId = DB::table('donations_without_logins')->insertGetId([
+            'donor_name' => 'Jane Donor',
+            'event_id' => $eventId,
+            'amount' => 25,
+            'purpose' => 'General Donation',
+            'payment_method' => 'EFT Terminal',
+            'payment_status' => 'Paid',
+            'transaction_id' => '000001',
+            'donation_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $original = LinklyTransaction::create([
+            'pos_txn_ref' => 'EFTORIG05',
+            'linkly_session_id' => (string) \Illuminate\Support\Str::uuid(),
+            'txn_type' => 'purchase',
+            'event_id' => $eventId,
+            'donation_type' => 'guest',
+            'donation_id' => $donationId,
+            'amount' => 25,
+            'status' => 'approved',
+            'initiated_by' => $adminCoordinator->id,
+        ]);
+
+        // A single fake for the whole test: Http::fake() calls stack rather than replace, so
+        // registering a second one after starting the refund would not actually override the
+        // first "*/sessions/*/transaction*" stub for the later GET poll (first-registered
+        // pattern wins) — differentiate by HTTP method instead, in one registration.
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*' => function ($request) {
+                if (strtoupper($request->method()) === 'GET') {
+                    return Http::response(['response' => ['success' => true, 'responseCode' => '00', 'authCode' => 2, 'rrn' => '000002']], 200);
+                }
+                return Http::response('', 202);
+            },
+        ]);
+
+        $refund = $this->actingAs($adminCoordinator)->postJson("/admin/events/{$eventId}/eft/refund/{$original->id}", [
+            'amount' => '25.00',
+            'client_ref' => 'refund-cancel-test',
+        ]);
+        $refundSessionId = $refund->json('session_id');
+
+        $this->actingAs($adminCoordinator)->getJson("/admin/eft/charge/status/{$refundSessionId}?event_id={$eventId}")->assertOk();
+
+        $this->assertDatabaseHas('donations_without_logins', [
+            'id' => $donationId,
+            'payment_status' => 'Cancelled',
+        ]);
+    }
 }
