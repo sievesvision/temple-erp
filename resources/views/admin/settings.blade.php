@@ -157,6 +157,8 @@
                         <button type="button" class="settings-nav-link" data-panel="branding"><i class="bi bi-palette"></i> Branding & Theme</button>
                         <button type="button" class="settings-nav-link" data-panel="admin-branding"><i class="bi bi-shield-lock"></i> Admin Panel Branding</button>
                         <button type="button" class="settings-nav-link" data-panel="donations"><i class="bi bi-wallet2"></i> Donations & Payments</button>
+                        <button type="button" class="settings-nav-link" data-panel="stripe"><i class="bi bi-credit-card"></i> Stripe</button>
+                        <button type="button" class="settings-nav-link" data-panel="eft-terminal"><i class="bi bi-credit-card-2-front-fill"></i> EFT Terminal</button>
                         <button type="button" class="settings-nav-link" data-panel="hours"><i class="bi bi-clock"></i> Temple Hours</button>
                         <button type="button" class="settings-nav-link" data-panel="inventory"><i class="bi bi-sliders"></i> Inventory & Booking</button>
                     </div>
@@ -371,30 +373,6 @@
                         </div>
 
                         <div class="settings-section">
-                            <h5><i class="bi bi-credit-card me-2"></i>Online Donations</h5>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" name="stripe_enabled" value="1" id="stripe_enabled" {{ $stripeEnabled ? 'checked' : '' }}>
-                                <label class="form-check-label fw-semibold" for="stripe_enabled">Enable Stripe donations</label>
-                            </div>
-                            <div class="form-text mb-3">The Stripe keys are configured in the server environment (.env), not here — this only enables/disables the Stripe option on donation forms.</div>
-
-                            <label class="form-label fw-semibold text-dark d-block">Stripe Mode</label>
-                            <div class="d-flex gap-3 flex-wrap">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="stripe_mode" value="test" id="stripe_mode_test" {{ $stripeMode !== 'live' ? 'checked' : '' }}>
-                                    <label class="form-check-label" for="stripe_mode_test">Test mode <span class="text-muted">(no real charges)</span></label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="stripe_mode" value="live" id="stripe_mode_live" {{ $stripeMode === 'live' ? 'checked' : '' }}>
-                                    <label class="form-check-label" for="stripe_mode_live">Live mode <span class="text-danger">(real charges will be processed)</span></label>
-                                </div>
-                            </div>
-                            <div id="stripe_live_warning" class="alert alert-danger mt-2 py-2 px-3 mb-0" style="{{ $stripeMode === 'live' ? '' : 'display:none;' }}">
-                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Live mode is active — donations will charge real cards using the live Stripe keys.
-                            </div>
-                        </div>
-
-                        <div class="settings-section">
                             <h5><i class="bi bi-cash-stack me-2"></i>Manually Recorded Donation Payment Methods</h5>
                             <p class="text-muted small mb-3">Controls which payment methods appear in the "Log Devotee/Guest Donation" forms admins use to manually record a donation. Unchecking a method here doesn't affect existing donation records already saved with it.</p>
                             <div class="d-flex flex-wrap gap-4">
@@ -418,6 +396,33 @@
                                     <input class="form-check-input" type="checkbox" name="enabled_payment_methods[]" value="EFT Terminal" id="pm_eft_terminal" {{ in_array('EFT Terminal', $enabledPaymentMethods) ? 'checked' : '' }}>
                                     <label class="form-check-label" for="pm_eft_terminal">EFT Terminal</label>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STRIPE -->
+                    <div class="settings-panel" data-panel-content="stripe">
+                        <div class="settings-section">
+                            <h5><i class="bi bi-credit-card me-2"></i>Online Donations</h5>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" name="stripe_enabled" value="1" id="stripe_enabled" {{ $stripeEnabled ? 'checked' : '' }}>
+                                <label class="form-check-label fw-semibold" for="stripe_enabled">Enable Stripe donations</label>
+                            </div>
+                            <div class="form-text mb-3">The Stripe keys are configured in the server environment (.env), not here — this only enables/disables the Stripe option on donation forms.</div>
+
+                            <label class="form-label fw-semibold text-dark d-block">Stripe Mode</label>
+                            <div class="d-flex gap-3 flex-wrap">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stripe_mode" value="test" id="stripe_mode_test" {{ $stripeMode !== 'live' ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="stripe_mode_test">Test mode <span class="text-muted">(no real charges)</span></label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="stripe_mode" value="live" id="stripe_mode_live" {{ $stripeMode === 'live' ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="stripe_mode_live">Live mode <span class="text-danger">(real charges will be processed)</span></label>
+                                </div>
+                            </div>
+                            <div id="stripe_live_warning" class="alert alert-danger mt-2 py-2 px-3 mb-0" style="{{ $stripeMode === 'live' ? '' : 'display:none;' }}">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i> Live mode is active — donations will charge real cards using the live Stripe keys.
                             </div>
                         </div>
                     </div>
@@ -480,33 +485,39 @@
                     <div class="text-end">
                         <button type="submit" class="btn btn-submit">Save Settings</button>
                     </div>
+                    </form>
+
+                    <!-- EFT TERMINAL — posts to admin.eft.pair, not admin.settings.update,
+                         so its form has to sit outside the settings form above rather than
+                         nested inside it; still the same visual column, and the
+                         panel-switcher JS below doesn't care either way. -->
+                    <div class="settings-panel" data-panel-content="eft-terminal">
+                        <div class="settings-section">
+                            <h5><i class="bi bi-credit-card-2-front-fill me-2"></i>Linkly EFTPOS Pairing</h5>
+                            <p class="text-muted small mb-3">Pairs a physical (or virtual test) EFTPOS PIN pad via Linkly Cloud, so the "EFT Terminal" payment option on the POS page can charge it directly instead of just recording a manual entry.</p>
+
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <span class="badge {{ $linklyPaired ? 'bg-success' : 'bg-secondary' }} px-3 py-2 rounded-pill">
+                                    {{ $linklyPaired ? 'Paired' : 'Not Paired' }}
+                                </span>
+                                <span class="text-muted small">Mode: <strong class="text-uppercase">{{ $linklyMode }}</strong> (set by the <code>LINKLY_*</code> credentials configured on the server, not here)</span>
+                            </div>
+
+                            <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-3 align-items-end">
+                                @csrf
+                                <div class="col-md-5">
+                                    <label class="form-label fw-semibold text-dark">Pairing Code</label>
+                                    <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required>
+                                    <div class="form-text">Generate this on the PIN pad (or virtual PIN pad) right before submitting — it expires after about 3 minutes.</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="submit" class="btn btn-submit">{{ $linklyPaired ? 'Re-pair Terminal' : 'Pair Terminal' }}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </form>
-    </div>
-
-    <div class="settings-card mt-4">
-        <h2><i class="bi bi-credit-card-2-front-fill text-warning me-2"></i>EFT Terminal (Linkly)</h2>
-        <p class="text-muted small mb-3">Pairs a physical (or, for testing, virtual) EFTPOS PIN pad to this app via Linkly Cloud, so the "EFT Terminal" payment option on the POS page can charge it directly instead of just recording a manual entry.</p>
-
-        <div class="d-flex align-items-center gap-3 mb-3">
-            <span class="badge {{ $linklyPaired ? 'bg-success' : 'bg-secondary' }} px-3 py-2 rounded-pill">
-                {{ $linklyPaired ? 'Paired' : 'Not Paired' }}
-            </span>
-            <span class="text-muted small">Mode: <strong class="text-uppercase">{{ $linklyMode }}</strong> (set by the <code>LINKLY_*</code> credentials configured on the server)</span>
-        </div>
-
-        <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-2 align-items-end">
-            @csrf
-            <div class="col-md-4">
-                <label class="form-label fw-semibold text-dark">Pairing Code</label>
-                <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required>
-                <div class="form-text">Generate this on the PIN pad (or virtual PIN pad) right before submitting — it expires after about 3 minutes.</div>
-            </div>
-            <div class="col-md-3">
-                <button type="submit" class="btn btn-submit">{{ $linklyPaired ? 'Re-pair Terminal' : 'Pair Terminal' }}</button>
-            </div>
-        </form>
     </div>
 </div>
 

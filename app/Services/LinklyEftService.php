@@ -36,7 +36,14 @@ class LinklyEftService
 
         if (!$response->successful()) {
             Log::warning('Linkly pairing failed', ['status' => $response->status(), 'body' => $response->body()]);
-            return ['success' => false, 'message' => 'Pairing failed: ' . ($response->json('message') ?? $response->body())];
+            // A 401 with no body is Linkly's response to an invalid or expired pair code —
+            // the common case, since the code is only valid for ~180 seconds — so it gets a
+            // clearer message than an empty string tacked onto "Pairing failed:".
+            $detail = $response->json('message') ?: ($response->body() ?: null);
+            $message = $detail ?? ($response->status() === 401
+                ? 'Invalid or expired pairing code — generate a fresh one on the terminal and try again within about 3 minutes.'
+                : 'Pairing failed (HTTP ' . $response->status() . ').');
+            return ['success' => false, 'message' => $message];
         }
 
         $secret = $response->json('secret');

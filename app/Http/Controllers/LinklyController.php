@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
  * be (re)paired without a developer running a tinker command, e.g. after a new terminal is
  * issued or the pairing is lost. The actual transaction logic lives in LinklyEftService /
  * DonationController::chargeEftTerminal(); this controller only manages the one-time secret.
+ * The pairing UI itself lives as its own panel on the main Settings page, not a separate one.
  */
 class LinklyController extends Controller
 {
