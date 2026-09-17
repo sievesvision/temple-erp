@@ -105,6 +105,44 @@
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: 14px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
 
+        /* ---------- EFT terminal status popup — center-screen, mirrors what's on the
+           physical/virtual PIN pad while a card payment is in progress ---------- */
+        .eft-modal-overlay {
+            position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .eft-modal-overlay.active { display: flex; }
+        .eft-modal {
+            background: var(--white); border-radius: 22px; width: 100%; max-width: 380px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center;
+        }
+        .eft-modal-header {
+            background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+            color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
+            font-size: 0.95rem; text-transform: uppercase;
+        }
+        .eft-modal-body { padding: 30px 26px 26px; }
+        .eft-modal-amount { font-family: var(--serif); font-size: 2.4rem; font-weight: 800; color: var(--text-primary); margin-bottom: 18px; }
+        .eft-modal-status-box {
+            background: var(--cream); border: 2px solid var(--border); border-radius: 14px;
+            padding: 18px 16px; min-height: 76px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 4px; margin-bottom: 22px;
+        }
+        .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
+        .eft-modal-status-box.pending .eft-modal-status-line:first-child::before {
+            content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+            background: var(--gold); margin-right: 8px; vertical-align: middle;
+            animation: eftPulse 1.1s ease-in-out infinite;
+        }
+        .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
+        .eft-modal-status-box.error .eft-modal-status-line { color: var(--error); }
+        @keyframes eftPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+        .eft-modal-cancel-btn {
+            width: 100%; padding: 14px; border-radius: 12px; border: 2px solid var(--border);
+            background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
+        }
+        .eft-modal-cancel-btn:active { background: var(--cream); }
+
         @media (max-width: 600px) {
             .pos-topbar-title .pos-subtitle { display: none; }
             .pos-quick-amount-btn { flex: 1 1 calc(50% - 10px); }
@@ -186,6 +224,20 @@
     </div>
 
     <div class="pos-toast" id="posToast"></div>
+
+    <div class="eft-modal-overlay" id="eftModalOverlay">
+        <div class="eft-modal">
+            <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
+            <div class="eft-modal-body">
+                <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
+                <div class="eft-modal-status-box pending" id="eftModalStatusBox">
+                    <span class="eft-modal-status-line" id="eftModalStatusLine1">Starting…</span>
+                    <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
+                </div>
+                <button type="button" class="eft-modal-cancel-btn" id="eftModalCancelBtn">Cancel Payment</button>
+            </div>
+        </div>
+    </div>
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script>
@@ -392,15 +444,29 @@
             toast.style.display = 'block';
             toastHideTimer = setTimeout(function () { toast.style.display = 'none'; }, 2200);
         }
-        // Doesn't auto-hide — used while polling the EFT terminal so a live status ("ENTER
-        // PIN", "PROCESSING"...) stays on screen until replaced by the next update or a
-        // final showToast() call.
-        function showStickyToast(message, isError) {
-            if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
-            const toast = document.getElementById('posToast');
-            toast.textContent = message;
-            toast.classList.toggle('error', !!isError);
-            toast.style.display = 'block';
+        // Center-screen popup mirroring the PIN pad's own display while a card payment is
+        // in progress — a corner toast isn't prominent enough for something the operator
+        // and donor both need to watch together.
+        const eftModalOverlay = document.getElementById('eftModalOverlay');
+        const eftModalAmount = document.getElementById('eftModalAmount');
+        const eftModalStatusBox = document.getElementById('eftModalStatusBox');
+        const eftModalStatusLine1 = document.getElementById('eftModalStatusLine1');
+        const eftModalStatusLine2 = document.getElementById('eftModalStatusLine2');
+
+        function showEftModal(amount) {
+            eftModalAmount.textContent = CURRENCY_CODE + ' ' + amount.toFixed(2);
+            setEftModalStatus(['Starting…'], 'pending');
+            eftModalOverlay.classList.add('active');
+        }
+        function setEftModalStatus(lines, state) {
+            eftModalStatusBox.classList.remove('pending', 'success', 'error');
+            eftModalStatusBox.classList.add(state);
+            lines = lines && lines.length ? lines : ['Please wait…'];
+            eftModalStatusLine1.textContent = lines[0] || '';
+            eftModalStatusLine2.textContent = lines[1] || '';
+        }
+        function hideEftModal() {
+            eftModalOverlay.classList.remove('active');
         }
 
         // "Orders this session" — sessionStorage only, so it survives a reload of this same
@@ -513,7 +579,8 @@
             // (not one blocking call) so the terminal's live prompts ("ENTER PIN", etc.,
             // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
-                showStickyToast('Starting terminal transaction…');
+                eftPollCancelled = false;
+                showEftModal(amount);
                 const startBody = new URLSearchParams();
                 startBody.set('event_id', EVENT_ID);
                 startBody.set('amount', amount.toFixed(2));
@@ -527,6 +594,7 @@
                     .then(function (result) {
                         if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
                             btn.disabled = false;
+                            hideEftModal();
                             showToast(result.data.message || 'Could not start the terminal transaction.', true);
                             return;
                         }
@@ -534,6 +602,7 @@
                     })
                     .catch(function () {
                         btn.disabled = false;
+                        hideEftModal();
                         showToast('Could not reach the EFT terminal — please try again.', true);
                     });
                 return;
@@ -542,13 +611,30 @@
             submitGuestDonation(btn, amount, name, emailValue, mobileValue, '');
         });
 
+        // Set true by the modal's Cancel button — checked at the top of every poll tick so
+        // an abandoned wait actually stops instead of continuing in the background. This
+        // only gives up on watching this browser's side; if the terminal is still showing a
+        // prompt, the operator should also cancel there.
+        let eftPollCancelled = false;
+        document.getElementById('eftModalCancelBtn').addEventListener('click', function () {
+            eftPollCancelled = true;
+            hideEftModal();
+            const btn = document.getElementById('posSaveBtn');
+            btn.disabled = false;
+            showToast('Payment cancelled. If the terminal is still waiting, cancel it there too.', true);
+        });
+
         // Polls every ~1.2s for up to ~3 minutes (matching Linkly's own pairing/transaction
         // window guidance) — each response carries the PIN pad's current display text (if
         // any arrived via webhook since the last poll) and, once the terminal finishes,
         // the final approved/declined result.
         function pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt) {
+            if (eftPollCancelled) { return; }
+
             if (Date.now() - startedAt > 180000) {
                 btn.disabled = false;
+                setEftModalStatus(['Timed out'], 'error');
+                setTimeout(hideEftModal, 1500);
                 showToast('Terminal timed out — please try again.', true);
                 return;
             }
@@ -557,8 +643,10 @@
             fetch(statusUrl, { headers: { 'Accept': 'application/json' } })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
+                    if (eftPollCancelled) { return; }
+
                     if (data.display && data.display.length) {
-                        showStickyToast(data.display.join(' — '));
+                        setEftModalStatus(data.display, 'pending');
                     }
                     if (!data.done) {
                         setTimeout(function () {
@@ -567,9 +655,12 @@
                         return;
                     }
                     if (data.success) {
-                        showStickyToast('Payment approved' + (data.auth_code ? ' — Auth ' + data.auth_code : '') + '. Saving donation…');
+                        setEftModalStatus(['Approved' + (data.auth_code ? ' — Auth ' + data.auth_code : ''), 'Saving donation…'], 'success');
+                        setTimeout(hideEftModal, 1200);
                         submitGuestDonation(btn, amount, name, emailValue, mobileValue, data.rrn || data.auth_code || '');
                     } else {
+                        setEftModalStatus([data.message || 'Declined'], 'error');
+                        setTimeout(hideEftModal, 1800);
                         btn.disabled = false;
                         showToast(data.message || 'Card declined.', true);
                     }

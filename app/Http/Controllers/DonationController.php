@@ -885,8 +885,17 @@ class DonationController extends Controller
             return response()->json(['message' => 'Invalid or expired session.'], 401);
         }
 
+        // Temporary — logs the exact payload shape Linkly sends for each postback type, so
+        // the field-name guesses below can be corrected against real data instead of the
+        // docs (already proven wrong once about casing). Safe to remove once confirmed.
+        Log::info('Linkly webhook received', ['type' => $type, 'session_id' => $sessionId, 'body' => $request->all()]);
+
         if ($type === 'display') {
-            $lines = $request->input('response.displayText') ?? $request->input('Response.DisplayText') ?? [];
+            $lines = $request->input('response.displayText')
+                ?? $request->input('Response.DisplayText')
+                ?? $request->input('displayText')
+                ?? $request->input('DisplayText')
+                ?? [];
             LinklyEftService::recordDisplay($sessionId, is_array($lines) ? $lines : []);
         }
 
