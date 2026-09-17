@@ -51,6 +51,7 @@
             color: var(--text-primary); background: var(--white); min-height: 58px;
         }
         .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(200,155,60,0.15); }
+        .pos-textarea { min-height: auto; font-weight: 500; font-size: 1rem; resize: vertical; margin-bottom: 14px; }
         .pos-row { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
         .pos-row.two-col { grid-template-columns: 1fr; }
         @media (min-width: 560px) { .pos-row.two-col { grid-template-columns: 1fr 1fr; } }
@@ -162,6 +163,9 @@
                 <div class="pos-quick-amounts" id="posQuickAmounts"></div>
                 <input type="number" step="0.01" class="pos-input" id="posAmount" placeholder="Amount ({{ $temple['currency'] ?? '' }})">
             </div>
+
+            <div class="pos-section-title">Details (optional)</div>
+            <textarea class="pos-input pos-textarea" id="posDetails" rows="2" placeholder="e.g. In memory of..., family name, special request..."></textarea>
 
             <div class="pos-section-title">Payment Method</div>
             <div class="pos-method-row" id="posMethodRow"></div>
@@ -376,6 +380,7 @@
             document.getElementById('posGuestName').value = '';
             document.getElementById('posGuestMobile').value = '';
             document.getElementById('posGuestEmail').value = '';
+            document.getElementById('posDetails').value = '';
             amountInput.value = '';
             if (window.posResetTiers) { window.posResetTiers(); }
         }
@@ -403,7 +408,7 @@
             body.set('mobile', document.getElementById('posGuestMobile').value);
             body.set('payment_method', selectedMethod === 'Bank Transfer' ? 'Bank' : selectedMethod);
             body.set('purpose', purposeValue);
-            body.set('purpose_details', '');
+            body.set('purpose_details', document.getElementById('posDetails').value);
 
             fetch(STORE_GUEST_URL, {
                 method: 'POST',
