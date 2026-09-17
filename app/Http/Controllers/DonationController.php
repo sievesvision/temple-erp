@@ -1043,7 +1043,7 @@ class DonationController extends Controller
      * through the same async start+poll+modal flow as a purchase (see startEftCharge()/
      * pollEftCharge()) since a refund is a real terminal transaction, not a database edit.
      */
-    public function refundEftCharge(Request $request, int $transactionId)
+    public function refundEftCharge(Request $request, $eventId, int $transactionId)
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);

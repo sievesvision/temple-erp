@@ -380,6 +380,8 @@ class LinklyEftService
                 ->withToken($token)
                 ->post(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/sendkey?async=true", [
                     'Request' => [
+                        'Merchant' => '00',
+                        'Application' => '00',
                         'Key' => $key,
                         'InputData' => '',
                     ],
@@ -390,7 +392,11 @@ class LinklyEftService
         }
 
         if (!$response->successful()) {
-            Log::warning('Linkly sendKey failed', ['session_id' => $sessionId, 'status' => $response->status()]);
+            // A sendkey response never carries cardholder data, only an accept/reject of the
+            // key press — safe to log the body verbatim, unlike the transaction/receipt
+            // postbacks, so a genuine "terminal already moved past that step" rejection can
+            // be told apart from a malformed-request 400.
+            Log::warning('Linkly sendKey failed', ['session_id' => $sessionId, 'status' => $response->status(), 'body' => $response->body()]);
             return ['success' => false, 'message' => 'The terminal did not accept the cancel request — it may have already moved past that step.'];
         }
 

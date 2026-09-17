@@ -34,8 +34,24 @@ class LinklyCorePaymentsTest extends TestCase
         ]);
     }
 
+    /**
+     * Inserts a few throwaway events first so the real event's id is never coincidentally
+     * equal to a LinklyTransaction id created afterwards in the same test — both sequences
+     * start at 1 in a fresh RefreshDatabase, which previously let a route-parameter-order bug
+     * in refundEftCharge() slip past every test here undetected (event_id and transaction id
+     * happened to match, so the wrong one being bound looked identical to the right one).
+     */
     private function createEvent(): int
     {
+        for ($i = 0; $i < 3; $i++) {
+            DB::table('events')->insertGetId([
+                'event_name' => 'Filler Event',
+                'event_date' => now()->toDateString(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
         return DB::table('events')->insertGetId([
             'event_name' => 'Test Event',
             'event_date' => now()->toDateString(),
