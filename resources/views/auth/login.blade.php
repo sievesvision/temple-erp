@@ -307,6 +307,49 @@
       border-color: var(--saffron-dark);
     }
 
+    /* ----- OTP step (2FA) ----- */
+    .otp-box {
+      font-size: 2rem;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 12px;
+      font-family: monospace;
+      color: var(--primary-saffron);
+      background: rgba(196, 91, 44, 0.03);
+      border: 2px dashed var(--primary-saffron) !important;
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .timer-badge {
+      background: #fdf2f2;
+      color: #9b1c1c;
+      padding: 6px 16px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-outline-login {
+      background: transparent;
+      border: 1.5px solid var(--primary-saffron);
+      color: var(--primary-saffron);
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: all 0.3s;
+      width: 100%;
+    }
+
+    .btn-outline-login:hover:not(:disabled) {
+      background: var(--primary-saffron);
+      color: #fff;
+      border-color: var(--primary-saffron);
+    }
+
     /* ----- responsiveness ----- */
     @media (max-width: 991px) {
       .left-panel {
@@ -429,72 +472,127 @@
           </a>
         </div>
 
-        <h2 class="card-title font-divine">Welcome Back</h2>
-        <p class="card-subtitle">Choose your access mode and enter credentials below</p>
+        @php
+          $step = $step ?? 1;
+        @endphp
 
-        <!-- Display general validation errors -->
-        @if(isset($errors) && $errors->any())
-          <div class="alert alert-danger mb-4" style="border-radius: 10px; background-color: #fff2f2; border: 1px solid #f3c6c6;">
-            <div class="d-flex align-items-center gap-2 text-danger fw-bold mb-1">
-              <i class="bi bi-exclamation-circle-fill"></i>
-              <span>Login Failed:</span>
+        @if($step == 1)
+          <h2 class="card-title font-divine">Welcome Back</h2>
+          <p class="card-subtitle">Choose your access mode and enter credentials below</p>
+
+          <!-- Display general validation errors -->
+          @if(isset($errors) && $errors->any())
+            <div class="alert alert-danger mb-4" style="border-radius: 10px; background-color: #fff2f2; border: 1px solid #f3c6c6;">
+              <div class="d-flex align-items-center gap-2 text-danger fw-bold mb-1">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span>Login Failed:</span>
+              </div>
+              <ul class="mb-0 text-danger small ps-4">
+                @foreach($errors->all() as $error)
+                  <li>{{ $error }}</li>
+                @endforeach
+              </ul>
             </div>
-            <ul class="mb-0 text-danger small ps-4">
-              @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-              @endforeach
-            </ul>
-          </div>
-        @endif
+          @endif
 
-        <!-- Success Message -->
-        @if(session('success'))
-          <div class="alert alert-success mb-4" style="border-radius: 10px; background-color: #f2fdf2; border: 1px solid #c6e8c6;">
-            <div class="d-flex align-items-center gap-2 text-success fw-bold">
-              <i class="bi bi-check-circle-fill"></i>
-              <span>{{ session('success') }}</span>
+          <!-- Success Message -->
+          @if(session('success'))
+            <div class="alert alert-success mb-4" style="border-radius: 10px; background-color: #f2fdf2; border: 1px solid #c6e8c6;">
+              <div class="d-flex align-items-center gap-2 text-success fw-bold">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>{{ session('success') }}</span>
+              </div>
             </div>
-          </div>
-        @endif
+          @endif
 
-        <!-- Form -->
-        <form method="POST" action="{{ route('login.post') }}" id="loginForm">
-          @csrf
+          <!-- Form -->
+          <form method="POST" action="{{ route('login.post') }}" id="loginForm">
+            @csrf
 
-          <!-- Email Input -->
-          <div class="form-floating">
-            <input type="email" class="form-control @error('email') is-invalid @enderror" name="email" id="emailInput" placeholder="name@example.com" required value="{{ old('email') }}">
-            <label for="emailInput"><i class="bi bi-envelope me-1 text-muted"></i>Email Address</label>
-          </div>
+            <!-- Email Input -->
+            <div class="form-floating">
+              <input type="email" class="form-control @error('email') is-invalid @enderror" name="email" id="emailInput" placeholder="name@example.com" required value="{{ old('email') }}">
+              <label for="emailInput"><i class="bi bi-envelope me-1 text-muted"></i>Email Address</label>
+            </div>
 
-          <!-- Password Input -->
-          <div class="form-floating position-relative">
-            <input type="password" class="form-control @error('password') is-invalid @enderror" name="password" id="passwordInput" placeholder="Password" required>
-            <label for="passwordInput"><i class="bi bi-lock me-1 text-muted"></i>Password</label>
-            <button type="button" class="btn position-absolute end-0 top-50 translate-middle-y border-0 me-2" onclick="togglePassword()" style="z-index: 10;" aria-label="Toggle password visibility">
-              <i id="eyeIcon" class="bi bi-eye text-muted fs-5"></i>
+            <!-- Password Input -->
+            <div class="form-floating position-relative">
+              <input type="password" class="form-control @error('password') is-invalid @enderror" name="password" id="passwordInput" placeholder="Password" required>
+              <label for="passwordInput"><i class="bi bi-lock me-1 text-muted"></i>Password</label>
+              <button type="button" class="btn position-absolute end-0 top-50 translate-middle-y border-0 me-2" onclick="togglePassword()" style="z-index: 10;" aria-label="Toggle password visibility">
+                <i id="eyeIcon" class="bi bi-eye text-muted fs-5"></i>
+              </button>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="remember" id="rememberMe" checked>
+                <label class="form-check-label text-muted small" for="rememberMe">
+                  Remember me
+                </label>
+              </div>
+              <a href="{{ route('forgot-password') }}?restart=1" class="small text-decoration-none" style="color: var(--primary-saffron); font-weight:500;">Forgot Password?</a>
+            </div>
+
+            <button class="btn btn-login font-divine py-3" type="submit">
+              <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to Portal
             </button>
+          </form>
+
+          <div class="text-center mt-4 text-muted small">
+            Devotee signing in for the first time?
+            <a href="{{ route('register') }}" style="color: var(--primary-saffron); font-weight:600; text-decoration:none;">Create Account</a>
           </div>
 
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="remember" id="rememberMe" checked>
-              <label class="form-check-label text-muted small" for="rememberMe">
-                Remember me
-              </label>
+        @elseif($step == 2)
+          <h2 class="card-title font-divine">Verify It's You</h2>
+          <p class="card-subtitle">This account has two-factor authentication enabled. Enter the 6-digit code emailed to you to finish signing in.</p>
+
+          @if(isset($errors) && $errors->any())
+            <div class="alert alert-danger mb-4" style="border-radius: 10px; background-color: #fff2f2; border: 1px solid #f3c6c6;">
+              <div class="d-flex align-items-center gap-2 text-danger fw-bold mb-1">
+                <i class="bi bi-exclamation-circle-fill"></i>
+                <span>Verification Failed:</span>
+              </div>
+              <ul class="mb-0 text-danger small ps-4">
+                @foreach($errors->all() as $error)
+                  <li>{{ $error }}</li>
+                @endforeach
+              </ul>
             </div>
-            <a href="{{ route('forgot-password') }}?restart=1" class="small text-decoration-none" style="color: var(--primary-saffron); font-weight:500;">Forgot Password?</a>
-          </div>
+          @endif
 
-          <button class="btn btn-login font-divine py-3" type="submit">
-            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to Portal
-          </button>
-        </form>
+          <form method="POST" action="{{ route('login.verify-otp.post') }}" id="loginOtpForm">
+            @csrf
 
-        <div class="text-center mt-4 text-muted small">
-          Devotee signing in for the first time?
-          <a href="{{ route('register') }}" style="color: var(--primary-saffron); font-weight:600; text-decoration:none;">Create Account</a>
-        </div>
+            <div class="mb-3 text-center">
+              <span class="timer-badge">
+                <i class="bi bi-clock-history"></i> OTP expires in: <span id="otp-timer">10:00</span>
+              </span>
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label fw-semibold d-block text-center">Verification Code</label>
+              <input type="text" name="otp" id="otp-input" class="form-control otp-box @error('otp') is-invalid @enderror" placeholder="000000" maxlength="6" autocomplete="off" required>
+              @error('otp')
+                <div class="invalid-feedback text-center mt-2">{{ $message }}</div>
+              @enderror
+            </div>
+
+            <button class="btn btn-login font-divine py-3 mb-3" type="submit">Verify &amp; Sign In</button>
+
+            <div class="row g-2">
+              <div class="col-6">
+                <button type="button" id="resendBtn" class="btn btn-outline-login" disabled>
+                  Resend Code <span id="cooldown-timer">(60s)</span>
+                </button>
+              </div>
+              <div class="col-6">
+                <a href="{{ route('login') }}" class="btn btn-outline-secondary w-100 rounded-3 py-2" style="font-weight: 600; font-size:0.95rem;">Cancel</a>
+              </div>
+            </div>
+          </form>
+        @endif
       </div>
     </div>
   </div>
@@ -517,5 +615,93 @@
       }
     }
   </script>
+
+  @if($step == 2)
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const otpInput = document.getElementById('otp-input');
+
+        if (otpInput) {
+            otpInput.focus();
+            otpInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '');
+                if (this.value.length === 6) {
+                    this.form.submit();
+                }
+            });
+        }
+
+        // OTP expiration countdown (10 minutes)
+        let expirySecs = 600;
+        const expiryTimer = document.getElementById('otp-timer');
+
+        const expiryInterval = setInterval(function() {
+            expirySecs--;
+            if (expirySecs <= 0) {
+                clearInterval(expiryInterval);
+                expiryTimer.textContent = "Expired";
+                alert('Your OTP has expired. Please login again.');
+                window.location.href = "{{ route('login') }}";
+            } else {
+                let mins = Math.floor(expirySecs / 60);
+                let secs = expirySecs % 60;
+                expiryTimer.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+            }
+        }, 1000);
+
+        // Resend cooldown timer (60 seconds)
+        let cooldownSecs = 60;
+        const cooldownTimer = document.getElementById('cooldown-timer');
+        const resendBtn = document.getElementById('resendBtn');
+
+        const cooldownInterval = setInterval(function() {
+            cooldownSecs--;
+            if (cooldownSecs <= 0) {
+                clearInterval(cooldownInterval);
+                resendBtn.disabled = false;
+                cooldownTimer.textContent = "";
+            } else {
+                cooldownTimer.textContent = "(" + cooldownSecs + "s)";
+            }
+        }, 1000);
+
+        resendBtn.addEventListener('click', function() {
+            resendBtn.disabled = true;
+            cooldownSecs = 60;
+            cooldownTimer.textContent = "(60s)";
+
+            const newInterval = setInterval(function() {
+                cooldownSecs--;
+                if (cooldownSecs <= 0) {
+                    clearInterval(newInterval);
+                    resendBtn.disabled = false;
+                    cooldownTimer.textContent = "";
+                } else {
+                    cooldownTimer.textContent = "(" + cooldownSecs + "s)";
+                }
+            }, 1000);
+
+            fetch("{{ route('login.resend-otp') }}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('A new verification code has been emailed to you.');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Error sending verification code. Please try again.');
+            });
+        });
+    });
+  </script>
+  @endif
 </body>
 </html>

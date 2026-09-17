@@ -624,6 +624,13 @@
                         <label class="form-label fw-semibold">Mobile Number</label>
                         <input type="text" name="mobile" class="form-control rounded-3" value="{{ auth()->user()->mobile }}" required>
                     </div>
+                    <div class="col-md-12">
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" role="switch" name="two_factor_enabled" id="twoFactorEnabled" value="1" {{ auth()->user()->two_factor_enabled ? 'checked' : '' }}>
+                            <label class="form-check-label fw-semibold" for="twoFactorEnabled">Enable email verification code (2FA) at login</label>
+                            <div class="form-text">When enabled, you'll be emailed a 6-digit code to enter each time you log in, in addition to your password.</div>
+                        </div>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-warning rounded-pill px-5 fw-semibold mt-4" style="background: linear-gradient(135deg, #b8863a, #d4a05a); border:none; color: white;">Save Changes</button>
             </form>

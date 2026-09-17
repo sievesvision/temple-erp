@@ -79,6 +79,23 @@
         background: #8b5cf6;
         color: white;
     }
+    .btn-action-2fa {
+        background: rgba(184, 134, 58, 0.1);
+        color: #b8863a;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 40px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        transition: 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-action-2fa:hover {
+        background: #b8863a;
+        color: white;
+    }
     .filter-bar {
         background: white;
         border-radius: 20px;
@@ -148,6 +165,7 @@
                     <th>Status</th>
                     <th>Last Login</th>
                     <th>Last Password Change</th>
+                    <th>2FA</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -171,6 +189,13 @@
                     </td>
                     <td>{{ $u->last_login_at ? $u->last_login_at->format('d M Y, h:i A') : 'Never' }}</td>
                     <td>{{ $u->password_changed_at ? $u->password_changed_at->format('d M Y, h:i A') : 'Never' }}</td>
+                    <td>
+                        @if($u->two_factor_enabled)
+                            <span class="badge bg-success">Enabled</span>
+                        @else
+                            <span class="badge bg-secondary">Disabled</span>
+                        @endif
+                    </td>
                     <td class="text-end">
                         <form action="{{ route('admin.users.send-reset-link', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Send a password reset link to {{ $u->email }}?')">
                             @csrf
@@ -178,11 +203,17 @@
                                 <i class="bi bi-envelope-arrow-up"></i> Send Reset Link
                             </button>
                         </form>
+                        <form action="{{ route('admin.users.toggle-2fa', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $u->two_factor_enabled ? 'Disable' : 'Enable' }} two-factor authentication for {{ $u->email }}?')">
+                            @csrf
+                            <button type="submit" class="btn-action-2fa">
+                                <i class="bi bi-shield-lock"></i> {{ $u->two_factor_enabled ? 'Disable 2FA' : 'Enable 2FA' }}
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-5">
+                    <td colspan="8" class="text-center text-muted py-5">
                         <i class="bi bi-person-vcard fs-1 d-block mb-2 text-warning"></i>
                         No users found.
                     </td>

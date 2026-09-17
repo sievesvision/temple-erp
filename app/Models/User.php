@@ -31,6 +31,7 @@ protected $fillable = [
     'last_login_at',
     'password_changed_at',
     'last_reset_email_sent_at',
+    'two_factor_enabled',
 ];
 
     /**
@@ -55,6 +56,7 @@ protected $fillable = [
             'password' => 'hashed',
             'last_login_at' => 'datetime',
             'password_changed_at' => 'datetime',
+            'two_factor_enabled' => 'boolean',
         ];
     }
 

@@ -23,6 +23,7 @@ class ProfileController extends Controller
         $rules = [
             'name' => 'required|string|max:255',
             'mobile' => 'required|string|max:15|unique:users,mobile,' . $user->id,
+            'two_factor_enabled' => 'nullable|boolean',
         ];
 
         // Add validations based on role
@@ -75,6 +76,7 @@ class ProfileController extends Controller
             DB::table('users')->where('id', $user->id)->update([
                 'name' => $request->name,
                 'mobile' => $request->mobile,
+                'two_factor_enabled' => $request->boolean('two_factor_enabled'),
                 'updated_at' => now()
             ]);
 

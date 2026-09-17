@@ -25,7 +25,7 @@ class SystemUserController extends Controller
         }
 
         $query = User::query()
-            ->select('id', 'name', 'email', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at');
+            ->select('id', 'name', 'email', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled');
 
         $roleFilter = $request->get('role');
         if ($roleFilter && in_array($roleFilter, RolePermission::roles(), true)) {
@@ -69,5 +69,25 @@ class SystemUserController extends Controller
         AuditLogService::log("Sent password reset link to {$targetUser->email}");
 
         return redirect()->back()->with('success', "Reset link sent to {$targetUser->name}.");
+    }
+
+    /**
+     * Admin-side per-user 2FA toggle — separate from the user's own self-service toggle on
+     * their profile page (ProfileController::update()), so an admin can require or waive it
+     * for any account regardless of what that user has chosen for themselves.
+     */
+    public function toggleTwoFactor(Request $request, User $targetUser)
+    {
+        $user = Auth::user();
+        if (!$user || $user->role !== 'Admin') {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $newState = !$targetUser->two_factor_enabled;
+        $targetUser->update(['two_factor_enabled' => $newState]);
+
+        AuditLogService::log(($newState ? 'Enabled' : 'Disabled') . " 2FA for: {$targetUser->email}");
+
+        return redirect()->back()->with('success', "Two-factor authentication " . ($newState ? 'enabled' : 'disabled') . " for {$targetUser->name}.");
     }
 }

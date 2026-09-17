@@ -47,6 +47,9 @@ Route::post('/register/verify-otp', [AuthController::class, 'verifyOtp'])->name(
 Route::post('/register/resend-otp', [AuthController::class, 'resendOtp'])->name('register.resend-otp');
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+Route::get('/login/verify-otp', [AuthController::class, 'showLoginVerifyOtp'])->name('login.verify-otp');
+Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp'])->name('login.verify-otp.post');
+Route::post('/login/resend-otp', [AuthController::class, 'loginOtpResend'])->name('login.resend-otp');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 // Switches session('active_role') for anyone holding more than one granted role — reached
 // from the topbar's "Switch Role" menu rather than at login time (see AuthController).
@@ -439,6 +442,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     // System Users (cross-role account list + admin-triggered password reset)
     Route::get('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'index'])->name('admin.users.index');
     Route::post('/admin/users/{targetUser}/send-reset-link', [\App\Http\Controllers\SystemUserController::class, 'sendResetLink'])->name('admin.users.send-reset-link');
+    Route::post('/admin/users/{targetUser}/toggle-2fa', [\App\Http\Controllers\SystemUserController::class, 'toggleTwoFactor'])->name('admin.users.toggle-2fa');
 
     // Leave Requests Route (Admin management)
     Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');

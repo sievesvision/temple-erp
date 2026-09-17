@@ -242,7 +242,113 @@ class AuthController extends Controller
 
     public function showLogin()
     {
-        return view('auth.login');
+        return response()->view('auth.login', ['step' => 1])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+    }
+
+    /**
+     * Step 2 of login for a 2FA-enabled account — "Enter your OTP". Requires the pending
+     * login state startLoginOtp() stashed in session; falls back to the plain login form if
+     * that's missing (e.g. the user navigated here directly or the session already expired).
+     */
+    public function showLoginVerifyOtp(Request $request)
+    {
+        if (!session()->has('login_otp_user_id')) {
+            return redirect()->route('login');
+        }
+
+        return response()->view('auth.login', ['step' => 2])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+    }
+
+    /**
+     * Verifies the login OTP and, on success, runs the same completeLogin() tail the
+     * non-2FA path uses — this is the only place a 2FA account's session actually gets
+     * established.
+     */
+    public function verifyLoginOtp(Request $request)
+    {
+        $request->validate([
+            'otp' => 'required|digits:6',
+        ]);
+
+        if (!session()->has('login_otp_user_id')) {
+            return redirect()->route('login')->withErrors(['email' => 'Session expired. Please login again.']);
+        }
+
+        $expiresAt = session('login_otp_expires_at');
+        if (!$expiresAt || now()->greaterThan($expiresAt)) {
+            return redirect()->route('login.verify-otp')->withErrors(['otp' => 'OTP has expired. Please request a new one.']);
+        }
+
+        $attempts = session('login_otp_attempts', 0);
+        if ($attempts >= 5) {
+            session()->forget(['login_otp_user_id', 'login_otp_hash', 'login_otp_expires_at', 'login_otp_attempts', 'login_otp_resend_cooldown_expires_at', 'login_otp_resend_attempts']);
+            return redirect()->route('login')->withErrors(['email' => 'Too many failed verification attempts. Please login again.']);
+        }
+        session(['login_otp_attempts' => $attempts + 1]);
+
+        $hash = session('login_otp_hash');
+        if (!Hash::check($request->otp, $hash)) {
+            return redirect()->route('login.verify-otp')->withErrors(['otp' => 'Invalid OTP. Please check the code and try again.']);
+        }
+
+        $user = User::find(session('login_otp_user_id'));
+        session()->forget(['login_otp_user_id', 'login_otp_hash', 'login_otp_expires_at', 'login_otp_attempts', 'login_otp_resend_cooldown_expires_at', 'login_otp_resend_attempts']);
+
+        if (!$user) {
+            return redirect()->route('login')->withErrors(['email' => 'Account no longer exists.']);
+        }
+
+        return $this->completeLogin($user);
+    }
+
+    /**
+     * Resend the login OTP — mirrors forgotPasswordResend()'s cooldown/attempt-cap shape.
+     */
+    public function loginOtpResend(Request $request)
+    {
+        $userId = session('login_otp_user_id');
+        if (!$userId) {
+            return response()->json(['success' => false, 'message' => 'Session expired. Please login again.'], 400);
+        }
+
+        $cooldown = session('login_otp_resend_cooldown_expires_at');
+        if ($cooldown && now()->lessThan($cooldown)) {
+            $remaining = $cooldown->diffInSeconds(now());
+            return response()->json(['success' => false, 'message' => "Please wait {$remaining} seconds before requesting a new OTP."], 400);
+        }
+
+        $attempts = session('login_otp_resend_attempts', 0);
+        if ($attempts >= 5) {
+            return response()->json(['success' => false, 'message' => 'Maximum resend attempts reached. Please login again.'], 400);
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Account no longer exists.'], 400);
+        }
+
+        $otp = sprintf("%06d", mt_rand(100000, 999999));
+
+        session([
+            'login_otp_hash' => Hash::make($otp),
+            'login_otp_expires_at' => now()->addMinutes(10),
+            'login_otp_attempts' => 0,
+            'login_otp_resend_cooldown_expires_at' => now()->addSeconds(60),
+            'login_otp_resend_attempts' => $attempts + 1,
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new \App\Mail\LoginOtpMail($otp, '10 minutes', $user->name));
+            return response()->json(['success' => true, 'message' => 'A new OTP has been sent to your email.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Failed to send verification email: ' . $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -303,6 +409,50 @@ class AuthController extends Controller
                 ->withInput();
         }
 
+        // A 2FA-enabled account doesn't get a session yet — credentials are correct, but
+        // login only completes once the emailed OTP is verified (see verifyLoginOtp()).
+        if ($user->two_factor_enabled) {
+            return $this->startLoginOtp($user);
+        }
+
+        return $this->completeLogin($user);
+    }
+
+    /**
+     * Generates and emails a login OTP, stashes the pending user id in session (mirrors
+     * forgot-password's session-based OTP state), and sends the user to the "Enter OTP"
+     * step of the login view instead of completing authentication immediately.
+     */
+    private function startLoginOtp(User $user)
+    {
+        $otp = sprintf("%06d", mt_rand(100000, 999999));
+
+        session([
+            'login_otp_user_id' => $user->id,
+            'login_otp_hash' => Hash::make($otp),
+            'login_otp_expires_at' => now()->addMinutes(10),
+            'login_otp_attempts' => 0,
+            'login_otp_resend_cooldown_expires_at' => now()->addSeconds(60),
+            'login_otp_resend_attempts' => 0,
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new \App\Mail\LoginOtpMail($otp, '10 minutes', $user->name));
+        } catch (\Exception $e) {
+            session()->forget(['login_otp_user_id', 'login_otp_hash', 'login_otp_expires_at', 'login_otp_attempts', 'login_otp_resend_cooldown_expires_at', 'login_otp_resend_attempts']);
+            return back()->withErrors(['email' => 'Failed to send login verification email: ' . $e->getMessage()])->withInput();
+        }
+
+        return redirect()->route('login.verify-otp');
+    }
+
+    /**
+     * The shared "credentials/OTP are both good, finish signing them in" tail — used by both
+     * the plain login() path (no 2FA) and verifyLoginOtp() (2FA verified) so the actual
+     * session/role/redirect logic only exists once.
+     */
+    private function completeLogin(User $user)
+    {
         // Login always lands on the account's stored/default role — a user holding
         // additional roles (Committee, Event Coordinator, etc. via grant tables) switches
         // to them afterwards from the topbar menu (see switchRole()), rather than picking
