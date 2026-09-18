@@ -913,7 +913,7 @@ class DonationController extends Controller
             ]);
         }
 
-        $txnRef = 'EFT' . now()->format('mdHis') . rand(10, 99);
+        $txnRef = 'EFT' . now()->format('mdHis') . rand(100, 999);
 
         $result = LinklyEftService::startPurchase(
             (float) $validated['amount'],
@@ -1218,7 +1218,7 @@ class DonationController extends Controller
             'client_ref' => 'required|string|max:64',
         ]);
 
-        $refundTxnRef = 'RFD' . now()->format('mdHis') . rand(10, 99);
+        $refundTxnRef = 'RFD' . now()->format('mdHis') . rand(100, 999);
 
         $result = LinklyEftService::startRefund(
             (float) $validated['amount'],
@@ -1295,7 +1295,7 @@ class DonationController extends Controller
         $result = LinklyEftService::logon();
 
         LinklyTransaction::create([
-            'pos_txn_ref' => 'LGN' . now()->format('mdHis') . rand(10, 99),
+            'pos_txn_ref' => 'LGN' . now()->format('mdHis') . rand(100, 999),
             'txn_type' => 'logon',
             'event_id' => $eventId,
             'status' => $result['success'] ? 'approved' : 'failed',
@@ -1401,16 +1401,21 @@ class DonationController extends Controller
             // a "transaction"/"receipt" postback (unlike "display") can carry card data
             // (PAN, track2), so nothing from this webhook is ever logged wholesale.
             Log::info('Linkly display notification', ['session_id' => $sessionId, 'display' => $cleanedLines]);
-        } elseif ($responseType === 'receipt') {
-            // The merchant/customer receipt text for a completed transaction — kept only for
-            // the accreditation pane's Reprint/receipt evidence, never used to decide
-            // payment_status. recordReceipt() masks any run of digits long enough to be a PAN
+        } elseif (in_array(strtolower((string) $responseType), ['receipt', 'receiptresponse', 'receiptevent'], true)) {
+            // The exact wire value for a receipt notification's ResponseType isn't confirmed
+            // against real traffic the way "display" was — Linkly's own C# SDK calls its
+            // internal wrapper type "ReceiptResponse" and the accreditation script calls the
+            // test "ReceiptEvent", neither of which is necessarily the literal string sent
+            // over the wire, so this matches case-insensitively against every name that's
+            // been seen anywhere rather than gambling on one. Never used to decide
+            // payment_status — kept only for the accreditation pane's Reprint/receipt
+            // evidence. recordReceipt() masks any run of digits long enough to be a PAN
             // before anything is cached, and nothing here is ever logged wholesale (same
             // "never log raw postback body" rule as above).
             $receiptResponse = $request->input('Response') ?? $request->input('response') ?? [];
             $lines = $receiptResponse['ReceiptText'] ?? $receiptResponse['receiptText'] ?? [];
             LinklyEftService::recordReceipt($sessionId, is_array($lines) ? $lines : []);
-            Log::info('Linkly receipt notification received', ['session_id' => $sessionId]);
+            Log::info('Linkly receipt notification received', ['session_id' => $sessionId, 'response_type' => $responseType]);
         }
 
         return response()->json(['received' => true]);

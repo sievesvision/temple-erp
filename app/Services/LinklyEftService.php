@@ -29,6 +29,18 @@ use Illuminate\Support\Str;
 class LinklyEftService
 {
     /**
+     * This POS's declared identity for Linkly accreditation — matches what's declared on the
+     * accreditation submission itself (POS Software Name / POS Version), and is sent both on
+     * every Auth Token request (posName/posVersion) and as the mandatory NME/VER Purchase
+     * Analysis Data tags on every transaction (accreditation requirement 1.0.1). Kept as
+     * constants rather than Settings since accreditation is against one specific declared
+     * name+version, not something an admin should be able to silently change per-deployment.
+     */
+    private const POS_NAME = 'sievespos';
+    private const POS_VERSION = 'ver2.0';
+
+
+    /**
      * Exchanges a PIN pad's freshly-displayed pair code for a permanent secret. The pair
      * code is only valid for ~180 seconds from when the terminal generated it, so this must
      * be called immediately after the operator reads it off the terminal/virtual PIN pad.
@@ -85,8 +97,8 @@ class LinklyEftService
 
             $response = Http::timeout(30)->post(LinklyConfigService::authBaseUrl() . '/v1/tokens/cloudpos', [
                 'secret' => $secret,
-                'posName' => 'SSVK ERP',
-                'posVersion' => '1.0',
+                'posName' => self::POS_NAME,
+                'posVersion' => self::POS_VERSION,
                 'posId' => LinklyConfigService::posId(),
                 'posVendorId' => LinklyConfigService::posVendorId(),
             ]);
@@ -135,19 +147,25 @@ class LinklyEftService
     }
 
     /**
-     * The three mandatory Core Payments Purchase Analysis Data tags (per Linkly's REST
-     * documentation): OPR (operator reference — "id|name"), AMT (total sale amount in cents,
-     * same value as AmtPurchase since this app never adds tips/surcharges), and PCM (POS
-     * Capabilities Matrix — "0000" is Linkly's own documented default for a POS with none of
-     * the optional capabilities the matrix's digits represent). LINKLY CONFIRMATION REQUIRED:
-     * the exact meaning of each PCM digit isn't in the pages this was built from — "0000"
-     * should be re-confirmed against the current official spec before accreditation testing.
+     * The Core Payments accreditation's mandatory Purchase Analysis Data tags (accreditation
+     * requirement 1.0.1: "All Transactions must have POS Name (NME), POS Version (VER) and
+     * POS Vendor ID (VND) tag details included in the Purchase Analysis Data field" — sent on
+     * every Purchase and Refund). NME/VER mirror exactly what's declared on the accreditation
+     * submission and sent as posName/posVersion on every Auth Token request; VND is the same
+     * posVendorId already used there, so all three identify this POS consistently everywhere
+     * Linkly sees it. OPR/AMT/PCM are additional tags from Linkly's general REST
+     * documentation, kept alongside the mandatory three since sending extra PAD tags is
+     * harmless. LINKLY CONFIRMATION REQUIRED: the exact meaning of each PCM digit isn't in
+     * the pages this was built from — "0000" should be re-confirmed before relying on it.
      *
      * @return array<string, string>
      */
     private static function corePad(int $amtCents, ?int $operatorId, ?string $operatorName): array
     {
         return [
+            'NME' => self::POS_NAME,
+            'VER' => self::POS_VERSION,
+            'VND' => LinklyConfigService::posVendorId(),
             'OPR' => trim(($operatorId ?? '0') . '|' . ($operatorName ?? 'POS')),
             'AMT' => (string) $amtCents,
             'PCM' => '0000',
@@ -535,7 +553,8 @@ class LinklyEftService
      * @return array{
      *   payment_status: string, done: bool, display: array<string>, display_text: ?string,
      *   updated_at: ?string, controls: array<string, bool>, success: ?bool, message: ?string,
-     *   response_code: ?string, auth_code: ?string, rrn: ?string, txn_ref: ?string
+     *   response_code: ?string, auth_code: ?string, rrn: ?string, txn_ref: ?string,
+     *   transient_error: bool
      * }
      */
     public static function pollTransaction(string $sessionId): array
@@ -550,6 +569,13 @@ class LinklyEftService
             'controls' => $controls,
         ];
 
+        // 'transient_error' is Core Payments accreditation requirement 1.2.2's own
+        // distinction: HTTP 408 and 500-599 need error-recovery handling (the browser backs
+        // off exponentially — see pollEftTransaction() in the POS page — rather than hammering
+        // Linkly at a fixed interval), while 400/401/404 are explicitly excluded from that
+        // requirement and are treated as ordinary (non-transient) outcomes below.
+        $base['transient_error'] = false;
+
         $token = self::getToken();
         if (!$token) {
             return array_merge($base, ['payment_status' => 'failed', 'done' => true, 'success' => false, 'message' => 'Could not authenticate with the EFT terminal service.', 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
@@ -559,9 +585,9 @@ class LinklyEftService
             $response = Http::timeout(15)->withToken($token)
                 ->get(LinklyConfigService::apiBaseUrl() . "/v1/sessions/{$sessionId}/transaction");
         } catch (\Exception $e) {
-            // A transient network hiccup while polling isn't fatal — report "still going"
-            // so the browser just tries again on its next tick instead of giving up.
-            return array_merge($base, ['payment_status' => 'in_progress', 'done' => false, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
+            // A network-level failure to even reach Linkly is treated the same as a 5xx for
+            // backoff purposes — it's just as much "the far end isn't responding right now".
+            return array_merge($base, ['transient_error' => true, 'payment_status' => 'in_progress', 'done' => false, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 
         if ($response->status() === 202) {
@@ -572,7 +598,13 @@ class LinklyEftService
             return array_merge($base, ['payment_status' => 'failed', 'done' => true, 'success' => false, 'message' => 'Transaction was not accepted by the terminal service.', 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 
+        if ($response->status() === 408 || $response->status() >= 500) {
+            return array_merge($base, ['transient_error' => true, 'payment_status' => 'in_progress', 'done' => false, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
+        }
+
         if (!$response->successful()) {
+            // 400/401 and anything else not covered above — not part of the mandatory error-
+            // recovery requirement, so no backoff flag; just keep polling at the normal rate.
             return array_merge($base, ['payment_status' => 'in_progress', 'done' => false, 'success' => null, 'message' => null, 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }
 

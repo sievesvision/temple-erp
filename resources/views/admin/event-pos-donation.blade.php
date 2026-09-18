@@ -658,6 +658,7 @@
 
             eftPollCancelled = false;
             eftCurrentSessionId = null;
+            eftConsecutiveTransientErrors = 0;
             showEftModal(attempt.amount);
             const startBody = new URLSearchParams();
             startBody.set('event_id', EVENT_ID);
@@ -751,6 +752,22 @@
         // window guidance) — each response carries the PIN pad's current display text (if
         // any arrived via webhook since the last poll) and, once the terminal finishes,
         // the final approved/declined result.
+        // Error Recovery — Exponential Back Off (Core Payments accreditation requirement
+        // 1.2.1/1.2.2): a 408 or 500-599 response (or a network-level failure reaching
+        // Linkly at all) backs off exponentially — 1.2s, 2.4s, 4.8s, ... capped at 30s —
+        // instead of hammering Linkly at the normal ~1.2s cadence, to avoid undue load on
+        // their backend while an outage clears. Resets to the normal cadence the moment a
+        // non-transient response comes back (in-progress, approved, declined, whatever).
+        let eftConsecutiveTransientErrors = 0;
+        function eftNextPollDelay(wasTransientError) {
+            if (!wasTransientError) {
+                eftConsecutiveTransientErrors = 0;
+                return 1200;
+            }
+            eftConsecutiveTransientErrors++;
+            return Math.min(1200 * Math.pow(2, eftConsecutiveTransientErrors), 30000);
+        }
+
         function pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt) {
             if (eftPollCancelled) { return; }
 
@@ -780,7 +797,7 @@
                     if (!data.done) {
                         setTimeout(function () {
                             pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt);
-                        }, 1200);
+                        }, eftNextPollDelay(!!data.transient_error));
                         return;
                     }
                     if (data.success) {
@@ -807,35 +824,40 @@
                     }
                 })
                 .catch(function () {
-                    // A single failed poll isn't fatal — try again on the next tick rather
-                    // than abandoning a transaction that may still complete on the terminal.
+                    // A single failed poll isn't fatal — try again rather than abandoning a
+                    // transaction that may still complete on the terminal, backing off
+                    // exponentially the same as a 408/500-599 response from the server.
                     setTimeout(function () {
                         pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt);
-                    }, 1200);
+                    }, eftNextPollDelay(true));
                 });
         }
 
-        // Resume-after-refresh: if a previous attempt is still sitting in sessionStorage when
-        // this page loads (the operator refreshed or the browser crashed mid-payment), never
-        // silently start anything — just surface a banner so the operator can explicitly
-        // resume checking it. See startOrResumeEftPurchase()/EFT_ATTEMPT_KEY above.
+        // Power Fail Recovery (Core Payments accreditation requirement 4.1.2): if a previous
+        // attempt is still sitting in sessionStorage when this page loads (the operator
+        // refreshed, or the browser/terminal lost power mid-payment), the status GET must be
+        // performed automatically at startup — not wait for the operator to notice and click
+        // something. This never starts a new Linkly transaction (startOrResumeEftPurchase()
+        // only ever resumes the existing session for this client_ref), so doing it
+        // automatically is safe; the banner stays purely as a visible explanation of what the
+        // page is already doing, with a Dismiss option for "no, I know about this, stop".
         document.addEventListener('DOMContentLoaded', function () {
             const attempt = loadEftAttempt();
             const banner = document.getElementById('eftResumeBanner');
             if (attempt && banner) {
                 document.getElementById('eftResumeBannerText').textContent =
-                    'A previous EFT Terminal payment (' + CURRENCY_CODE + ' ' + Number(attempt.amount).toFixed(2) + ' for ' + attempt.name + ') did not finish. It may already be approved on the terminal.';
+                    'Checking a previous EFT Terminal payment (' + CURRENCY_CODE + ' ' + Number(attempt.amount).toFixed(2) + ' for ' + attempt.name + ') that did not finish…';
                 banner.style.display = 'flex';
-                document.getElementById('eftResumeBannerBtn').addEventListener('click', function () {
-                    banner.style.display = 'none';
-                    const btn = document.getElementById('posSaveBtn');
-                    btn.disabled = true;
-                    startOrResumeEftPurchase(btn, attempt);
-                });
+                document.getElementById('eftResumeBannerBtn').style.display = 'none';
                 document.getElementById('eftResumeBannerDismissBtn').addEventListener('click', function () {
                     banner.style.display = 'none';
+                    eftPollCancelled = true;
                     clearEftAttempt();
                 });
+
+                const btn = document.getElementById('posSaveBtn');
+                btn.disabled = true;
+                startOrResumeEftPurchase(btn, attempt);
             }
         });
     </script>
