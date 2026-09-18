@@ -29,7 +29,7 @@
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow-x: hidden; }
-        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--text-primary); }
+        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; background: var(--cream); color: var(--text-primary); }
         h1, h2, h3, h4 { font-family: var(--serif); }
         button, input, select, textarea { font-family: inherit; }
 

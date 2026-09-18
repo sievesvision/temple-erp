@@ -542,6 +542,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::post('/admin/eft/charge/start', [\App\Http\Controllers\DonationController::class, 'startEftCharge'])->name('admin.eft.charge.start');
     Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
     Route::post('/admin/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('admin.eft.charge.cancel');
+    Route::post('/admin/eft/charge/sendkey/{sessionId}', [\App\Http\Controllers\DonationController::class, 'sendEftKey'])->name('admin.eft.charge.sendkey');
     // Event-admin-only EFTPOS management (Refund/Logon/Reprint/Pairing) — DonationController's
     // own canManageEftForEvent() does the finer per-event, admin-level check; this route group
     // only gets the request as far as "some kind of console user", same broader-than-capability

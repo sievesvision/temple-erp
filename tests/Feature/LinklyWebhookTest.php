@@ -339,4 +339,48 @@ class LinklyWebhookTest extends TestCase
 
         $response->assertOk()->assertJson(['success' => false]);
     }
+
+    // sendEftKey(): each semantic key name maps to the correct Linkly sendkey code, and an
+    // unrecognised name is rejected before ever reaching Linkly.
+    public function test_send_key_endpoint_maps_semantic_names_to_linkly_codes(): void
+    {
+        $sessionId = (string) Str::uuid();
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*/sendkey*' => Http::response(['response' => ['success' => true]], 200),
+        ]);
+        $user = $this->adminUser();
+
+        foreach (['ok' => '1', 'yes' => '1', 'no' => '2', 'authorise' => '3'] as $name => $code) {
+            $response = $this->actingAs($user)->postJson("/admin/eft/charge/sendkey/{$sessionId}", ['key' => $name]);
+            $response->assertOk()->assertJson(['success' => true]);
+
+            Http::assertSent(function ($request) use ($sessionId, $code) {
+                return str_contains($request->url(), "/sessions/{$sessionId}/sendkey")
+                    && $request['Request']['Key'] === $code;
+            });
+        }
+    }
+
+    public function test_send_key_endpoint_rejects_unrecognised_key_names(): void
+    {
+        $sessionId = (string) Str::uuid();
+
+        $response = $this->actingAs($this->adminUser())->postJson("/admin/eft/charge/sendkey/{$sessionId}", ['key' => 'cancel']);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_send_key_endpoint_rejects_unauthorised_users(): void
+    {
+        $sessionId = (string) Str::uuid();
+        $coordinator = User::factory()->create([
+            'role' => 'Event Coordinator',
+            'mobile' => fake()->unique()->numerify('04########'),
+        ]);
+
+        $response = $this->actingAs($coordinator)->postJson("/admin/eft/charge/sendkey/{$sessionId}", ['key' => 'ok']);
+
+        $response->assertStatus(403);
+    }
 }

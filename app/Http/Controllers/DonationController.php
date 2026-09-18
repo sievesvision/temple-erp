@@ -1030,6 +1030,36 @@ class DonationController extends Controller
     }
 
     /**
+     * Sends an OK/Yes/No/Authorise soft-key press to the terminal for an in-progress
+     * transaction — e.g. the operator confirming a signature-required sale on the POS screen
+     * rather than only on the terminal itself. Only ever reachable for a key Linkly's own
+     * display notification currently flags as available (the POS modal only shows a button
+     * for a flagged key in the first place, and this only accepts the small fixed set of
+     * semantic names below — never a raw Linkly key code from the client) — same
+     * authorization as Cancel/starting/polling the charge.
+     */
+    public function sendEftKey(Request $request, string $sessionId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $validated = $request->validate([
+            'key' => 'required|string|in:ok,yes,no,authorise',
+        ]);
+
+        // Linkly's sendkey codes: "0"=Cancel (see LinklyEftService::cancel()), "1"=Yes/OK,
+        // "2"=No, "3"=Authorise — OK and Yes share the same code since the terminal exposes
+        // one underlying "accept" action even though the display notification can flag
+        // OKKeyFlag and AcceptYesKeyFlag independently depending on the prompt.
+        $linklyKey = ['ok' => '1', 'yes' => '1', 'no' => '2', 'authorise' => '3'][$validated['key']];
+
+        return response()->json(LinklyEftService::sendKey($sessionId, $linklyKey));
+    }
+
+    /**
      * Links a just-created donation record back to the Linkly ledger row its EFT Terminal
      * payment started — a no-op for every other payment method (no session id is ever sent).
      * This is what makes a refund possible later (payment_method + ledger status are checked

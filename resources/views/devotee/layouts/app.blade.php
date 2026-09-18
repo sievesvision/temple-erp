@@ -24,6 +24,7 @@
     }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-variant-numeric: tabular-nums;
       background: transparent !important;
       color: #1e1e2a;
     }

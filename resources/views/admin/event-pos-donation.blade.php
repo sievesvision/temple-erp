@@ -25,7 +25,7 @@
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow-x: hidden; height: 100%; }
-        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cream); color: var(--text-primary); display: flex; flex-direction: column; }
+        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; background: var(--cream); color: var(--text-primary); display: flex; flex-direction: column; }
         h1, h2 { font-family: var(--serif); }
         button, input, select, textarea { font-family: inherit; }
 
@@ -147,6 +147,19 @@
         }
         .eft-modal-cancel-btn:active { background: var(--cream); }
 
+        /* Terminal soft-key buttons (OK/Yes/No/Authorise) — only ever shown when Linkly's own
+           display notification currently flags that key as available (data.controls), never
+           guessed at or shown speculatively. */
+        .eft-modal-keys { display: none; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        .eft-modal-keys.active { display: flex; }
+        .eft-modal-key-btn {
+            flex: 1 1 auto; min-width: 90px; padding: 13px 10px; border-radius: 12px; border: 2px solid transparent;
+            font-weight: 700; font-size: 0.95rem; color: #fff;
+        }
+        .eft-modal-key-btn:active { filter: brightness(0.92); }
+        .eft-modal-key-btn.key-ok, .eft-modal-key-btn.key-yes, .eft-modal-key-btn.key-authorise { background: var(--success); }
+        .eft-modal-key-btn.key-no { background: var(--error); }
+
         @media (max-width: 600px) {
             .pos-topbar-title .pos-subtitle { display: none; }
             .pos-quick-amount-btn { flex: 1 1 calc(50% - 10px); }
@@ -250,6 +263,12 @@
                     <span class="eft-modal-status-line" id="eftModalStatusLine1">Starting…</span>
                     <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
                 </div>
+                <div class="eft-modal-keys" id="eftModalKeys">
+                    <button type="button" class="eft-modal-key-btn key-yes" data-key="yes" id="eftModalKeyYes">Yes</button>
+                    <button type="button" class="eft-modal-key-btn key-ok" data-key="ok" id="eftModalKeyOk">OK</button>
+                    <button type="button" class="eft-modal-key-btn key-no" data-key="no" id="eftModalKeyNo">No</button>
+                    <button type="button" class="eft-modal-key-btn key-authorise" data-key="authorise" id="eftModalKeyAuthorise">Authorise</button>
+                </div>
                 <button type="button" class="eft-modal-cancel-btn" id="eftModalCancelBtn">Cancel Payment</button>
             </div>
         </div>
@@ -264,6 +283,7 @@
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
         const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
         const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));
+        const EFT_CHARGE_SENDKEY_URL_BASE = @json(url('/admin/eft/charge/sendkey'));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [51, 101, 201, 501, 1001];
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
@@ -469,6 +489,13 @@
         const eftModalStatusBox = document.getElementById('eftModalStatusBox');
         const eftModalStatusLine1 = document.getElementById('eftModalStatusLine1');
         const eftModalStatusLine2 = document.getElementById('eftModalStatusLine2');
+        const eftModalKeys = document.getElementById('eftModalKeys');
+        const eftKeyButtons = {
+            ok: document.getElementById('eftModalKeyOk'),
+            yes: document.getElementById('eftModalKeyYes'),
+            no: document.getElementById('eftModalKeyNo'),
+            authorise: document.getElementById('eftModalKeyAuthorise'),
+        };
 
         // Recovery/idempotency: one in-flight EFT attempt at a time is remembered here (not
         // just in a JS variable, so it survives a browser refresh) — a client-generated
@@ -492,11 +519,51 @@
         }
 
         let eftModalLastSignature = null;
+        let eftModalKeysSignature = null;
         function showEftModal(amount) {
             eftModalAmount.textContent = CURRENCY_CODE + ' ' + amount.toFixed(2);
             eftModalLastSignature = null;
             setEftModalStatus(['Starting…'], 'pending');
+            updateEftModalKeys(null, null);
             eftModalOverlay.classList.add('active');
+        }
+        // Shows only the soft-key buttons Linkly's latest display notification currently
+        // flags as available (data.controls from the poll response) — never guessed at, and
+        // hidden again the instant a flag drops or the transaction resolves. Lets an operator
+        // respond to a signature-required prompt (or any other terminal soft-key request)
+        // from the POS screen instead of only on the terminal itself.
+        function updateEftModalKeys(controls, sessionId) {
+            const signature = controls ? JSON.stringify(controls) : 'none';
+            if (signature === eftModalKeysSignature) { return; }
+            eftModalKeysSignature = signature;
+
+            let anyVisible = false;
+            Object.keys(eftKeyButtons).forEach(function (key) {
+                const visible = !!(controls && controls[key]);
+                eftKeyButtons[key].hidden = !visible;
+                eftKeyButtons[key].onclick = visible ? function () { sendEftModalKey(key, sessionId); } : null;
+                if (visible) { anyVisible = true; }
+            });
+            eftModalKeys.classList.toggle('active', anyVisible);
+        }
+        function sendEftModalKey(key, sessionId) {
+            Object.values(eftKeyButtons).forEach(function (b) { b.disabled = true; });
+            fetch(EFT_CHARGE_SENDKEY_URL_BASE + '/' + encodeURIComponent(sessionId) + '?event_id=' + encodeURIComponent(EVENT_ID), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'key=' + encodeURIComponent(key),
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    Object.values(eftKeyButtons).forEach(function (b) { b.disabled = false; });
+                    if (!data.success) {
+                        showToast(data.message || 'The terminal did not accept that.', true);
+                    }
+                })
+                .catch(function () {
+                    Object.values(eftKeyButtons).forEach(function (b) { b.disabled = false; });
+                    showToast('Could not reach the terminal — please try again.', true);
+                });
         }
         // Only touches the DOM when the status/lines actually differ from what's already
         // shown — polling every ~1.2s would otherwise re-write (and visually flicker) the
@@ -515,6 +582,7 @@
         function hideEftModal() {
             eftModalOverlay.classList.remove('active');
             eftCurrentSessionId = null;
+            updateEftModalKeys(null, null);
         }
 
         // "Orders this session" — sessionStorage only, so it survives a reload of this same
@@ -794,6 +862,7 @@
                     if (data.display && data.display.length) {
                         setEftModalStatus(data.display, 'pending');
                     }
+                    updateEftModalKeys(data.done ? null : data.controls, sessionId);
                     if (!data.done) {
                         setTimeout(function () {
                             pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt);
