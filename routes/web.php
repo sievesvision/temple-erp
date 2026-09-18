@@ -22,6 +22,10 @@ Route::get('/events/{slug}', [\App\Http\Controllers\EventController::class, 'sho
 
 Route::get('/qr-{slug}', [\App\Http\Controllers\QrLinkController::class, 'redirect'])->name('qr.redirect')->where('slug', '[A-Za-z0-9-]+');
 
+// Linkly Cloud accreditation requirement 1.4: a merchant-facing Cloud pairing guide hosted
+// on the POS website, with its URL provided in the accreditation submission.
+Route::get('/eft-pairing-guide', fn () => view('frontend.eft-pairing-guide'))->name('eft.pairing-guide');
+
 Route::get('/', function () {
     $poojas = \Illuminate\Support\Facades\DB::table('poojas')->where('status', 'Active')->get();
     $events = \Illuminate\Support\Facades\DB::table('events')->where('status', 'Upcoming')->orderBy('event_date', 'asc')->get();
