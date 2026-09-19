@@ -1057,8 +1057,11 @@
 
                     <div class="card-panel mb-3">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                            <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second station can run its own concurrently — see Settings to add more.</div>
-                            <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
+                            <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second station can run its own concurrently.</div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ route('admin.eft-terminals.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg me-1"></i>Manage Terminals</a>
+                                <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
+                            </div>
                         </div>
                         @foreach($eftTerminals as $terminal)
                         <div class="row g-3 align-items-center border-top pt-3 mt-2">

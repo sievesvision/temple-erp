@@ -4,16 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\EftTerminal;
 use App\Services\AuditLogService;
+use App\Services\EftTerminalAccess;
+use App\Services\LinklyConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Admin-only management of the EFT terminal registry (add/remove a terminal, set which one
- * is the default) — the Settings page is the one central place terminals are created, so the
- * per-console EFTPOS panes (Event Console, Ticket Console) only ever choose *among* what's
- * already registered here, never invent a new one. Pairing itself is handled per-console (or
- * from here too, via LinklyController::pair()) since a non-Admin event-admin/ticket-admin can
- * still pair any registered terminal — only adding/removing/defaulting is Admin-only.
+ * The standalone "EFT Terminal Settings" page — deliberately its own page rather than a
+ * panel on the main Settings page, since the main Settings page is gated by the 'settings'
+ * RolePermission resource (typically Admin/Committee only), while an event-admin coordinator
+ * or ticket-admin controller already has full pairing/refund/logon rights over any terminal
+ * from their own console and needs to be able to register a *new* one too — see
+ * App\Services\EftTerminalAccess for exactly who that is. Only "set default" and "remove a
+ * terminal" stay System-Admin-only, since those affect every other console's fallback
+ * resolution, not just the caller's own event/module.
  */
 class EftTerminalController extends Controller
 {
@@ -23,9 +27,30 @@ class EftTerminalController extends Controller
         return $user && $user->role === 'Admin';
     }
 
+    private function canManageRegistry(): bool
+    {
+        $user = Auth::user();
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        return EftTerminalAccess::canManageRegistry($user, $activeRole);
+    }
+
+    public function index(Request $request)
+    {
+        if (!$this->canManageRegistry()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $eftTerminals = EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
+        $linklyMode = LinklyConfigService::mode();
+        $canManageRegistryLevel = $this->canManageRegistry();
+        $isSystemAdmin = $this->isAdmin();
+
+        return view('admin.eft-terminal-settings', compact('eftTerminals', 'linklyMode', 'canManageRegistryLevel', 'isSystemAdmin'));
+    }
+
     public function store(Request $request)
     {
-        if (!$this->isAdmin()) {
+        if (!$this->canManageRegistry()) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -43,7 +68,7 @@ class EftTerminalController extends Controller
 
         AuditLogService::log("Added EFT terminal '{$terminal->label}' ({$terminal->key})");
 
-        return redirect()->route('admin.settings')->with('success', "Terminal \"{$terminal->label}\" added — pair it below.");
+        return redirect()->route('admin.eft-terminals.index')->with('success', "Terminal \"{$terminal->label}\" added — pair it below.");
     }
 
     public function setDefault(Request $request, EftTerminal $terminal)

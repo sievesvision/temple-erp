@@ -146,8 +146,10 @@
                     <button type="button" class="sidebar-link" data-pane="pane-types"><i class="bi bi-ticket-perforated-fill"></i><span>Ticket Types</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>Ticket Sales</span></button>
                     @if($canManageConsole)
+                    <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-controllers"><i class="bi bi-people-fill"></i><span>Ticket Controllers</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
                     @endif
                 </div>
             </aside>
@@ -283,6 +285,34 @@
                     </div>
 
                     @if($canManageConsole)
+                    <!-- SETTINGS -->
+                    <div class="console-pane" id="pane-settings">
+                        <div class="page-header">
+                            <div class="page-header-icon"><i class="bi bi-gear-fill"></i></div>
+                            <div><h2>Settings</h2><p>Ticket Kiosk configuration.</p></div>
+                        </div>
+                        <div class="card-panel">
+                            <div class="fw-bold mb-2">Payment Methods for Ticket Kiosk</div>
+                            <p class="text-muted small mb-3">EFT Terminal is always offered whenever a terminal is paired. Choose which of the others the kiosk should accept — leave "Use global settings" checked to inherit the same list donations use (Admin &gt; Settings &gt; Payment Methods).</p>
+                            <form action="{{ route('admin.tickets.settings.update') }}" method="POST" id="ticketSettingsForm">
+                                @csrf
+                                <div class="form-check mb-3">
+                                    <input type="checkbox" class="form-check-input" id="useGlobalPaymentMethods" name="use_global_payment_methods" value="1" {{ $ticketPaymentMethodsOverride === null ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="useGlobalPaymentMethods">Use global payment settings</label>
+                                </div>
+                                <div id="ticketPaymentMethodChoices" style="{{ $ticketPaymentMethodsOverride === null ? 'display:none;' : '' }}">
+                                    @foreach(['Cash', 'UPI', 'Bank Transfer'] as $method)
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" name="payment_methods[]" value="{{ $method }}" id="pm_{{ \Illuminate\Support\Str::slug($method) }}" {{ in_array($method, $ticketPaymentMethodsOverride ?? [], true) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="pm_{{ \Illuminate\Support\Str::slug($method) }}">{{ $method }}</label>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                <button type="submit" class="btn-save mt-3">Save Settings</button>
+                            </form>
+                        </div>
+                    </div>
+
                     <!-- EFTPOS -->
                     <div class="console-pane" id="pane-eftpos">
                         <div class="page-header">
@@ -290,7 +320,10 @@
                             <div><h2>EFTPOS — Linkly Core Payments</h2><p>Terminal pairing and refunds for ticket sales.</p></div>
                         </div>
                         <div class="card-panel mb-3">
-                            <div class="text-muted small mb-2">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second ticket counter can run its own concurrently — see Settings to add more.</div>
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second ticket counter can run its own concurrently.</div>
+                                <a href="{{ route('admin.eft-terminals.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg me-1"></i>Manage Terminals</a>
+                            </div>
                             @foreach($eftTerminals as $terminal)
                             <div class="row g-3 align-items-center border-top pt-3 mt-2">
                                 <div class="col-md-3">
@@ -466,6 +499,33 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- LOGS -->
+                    <div class="console-pane" id="pane-logs">
+                        <div class="page-header">
+                            <div class="page-header-icon"><i class="bi bi-journal-text"></i></div>
+                            <div><h2>Logs</h2><p>Recent ticket-related activity.</p></div>
+                        </div>
+                        <div class="card-panel" style="padding:0;">
+                            <div class="table-scroll-wrap" style="max-height: calc(100vh - 300px);">
+                                <table class="console-table">
+                                    <thead><tr><th>Date/Time</th><th>Action</th><th>Performed By</th><th>IP Address</th></tr></thead>
+                                    <tbody>
+                                        @forelse($ticketLogs as $log)
+                                        <tr>
+                                            <td>{{ \Illuminate\Support\Carbon::parse($log->created_at)->format('d M Y H:i:s') }}</td>
+                                            <td>{{ $log->action }}</td>
+                                            <td>{{ $log->performed_by_name ?? '—' }}</td>
+                                            <td class="text-muted small">{{ $log->ip_address ?: '—' }}</td>
+                                        </tr>
+                                        @empty
+                                        <tr><td colspan="4" class="text-center text-muted py-4">No ticket-related activity logged yet.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                     @endif
                 </div>
             </main>
@@ -555,6 +615,12 @@
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script>
+        const useGlobalPaymentMethods = document.getElementById('useGlobalPaymentMethods');
+        if (useGlobalPaymentMethods) {
+            useGlobalPaymentMethods.addEventListener('change', function () {
+                document.getElementById('ticketPaymentMethodChoices').style.display = this.checked ? 'none' : '';
+            });
+        }
         document.querySelectorAll('[data-pane]').forEach(function (el) {
             el.addEventListener('click', function () {
                 const paneId = this.dataset.pane;

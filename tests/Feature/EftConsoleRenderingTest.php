@@ -30,12 +30,20 @@ class EftConsoleRenderingTest extends TestCase
         return User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
     }
 
-    public function test_settings_page_renders_with_multiple_terminals(): void
+    public function test_settings_page_links_out_to_the_eft_terminal_settings_page(): void
     {
         $response = $this->actingAs($this->adminUser())->get('/admin/settings');
 
         $response->assertOk();
         $response->assertSee('EFT Terminals');
+        $response->assertSee(route('admin.eft-terminals.index'), false);
+    }
+
+    public function test_eft_terminal_settings_page_renders_with_multiple_terminals(): void
+    {
+        $response = $this->actingAs($this->adminUser())->get('/admin/eft-terminals');
+
+        $response->assertOk();
         $response->assertSee('Unpaired Terminal');
     }
 

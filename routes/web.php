@@ -246,8 +246,6 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         // UPI is excluded by default — only Cash/Bank Transfer/Cheque show up in the manual
         // "Log Donation" forms out of the box; an admin opts UPI back in here if they use it.
         $enabledPaymentMethods = json_decode(\App\Models\Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
-        $linklyMode = \App\Services\LinklyConfigService::mode();
-        $eftTerminals = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $systemNotificationEmail = \App\Models\Setting::get('system_notification_email', 'admin@hasq.org');
         $templeOpeningTime = \App\Models\Setting::get('temple_opening_time', '06:00');
         $templeClosingTime = \App\Models\Setting::get('temple_closing_time', '21:00');
@@ -298,8 +296,6 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'stripeEnabled',
             'stripeMode',
             'enabledPaymentMethods',
-            'linklyMode',
-            'eftTerminals',
             'systemNotificationEmail',
             'templeOpeningTime',
             'templeClosingTime',
@@ -446,14 +442,10 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         return redirect()->back()->with('success', 'System settings updated successfully.');
     })->name('admin.settings.update');
 
-    Route::post('/admin/eft/pair', [\App\Http\Controllers\LinklyController::class, 'pair'])->name('admin.eft.pair');
-
-    // EFT terminal registry (add/remove/set-default) — Admin-only. Pairing any registered
-    // terminal (including from a non-Admin event/ticket console) still goes through
-    // LinklyController::pair() / the per-console pair routes, unchanged.
-    Route::post('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'store'])->name('admin.eft-terminals.store');
-    Route::post('/admin/eft-terminals/{terminal}/default', [\App\Http\Controllers\EftTerminalController::class, 'setDefault'])->name('admin.eft-terminals.setDefault');
-    Route::delete('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'destroy'])->name('admin.eft-terminals.destroy');
+    // EFT terminal registry management moved to its own route group below (role:Admin,
+    // Committee,Event Coordinator,Ticket Controller) — an event-admin coordinator or
+    // ticket-admin controller needs to reach the EFT Terminal Settings page too, and this
+    // role.admin group hard-blocks anyone whose active_role isn't literally 'Admin'.
 
     // Role Permissions (configurable access grid per role)
     Route::get('/admin/role-permissions', [\App\Http\Controllers\RolePermissionController::class, 'index'])->name('admin.role-permissions.index');
@@ -652,6 +644,10 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
 
     Route::get('/admin/ticket-orders', [\App\Http\Controllers\TicketController::class, 'manageOrders'])->name('admin.tickets.orders');
 
+    // Ticket Console's own Settings pane (kiosk payment-method override) — same admin-tier
+    // gate as the console itself (see TicketController::canManageTicketConsole()).
+    Route::post('/admin/tickets/settings', [\App\Http\Controllers\TicketController::class, 'updateSettings'])->name('admin.tickets.settings.update');
+
     // Ticket Console's own EFTPOS pane — the same shared terminal as the Event Console's
     // EFTPOS pane, scoped to ticket-related transactions (event_id always null). See
     // TicketController::canManageTicketConsole() for the admin-tier gate applied inline.
@@ -667,6 +663,24 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     Route::post('/admin/ticket-controllers/{user}/toggle-lock', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'toggleLock'])->name('admin.ticket-controllers.toggleLock');
     Route::post('/admin/ticket-controllers/{user}/send-reset-link', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'sendResetLink'])->name('admin.ticket-controllers.sendResetLink');
     Route::delete('/admin/ticket-controllers/{user}', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'destroy'])->name('admin.ticket-controllers.destroy');
+});
+
+// ============================================
+// EFT TERMINAL SETTINGS — its own page, deliberately reachable by more than just Admin/
+// Committee: an event-admin Event Coordinator or admin-level Ticket Controller already has
+// full pairing/refund/logon rights over any terminal from their own console (see
+// DonationController::canManageEftForEvent() / TicketController::canManageTicketConsole()),
+// and needs to be able to register a *new* terminal too — the main Settings page's own
+// 'settings' RolePermission wouldn't reach them. See App\Services\EftTerminalAccess for the
+// exact authorization (broader for viewing/adding, System-Admin-only for set-default/remove,
+// enforced inside EftTerminalController itself).
+// ============================================
+Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Ticket Controller'])->group(function () {
+    Route::get('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'index'])->name('admin.eft-terminals.index');
+    Route::post('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'store'])->name('admin.eft-terminals.store');
+    Route::post('/admin/eft-terminals/{terminal}/default', [\App\Http\Controllers\EftTerminalController::class, 'setDefault'])->name('admin.eft-terminals.setDefault');
+    Route::delete('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'destroy'])->name('admin.eft-terminals.destroy');
+    Route::post('/admin/eft/pair', [\App\Http\Controllers\LinklyController::class, 'pair'])->name('admin.eft.pair');
 });
 
 // ============================================

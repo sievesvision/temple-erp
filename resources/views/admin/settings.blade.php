@@ -509,69 +509,15 @@
                     </div>
                     </form>
 
-                    <!-- EFT TERMINALS — each row posts to its own pairing/default/delete
-                         route, not admin.settings.update, so these forms sit outside the
-                         settings form above rather than nested inside it; still the same
-                         visual column, and the panel-switcher JS below doesn't care either way. -->
+                    <!-- EFT TERMINALS now lives on its own page (see admin.eft-terminal-
+                         settings) rather than a panel here — an event-admin coordinator or
+                         ticket-admin controller needs to reach it too, but this Settings
+                         page's own 'settings' permission wouldn't let them in at all. -->
                     <div class="settings-panel" data-panel-content="eft-terminal">
                         <div class="settings-section">
                             <h5><i class="bi bi-credit-card-2-front-fill me-2"></i>EFT Terminals</h5>
-                            <p class="text-muted small mb-3">Each terminal below is independently paired via Linkly Cloud, so more than one physical (or virtual test) PIN pad can be in use at once — e.g. one for the Ticket Kiosk and another for an event's donation POS, running simultaneously. Mode: <strong class="text-uppercase">{{ $linklyMode }}</strong> (set by the <code>LINKLY_*</code> credentials configured on the server, not here).</p>
-
-                            @foreach($eftTerminals as $terminal)
-                            <div class="border rounded-3 p-3 mb-3 bg-white">
-                                <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
-                                    <strong>{{ $terminal->label }}</strong>
-                                    <span class="text-muted small">({{ $terminal->key }})</span>
-                                    @if($terminal->is_default)
-                                    <span class="badge bg-primary">Default</span>
-                                    @endif
-                                    <span class="badge {{ $terminal->isPaired($linklyMode) ? 'bg-success' : 'bg-secondary' }} px-3 py-2 rounded-pill">
-                                        {{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not Paired' }}
-                                    </span>
-                                </div>
-                                <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-3 align-items-end mb-2">
-                                    @csrf
-                                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                                    <div class="col-md-5">
-                                        <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <button type="submit" class="btn btn-submit">{{ $terminal->isPaired($linklyMode) ? 'Re-pair' : 'Pair' }}</button>
-                                    </div>
-                                </form>
-                                <div class="d-flex gap-2">
-                                    @if(!$terminal->is_default)
-                                    <form action="{{ route('admin.eft-terminals.setDefault', $terminal) }}" method="POST">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Set as Default</button>
-                                    </form>
-                                    <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('Remove this terminal?')">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                                    </form>
-                                    @endif
-                                </div>
-                            </div>
-                            @endforeach
-
-                            <div class="border rounded-3 p-3 bg-light">
-                                <div class="fw-semibold mb-2">Add Another Terminal</div>
-                                <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-3 align-items-end">
-                                    @csrf
-                                    <div class="col-md-3">
-                                        <label class="form-label small">Key (unique, no spaces)</label>
-                                        <input type="text" name="key" class="form-control rounded-3" placeholder="e.g. ticket-counter-2" maxlength="40" required>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label small">Label</label>
-                                        <input type="text" name="label" class="form-control rounded-3" placeholder="e.g. Ticket Counter 2" required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <button type="submit" class="btn btn-outline-primary">Add Terminal</button>
-                                    </div>
-                                </form>
-                            </div>
+                            <p class="text-muted small mb-3">Terminal registration, pairing and defaults now live on their own page — reachable by an event-admin coordinator or ticket-admin controller too, not just Admin/Committee.</p>
+                            <a href="{{ route('admin.eft-terminals.index') }}" class="btn btn-submit"><i class="bi bi-box-arrow-up-right me-1"></i>Open EFT Terminal Settings</a>
                         </div>
                     </div>
                 </div>

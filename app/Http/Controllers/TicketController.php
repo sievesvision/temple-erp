@@ -117,6 +117,28 @@ class TicketController extends Controller
 
         $allUsersForControllers = DB::table('users')->orderBy('name')->get(['id', 'name', 'email']);
 
+        // Logs pane — same admin-tier gate as the console itself, mirroring
+        // EventConsoleController's own event-admin-only Logs pane. Tickets has no event_id
+        // to scope by (it's a standalone module), so every AuditLogService::log() call made
+        // from ticket-related code paths is matched by its action text instead.
+        $ticketLogs = collect();
+        if ($canManageConsole) {
+            $ticketLogs = DB::table('audit_logs')
+                ->leftJoin('users', 'audit_logs.performed_by', '=', 'users.id')
+                ->whereNull('audit_logs.event_id')
+                ->whereRaw('LOWER(audit_logs.action) LIKE ?', ['%ticket%'])
+                ->select('audit_logs.action', 'audit_logs.ip_address', 'audit_logs.created_at', 'users.name as performed_by_name')
+                ->orderByDesc('audit_logs.created_at')
+                ->limit(200)
+                ->get();
+        }
+
+        // Settings pane — the ticket kiosk's own payment-method override, mirroring Event's
+        // paymentMethodsOverride() concept: null means "inherit the global enabled_payment_
+        // methods Setting" (same as before this pane existed), a saved array means "use only
+        // these, regardless of what donations elsewhere are configured to accept".
+        $ticketPaymentMethodsOverride = $this->ticketPaymentMethodsOverride();
+
         return view('admin.ticket-console', compact(
             'tickets',
             'canEdit',
@@ -131,8 +153,53 @@ class TicketController extends Controller
             'linklyMode',
             'linklyTransactions',
             'ticketControllers',
-            'allUsersForControllers'
+            'allUsersForControllers',
+            'ticketLogs',
+            'ticketPaymentMethodsOverride'
         ));
+    }
+
+    /**
+     * @return array<int, string>|null null = inherit the global enabled_payment_methods
+     *   Setting (the behaviour every ticket kiosk had before this override existed).
+     */
+    private function ticketPaymentMethodsOverride(): ?array
+    {
+        $raw = Setting::get('ticket_payment_methods_override', '');
+        if ($raw === '' || $raw === null) {
+            return null;
+        }
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? array_values($decoded) : null;
+    }
+
+    /**
+     * Saves (or clears) the Ticket Kiosk's own payment-method override — same admin tier as
+     * the rest of the console's Settings-equivalent actions.
+     */
+    public function updateSettings(Request $request)
+    {
+        $user = Auth::user();
+        $activeRole = $this->activeRole();
+        if (!$this->canManageTicketConsole($user, $activeRole)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'use_global_payment_methods' => 'nullable|boolean',
+            'payment_methods' => 'nullable|array',
+            'payment_methods.*' => 'in:Cash,UPI,Bank Transfer',
+        ]);
+
+        if ($request->boolean('use_global_payment_methods')) {
+            Setting::set('ticket_payment_methods_override', '');
+        } else {
+            Setting::set('ticket_payment_methods_override', json_encode(array_values($validated['payment_methods'] ?? [])));
+        }
+
+        AuditLogService::log('Updated Ticket Kiosk settings (payment methods)');
+
+        return redirect()->back()->with('success', 'Ticket settings updated.');
     }
 
     public function storeTicket(Request $request)
@@ -240,12 +307,17 @@ class TicketController extends Controller
         }
 
         $tickets = Ticket::active()->orderBy('sort_order')->orderBy('name')->get();
-        $enabledPaymentMethods = json_decode(\App\Models\Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
+        // The Ticket Console's own Settings pane can override which of Cash/UPI/Bank
+        // Transfer the kiosk offers, independent of the global enabled_payment_methods
+        // Setting donations elsewhere use — null means "inherit that global list" (the
+        // kiosk's original behaviour, unchanged).
+        $override = $this->ticketPaymentMethodsOverride();
+        $basePaymentMethods = $override ?? json_decode(\App\Models\Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
         // EFT Terminal is offered on the ticket kiosk whenever it's paired, the same way the
         // donation POS page offers it — not gated behind the global enabled_payment_methods
         // list (which predates EFT Terminal and is about the *manual* Log Donation forms).
         $paymentMethods = array_values(array_unique(array_merge(
-            array_intersect($enabledPaymentMethods, ['Cash', 'UPI', 'Bank Transfer']),
+            array_intersect($basePaymentMethods, ['Cash', 'UPI', 'Bank Transfer']),
             ['EFT Terminal']
         )));
         $temple = \App\Models\Setting::templeBranding();
