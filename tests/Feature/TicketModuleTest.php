@@ -93,6 +93,32 @@ class TicketModuleTest extends TestCase
         $this->assertSame($stubNumbers->count(), $stubNumbers->unique()->count());
     }
 
+    // The printed stub picks up the ticket type's own background_color theme (see
+    // resources/views/admin/ticket-print.blade.php's color-mix()-derived accent), and still
+    // renders even when the ticket type has since been deleted (falls back to a default).
+    public function test_print_view_reflects_the_tickets_colour_theme_and_survives_a_deleted_ticket_type(): void
+    {
+        $user = $this->ticketUser();
+        $themed = Ticket::create(['name' => 'Themed Ticket', 'price' => 21.00, 'status' => 'Active', 'background_color' => '#6B21A8']);
+
+        $response = $this->actingAs($user)->postJson('/admin/tickets/order', [
+            'cart_json' => json_encode([
+                ['ticket_id' => $themed->id, 'name' => $themed->name, 'price' => 21.00, 'quantity' => 1],
+            ]),
+            'payment_method' => 'Cash',
+        ]);
+        $orderId = $response->json('order_id');
+
+        $print = $this->actingAs($user)->get("/admin/tickets/print/{$orderId}");
+        $print->assertOk();
+        $print->assertSee('--accent: #6B21A8', false);
+
+        // Deleting the catalog entry afterwards (order history keeps its own name/price
+        // snapshot regardless) must not break a later reprint.
+        $themed->delete();
+        $this->actingAs($user)->get("/admin/tickets/print/{$orderId}")->assertOk();
+    }
+
     public function test_empty_cart_is_rejected(): void
     {
         $user = $this->ticketUser();

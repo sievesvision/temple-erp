@@ -511,7 +511,7 @@ class TicketController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $order = TicketOrder::with(['items.stubs'])->findOrFail($orderId);
+        $order = TicketOrder::with(['items.stubs', 'items.ticket'])->findOrFail($orderId);
         $temple = \App\Models\Setting::templeBranding();
 
         DB::table('ticket_stubs')
