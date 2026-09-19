@@ -87,13 +87,28 @@ class PosDonationController extends Controller
 
         $temple = Setting::templeBranding();
 
+        // Power Fail recovery (Core Payments accreditation 4.1.2) must survive worse than a
+        // page refresh — the browser tab itself can be gone entirely (closed, crashed, a
+        // different device even), taking sessionStorage's own copy of the in-flight attempt
+        // with it. The server's own ledger is the only thing guaranteed to still know about
+        // it: any non-terminal Purchase for this event, from anyone, recent enough to still
+        // plausibly be sitting on the terminal right now. Passed to the view so the page can
+        // resume polling its *actual* Linkly session directly — no client-side memory needed.
+        $pendingEftRecovery = \App\Models\LinklyTransaction::where('event_id', $event->event_id)
+            ->where('txn_type', 'purchase')
+            ->whereNotIn('status', \App\Models\LinklyTransaction::TERMINAL_STATUSES)
+            ->where('created_at', '>=', now()->subMinutes(30))
+            ->latest('id')
+            ->first();
+
         return view('admin.event-pos-donation', compact(
             'event',
             'eventOptionsForJs',
             'effectivePaymentMethods',
             'switchableEvents',
             'canReturnToConsole',
-            'temple'
+            'temple',
+            'pendingEftRecovery'
         ));
     }
 }

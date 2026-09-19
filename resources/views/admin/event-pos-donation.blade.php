@@ -291,6 +291,18 @@
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
         const REQUIRE_MOBILE = @json((bool) $event->require_donor_mobile);
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
+        // Server-authoritative Power Fail recovery data (see PosDonationController::show())
+        // — survives the browser tab itself being gone, unlike sessionStorage below.
+        const PENDING_EFT_RECOVERY = @json($pendingEftRecovery ? [
+            'sessionId' => $pendingEftRecovery->linkly_session_id,
+            'clientRef' => $pendingEftRecovery->client_ref,
+            'amount' => (float) $pendingEftRecovery->amount,
+            'name' => $pendingEftRecovery->meta['donor_name'] ?? 'Guest',
+            'email' => $pendingEftRecovery->meta['email'] ?? '',
+            'mobile' => $pendingEftRecovery->meta['mobile'] ?? '',
+            'purpose' => $pendingEftRecovery->meta['purpose'] ?? 'General Donation',
+            'purposeDetails' => $pendingEftRecovery->meta['purpose_details'] ?? '',
+        ] : null);
 
         function escapeHtmlPos(str) {
             const div = document.createElement('div');
@@ -904,18 +916,46 @@
                 });
         }
 
-        // Power Fail Recovery (Core Payments accreditation requirement 4.1.2): if a previous
-        // attempt is still sitting in sessionStorage when this page loads (the operator
-        // refreshed, or the browser/terminal lost power mid-payment), the status GET must be
-        // performed automatically at startup — not wait for the operator to notice and click
-        // something. This never starts a new Linkly transaction (startOrResumeEftPurchase()
-        // only ever resumes the existing session for this client_ref), so doing it
-        // automatically is safe; the banner stays purely as a visible explanation of what the
-        // page is already doing, with a Dismiss option for "no, I know about this, stop".
+        // Power Fail Recovery (Core Payments accreditation requirement 4.1.2): the status GET
+        // must be performed automatically at startup — not wait for the operator to notice
+        // and click something. PENDING_EFT_RECOVERY (from the server, see
+        // PosDonationController::show()) is the authoritative source: a real power failure
+        // can take the browser tab itself with it, and sessionStorage dies with that tab —
+        // only the server's own ledger is guaranteed to still know about an unfinished
+        // transaction, from any device that reopens this page. sessionStorage's own
+        // loadEftAttempt() is kept only as a fallback for the lighter "same tab, page
+        // refreshed" case if the server-side row has somehow already gone terminal.
         document.addEventListener('DOMContentLoaded', function () {
-            const attempt = loadEftAttempt();
             const banner = document.getElementById('eftResumeBanner');
-            if (attempt && banner) {
+            if (!banner) { return; }
+
+            if (PENDING_EFT_RECOVERY) {
+                const p = PENDING_EFT_RECOVERY;
+                document.getElementById('eftResumeBannerText').textContent =
+                    'Checking a previous EFT Terminal payment (' + CURRENCY_CODE + ' ' + p.amount.toFixed(2) + ' for ' + p.name + ') that did not finish…';
+                banner.style.display = 'flex';
+                document.getElementById('eftResumeBannerBtn').style.display = 'none';
+                document.getElementById('eftResumeBannerDismissBtn').addEventListener('click', function () {
+                    banner.style.display = 'none';
+                    eftPollCancelled = true;
+                    clearEftAttempt();
+                });
+
+                const btn = document.getElementById('posSaveBtn');
+                btn.disabled = true;
+                // The server already knows the real Linkly session id — no need to call
+                // startEftCharge() again at all, just resume polling it directly.
+                eftPollCancelled = false;
+                eftCurrentSessionId = p.sessionId;
+                eftConsecutiveTransientErrors = 0;
+                saveEftAttempt({ clientRef: p.clientRef, amount: p.amount, name: p.name, email: p.email, mobile: p.mobile, purpose: p.purpose, purposeDetails: p.purposeDetails });
+                showEftModal(p.amount);
+                pollEftTransaction(p.sessionId, btn, p.amount, p.name, p.email, p.mobile, Date.now());
+                return;
+            }
+
+            const attempt = loadEftAttempt();
+            if (attempt) {
                 document.getElementById('eftResumeBannerText').textContent =
                     'Checking a previous EFT Terminal payment (' + CURRENCY_CODE + ' ' + Number(attempt.amount).toFixed(2) + ' for ' + attempt.name + ') that did not finish…';
                 banner.style.display = 'flex';
