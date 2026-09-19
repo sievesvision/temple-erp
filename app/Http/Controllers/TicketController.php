@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EftTerminal;
 use App\Models\LinklyTransaction;
 use App\Models\RolePermission;
 use App\Models\Setting;
@@ -89,9 +90,12 @@ class TicketController extends Controller
             ->where('order_date', now()->toDateString())
             ->sum('total_amount');
 
-        $linklyPaired = \App\Services\LinklyConfigService::isPaired();
+        // Terminals are a shared, independently-pairable registry (see App\Models\
+        // EftTerminal), not one-per-module — the console lists every registered terminal's
+        // own status so an operator can pair/logon whichever one a ticket kiosk station is
+        // meant to use, or a second station on a different terminal without conflict.
+        $eftTerminals = EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $linklyMode = \App\Services\LinklyConfigService::mode();
-        $linklyPosId = \App\Services\LinklyConfigService::posId();
 
         // Ticket-related Linkly transactions only — this is the shared terminal, but the
         // console should only ever show what's relevant to ticket sales (event_id is
@@ -123,9 +127,8 @@ class TicketController extends Controller
             'orders',
             'totalSold',
             'todayTotal',
-            'linklyPaired',
+            'eftTerminals',
             'linklyMode',
-            'linklyPosId',
             'linklyTransactions',
             'ticketControllers',
             'allUsersForControllers'
@@ -261,7 +264,15 @@ class TicketController extends Controller
         $canSell = $this->canSellTickets($user, $activeRole);
         $canManageConsole = $this->canManageTicketConsole($user, $activeRole, $controllerLevel);
 
-        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole'));
+        // Every registered terminal (paired or not) — this kiosk station picks which one
+        // it's using (saved client-side, see ticket-pos.blade.php's terminal picker), so two
+        // computers can each run their own ticket counter on two different terminals at once.
+        $linklyMode = \App\Services\LinklyConfigService::mode();
+        $eftTerminalsForJs = EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
+            ->map(fn ($t) => ['id' => $t->id, 'label' => $t->label, 'is_default' => (bool) $t->is_default, 'paired' => $t->isPaired($linklyMode)])
+            ->values();
+
+        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs'));
     }
 
     /**
@@ -460,10 +471,14 @@ class TicketController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $validated = $request->validate(['pair_code' => 'required|string|max:10']);
+        $validated = $request->validate([
+            'pair_code' => 'required|string|max:10',
+            'terminal_id' => 'required|integer|exists:eft_terminals,id',
+        ]);
+        $terminal = EftTerminal::find($validated['terminal_id']);
 
-        $result = LinklyEftService::pair($validated['pair_code']);
-        AuditLogService::log('EFT terminal pairing ' . ($result['success'] ? 'succeeded' : 'failed') . ' (from ticket console)');
+        $result = LinklyEftService::pair($validated['pair_code'], $terminal);
+        AuditLogService::log('EFT terminal pairing ' . ($result['success'] ? 'succeeded' : 'failed') . " (from ticket console, terminal: {$terminal->label})");
 
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
@@ -476,18 +491,25 @@ class TicketController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $result = LinklyEftService::logon();
+        $validated = $request->validate(['terminal_id' => 'nullable|integer|exists:eft_terminals,id']);
+        $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
+        if (!$terminal) {
+            return redirect()->back()->with('error', 'No EFT terminal is configured yet.');
+        }
+
+        $result = LinklyEftService::logon($terminal);
 
         LinklyTransaction::create([
             'pos_txn_ref' => 'LGN' . now()->format('mdHis') . rand(100, 999),
             'txn_type' => 'logon',
+            'eft_terminal_id' => $terminal->id,
             'status' => $result['success'] ? 'approved' : 'failed',
             'response_text' => $result['message'],
             'initiated_by' => $user->id,
             'authorised_by' => $user->id,
         ]);
 
-        AuditLogService::log('Linkly terminal Logon: ' . $result['message']);
+        AuditLogService::log('Linkly terminal Logon (' . $terminal->label . '): ' . $result['message']);
 
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
@@ -500,7 +522,12 @@ class TicketController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $result = LinklyEftService::reprintReceipt($sessionId);
+        $terminal = LinklyTransaction::where('linkly_session_id', $sessionId)->first()?->eftTerminal ?? EftTerminal::default();
+        if (!$terminal) {
+            return redirect()->back()->with('error', 'No EFT terminal is configured yet.');
+        }
+
+        $result = LinklyEftService::reprintReceipt($sessionId, $terminal);
         AuditLogService::log('Linkly receipt reprint requested for session ' . $sessionId . ': ' . $result['message']);
 
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
@@ -537,7 +564,14 @@ class TicketController extends Controller
 
         $refundTxnRef = 'RFD' . now()->format('mdHis') . rand(100, 999);
 
+        // A refund must return through the SAME terminal that took the original payment.
+        $terminal = $original->eftTerminal ?? EftTerminal::default();
+        if (!$terminal) {
+            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        }
+
         $result = LinklyEftService::startRefund(
+            $terminal,
             (float) $validated['amount'],
             $refundTxnRef,
             $original->pos_txn_ref,
@@ -553,6 +587,7 @@ class TicketController extends Controller
                 'client_ref' => $validated['client_ref'],
                 'linkly_session_id' => $result['session_id'],
                 'txn_type' => 'refund',
+                'eft_terminal_id' => $terminal->id,
                 'donation_type' => $original->donation_type,
                 'donation_id' => $original->donation_id,
                 'amount' => $validated['amount'],

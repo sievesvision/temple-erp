@@ -22,7 +22,7 @@ class LinklyWebhookTest extends TestCase
     {
         parent::setUp();
         Setting::set('linkly_mode', 'sandbox');
-        Setting::set('linkly_secret_sandbox', 'test-secret');
+        $this->defaultEftTerminal();
     }
 
     private function adminUser(): User

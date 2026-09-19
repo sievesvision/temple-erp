@@ -41,6 +41,9 @@
         .pos-topbar-title .pos-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
         .pos-topbar-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 42px; height: 42px; border-radius: 12px; font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.22); }
+        .pos-terminal-btn { background: rgba(255,255,255,0.12); border: none; color: white; height: 42px; padding: 0 14px; border-radius: 12px; font-size: 0.82rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 160px; }
+        .pos-terminal-btn:hover { background: rgba(255,255,255,0.22); }
+        .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         /* ---------- Main entry area ---------- */
         .pos-main { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px 8px; }
@@ -149,6 +152,14 @@
         }
         .eft-modal-cancel-btn:active { background: var(--cream); }
 
+        /* This station's EFT terminal picker — same modal box styling as the EFT status
+           popup, since it's the same visual family, just listing selectable terminal rows. */
+        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); display: flex; align-items: center; justify-content: space-between; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+        .terminal-picker-row.selected { border-color: var(--gold); background: var(--cream); }
+        .terminal-picker-row .paired-badge { font-size: 0.75rem; font-weight: 700; }
+        .terminal-picker-row .paired-badge.yes { color: var(--success); }
+        .terminal-picker-row .paired-badge.no { color: var(--error); }
+
         /* Terminal soft-key buttons (OK/Yes/No/Authorise) — only ever shown when Linkly's own
            display notification currently flags that key as available (data.controls), never
            guessed at or shown speculatively. */
@@ -188,6 +199,9 @@
             </ul>
         </div>
         @endif
+        <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
+            <i class="bi bi-credit-card-2-front-fill"></i><span id="terminalPickerLabel">Terminal</span>
+        </button>
         <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
         @if($canReturnToConsole)
         <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-grid-1x2-fill"></i></a>
@@ -276,6 +290,18 @@
         </div>
     </div>
 
+    <!-- This station's EFT terminal picker — which registered terminal is plugged in HERE,
+         saved per-browser so two stations can each run their own concurrent POS. -->
+    <div class="eft-modal-overlay" id="terminalModalOverlay">
+        <div class="eft-modal">
+            <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>This Station's EFT Terminal</div>
+            <div class="eft-modal-body">
+                <div id="terminalModalList"></div>
+                <button type="button" class="eft-modal-cancel-btn" id="terminalModalCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     @php
         // Built as a plain variable rather than inline inside @json() below — a multi-line
@@ -311,6 +337,65 @@
         // Server-authoritative Power Fail recovery data (see PosDonationController::show())
         // — survives the browser tab itself being gone, unlike sessionStorage below.
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
+        const EFT_TERMINALS = @json($eftTerminalsForJs);
+
+        // ---------- This station's EFT terminal (per-browser, via localStorage) ----------
+        // Lets two stations each pick a different registered terminal and run fully
+        // independent, concurrent POS lines — see EftTerminal / EftTerminalController.
+        const TERMINAL_STORAGE_KEY = 'eventPosEftTerminalId';
+        function loadSelectedTerminalId() {
+            let saved = null;
+            try { saved = localStorage.getItem(TERMINAL_STORAGE_KEY); } catch (e) {}
+            if (saved && EFT_TERMINALS.some(function (t) { return String(t.id) === String(saved); })) { return saved; }
+            const def = EFT_TERMINALS.find(function (t) { return t.is_default; }) || EFT_TERMINALS[0];
+            return def ? String(def.id) : null;
+        }
+        function saveSelectedTerminalId(id) {
+            try { localStorage.setItem(TERMINAL_STORAGE_KEY, id); } catch (e) {}
+        }
+        let selectedTerminalId = loadSelectedTerminalId();
+        function currentTerminalLabel() {
+            const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+            return t ? t.label : 'No terminal';
+        }
+        function renderTerminalPickerButton() {
+            const el = document.getElementById('terminalPickerLabel');
+            if (el) { el.textContent = currentTerminalLabel(); }
+        }
+        function renderTerminalModalList() {
+            const list = document.getElementById('terminalModalList');
+            if (!list) { return; }
+            list.innerHTML = '';
+            if (!EFT_TERMINALS.length) {
+                list.innerHTML = '<p class="text-muted small mb-0">No terminals registered yet — add one from Settings.</p>';
+                return;
+            }
+            EFT_TERMINALS.forEach(function (t) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'terminal-picker-row' + (String(t.id) === String(selectedTerminalId) ? ' selected' : '');
+                row.innerHTML = '<span>' + escapeHtmlPos(t.label) + (t.is_default ? ' <span class="text-muted small">(default)</span>' : '') + '</span>' +
+                    '<span class="paired-badge ' + (t.paired ? 'yes' : 'no') + '">' + (t.paired ? 'Paired' : 'Not paired') + '</span>';
+                row.addEventListener('click', function () {
+                    selectedTerminalId = String(t.id);
+                    saveSelectedTerminalId(selectedTerminalId);
+                    renderTerminalPickerButton();
+                    renderTerminalModalList();
+                });
+                list.appendChild(row);
+            });
+        }
+        const terminalPickerBtn = document.getElementById('terminalPickerBtn');
+        if (terminalPickerBtn) {
+            terminalPickerBtn.addEventListener('click', function () {
+                renderTerminalModalList();
+                document.getElementById('terminalModalOverlay').classList.add('active');
+            });
+            document.getElementById('terminalModalCloseBtn').addEventListener('click', function () {
+                document.getElementById('terminalModalOverlay').classList.remove('active');
+            });
+            renderTerminalPickerButton();
+        }
 
         function escapeHtmlPos(str) {
             const div = document.createElement('div');
@@ -712,7 +797,6 @@
             if (REQUIRE_MOBILE && !mobileValue) { showToast('Enter the donor mobile number.', true); return; }
 
             const btn = this;
-            btn.disabled = true;
 
             // EFT Terminal charges the physical/virtual PIN pad and waits for the donor to
             // tap/insert their card before recording anything — a declined or failed
@@ -720,6 +804,12 @@
             // (not one blocking call) so the terminal's live prompts ("ENTER PIN", etc.,
             // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
+                const selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+                if (!selectedTerminal || !selectedTerminal.paired) {
+                    showToast('This station\'s EFT terminal (' + currentTerminalLabel() + ') is not paired yet — check the terminal picker.', true);
+                    return;
+                }
+                btn.disabled = true;
                 startOrResumeEftPurchase(btn, {
                     clientRef: newClientRef(),
                     amount: amount,
@@ -735,6 +825,7 @@
                 return;
             }
 
+            btn.disabled = true;
             submitGuestDonation(btn, amount, name, emailValue, mobileValue, '', '');
         });
 
@@ -759,6 +850,7 @@
             startBody.set('mobile', attempt.mobile || '');
             startBody.set('purpose', attempt.purpose || '');
             startBody.set('purpose_details', attempt.purposeDetails || '');
+            if (selectedTerminalId) { startBody.set('terminal_id', selectedTerminalId); }
 
             fetch(EFT_CHARGE_START_URL, {
                 method: 'POST',

@@ -1056,31 +1056,35 @@
                     </div>
 
                     <div class="card-panel mb-3">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-md-3"><strong>Terminal</strong><div class="text-muted small">CBA Essential Plus</div></div>
-                            <div class="col-md-3"><strong>Pairing</strong><div><span class="status-pill status-{{ $linklyPaired ? 'paid' : 'cancelled' }}">{{ $linklyPaired ? 'Paired' : 'Not paired' }}</span></div></div>
-                            <div class="col-md-3"><strong>Environment</strong><div class="text-muted small text-uppercase">{{ $linklyMode }}</div></div>
-                            <div class="col-md-3"><strong>Cloud ID</strong><div class="text-muted small text-break">{{ $linklyPosId }}</div></div>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                            <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second station can run its own concurrently — see Settings to add more.</div>
+                            <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
                         </div>
-                        <hr>
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-4">
+                        @foreach($eftTerminals as $terminal)
+                        <div class="row g-3 align-items-center border-top pt-3 mt-2">
+                            <div class="col-md-3">
+                                <strong>{{ $terminal->label }}</strong>
+                                @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
+                                <div class="text-muted small">{{ $terminal->key }}</div>
+                            </div>
+                            <div class="col-md-2"><span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span></div>
+                            <div class="col-md-3">
                                 <form action="{{ route('admin.events.eft.pair', $event->event_id) }}" method="POST" class="d-flex gap-2">
                                     @csrf
-                                    <input type="text" name="pair_code" class="form-control rounded-3" placeholder="Pair / repair code" required maxlength="10">
-                                    <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
+                                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                                    <input type="text" name="pair_code" class="form-control form-control-sm rounded-3" placeholder="Pair / repair code" required maxlength="10">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
                                 </form>
                             </div>
-                            <div class="col-md-3">
-                                <form action="{{ route('admin.events.eft.logon', $event->event_id) }}" method="POST" onsubmit="return confirm('Run a Logon against the paired terminal now?')">
+                            <div class="col-md-4">
+                                <form action="{{ route('admin.events.eft.logon', $event->event_id) }}" method="POST" onsubmit="return confirm('Run a Logon against {{ $terminal->label }} now?')">
                                     @csrf
-                                    <button type="submit" class="btn btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i>Logon</button>
+                                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Logon</button>
                                 </form>
-                            </div>
-                            <div class="col-md-5 text-md-end">
-                                <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
                             </div>
                         </div>
+                        @endforeach
                     </div>
 
                     <div class="card-panel" style="padding:0;">
@@ -1089,7 +1093,7 @@
                         <table class="console-table">
                             <thead>
                                 <tr>
-                                    <th>Type</th><th class="col-amount">Amount</th><th>Transaction Reference</th><th>Donation</th><th>Date/Time</th><th>Result</th><th>Response Code</th><th>Session ID</th><th class="text-end">Actions</th>
+                                    <th>Type</th><th class="col-amount">Amount</th><th>Transaction Reference</th><th>Terminal</th><th>Donation</th><th>Date/Time</th><th>Result</th><th>Response Code</th><th>Session ID</th><th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1106,6 +1110,7 @@
                                     <td class="text-capitalize">{{ $txn->txn_type }}</td>
                                     <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
                                     <td class="col-txn"><span id="txnref-{{ $txn->id }}">{{ $txn->pos_txn_ref }}</span></td>
+                                    <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
                                     <td>
                                         @if($txn->donation_id)
                                         {{-- Same 'DN'/'GD' + zero-padded id format used everywhere else a donation is
@@ -1134,7 +1139,7 @@
                                     </td>
                                 </tr>
                                 @empty
-                                <tr><td colspan="9" class="text-center text-muted py-4">No Linkly transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="10" class="text-center text-muted py-4">No Linkly transactions recorded for this event yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>

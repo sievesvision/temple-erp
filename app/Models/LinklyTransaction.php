@@ -18,6 +18,7 @@ class LinklyTransaction extends Model
         'linkly_session_id',
         'txn_type',
         'event_id',
+        'eft_terminal_id',
         'donation_type',
         'donation_id',
         'amount',
@@ -53,6 +54,16 @@ class LinklyTransaction extends Model
     public function originalTransaction()
     {
         return $this->belongsTo(self::class, 'original_transaction_id');
+    }
+
+    /**
+     * Which physical terminal this session ran on — resolved once at start time and then
+     * reused for every follow-up action against the same session (poll/cancel/sendkey/
+     * reprint/refund), since a session is permanently tied to whichever terminal opened it.
+     */
+    public function eftTerminal()
+    {
+        return $this->belongsTo(EftTerminal::class);
     }
 
     public function refunds()

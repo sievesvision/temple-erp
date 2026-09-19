@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\EftTerminal;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -41,13 +42,14 @@ class LinklyEftService
 
 
     /**
-     * Exchanges a PIN pad's freshly-displayed pair code for a permanent secret. The pair
+     * Exchanges a PIN pad's freshly-displayed pair code for a permanent secret, saved onto
+     * the given terminal (for whichever mode — sandbox/live — is currently active). The pair
      * code is only valid for ~180 seconds from when the terminal generated it, so this must
      * be called immediately after the operator reads it off the terminal/virtual PIN pad.
      *
      * @return array{success: bool, message: string}
      */
-    public static function pair(string $pairCode): array
+    public static function pair(string $pairCode, EftTerminal $terminal): array
     {
         $response = Http::timeout(30)->post(LinklyConfigService::authBaseUrl() . '/v1/pairing/cloudpos', [
             'username' => LinklyConfigService::username(),
@@ -56,7 +58,7 @@ class LinklyEftService
         ]);
 
         if (!$response->successful()) {
-            Log::warning('Linkly pairing failed', ['status' => $response->status(), 'body' => $response->body()]);
+            Log::warning('Linkly pairing failed', ['terminal' => $terminal->key, 'status' => $response->status(), 'body' => $response->body()]);
             // A 401 with no body is Linkly's response to an invalid or expired pair code —
             // the common case, since the code is only valid for ~180 seconds — so it gets a
             // clearer message than an empty string tacked onto "Pairing failed:".
@@ -72,25 +74,27 @@ class LinklyEftService
             return ['success' => false, 'message' => 'Pairing succeeded but no secret was returned.'];
         }
 
-        LinklyConfigService::setSecret($secret);
-        Cache::forget(self::tokenCacheKey());
+        $terminal->setSecret(LinklyConfigService::mode(), $secret);
+        Cache::forget(self::tokenCacheKey($terminal));
 
         return ['success' => true, 'message' => 'PIN pad paired successfully.'];
     }
 
-    private static function tokenCacheKey(): string
+    private static function tokenCacheKey(EftTerminal $terminal): string
     {
-        return 'linkly_token_' . LinklyConfigService::mode();
+        return 'linkly_token_' . LinklyConfigService::mode() . '_' . $terminal->id;
     }
 
     /**
-     * A bearer token for the transaction API, cached until shortly before it expires so a
-     * burst of donations doesn't re-request one every time.
+     * A bearer token for the transaction API, scoped to one specific terminal's pairing
+     * secret+posId and cached until shortly before it expires so a burst of purchases on the
+     * same terminal doesn't re-request one every time. Two different terminals never share a
+     * cache entry (or a token), which is what lets them run concurrent sessions safely.
      */
-    private static function getToken(): ?string
+    private static function getToken(EftTerminal $terminal): ?string
     {
-        return Cache::remember(self::tokenCacheKey(), 240, function () {
-            $secret = LinklyConfigService::secret();
+        return Cache::remember(self::tokenCacheKey($terminal), 240, function () use ($terminal) {
+            $secret = $terminal->secret(LinklyConfigService::mode());
             if (!$secret) {
                 return null;
             }
@@ -99,12 +103,12 @@ class LinklyEftService
                 'secret' => $secret,
                 'posName' => self::POS_NAME,
                 'posVersion' => self::POS_VERSION,
-                'posId' => LinklyConfigService::posId(),
+                'posId' => $terminal->pos_id,
                 'posVendorId' => LinklyConfigService::posVendorId(),
             ]);
 
             if (!$response->successful()) {
-                Log::warning('Linkly token request failed', ['status' => $response->status(), 'body' => $response->body()]);
+                Log::warning('Linkly token request failed', ['terminal' => $terminal->key, 'status' => $response->status(), 'body' => $response->body()]);
                 return null;
             }
 
@@ -114,7 +118,7 @@ class LinklyEftService
             if ($token) {
                 // Re-cache with the token's real expiry (minus a safety margin) now that we
                 // know it — the outer remember() call's TTL above is just a starting guess.
-                Cache::put(self::tokenCacheKey(), $token, max(30, $expiry - 30));
+                Cache::put(self::tokenCacheKey($terminal), $token, max(30, $expiry - 30));
             }
 
             return $token;
@@ -181,6 +185,7 @@ class LinklyEftService
      * @return array{success: bool, message: string, session_id: ?string}
      */
     private static function startSession(
+        EftTerminal $terminal,
         string $txnType,
         float $amount,
         string $txnRef,
@@ -190,11 +195,11 @@ class LinklyEftService
         ?string $operatorName,
         ?string $refundOfTxnRef = null
     ): array {
-        if (!LinklyConfigService::isPaired()) {
+        if (!$terminal->isPaired(LinklyConfigService::mode())) {
             return ['success' => false, 'message' => 'No EFT terminal is paired yet.', 'session_id' => null];
         }
 
-        $token = self::getToken();
+        $token = self::getToken($terminal);
         if (!$token) {
             return ['success' => false, 'message' => 'Could not authenticate with the EFT terminal service.', 'session_id' => null];
         }
@@ -255,6 +260,7 @@ class LinklyEftService
      * @return array{success: bool, message: string, session_id: ?string}
      */
     public static function startPurchase(
+        EftTerminal $terminal,
         float $amount,
         string $txnRef,
         string $currencyCode,
@@ -262,7 +268,7 @@ class LinklyEftService
         ?int $operatorId = null,
         ?string $operatorName = null
     ): array {
-        return self::startSession('P', $amount, $txnRef, $currencyCode, $notificationUri, $operatorId, $operatorName);
+        return self::startSession($terminal, 'P', $amount, $txnRef, $currencyCode, $notificationUri, $operatorId, $operatorName);
     }
 
     /**
@@ -274,6 +280,7 @@ class LinklyEftService
      * @return array{success: bool, message: string, session_id: ?string}
      */
     public static function startRefund(
+        EftTerminal $terminal,
         float $amount,
         string $txnRef,
         string $originalTxnRef,
@@ -282,7 +289,7 @@ class LinklyEftService
         ?int $operatorId = null,
         ?string $operatorName = null
     ): array {
-        return self::startSession('R', $amount, $txnRef, $currencyCode, $notificationUri, $operatorId, $operatorName, $originalTxnRef);
+        return self::startSession($terminal, 'R', $amount, $txnRef, $currencyCode, $notificationUri, $operatorId, $operatorName, $originalTxnRef);
     }
 
     /**
@@ -296,13 +303,13 @@ class LinklyEftService
      *
      * @return array{success: bool, message: string}
      */
-    public static function logon(): array
+    public static function logon(EftTerminal $terminal): array
     {
-        if (!LinklyConfigService::isPaired()) {
+        if (!$terminal->isPaired(LinklyConfigService::mode())) {
             return ['success' => false, 'message' => 'No EFT terminal is paired yet.'];
         }
 
-        $token = self::getToken();
+        $token = self::getToken($terminal);
         if (!$token) {
             return ['success' => false, 'message' => 'Could not authenticate with the EFT terminal service.'];
         }
@@ -347,9 +354,9 @@ class LinklyEftService
      *
      * @return array{success: bool, message: string}
      */
-    public static function reprintReceipt(string $sessionId): array
+    public static function reprintReceipt(string $sessionId, EftTerminal $terminal): array
     {
-        $token = self::getToken();
+        $token = self::getToken($terminal);
         if (!$token) {
             return ['success' => false, 'message' => 'Could not authenticate with the EFT terminal service.'];
         }
@@ -386,9 +393,9 @@ class LinklyEftService
      *
      * @return array{success: bool, message: string}
      */
-    public static function sendKey(string $sessionId, string $key): array
+    public static function sendKey(string $sessionId, string $key, EftTerminal $terminal): array
     {
-        $token = self::getToken();
+        $token = self::getToken($terminal);
         if (!$token) {
             return ['success' => false, 'message' => 'Could not authenticate with the EFT terminal service.'];
         }
@@ -431,9 +438,9 @@ class LinklyEftService
      *
      * @return array{success: bool, message: string}
      */
-    public static function cancel(string $sessionId): array
+    public static function cancel(string $sessionId, EftTerminal $terminal): array
     {
-        return self::sendKey($sessionId, '0');
+        return self::sendKey($sessionId, '0', $terminal);
     }
 
     /**
@@ -557,7 +564,7 @@ class LinklyEftService
      *   transient_error: bool
      * }
      */
-    public static function pollTransaction(string $sessionId): array
+    public static function pollTransaction(string $sessionId, EftTerminal $terminal): array
     {
         $display = Cache::get(self::displayCacheKey($sessionId), []);
         $controls = Cache::get(self::displayFlagsCacheKey($sessionId), self::emptyControls());
@@ -576,7 +583,7 @@ class LinklyEftService
         // requirement and are treated as ordinary (non-transient) outcomes below.
         $base['transient_error'] = false;
 
-        $token = self::getToken();
+        $token = self::getToken($terminal);
         if (!$token) {
             return array_merge($base, ['payment_status' => 'failed', 'done' => true, 'success' => false, 'message' => 'Could not authenticate with the EFT terminal service.', 'response_code' => null, 'auth_code' => null, 'rrn' => null, 'txn_ref' => null]);
         }

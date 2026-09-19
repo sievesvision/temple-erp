@@ -15,6 +15,7 @@ use App\Services\EventCoordinatorLevel;
 use App\Services\TicketControllerLevel;
 use App\Services\LinklyEftService;
 use App\Models\LinklyTransaction;
+use App\Models\EftTerminal;
 use App\Services\StripeConfigService;
 use Stripe\StripeClient;
 use Stripe\Webhook;
@@ -927,7 +928,17 @@ class DonationController extends Controller
             'purpose_details' => 'nullable|string|max:2000',
             // Ticket-order fields only.
             'cart_json' => 'nullable|string',
+            // Which physical terminal this station is using — lets two stations (e.g. one on
+            // the Ticket Kiosk, one on an event's POS) run concurrent sessions on their own
+            // paired terminals. Omitted (an old cached page, or a single-terminal deployment)
+            // falls back to the registry's default terminal.
+            'terminal_id' => 'nullable|integer|exists:eft_terminals,id',
         ]);
+
+        $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
+        if (!$terminal) {
+            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        }
 
         // Resume-in-place: if this exact attempt already has a non-final Linkly session
         // (started moments ago, then the browser refreshed or the operator clicked Pay
@@ -953,6 +964,7 @@ class DonationController extends Controller
         $txnRef = 'EFT' . now()->format('mdHis') . rand(100, 999);
 
         $result = LinklyEftService::startPurchase(
+            $terminal,
             (float) $validated['amount'],
             $txnRef,
             Setting::get('currency_code', 'AUD'),
@@ -985,6 +997,7 @@ class DonationController extends Controller
                 'linkly_session_id' => $result['session_id'],
                 'txn_type' => 'purchase',
                 'event_id' => $validated['event_id'] ?? null,
+                'eft_terminal_id' => $terminal->id,
                 'amount' => $validated['amount'],
                 'currency_code' => Setting::get('currency_code', 'AUD'),
                 'status' => 'initiated',
@@ -1004,7 +1017,12 @@ class DonationController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
-        $result = LinklyEftService::pollTransaction($sessionId);
+        $terminal = $this->resolveTerminalForSession($sessionId);
+        if (!$terminal) {
+            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        }
+
+        $result = LinklyEftService::pollTransaction($sessionId, $terminal);
         $this->syncLedgerFromPoll($sessionId, $result);
         $this->markDonationCancelledIfRefundJustApproved($sessionId, $result);
         $result['donation_id'] = $this->createDonationIfApprovedPurchaseUnrecorded($sessionId, $result);
@@ -1078,7 +1096,12 @@ class DonationController extends Controller
             return response()->json(['success' => false, 'message' => $alreadyDone]);
         }
 
-        return response()->json(LinklyEftService::cancel($sessionId));
+        $terminal = $this->resolveTerminalForSession($sessionId);
+        if (!$terminal) {
+            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        }
+
+        return response()->json(LinklyEftService::cancel($sessionId, $terminal));
     }
 
     /**
@@ -1096,6 +1119,21 @@ class DonationController extends Controller
             return 'This transaction has already finished (' . $txn->status . ') — no action needed.';
         }
         return null;
+    }
+
+    /**
+     * A session is permanently tied to whichever terminal opened it (its own posId+secret
+     * generated the bearer token Linkly is expecting), so every follow-up action against an
+     * existing session — poll, cancel, sendkey, reprint — must resolve the SAME terminal from
+     * the ledger row rather than trusting whatever the caller currently has selected. Falls
+     * back to the registry's default terminal only for a row that predates this column (or
+     * one somehow missing), never for one that's still in flight — an in-flight session with
+     * no linked terminal at all shouldn't be possible outside a bug.
+     */
+    private function resolveTerminalForSession(string $sessionId): ?EftTerminal
+    {
+        $txn = LinklyTransaction::where('linkly_session_id', $sessionId)->first();
+        return $txn?->eftTerminal ?? EftTerminal::default();
     }
 
     /**
@@ -1129,7 +1167,12 @@ class DonationController extends Controller
         // OKKeyFlag and AcceptYesKeyFlag independently depending on the prompt.
         $linklyKey = ['ok' => '1', 'yes' => '1', 'no' => '2', 'authorise' => '3'][$validated['key']];
 
-        return response()->json(LinklyEftService::sendKey($sessionId, $linklyKey));
+        $terminal = $this->resolveTerminalForSession($sessionId);
+        if (!$terminal) {
+            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        }
+
+        return response()->json(LinklyEftService::sendKey($sessionId, $linklyKey, $terminal));
     }
 
     /**
@@ -1336,7 +1379,15 @@ class DonationController extends Controller
 
         $refundTxnRef = 'RFD' . now()->format('mdHis') . rand(100, 999);
 
+        // A refund must return through the SAME terminal that took the original payment —
+        // never a terminal the caller happens to have selected right now.
+        $terminal = $original->eftTerminal ?? EftTerminal::default();
+        if (!$terminal) {
+            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        }
+
         $result = LinklyEftService::startRefund(
+            $terminal,
             (float) $validated['amount'],
             $refundTxnRef,
             $original->pos_txn_ref,
@@ -1353,6 +1404,7 @@ class DonationController extends Controller
                 'linkly_session_id' => $result['session_id'],
                 'txn_type' => 'refund',
                 'event_id' => $original->event_id,
+                'eft_terminal_id' => $terminal->id,
                 'donation_type' => $original->donation_type,
                 'donation_id' => $original->donation_id,
                 'amount' => $validated['amount'],
@@ -1412,26 +1464,35 @@ class DonationController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $result = LinklyEftService::logon();
+        $validated = $request->validate(['terminal_id' => 'nullable|integer|exists:eft_terminals,id']);
+        $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
+        if (!$terminal) {
+            return redirect()->back()->with('error', 'No EFT terminal is configured yet.');
+        }
+
+        $result = LinklyEftService::logon($terminal);
 
         LinklyTransaction::create([
             'pos_txn_ref' => 'LGN' . now()->format('mdHis') . rand(100, 999),
             'txn_type' => 'logon',
             'event_id' => $eventId,
+            'eft_terminal_id' => $terminal->id,
             'status' => $result['success'] ? 'approved' : 'failed',
             'response_text' => $result['message'],
             'initiated_by' => $user->id,
             'authorised_by' => $user->id,
         ]);
 
-        AuditLogService::log('Linkly terminal Logon: ' . $result['message'], null, $eventId);
+        AuditLogService::log('Linkly terminal Logon (' . $terminal->label . '): ' . $result['message'], null, $eventId);
 
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     /**
      * Reprints the acquirer/EFTPOS receipt for a completed session. Same event-admin
-     * authorization as Refund/Logon/pairing.
+     * authorization as Refund/Logon/pairing. Resolves the terminal from the session's own
+     * ledger row — a reprint is against a specific past transaction, not a terminal the
+     * caller currently has selected.
      */
     public function reprintEftReceipt(Request $request, int $eventId, string $sessionId)
     {
@@ -1441,19 +1502,25 @@ class DonationController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $result = LinklyEftService::reprintReceipt($sessionId);
+        $terminal = $this->resolveTerminalForSession($sessionId);
+        if (!$terminal) {
+            return redirect()->back()->with('error', 'No EFT terminal is configured yet.');
+        }
+
+        $result = LinklyEftService::reprintReceipt($sessionId, $terminal);
         AuditLogService::log('Linkly receipt reprint requested for session ' . $sessionId . ': ' . $result['message'], null, $eventId);
 
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }
 
     /**
-     * Repairs the (single, shared) EFT terminal from inside an event-admin's own console —
-     * same underlying pairing as LinklyController::pair() (the Settings-page, Admin-only
-     * entry point, left unchanged), just reachable by an event-admin coordinator too and
-     * returning back to the console instead of Settings. Pairing is a whole-terminal action
-     * (there is one physical/virtual PIN pad, not one per event), so this intentionally
-     * doesn't scope anything to $eventId beyond deciding who's allowed to trigger it.
+     * (Re)pairs one terminal from the registry, from inside an event-admin's own console —
+     * same underlying pairing action as LinklyController::pair() (the Settings-page, Admin-
+     * only entry point, which manages the registry itself), just reachable by an event-admin
+     * coordinator too and returning back to the console instead of Settings. Any registered
+     * terminal can be paired from here (the console shows every terminal's status), so this
+     * intentionally doesn't scope anything to $eventId beyond deciding who's allowed to
+     * trigger it — one physical/virtual PIN pad is never "owned" by a single event.
      */
     public function pairEftFromConsole(Request $request, int $eventId)
     {
@@ -1465,10 +1532,12 @@ class DonationController extends Controller
 
         $validated = $request->validate([
             'pair_code' => 'required|string|max:10',
+            'terminal_id' => 'required|integer|exists:eft_terminals,id',
         ]);
+        $terminal = EftTerminal::find($validated['terminal_id']);
 
-        $result = LinklyEftService::pair($validated['pair_code']);
-        AuditLogService::log('EFT terminal pairing ' . ($result['success'] ? 'succeeded' : 'failed') . ' (from event console)', null, $eventId);
+        $result = LinklyEftService::pair($validated['pair_code'], $terminal);
+        AuditLogService::log('EFT terminal pairing ' . ($result['success'] ? 'succeeded' : 'failed') . " (from event console, terminal: {$terminal->label})", null, $eventId);
 
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
     }

@@ -176,9 +176,12 @@ class EventConsoleController extends Controller
                 ->limit(50)
                 ->get();
         }
-        $linklyPaired = LinklyConfigService::isPaired();
+        // Terminals are a shared, independently-pairable registry, not one-per-event (see
+        // App\Models\EftTerminal) — the console shows every registered terminal's own status
+        // so an operator can pair/logon whichever one this event's POS station is meant to
+        // use, or a second station on a different terminal without conflict.
+        $eftTerminals = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $linklyMode = LinklyConfigService::mode();
-        $linklyPosId = LinklyConfigService::posId();
 
         $temple = Setting::templeBranding();
 
@@ -205,9 +208,8 @@ class EventConsoleController extends Controller
             'activeRole',
             'temple',
             'linklyTransactions',
-            'linklyPaired',
-            'linklyMode',
-            'linklyPosId'
+            'eftTerminals',
+            'linklyMode'
         ));
     }
 }

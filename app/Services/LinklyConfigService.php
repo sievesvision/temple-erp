@@ -7,10 +7,12 @@ use Illuminate\Support\Str;
 
 /**
  * Resolves which Linkly Cloud credential pair (Sandbox or Live) is active, based on the
- * "linkly_mode" Setting — mirrors StripeConfigService's test/live split. Unlike Stripe,
- * pairing a PIN pad produces a "secret" that itself must be persisted (it's what lets the
- * app skip re-pairing on every request) — that's stored as a Setting too, one per mode, so
- * switching modes doesn't clobber the other's pairing.
+ * "linkly_mode" Setting — mirrors StripeConfigService's test/live split. Everything here is
+ * genuinely global (the same for every paired terminal): the API credentials, the base URLs,
+ * and posVendorId (identifies this POS *software*, not any one physical lane). What used to
+ * live here too — the pairing secret and posId, which really do differ per physical PIN pad —
+ * now live on App\Models\EftTerminal instead, one row per terminal, so more than one can be
+ * paired and used at once. See EftTerminal::default()/resolveOrDefault().
  */
 class LinklyConfigService
 {
@@ -50,47 +52,6 @@ class LinklyConfigService
         return self::isLive()
             ? 'https://rest.pos.cloud.pceftpos.com'
             : 'https://rest.pos.sandbox.cloud.pceftpos.com';
-    }
-
-    private static function secretSettingKey(): string
-    {
-        return self::isLive() ? 'linkly_secret_live' : 'linkly_secret_sandbox';
-    }
-
-    public static function secret(): ?string
-    {
-        return Setting::get(self::secretSettingKey()) ?: null;
-    }
-
-    public static function setSecret(string $secret): void
-    {
-        Setting::set(self::secretSettingKey(), $secret);
-    }
-
-    public static function clearSecret(): void
-    {
-        Setting::set(self::secretSettingKey(), '');
-    }
-
-    public static function isPaired(): bool
-    {
-        return self::secret() !== null;
-    }
-
-    /**
-     * A stable identifier for this POS install, generated once and persisted — Linkly's
-     * token endpoint requires a posId (and posVendorId) but doesn't document them changing
-     * per request, so a fixed value per Setting key (not per mode — the same app instance
-     * either way) is simplest.
-     */
-    public static function posId(): string
-    {
-        $id = Setting::get('linkly_pos_id');
-        if (!$id) {
-            $id = (string) Str::uuid();
-            Setting::set('linkly_pos_id', $id);
-        }
-        return $id;
     }
 
     public static function posVendorId(): string

@@ -25,6 +25,9 @@
         .pos-topbar-title .pos-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
         .pos-topbar-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 42px; height: 42px; border-radius: 12px; font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.22); }
+        .pos-terminal-btn { background: rgba(255,255,255,0.12); border: none; color: white; height: 42px; padding: 0 14px; border-radius: 12px; font-size: 0.82rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 160px; }
+        .pos-terminal-btn:hover { background: rgba(255,255,255,0.22); }
+        .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         /* ---------- Full-width kiosk: items grid on the left, cart panel on the right ---------- */
         .pos-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -122,6 +125,9 @@
             <h1>Ticket Kiosk</h1>
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
+        <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
+            <i class="bi bi-credit-card-2-front-fill"></i><span id="terminalPickerLabel">Terminal</span>
+        </button>
         <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
@@ -203,6 +209,20 @@
         </div>
     </div>
 
+    <!-- Terminal picker — which EFT terminal THIS station uses, saved per-browser so two
+         computers can each pick a different one and run concurrent counters. -->
+    <div class="qty-modal-overlay" id="terminalModalOverlay">
+        <div class="qty-modal">
+            <div class="qty-modal-header">This Station's EFT Terminal</div>
+            <div class="qty-modal-body">
+                <div id="terminalModalList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;"></div>
+                <div class="qty-modal-actions">
+                    <button type="button" class="qty-modal-cancel" id="terminalModalCancel">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="eft-modal-overlay" id="eftModalOverlay">
         <div class="eft-modal">
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
@@ -247,11 +267,66 @@
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
         const CAN_SELL = @json($canSell);
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
+        const EFT_TERMINALS = @json($eftTerminalsForJs);
 
         document.getElementById('posFullscreenBtn').addEventListener('click', function () {
             if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(function () {}); }
             else { document.exitFullscreen(); }
         });
+
+        // ---------- This station's EFT terminal (per-browser, via localStorage) ----------
+        // Lets two computers each pick a different registered terminal and run fully
+        // independent, concurrent ticket counters — see EftTerminal / EftTerminalController.
+        const TERMINAL_STORAGE_KEY = 'ticketPosEftTerminalId';
+        function loadSelectedTerminalId() {
+            let saved = null;
+            try { saved = localStorage.getItem(TERMINAL_STORAGE_KEY); } catch (e) {}
+            if (saved && EFT_TERMINALS.some(function (t) { return String(t.id) === String(saved); })) { return saved; }
+            const def = EFT_TERMINALS.find(function (t) { return t.is_default; }) || EFT_TERMINALS[0];
+            return def ? String(def.id) : null;
+        }
+        function saveSelectedTerminalId(id) {
+            try { localStorage.setItem(TERMINAL_STORAGE_KEY, id); } catch (e) {}
+        }
+        let selectedTerminalId = loadSelectedTerminalId();
+        function currentTerminalLabel() {
+            const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+            return t ? t.label : 'No terminal';
+        }
+        function renderTerminalPickerButton() {
+            document.getElementById('terminalPickerLabel').textContent = currentTerminalLabel();
+        }
+        function renderTerminalModalList() {
+            const list = document.getElementById('terminalModalList');
+            list.innerHTML = '';
+            if (!EFT_TERMINALS.length) {
+                list.innerHTML = '<p class="text-muted small mb-0">No terminals registered yet — add one from Settings.</p>';
+                return;
+            }
+            EFT_TERMINALS.forEach(function (t) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'qty-modal-btn';
+                row.style.cssText = 'width:100%; height:auto; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; font-size:0.95rem; border-radius:12px;' + (String(t.id) === String(selectedTerminalId) ? ' border-color:var(--gold); background:var(--cream);' : '');
+                row.innerHTML = '<span>' + t.label + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">(default)</span>' : '') + '</span>' +
+                    '<span style="font-size:0.75rem; font-weight:700; color:' + (t.paired ? 'var(--success)' : 'var(--error)') + ';">' + (t.paired ? 'Paired' : 'Not paired') + '</span>';
+                row.addEventListener('click', function () {
+                    selectedTerminalId = String(t.id);
+                    saveSelectedTerminalId(selectedTerminalId);
+                    renderTerminalPickerButton();
+                    renderTerminalModalList();
+                });
+                list.appendChild(row);
+            });
+        }
+        document.getElementById('terminalPickerBtn').addEventListener('click', function () {
+            renderTerminalModalList();
+            document.getElementById('terminalModalOverlay').classList.add('active');
+        });
+        document.getElementById('terminalModalCancel').addEventListener('click', function () {
+            document.getElementById('terminalModalOverlay').classList.remove('active');
+        });
+        renderTerminalPickerButton();
 
         // ---------- Cart ----------
         let cart = {}; // ticket_id -> {id, name, price, quantity}
@@ -494,6 +569,14 @@
                 const name = document.getElementById('ticketCustomerName').value.trim();
                 const mobile = document.getElementById('ticketCustomerMobile').value.trim();
                 const btn = this;
+
+                if (selectedMethod === 'EFT Terminal') {
+                    const selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+                    if (!selectedTerminal || !selectedTerminal.paired) {
+                        showToast('This station\'s EFT terminal (' + currentTerminalLabel() + ') is not paired yet — check the terminal picker.', true);
+                        return;
+                    }
+                }
                 btn.disabled = true;
 
                 if (selectedMethod === 'EFT Terminal') {
@@ -554,6 +637,7 @@
             startBody.set('email', attempt.email || '');
             startBody.set('mobile', attempt.mobile || '');
             startBody.set('cart_json', JSON.stringify(attempt.cart || []));
+            if (selectedTerminalId) { startBody.set('terminal_id', selectedTerminalId); }
 
             fetch(EFT_CHARGE_START_URL, {
                 method: 'POST',

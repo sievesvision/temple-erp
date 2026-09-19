@@ -247,7 +247,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         // "Log Donation" forms out of the box; an admin opts UPI back in here if they use it.
         $enabledPaymentMethods = json_decode(\App\Models\Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
         $linklyMode = \App\Services\LinklyConfigService::mode();
-        $linklyPaired = \App\Services\LinklyConfigService::isPaired();
+        $eftTerminals = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $systemNotificationEmail = \App\Models\Setting::get('system_notification_email', 'admin@hasq.org');
         $templeOpeningTime = \App\Models\Setting::get('temple_opening_time', '06:00');
         $templeClosingTime = \App\Models\Setting::get('temple_closing_time', '21:00');
@@ -299,7 +299,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'stripeMode',
             'enabledPaymentMethods',
             'linklyMode',
-            'linklyPaired',
+            'eftTerminals',
             'systemNotificationEmail',
             'templeOpeningTime',
             'templeClosingTime',
@@ -447,6 +447,13 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     })->name('admin.settings.update');
 
     Route::post('/admin/eft/pair', [\App\Http\Controllers\LinklyController::class, 'pair'])->name('admin.eft.pair');
+
+    // EFT terminal registry (add/remove/set-default) — Admin-only. Pairing any registered
+    // terminal (including from a non-Admin event/ticket console) still goes through
+    // LinklyController::pair() / the per-console pair routes, unchanged.
+    Route::post('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'store'])->name('admin.eft-terminals.store');
+    Route::post('/admin/eft-terminals/{terminal}/default', [\App\Http\Controllers\EftTerminalController::class, 'setDefault'])->name('admin.eft-terminals.setDefault');
+    Route::delete('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'destroy'])->name('admin.eft-terminals.destroy');
 
     // Role Permissions (configurable access grid per role)
     Route::get('/admin/role-permissions', [\App\Http\Controllers\RolePermissionController::class, 'index'])->name('admin.role-permissions.index');

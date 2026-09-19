@@ -290,33 +290,38 @@
                             <div><h2>EFTPOS — Linkly Core Payments</h2><p>Terminal pairing and refunds for ticket sales.</p></div>
                         </div>
                         <div class="card-panel mb-3">
-                            <div class="row g-3 align-items-center">
-                                <div class="col-md-4"><strong>Pairing</strong><div><span class="status-pill status-{{ $linklyPaired ? 'paid' : 'cancelled' }}">{{ $linklyPaired ? 'Paired' : 'Not paired' }}</span></div></div>
-                                <div class="col-md-4"><strong>Environment</strong><div class="text-muted small text-uppercase">{{ $linklyMode }}</div></div>
-                                <div class="col-md-4"><strong>Cloud ID</strong><div class="text-muted small text-break">{{ $linklyPosId }}</div></div>
-                            </div>
-                            <hr>
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-6">
+                            <div class="text-muted small mb-2">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second ticket counter can run its own concurrently — see Settings to add more.</div>
+                            @foreach($eftTerminals as $terminal)
+                            <div class="row g-3 align-items-center border-top pt-3 mt-2">
+                                <div class="col-md-3">
+                                    <strong>{{ $terminal->label }}</strong>
+                                    @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
+                                    <div class="text-muted small">{{ $terminal->key }}</div>
+                                </div>
+                                <div class="col-md-2"><span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span></div>
+                                <div class="col-md-4">
                                     <form action="{{ route('admin.tickets.eft.pair') }}" method="POST" class="d-flex gap-2">
                                         @csrf
-                                        <input type="text" name="pair_code" class="form-control rounded-3" placeholder="Pair / repair code" required maxlength="10">
-                                        <button type="submit" class="btn btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
+                                        <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                                        <input type="text" name="pair_code" class="form-control form-control-sm rounded-3" placeholder="Pair / repair code" required maxlength="10">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
                                     </form>
                                 </div>
                                 <div class="col-md-3">
-                                    <form action="{{ route('admin.tickets.eft.logon') }}" method="POST" onsubmit="return confirm('Run a Logon against the paired terminal now?')">
+                                    <form action="{{ route('admin.tickets.eft.logon') }}" method="POST" onsubmit="return confirm('Run a Logon against {{ $terminal->label }} now?')">
                                         @csrf
-                                        <button type="submit" class="btn btn-outline-secondary w-100"><i class="bi bi-arrow-repeat me-1"></i>Logon</button>
+                                        <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Logon</button>
                                     </form>
                                 </div>
                             </div>
+                            @endforeach
                         </div>
                         <div class="card-panel" style="padding:0;">
                             <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Transactions</h5></div>
                             <div class="table-scroll-wrap" style="max-height: calc(100vh - 460px);">
                                 <table class="console-table">
-                                    <thead><tr><th>Type</th><th class="col-amount">Amount</th><th>Reference</th><th>Date/Time</th><th>Result</th><th>Session ID</th><th class="text-end">Actions</th></tr></thead>
+                                    <thead><tr><th>Type</th><th class="col-amount">Amount</th><th>Reference</th><th>Terminal</th><th>Date/Time</th><th>Result</th><th>Session ID</th><th class="text-end">Actions</th></tr></thead>
                                     <tbody>
                                         @forelse($linklyTransactions as $txn)
                                         @php
@@ -327,6 +332,7 @@
                                             <td class="text-capitalize">{{ $txn->txn_type }}</td>
                                             <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
                                             <td class="col-txn">{{ $txn->pos_txn_ref }}</td>
+                                            <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
                                             <td>{{ $txn->created_at->format('d M Y H:i:s') }}</td>
                                             <td><span class="status-pill status-{{ $pillClass }}">{{ ucfirst($txn->status) }}</span></td>
                                             <td class="col-txn">{{ $txn->linkly_session_id ?: '—' }}</td>
@@ -343,7 +349,7 @@
                                             </td>
                                         </tr>
                                         @empty
-                                        <tr><td colspan="7" class="text-center text-muted py-4">No ticket-related Linkly transactions yet.</td></tr>
+                                        <tr><td colspan="8" class="text-center text-muted py-4">No ticket-related Linkly transactions yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>

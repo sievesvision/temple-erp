@@ -101,6 +101,15 @@ class PosDonationController extends Controller
             ->latest('id')
             ->first();
 
+        // Every registered terminal (paired or not) — the station itself picks which one
+        // it's using (saved client-side, see event-pos-donation.blade.php's terminal
+        // picker), so two stations on two different terminals can each run this same
+        // event's POS concurrently, or one on this event and one on the Ticket Kiosk.
+        $linklyMode = \App\Services\LinklyConfigService::mode();
+        $eftTerminalsForJs = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
+            ->map(fn ($t) => ['id' => $t->id, 'label' => $t->label, 'is_default' => (bool) $t->is_default, 'paired' => $t->isPaired($linklyMode)])
+            ->values();
+
         return view('admin.event-pos-donation', compact(
             'event',
             'eventOptionsForJs',
@@ -108,7 +117,8 @@ class PosDonationController extends Controller
             'switchableEvents',
             'canReturnToConsole',
             'temple',
-            'pendingEftRecovery'
+            'pendingEftRecovery',
+            'eftTerminalsForJs'
         ));
     }
 }
