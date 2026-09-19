@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\EftTerminal;
 use App\Models\Setting;
 use App\Models\Ticket;
 use App\Models\User;
@@ -27,6 +28,25 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
         $response->assertSee('pane-settings', false);
         $response->assertSee('pane-logs', false);
         $response->assertSee('Payment Methods for Ticket Kiosk');
+    }
+
+    // The Settings pane also holds the terminal registry (add a new terminal) plus a
+    // per-computer terminal picker — saved only in localStorage on the browser that used it,
+    // never sent to the server, so two kiosk computers can each be pointed at a different
+    // terminal (see the localStorage key 'ticketPosEftTerminalId', shared with the actual
+    // kiosk page at ticket-pos.blade.php).
+    public function test_settings_pane_lists_terminals_and_has_a_per_computer_picker(): void
+    {
+        EftTerminal::factory()->create(['key' => 'counter-2', 'label' => 'Ticket Counter 2']);
+
+        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+
+        $response->assertOk();
+        $response->assertSee('This Computer', false);
+        $response->assertSee('thisComputerTerminalSelect', false);
+        $response->assertSee('ticketPosEftTerminalId', false);
+        $response->assertSee('Registered EFT Terminals');
+        $response->assertSee('Ticket Counter 2');
     }
 
     public function test_saving_a_custom_payment_method_override_changes_the_kiosk(): void

@@ -311,6 +311,56 @@
                                 <button type="submit" class="btn-save mt-3">Save Settings</button>
                             </form>
                         </div>
+
+                        <div class="card-panel mt-3">
+                            <div class="fw-bold mb-2">This Computer's EFT Terminal</div>
+                            <p class="text-muted small mb-3">Which physical terminal <strong>this computer</strong> uses when selling tickets — saved only in this browser, not on the server, so two kiosk computers can each be set to a different terminal and sell concurrently without interfering. Setting it here takes effect on the Ticket Kiosk page on this same computer immediately.</p>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-6">
+                                    <label class="field-label">Terminal for this computer</label>
+                                    <select class="form-select" id="thisComputerTerminalSelect">
+                                        <option value="">— Choose a terminal —</option>
+                                        @foreach($eftTerminals as $terminal)
+                                        <option value="{{ $terminal->id }}">{{ $terminal->label }}{{ $terminal->is_default ? ' (default)' : '' }} — {{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn-save" id="saveThisComputerTerminalBtn">Save for This Computer</button>
+                                </div>
+                                <div class="col-md-3">
+                                    <span class="text-muted small" id="thisComputerTerminalStatus"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-panel mt-3">
+                            <div class="fw-bold mb-2">Registered EFT Terminals</div>
+                            <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Pairing and refunds happen from the EFTPOS pane; add a brand new terminal here.</p>
+                            @foreach($eftTerminals as $terminal)
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2 pb-2 border-bottom">
+                                <strong>{{ $terminal->label }}</strong>
+                                <span class="text-muted small">({{ $terminal->key }})</span>
+                                @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
+                                <span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span>
+                            </div>
+                            @endforeach
+                            <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-2 align-items-end mt-2">
+                                @csrf
+                                <div class="col-md-4">
+                                    <label class="field-label">Key (unique, no spaces)</label>
+                                    <input type="text" name="key" class="form-control" placeholder="e.g. ticket-counter-2" maxlength="40" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="field-label">Label</label>
+                                    <input type="text" name="label" class="form-control" placeholder="e.g. Ticket Counter 2" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="submit" class="btn-save w-100">Add Terminal</button>
+                                </div>
+                            </form>
+                            <p class="text-muted small mt-2 mb-0">Pair a newly added terminal from the EFTPOS pane before assigning it to a computer above.</p>
+                        </div>
                     </div>
 
                     <!-- EFTPOS -->
@@ -621,6 +671,43 @@
                 document.getElementById('ticketPaymentMethodChoices').style.display = this.checked ? 'none' : '';
             });
         }
+
+        // "This Computer's EFT Terminal" — the same localStorage key the Ticket Kiosk page
+        // itself reads (see ticket-pos.blade.php), so setting it here takes effect there too
+        // on this same computer/browser. Never sent to the server — that's the whole point:
+        // two kiosk computers can each be pointed at a different terminal independently.
+        (function () {
+            const STORAGE_KEY = 'ticketPosEftTerminalId';
+            const select = document.getElementById('thisComputerTerminalSelect');
+            const saveBtn = document.getElementById('saveThisComputerTerminalBtn');
+            const status = document.getElementById('thisComputerTerminalStatus');
+            if (!select || !saveBtn) { return; }
+
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved && select.querySelector('option[value="' + saved + '"]')) {
+                    select.value = saved;
+                    status.textContent = 'Currently set for this computer.';
+                } else {
+                    status.textContent = 'Not set for this computer yet — the kiosk will use the default terminal.';
+                }
+            } catch (e) {
+                status.textContent = 'Could not read this browser\'s saved terminal.';
+            }
+
+            saveBtn.addEventListener('click', function () {
+                if (!select.value) {
+                    status.textContent = 'Choose a terminal first.';
+                    return;
+                }
+                try {
+                    localStorage.setItem(STORAGE_KEY, select.value);
+                    status.textContent = 'Saved for this computer.';
+                } catch (e) {
+                    status.textContent = 'Could not save — this browser may be blocking local storage.';
+                }
+            });
+        })();
         document.querySelectorAll('[data-pane]').forEach(function (el) {
             el.addEventListener('click', function () {
                 const paneId = this.dataset.pane;
