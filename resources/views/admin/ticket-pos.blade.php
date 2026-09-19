@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
     <style>
         :root {
             --maroon: #6B0F1A; --maroon-dark: #4A0A12; --gold: #C89B3C; --gold-hover: #A67C2B;
@@ -34,13 +35,42 @@
         @media (min-width: 900px) { .pos-body { flex-direction: row; } }
 
         .pos-items-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
-        .pos-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
-        .pos-item-tile { position: relative; border-radius: 16px; overflow: hidden; min-height: 130px; border: none; padding: 0; text-align: left; cursor: pointer; box-shadow: 0 2px 8px rgba(31,42,55,0.08); background-size: cover; background-position: center; display: flex; align-items: flex-end; }
+        .pos-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+
+        /* Each tile is a miniature version of the temple's own printed ticket design — an
+           ornate bordered card themed by the ticket's own background_color (see App\Models\
+           Ticket), with a circular image frame, the ticket name, and a price badge — rather
+           than a plain photo-background button, so the kiosk itself looks like the physical
+           tickets it's selling. */
+        .pos-item-tile {
+            position: relative; border-radius: 14px; padding: 8px; border: none; cursor: pointer;
+            text-align: center; background: color-mix(in srgb, var(--tile-accent) 12%, white);
+            box-shadow: 0 2px 8px rgba(31,42,55,0.08); transition: transform 0.1s;
+        }
         .pos-item-tile:active { transform: scale(0.97); }
-        .pos-item-tile .tile-overlay { width: 100%; background: linear-gradient(0deg, rgba(0,0,0,0.62), rgba(0,0,0,0.05)); padding: 12px 14px 10px; color: #fff; }
-        .pos-item-tile .tile-name { font-weight: 800; font-size: 1rem; line-height: 1.2; }
-        .pos-item-tile .tile-price { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 0.9rem; opacity: 0.92; }
-        .pos-item-tile .tile-qty-badge { position: absolute; top: 8px; right: 8px; background: var(--gold); color: #fff; font-weight: 800; font-size: 0.85rem; min-width: 26px; height: 26px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .pos-item-tile.in-cart { box-shadow: 0 0 0 3px var(--tile-accent), 0 4px 14px rgba(31,42,55,0.16); }
+        .tile-frame {
+            position: relative; border: 1.5px solid color-mix(in srgb, var(--tile-accent) 55%, white);
+            border-radius: 10px; padding: 14px 10px 12px; background: color-mix(in srgb, var(--tile-accent) 4%, white);
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+        }
+        .tile-corner { position: absolute; width: 14px; height: 14px; border: var(--tile-accent) solid; opacity: 0.6; }
+        .tile-corner.tl { top: 4px; left: 4px; border-width: 2px 0 0 2px; }
+        .tile-corner.tr { top: 4px; right: 4px; border-width: 2px 2px 0 0; }
+        .tile-corner.bl { bottom: 4px; left: 4px; border-width: 0 0 2px 2px; }
+        .tile-corner.br { bottom: 4px; right: 4px; border-width: 0 2px 2px 0; }
+        .tile-image-wrap {
+            width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+            background: color-mix(in srgb, var(--tile-accent) 16%, white);
+            border: 2px solid color-mix(in srgb, var(--tile-accent) 50%, white);
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .tile-image-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .tile-image-wrap i { font-size: 1.6rem; color: var(--tile-accent); }
+        .tile-name { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 0.95rem; line-height: 1.2; color: var(--tile-accent); text-transform: uppercase; min-height: 2.3em; display: flex; align-items: center; }
+        .tile-price-badge { background: var(--tile-accent); color: #fff; border-radius: 8px; padding: 5px 14px; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 0.88rem; }
+        .tile-mantra { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; color: color-mix(in srgb, var(--tile-accent) 80%, black); opacity: 0.75; }
+        .tile-qty-badge { position: absolute; top: -8px; right: -8px; background: var(--tile-accent); color: #fff; font-weight: 800; font-size: 0.85rem; min-width: 28px; height: 28px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 2px solid #fff; }
         .pos-item-tile.in-cart .tile-qty-badge { display: flex; }
 
         .pos-cart-pane { width: 100%; flex-shrink: 0; background: var(--white); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
@@ -139,12 +169,27 @@
         <div class="pos-items-pane">
             <div class="pos-items-grid" id="itemsGrid">
                 @forelse($tickets as $ticket)
+                @php $accent = $ticket->background_color ?: '#6B0F1A'; @endphp
                 <button type="button" class="pos-item-tile" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}"
-                    style="{{ $ticket->image ? 'background-image:url(' . e($ticket->image) . ');' : 'background:' . ($ticket->background_color ?: 'var(--gold)') . ';' }}">
+                    style="--tile-accent: {{ $accent }};">
                     <span class="tile-qty-badge">0</span>
-                    <span class="tile-overlay">
-                        <span class="tile-name">{{ $ticket->name }}</span><br>
-                        <span class="tile-price">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
+                    <span class="tile-frame">
+                        <span class="tile-corner tl"></span>
+                        <span class="tile-corner tr"></span>
+                        <span class="tile-corner bl"></span>
+                        <span class="tile-corner br"></span>
+                        <span class="tile-image-wrap">
+                            @if($ticket->image)
+                            <img src="{{ $ticket->image }}" alt="">
+                            @elseif($temple['logo'] ?? null)
+                            <img src="{{ $temple['logo'] }}" alt="">
+                            @else
+                            <i class="bi bi-flower1"></i>
+                            @endif
+                        </span>
+                        <span class="tile-name">{{ $ticket->name }}</span>
+                        <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
+                        <span class="tile-mantra">&#2384; GANAPATHAYE NAMAHA</span>
                     </span>
                 </button>
                 @empty

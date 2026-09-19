@@ -93,10 +93,10 @@ class TicketModuleTest extends TestCase
         $this->assertSame($stubNumbers->count(), $stubNumbers->unique()->count());
     }
 
-    // The printed stub picks up the ticket type's own background_color theme (see
-    // resources/views/admin/ticket-print.blade.php's color-mix()-derived accent), and still
-    // renders even when the ticket type has since been deleted (falls back to a default).
-    public function test_print_view_reflects_the_tickets_colour_theme_and_survives_a_deleted_ticket_type(): void
+    // The printed stub is deliberately plain (no per-ticket theming) — that colour theme
+    // lives on the kiosk tile instead (see the next test) — and still renders even once the
+    // catalog entry it was sold from has since been deleted.
+    public function test_print_view_stays_plain_and_survives_a_deleted_ticket_type(): void
     {
         $user = $this->ticketUser();
         $themed = Ticket::create(['name' => 'Themed Ticket', 'price' => 21.00, 'status' => 'Active', 'background_color' => '#6B21A8']);
@@ -109,14 +109,25 @@ class TicketModuleTest extends TestCase
         ]);
         $orderId = $response->json('order_id');
 
-        $print = $this->actingAs($user)->get("/admin/tickets/print/{$orderId}");
-        $print->assertOk();
-        $print->assertSee('--accent: #6B21A8', false);
+        $this->actingAs($user)->get("/admin/tickets/print/{$orderId}")->assertOk();
 
         // Deleting the catalog entry afterwards (order history keeps its own name/price
         // snapshot regardless) must not break a later reprint.
         $themed->delete();
         $this->actingAs($user)->get("/admin/tickets/print/{$orderId}")->assertOk();
+    }
+
+    // The kiosk tile picks up the ticket type's own background_color theme (see
+    // resources/views/admin/ticket-pos.blade.php's color-mix()-derived --tile-accent).
+    public function test_kiosk_tile_reflects_the_tickets_colour_theme(): void
+    {
+        $user = $this->ticketUser();
+        Ticket::create(['name' => 'Themed Ticket', 'price' => 21.00, 'status' => 'Active', 'background_color' => '#6B21A8']);
+
+        $response = $this->actingAs($user)->get('/admin/tickets/pos');
+
+        $response->assertOk();
+        $response->assertSee('--tile-accent: #6B21A8', false);
     }
 
     public function test_empty_cart_is_rejected(): void
