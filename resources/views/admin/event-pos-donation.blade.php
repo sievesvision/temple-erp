@@ -277,6 +277,23 @@
     </div>
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    @php
+        // Built as a plain variable rather than inline inside @json() below — a multi-line
+        // array literal with nested ['key'] array-access syntax inside @json(...)'s argument
+        // tripped up Blade's own bracket-balance check ("Unclosed '[' ... does not match
+        // ')'"), the same way every other @json() call on this page only ever takes a
+        // simple variable or function call, never an inline expression like this.
+        $pendingEftRecoveryForJs = $pendingEftRecovery ? [
+            'sessionId' => $pendingEftRecovery->linkly_session_id,
+            'clientRef' => $pendingEftRecovery->client_ref,
+            'amount' => (float) $pendingEftRecovery->amount,
+            'name' => $pendingEftRecovery->meta['donor_name'] ?? 'Guest',
+            'email' => $pendingEftRecovery->meta['email'] ?? '',
+            'mobile' => $pendingEftRecovery->meta['mobile'] ?? '',
+            'purpose' => $pendingEftRecovery->meta['purpose'] ?? 'General Donation',
+            'purposeDetails' => $pendingEftRecovery->meta['purpose_details'] ?? '',
+        ] : null;
+    @endphp
     <script>
         const EVENT_OPTIONS = @json($eventOptionsForJs);
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
@@ -293,16 +310,7 @@
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
         // Server-authoritative Power Fail recovery data (see PosDonationController::show())
         // — survives the browser tab itself being gone, unlike sessionStorage below.
-        const PENDING_EFT_RECOVERY = @json($pendingEftRecovery ? [
-            'sessionId' => $pendingEftRecovery->linkly_session_id,
-            'clientRef' => $pendingEftRecovery->client_ref,
-            'amount' => (float) $pendingEftRecovery->amount,
-            'name' => $pendingEftRecovery->meta['donor_name'] ?? 'Guest',
-            'email' => $pendingEftRecovery->meta['email'] ?? '',
-            'mobile' => $pendingEftRecovery->meta['mobile'] ?? '',
-            'purpose' => $pendingEftRecovery->meta['purpose'] ?? 'General Donation',
-            'purposeDetails' => $pendingEftRecovery->meta['purpose_details'] ?? '',
-        ] : null);
+        const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
 
         function escapeHtmlPos(str) {
             const div = document.createElement('div');
