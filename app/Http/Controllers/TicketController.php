@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LinklyTransaction;
 use App\Models\RolePermission;
+use App\Models\Setting;
 use App\Models\Ticket;
 use App\Models\TicketOrder;
 use App\Models\TicketOrderItem;
 use App\Models\TicketStub;
 use App\Services\AuditLogService;
+use App\Services\LinklyEftService;
+use App\Services\TicketControllerLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -29,27 +33,110 @@ class TicketController extends Controller
     }
 
     /**
-     * Manage Tickets — the catalog admin screen (add/edit/deactivate ticket types).
+     * A Ticket Controller's tier for the current user — null if the active role isn't
+     * Ticket Controller at all (e.g. an Admin/Committee user viewing the console).
+     */
+    private function controllerLevel($user, ?string $activeRole): ?string
+    {
+        return $activeRole === 'Ticket Controller' ? TicketControllerLevel::of($user->id) : null;
+    }
+
+    /**
+     * The full Ticket Console (Settings/catalog, Sales, EFTPOS, Ticket Controllers) —
+     * reachable by Admin, by any role RolePermission grants 'tickets' view to (e.g.
+     * Committee), or by a Ticket Controller at 'admin' level. A view/entry-level Ticket
+     * Controller never sees the console at all — they land straight on the kiosk instead,
+     * mirroring EventConsoleController::show()'s pos-level redirect for Event Coordinator.
+     */
+    private function canManageTicketConsole($user, ?string $activeRole, ?string $controllerLevel = null): bool
+    {
+        if ($activeRole === 'Admin' || RolePermission::can($activeRole, 'tickets', 'edit')) {
+            return true;
+        }
+
+        return TicketControllerLevel::atLeast($controllerLevel ?? $this->controllerLevel($user, $activeRole), 'admin');
+    }
+
+    /**
+     * Manage Tickets — the Ticket Console (catalog, sales, EFTPOS, controller assignment).
+     * A view/entry-level Ticket Controller is redirected straight to the kiosk (see
+     * TicketControllerLevel) since the console itself is an admin-tier concern.
      */
     public function manageTickets(Request $request)
     {
+        $user = Auth::user();
         $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'view')) {
+        $controllerLevel = $this->controllerLevel($user, $activeRole);
+
+        if (in_array($controllerLevel, ['view', 'entry'], true)) {
+            return redirect()->route('admin.tickets.pos');
+        }
+
+        if (!$activeRole || !(RolePermission::can($activeRole, 'tickets', 'view') || $this->canManageTicketConsole($user, $activeRole, $controllerLevel))) {
             abort(403, 'Unauthorized access.');
         }
 
         $tickets = Ticket::orderBy('sort_order')->orderBy('name')->get();
-        $canEdit = RolePermission::can($activeRole, 'tickets', 'edit');
-        $canAdd = RolePermission::can($activeRole, 'tickets', 'add');
-        $canDelete = RolePermission::can($activeRole, 'tickets', 'delete');
+        $canManageConsole = $this->canManageTicketConsole($user, $activeRole, $controllerLevel);
+        $canEdit = RolePermission::can($activeRole, 'tickets', 'edit') || $canManageConsole;
+        $canAdd = RolePermission::can($activeRole, 'tickets', 'add') || $canManageConsole;
+        $canDelete = RolePermission::can($activeRole, 'tickets', 'delete') || $canManageConsole;
 
-        return view('admin.manage-tickets', compact('tickets', 'canEdit', 'canAdd', 'canDelete'));
+        $orders = TicketOrder::with(['items', 'seller'])->orderByDesc('created_at')->get();
+        $totalSold = $orders->where('payment_status', 'Paid')->sum('total_amount');
+
+        $todayTotal = $orders->where('payment_status', 'Paid')
+            ->where('order_date', now()->toDateString())
+            ->sum('total_amount');
+
+        $linklyPaired = \App\Services\LinklyConfigService::isPaired();
+        $linklyMode = \App\Services\LinklyConfigService::mode();
+        $linklyPosId = \App\Services\LinklyConfigService::posId();
+
+        // Ticket-related Linkly transactions only — this is the shared terminal, but the
+        // console should only ever show what's relevant to ticket sales (event_id is
+        // always null for these, since Tickets isn't event-scoped).
+        $linklyTransactions = LinklyTransaction::whereNull('event_id')
+            ->where(function ($q) {
+                $q->where('donation_type', 'ticket_order')
+                    ->orWhere('txn_type', 'logon');
+            })
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get();
+
+        $ticketControllers = DB::table('ticket_controllers')
+            ->join('users', 'ticket_controllers.user_id', '=', 'users.id')
+            ->select('users.id', 'users.name', 'users.email', 'users.status', 'users.last_login_at', 'users.last_reset_email_sent_at', 'ticket_controllers.level')
+            ->orderBy('users.name')
+            ->get();
+
+        $allUsersForControllers = DB::table('users')->orderBy('name')->get(['id', 'name', 'email']);
+
+        return view('admin.ticket-console', compact(
+            'tickets',
+            'canEdit',
+            'canAdd',
+            'canDelete',
+            'canManageConsole',
+            'activeRole',
+            'orders',
+            'totalSold',
+            'todayTotal',
+            'linklyPaired',
+            'linklyMode',
+            'linklyPosId',
+            'linklyTransactions',
+            'ticketControllers',
+            'allUsersForControllers'
+        ));
     }
 
     public function storeTicket(Request $request)
     {
+        $user = Auth::user();
         $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'add')) {
+        if (!RolePermission::can($activeRole, 'tickets', 'add') && !$this->canManageTicketConsole($user, $activeRole)) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -59,6 +146,8 @@ class TicketController extends Controller
             'price' => 'required|numeric|min:0.01',
             'status' => 'required|in:Active,Inactive',
             'sort_order' => 'nullable|integer|min:0',
+            'background_color' => 'nullable|string|max:20',
+            'image' => 'nullable|string|max:255',
         ]);
 
         Ticket::create($validated);
@@ -69,8 +158,9 @@ class TicketController extends Controller
 
     public function updateTicket(Request $request, $id)
     {
+        $user = Auth::user();
         $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'edit')) {
+        if (!RolePermission::can($activeRole, 'tickets', 'edit') && !$this->canManageTicketConsole($user, $activeRole)) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -81,6 +171,8 @@ class TicketController extends Controller
             'price' => 'required|numeric|min:0.01',
             'status' => 'required|in:Active,Inactive',
             'sort_order' => 'nullable|integer|min:0',
+            'background_color' => 'nullable|string|max:20',
+            'image' => 'nullable|string|max:255',
         ]);
 
         $ticket->update($validated);
@@ -89,10 +181,26 @@ class TicketController extends Controller
         return redirect()->back()->with('success', 'Ticket type updated.');
     }
 
+    /**
+     * Whether the given user/active-role may open the kiosk and sell tickets — the normal
+     * RolePermission grid (Admin/Committee/etc.), or a Ticket Controller at 'entry' level or
+     * above (never 'view' alone, which lands on the kiosk per manageTickets()'s redirect but
+     * can't actually transact — same read-only-vs-entry split as EventCoordinatorLevel).
+     */
+    private function canSellTickets($user, ?string $activeRole): bool
+    {
+        if (RolePermission::can($activeRole, 'tickets', 'add') || $this->canManageTicketConsole($user, $activeRole)) {
+            return true;
+        }
+
+        return TicketControllerLevel::atLeast($this->controllerLevel($user, $activeRole), 'entry');
+    }
+
     public function deleteTicket($id)
     {
+        $user = Auth::user();
         $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'delete')) {
+        if (!RolePermission::can($activeRole, 'tickets', 'delete') && !$this->canManageTicketConsole($user, $activeRole)) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -117,8 +225,14 @@ class TicketController extends Controller
      */
     public function posShow()
     {
+        $user = Auth::user();
         $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'add')) {
+        $controllerLevel = $this->controllerLevel($user, $activeRole);
+        // A view-level Ticket Controller still lands here (see manageTickets()'s redirect)
+        // even though they can't complete a sale — the "Complete Sale" action itself is
+        // gated by canSellTickets() separately, same read-only-landing pattern the console
+        // uses for a view-level coordinator on the donations table.
+        if (!$this->canSellTickets($user, $activeRole) && $controllerLevel === null) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -144,7 +258,10 @@ class TicketController extends Controller
             ->get()
             ->first(fn ($txn) => ($txn->meta['record_type'] ?? null) === 'ticket_order');
 
-        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery'));
+        $canSell = $this->canSellTickets($user, $activeRole);
+        $canManageConsole = $this->canManageTicketConsole($user, $activeRole, $controllerLevel);
+
+        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole'));
     }
 
     /**
@@ -154,8 +271,9 @@ class TicketController extends Controller
      */
     public function storeOrder(Request $request)
     {
+        $user = Auth::user();
         $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'add')) {
+        if (!$this->canSellTickets($user, $activeRole)) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -289,19 +407,12 @@ class TicketController extends Controller
     }
 
     /**
-     * Ticket Sales — the "view" section, listing past orders (mirrors Manage Donations).
+     * Ticket Sales now lives as a pane inside the Ticket Console — this route is kept only
+     * so an old bookmark/link still lands somewhere sensible.
      */
     public function manageOrders(Request $request)
     {
-        $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'view')) {
-            abort(403, 'Unauthorized access.');
-        }
-
-        $orders = TicketOrder::with(['items', 'seller'])->orderByDesc('created_at')->get();
-        $totalSold = $orders->where('payment_status', 'Paid')->sum('total_amount');
-
-        return view('admin.manage-ticket-orders', compact('orders', 'totalSold'));
+        return redirect()->route('admin.tickets.index');
     }
 
     /**
@@ -311,8 +422,9 @@ class TicketController extends Controller
      */
     public function printOrder($orderId)
     {
+        $user = Auth::user();
         $activeRole = $this->activeRole();
-        if (!RolePermission::can($activeRole, 'tickets', 'view') && !RolePermission::can($activeRole, 'tickets', 'add')) {
+        if (!RolePermission::can($activeRole, 'tickets', 'view') && !$this->canSellTickets($user, $activeRole)) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -325,5 +437,133 @@ class TicketController extends Controller
             ->update(['printed_at' => now()]);
 
         return view('admin.ticket-print', compact('order', 'temple'));
+    }
+
+    /**
+     * ---------- EFTPOS console actions ----------
+     * These mirror DonationController's refund/logon/reprint/pair actions but for the
+     * shared terminal's ticket-related transactions specifically (event_id always null).
+     * Gated the same "admin tier" way as DonationController::canManageEftForEvent() — Admin/
+     * Committee-equivalent via the 'tickets' edit grant, or a Ticket Controller at 'admin'
+     * level.
+     */
+    private function eftNotificationUri(): string
+    {
+        return url('/admin/eft/webhook/{{type}}');
+    }
+
+    public function pairEft(Request $request)
+    {
+        $user = Auth::user();
+        $activeRole = $this->activeRole();
+        if (!$this->canManageTicketConsole($user, $activeRole)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $validated = $request->validate(['pair_code' => 'required|string|max:10']);
+
+        $result = LinklyEftService::pair($validated['pair_code']);
+        AuditLogService::log('EFT terminal pairing ' . ($result['success'] ? 'succeeded' : 'failed') . ' (from ticket console)');
+
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function logonEft(Request $request)
+    {
+        $user = Auth::user();
+        $activeRole = $this->activeRole();
+        if (!$this->canManageTicketConsole($user, $activeRole)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $result = LinklyEftService::logon();
+
+        LinklyTransaction::create([
+            'pos_txn_ref' => 'LGN' . now()->format('mdHis') . rand(100, 999),
+            'txn_type' => 'logon',
+            'status' => $result['success'] ? 'approved' : 'failed',
+            'response_text' => $result['message'],
+            'initiated_by' => $user->id,
+            'authorised_by' => $user->id,
+        ]);
+
+        AuditLogService::log('Linkly terminal Logon: ' . $result['message']);
+
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function reprintEftReceipt(Request $request, string $sessionId)
+    {
+        $user = Auth::user();
+        $activeRole = $this->activeRole();
+        if (!$this->canManageTicketConsole($user, $activeRole)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $result = LinklyEftService::reprintReceipt($sessionId);
+        AuditLogService::log('Linkly receipt reprint requested for session ' . $sessionId . ': ' . $result['message']);
+
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function refundEftCharge(Request $request, int $transactionId)
+    {
+        $user = Auth::user();
+        $activeRole = $this->activeRole();
+        if (!$this->canManageTicketConsole($user, $activeRole)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $original = LinklyTransaction::find($transactionId);
+        if (!$original || $original->txn_type !== 'purchase') {
+            return response()->json(['success' => false, 'message' => 'Original transaction not found.'], 404);
+        }
+
+        if ($original->status !== 'approved') {
+            return response()->json(['success' => false, 'message' => 'Only an approved purchase can be refunded.'], 422);
+        }
+
+        $alreadyRefunded = LinklyTransaction::where('original_transaction_id', $original->id)
+            ->whereIn('status', ['initiated', 'in_progress', 'approved'])
+            ->exists();
+        if ($alreadyRefunded) {
+            return response()->json(['success' => false, 'message' => 'This transaction has already been refunded, or a refund is already in progress.'], 422);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01|max:' . (float) $original->amount,
+            'client_ref' => 'required|string|max:64',
+        ]);
+
+        $refundTxnRef = 'RFD' . now()->format('mdHis') . rand(100, 999);
+
+        $result = LinklyEftService::startRefund(
+            (float) $validated['amount'],
+            $refundTxnRef,
+            $original->pos_txn_ref,
+            $original->currency_code ?? Setting::get('currency_code', 'AUD'),
+            $this->eftNotificationUri(),
+            $user->id,
+            $user->name
+        );
+
+        if ($result['success']) {
+            LinklyTransaction::create([
+                'pos_txn_ref' => $refundTxnRef,
+                'client_ref' => $validated['client_ref'],
+                'linkly_session_id' => $result['session_id'],
+                'txn_type' => 'refund',
+                'donation_type' => $original->donation_type,
+                'donation_id' => $original->donation_id,
+                'amount' => $validated['amount'],
+                'currency_code' => $original->currency_code,
+                'status' => 'initiated',
+                'original_transaction_id' => $original->id,
+                'initiated_by' => $user->id,
+                'authorised_by' => $user->id,
+            ]);
+        }
+
+        return response()->json($result, $result['success'] ? 200 : 422);
     }
 }

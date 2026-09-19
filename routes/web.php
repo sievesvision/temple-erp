@@ -619,7 +619,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Event Coordinator'])
 // canUseEftTerminal() — these four act on a Linkly session generically, regardless of what
 // it's actually paying for), so this role list is the union of both call sites' roles rather
 // than living inside either one's own narrower group.
-Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Priest,Trustee,Staff'])->group(function () {
+Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Priest,Trustee,Staff,Ticket Controller'])->group(function () {
     Route::post('/admin/eft/charge/start', [\App\Http\Controllers\DonationController::class, 'startEftCharge'])->name('admin.eft.charge.start');
     Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
     Route::post('/admin/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('admin.eft.charge.cancel');
@@ -633,7 +633,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
 // no natural "owning" set of roles, so which roles can actually use it is entirely up to
 // whatever an Admin grants via that grid, not this route list.
 // ============================================
-Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff,Event Coordinator'])->group(function () {
+Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff,Event Coordinator,Ticket Controller'])->group(function () {
     Route::get('/admin/manage-tickets', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
     Route::post('/admin/ticket/store', [\App\Http\Controllers\TicketController::class, 'storeTicket'])->name('admin.tickets.store');
     Route::post('/admin/ticket/update/{id}', [\App\Http\Controllers\TicketController::class, 'updateTicket'])->name('admin.tickets.update');
@@ -644,6 +644,22 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     Route::get('/admin/tickets/print/{order}', [\App\Http\Controllers\TicketController::class, 'printOrder'])->name('admin.tickets.print');
 
     Route::get('/admin/ticket-orders', [\App\Http\Controllers\TicketController::class, 'manageOrders'])->name('admin.tickets.orders');
+
+    // Ticket Console's own EFTPOS pane — the same shared terminal as the Event Console's
+    // EFTPOS pane, scoped to ticket-related transactions (event_id always null). See
+    // TicketController::canManageTicketConsole() for the admin-tier gate applied inline.
+    Route::post('/admin/tickets/eft/pair', [\App\Http\Controllers\TicketController::class, 'pairEft'])->name('admin.tickets.eft.pair');
+    Route::post('/admin/tickets/eft/logon', [\App\Http\Controllers\TicketController::class, 'logonEft'])->name('admin.tickets.eft.logon');
+    Route::post('/admin/tickets/eft/reprint/{sessionId}', [\App\Http\Controllers\TicketController::class, 'reprintEftReceipt'])->name('admin.tickets.eft.reprint');
+    Route::post('/admin/tickets/eft/refund/{transaction}', [\App\Http\Controllers\TicketController::class, 'refundEftCharge'])->name('admin.tickets.eft.refund');
+
+    // Ticket Controller role assignment — a flat grant (ticket_controllers table), unlike
+    // Event Coordinator's per-event pivot. See TicketControllerAssignmentController.
+    Route::post('/admin/ticket-controllers', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'store'])->name('admin.ticket-controllers.store');
+    Route::post('/admin/ticket-controllers/{user}/level', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'updateLevel'])->name('admin.ticket-controllers.updateLevel');
+    Route::post('/admin/ticket-controllers/{user}/toggle-lock', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'toggleLock'])->name('admin.ticket-controllers.toggleLock');
+    Route::post('/admin/ticket-controllers/{user}/send-reset-link', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'sendResetLink'])->name('admin.ticket-controllers.sendResetLink');
+    Route::delete('/admin/ticket-controllers/{user}', [\App\Http\Controllers\TicketControllerAssignmentController::class, 'destroy'])->name('admin.ticket-controllers.destroy');
 });
 
 // ============================================

@@ -372,6 +372,11 @@ class AuthController extends Controller
             'Accountant' => 'accountant.dashboard',
             'Committee' => 'committee.dashboard',
             'Event Coordinator' => 'event-coordinator.my-events',
+            // Same landing route as Admin/Committee reaching the Ticket Console
+            // (admin.tickets.index) — TicketController::manageTickets() itself redirects a
+            // view/entry-level Ticket Controller straight to the Ticket POS, the same way
+            // EventConsoleController::show() redirects a pos-level Event Coordinator.
+            'Ticket Controller' => 'admin.tickets.index',
             default => 'devotee.dashboard',
         };
     }

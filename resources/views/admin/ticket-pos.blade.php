@@ -26,41 +26,69 @@
         .pos-topbar-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 42px; height: 42px; border-radius: 12px; font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.22); }
 
-        .pos-main { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px 8px; }
-        .pos-card { max-width: 760px; margin: 0 auto; background: var(--white); border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(31,42,55,0.05); padding: 20px clamp(16px, 3vw, 30px); }
-        .pos-field-label { display: block; font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
-        .pos-input { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 14px; font-size: 1.05rem; font-weight: 600; color: var(--text-primary); background: var(--white); min-height: 52px; }
-        .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(200,155,60,0.15); }
-        .pos-row { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
-        .pos-row.two-col { grid-template-columns: 1fr; }
-        @media (min-width: 560px) { .pos-row.two-col { grid-template-columns: 1fr 1fr 1fr; } }
-        .pos-section-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); margin: 20px 0 10px; }
-        .pos-section-title:first-child { margin-top: 0; }
+        /* ---------- Full-width kiosk: items grid on the left, cart panel on the right ---------- */
+        .pos-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        @media (min-width: 900px) { .pos-body { flex-direction: row; } }
 
-        .ticket-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 2px solid var(--border); border-radius: 14px; margin-bottom: 10px; background: var(--white); flex-wrap: wrap; }
-        .ticket-row.in-cart { border-color: var(--gold); background: #FDF6EA; }
-        .ticket-row-info { flex: 1; min-width: 160px; }
-        .ticket-row-name { font-weight: 700; font-size: 1.02rem; }
-        .ticket-row-price { color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; }
-        .ticket-qty-controls { display: flex; align-items: center; gap: 10px; }
-        .ticket-qty-btn { width: 44px; height: 44px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); font-size: 1.3rem; font-weight: 800; color: var(--gold-hover); }
-        .ticket-qty-btn:active { background: var(--cream); }
-        .ticket-qty-value { min-width: 32px; text-align: center; font-weight: 800; font-size: 1.1rem; font-family: 'IBM Plex Mono', 'Inter', monospace; }
+        .pos-items-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
+        .pos-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+        .pos-item-tile { position: relative; border-radius: 16px; overflow: hidden; min-height: 130px; border: none; padding: 0; text-align: left; cursor: pointer; box-shadow: 0 2px 8px rgba(31,42,55,0.08); background-size: cover; background-position: center; display: flex; align-items: flex-end; }
+        .pos-item-tile:active { transform: scale(0.97); }
+        .pos-item-tile .tile-overlay { width: 100%; background: linear-gradient(0deg, rgba(0,0,0,0.62), rgba(0,0,0,0.05)); padding: 12px 14px 10px; color: #fff; }
+        .pos-item-tile .tile-name { font-weight: 800; font-size: 1rem; line-height: 1.2; }
+        .pos-item-tile .tile-price { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 0.9rem; opacity: 0.92; }
+        .pos-item-tile .tile-qty-badge { position: absolute; top: 8px; right: 8px; background: var(--gold); color: #fff; font-weight: 800; font-size: 0.85rem; min-width: 26px; height: 26px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+        .pos-item-tile.in-cart .tile-qty-badge { display: flex; }
 
-        .cart-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.3rem; color: var(--text-primary); padding: 14px 4px; border-top: 2px solid var(--border); margin-top: 8px; }
+        .pos-cart-pane { width: 100%; flex-shrink: 0; background: var(--white); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+        @media (min-width: 900px) { .pos-cart-pane { width: 400px; } }
+        .pos-cart-header { padding: 16px 18px 8px; font-weight: 800; font-size: 1.05rem; flex-shrink: 0; }
+        .pos-cart-list { flex: 1; min-height: 80px; overflow-y: auto; padding: 0 18px; }
+        .pos-cart-empty { text-align: center; color: var(--text-secondary); padding: 30px 10px; }
+        .cart-line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .cart-line-info { flex: 1; min-width: 0; }
+        .cart-line-name { font-weight: 700; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cart-line-unit { font-size: 0.76rem; color: var(--text-secondary); font-family: 'IBM Plex Mono', monospace; }
+        .cart-line-qty-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .cart-qty-btn { width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); font-size: 1rem; font-weight: 800; color: var(--gold-hover); }
+        .cart-qty-input { width: 40px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; padding: 4px 2px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
+        .cart-line-total { width: 66px; text-align: right; font-weight: 700; font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem; flex-shrink: 0; }
+        .cart-line-remove { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--error); color: #fff; font-size: 0.85rem; flex-shrink: 0; }
+
+        .pos-cart-footer { flex-shrink: 0; padding: 12px 18px 16px; border-top: 2px solid var(--border); }
+        .cart-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.3rem; color: var(--text-primary); padding: 6px 0 12px; }
         .cart-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; }
 
-        .pos-method-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
-        .pos-method-btn { flex: 1 1 calc(33% - 10px); min-width: 110px; padding: 16px 10px; min-height: 60px; border-radius: 14px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.95rem; color: var(--text-secondary); }
-        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.3); }
-        .pos-method-btn i { display: block; font-size: 1.3rem; margin-bottom: 4px; }
+        .pos-field-label { display: block; font-weight: 700; font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+        .pos-input { width: 100%; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.88rem; font-weight: 600; color: var(--text-primary); background: var(--white); min-height: 38px; }
+        .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+        .pos-row.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 
-        .pos-save-btn { width: 100%; padding: 20px; border-radius: 16px; border: none; margin-top: 18px; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.3rem; box-shadow: 0 10px 26px rgba(200,155,60,0.35); min-height: 68px; }
+        .pos-method-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .pos-method-btn { flex: 1 1 calc(50% - 8px); min-width: 90px; padding: 10px 8px; min-height: 46px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); }
+        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.3); }
+        .pos-method-btn i { display: block; font-size: 1.1rem; margin-bottom: 2px; }
+
+        .pos-save-btn { width: 100%; padding: 16px; border-radius: 14px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.1rem; box-shadow: 0 10px 26px rgba(200,155,60,0.35); min-height: 56px; }
         .pos-save-btn:disabled { opacity: 0.55; }
         .pos-save-btn:active { transform: scale(0.98); }
 
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: 14px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
+
+        /* ---------- Quantity picker modal (opened by tapping an item tile) ---------- */
+        .qty-modal-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 900; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .qty-modal-overlay.active { display: flex; }
+        .qty-modal { background: var(--white); border-radius: 22px; width: 100%; max-width: 340px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; }
+        .qty-modal-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 16px 20px; font-weight: 800; font-size: 1.05rem; }
+        .qty-modal-body { padding: 24px 22px; }
+        .qty-modal-price { color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', monospace; margin-bottom: 18px; }
+        .qty-modal-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 22px; }
+        .qty-modal-btn { width: 54px; height: 54px; border-radius: 16px; border: 2px solid var(--border); background: var(--cream); font-size: 1.6rem; font-weight: 800; color: var(--gold-hover); }
+        .qty-modal-value { font-size: 2rem; font-weight: 800; font-family: 'IBM Plex Mono', monospace; min-width: 60px; }
+        .qty-modal-actions { display: flex; gap: 10px; }
+        .qty-modal-cancel { flex: 1; padding: 13px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; }
+        .qty-modal-confirm { flex: 2; padding: 13px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; }
 
         .eft-modal-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .eft-modal-overlay.active { display: flex; }
@@ -95,52 +123,57 @@
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
         <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
-        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Manage Tickets"><i class="bi bi-grid-1x2-fill"></i></a>
+        @if($canManageConsole)
+        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
+        @endif
         <a href="{{ route('logout') }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
     </header>
 
-    <div class="pos-main">
-        <div class="pos-card">
-            <div class="pos-section-title">Tickets</div>
-            <div id="ticketList">
+    <div class="pos-body">
+        <div class="pos-items-pane">
+            <div class="pos-items-grid" id="itemsGrid">
                 @forelse($tickets as $ticket)
-                <div class="ticket-row" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}">
-                    <div class="ticket-row-info">
-                        <div class="ticket-row-name">{{ $ticket->name }}</div>
-                        <div class="ticket-row-price">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</div>
-                    </div>
-                    <div class="ticket-qty-controls">
-                        <button type="button" class="ticket-qty-btn ticket-qty-minus">−</button>
-                        <span class="ticket-qty-value">0</span>
-                        <button type="button" class="ticket-qty-btn ticket-qty-plus">+</button>
-                    </div>
-                </div>
+                <button type="button" class="pos-item-tile" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}"
+                    style="{{ $ticket->image ? 'background-image:url(' . e($ticket->image) . ');' : 'background:' . ($ticket->background_color ?: 'var(--gold)') . ';' }}">
+                    <span class="tile-qty-badge">0</span>
+                    <span class="tile-overlay">
+                        <span class="tile-name">{{ $ticket->name }}</span><br>
+                        <span class="tile-price">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
+                    </span>
+                </button>
                 @empty
-                <p class="text-muted text-center py-4">No active ticket types — add one in Manage Tickets.</p>
+                <p class="text-muted text-center py-4">No active ticket types — add one in the Ticket Console.</p>
                 @endforelse
             </div>
-            <div class="cart-total-row"><span>Total</span><span id="cartTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
+        </div>
 
-            <div class="pos-section-title">Customer (optional)</div>
-            <div class="pos-row two-col">
-                <div>
-                    <label class="pos-field-label">Name</label>
-                    <input type="text" class="pos-input" id="ticketCustomerName" placeholder="Optional" autocomplete="off">
-                </div>
-                <div>
-                    <label class="pos-field-label">Mobile</label>
-                    <input type="text" class="pos-input" id="ticketCustomerMobile" placeholder="Optional" autocomplete="off">
-                </div>
-                <div>
-                    <label class="pos-field-label">Email</label>
-                    <input type="email" class="pos-input" id="ticketCustomerEmail" placeholder="Optional" autocomplete="off">
-                </div>
+        <div class="pos-cart-pane">
+            <div class="pos-cart-header"><i class="bi bi-cart-fill me-2"></i>Order</div>
+            <div class="pos-cart-list" id="cartList">
+                <div class="pos-cart-empty" id="cartEmptyMsg">Tap a ticket to add it to the order.</div>
             </div>
+            <div class="pos-cart-footer">
+                <div class="cart-total-row"><span>Total</span><span id="cartTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
 
-            <div class="pos-section-title">Payment Method</div>
-            <div class="pos-method-row" id="posMethodRow"></div>
+                <div class="pos-row two-col">
+                    <div>
+                        <label class="pos-field-label">Name</label>
+                        <input type="text" class="pos-input" id="ticketCustomerName" placeholder="Optional" autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="pos-field-label">Mobile</label>
+                        <input type="text" class="pos-input" id="ticketCustomerMobile" placeholder="Optional" autocomplete="off">
+                    </div>
+                </div>
 
-            <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-printer-fill me-2"></i>Complete Sale &amp; Print</button>
+                <div class="pos-method-row" id="posMethodRow"></div>
+
+                @if($canSell)
+                <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-printer-fill me-2"></i>Complete Sale &amp; Print</button>
+                @else
+                <button type="button" class="pos-save-btn" disabled title="View-only access"><i class="bi bi-eye-fill me-2"></i>View Only</button>
+                @endif
+            </div>
         </div>
     </div>
 
@@ -149,6 +182,25 @@
     <div id="eftResumeBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:2000; background:#7a1f1f; color:#fff; padding:12px 18px; align-items:center; gap:14px; flex-wrap:wrap; justify-content:center;">
         <span id="eftResumeBannerText"></span>
         <button type="button" id="eftResumeBannerDismissBtn" style="background:transparent; color:#fff; border:1px solid #fff; border-radius:8px; padding:6px 16px;">Dismiss</button>
+    </div>
+
+    <!-- Quantity picker — opened by tapping an item tile -->
+    <div class="qty-modal-overlay" id="qtyModalOverlay">
+        <div class="qty-modal">
+            <div class="qty-modal-header" id="qtyModalTitle">Ticket</div>
+            <div class="qty-modal-body">
+                <div class="qty-modal-price" id="qtyModalPrice"></div>
+                <div class="qty-modal-controls">
+                    <button type="button" class="qty-modal-btn" id="qtyModalMinus">−</button>
+                    <span class="qty-modal-value" id="qtyModalValue">1</span>
+                    <button type="button" class="qty-modal-btn" id="qtyModalPlus">+</button>
+                </div>
+                <div class="qty-modal-actions">
+                    <button type="button" class="qty-modal-cancel" id="qtyModalCancel">Cancel</button>
+                    <button type="button" class="qty-modal-confirm" id="qtyModalConfirm">Add to Order</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="eft-modal-overlay" id="eftModalOverlay">
@@ -193,6 +245,7 @@
         const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));
         const EFT_CHARGE_SENDKEY_URL_BASE = @json(url('/admin/eft/charge/sendkey'));
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
+        const CAN_SELL = @json($canSell);
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
 
         document.getElementById('posFullscreenBtn').addEventListener('click', function () {
@@ -202,47 +255,119 @@
 
         // ---------- Cart ----------
         let cart = {}; // ticket_id -> {id, name, price, quantity}
-        function updateCartRow(row) {
-            const id = row.dataset.id;
-            const qty = (cart[id] && cart[id].quantity) || 0;
-            row.querySelector('.ticket-qty-value').textContent = qty;
-            row.classList.toggle('in-cart', qty > 0);
+
+        function renderCart() {
+            const list = document.getElementById('cartList');
+            const lines = Object.values(cart);
+            list.innerHTML = '';
+            if (!lines.length) {
+                list.innerHTML = '<div class="pos-cart-empty" id="cartEmptyMsg">Tap a ticket to add it to the order.</div>';
+            } else {
+                lines.forEach(function (line) {
+                    const row = document.createElement('div');
+                    row.className = 'cart-line';
+                    row.dataset.id = line.id;
+                    row.innerHTML =
+                        '<div class="cart-line-info">' +
+                            '<div class="cart-line-name">' + line.name + '</div>' +
+                            '<div class="cart-line-unit">' + CURRENCY_CODE + ' ' + line.price.toFixed(2) + ' each</div>' +
+                        '</div>' +
+                        '<div class="cart-line-qty-controls">' +
+                            '<button type="button" class="cart-qty-btn cart-line-minus">−</button>' +
+                            '<input type="number" class="cart-qty-input cart-line-qty-input" min="0" value="' + line.quantity + '">' +
+                            '<button type="button" class="cart-qty-btn cart-line-plus">+</button>' +
+                        '</div>' +
+                        '<div class="cart-line-total">' + (line.price * line.quantity).toFixed(2) + '</div>' +
+                        '<button type="button" class="cart-line-remove"><i class="bi bi-trash-fill"></i></button>';
+                    list.appendChild(row);
+                });
+            }
+
+            document.querySelectorAll('.pos-item-tile').forEach(function (tile) {
+                const id = tile.dataset.id;
+                const qty = (cart[id] && cart[id].quantity) || 0;
+                tile.classList.toggle('in-cart', qty > 0);
+                tile.querySelector('.tile-qty-badge').textContent = qty;
+            });
+
+            recalcCartTotal();
         }
+
         function recalcCartTotal() {
             let total = 0;
             Object.values(cart).forEach(function (line) { total += line.price * line.quantity; });
             document.getElementById('cartTotal').textContent = CURRENCY_CODE + ' ' + total.toFixed(2);
             return total;
         }
-        document.querySelectorAll('.ticket-row').forEach(function (row) {
+
+        function setLineQuantity(id, name, price, quantity) {
+            quantity = Math.max(0, quantity);
+            if (quantity === 0) { delete cart[id]; }
+            else { cart[id] = { id: id, name: name, price: price, quantity: quantity }; }
+            renderCart();
+        }
+
+        document.getElementById('cartList').addEventListener('click', function (e) {
+            const row = e.target.closest('.cart-line');
+            if (!row) { return; }
             const id = row.dataset.id;
-            const name = row.dataset.name;
-            const price = parseFloat(row.dataset.price);
-            row.querySelector('.ticket-qty-plus').addEventListener('click', function () {
-                cart[id] = cart[id] || { id: id, name: name, price: price, quantity: 0 };
-                cart[id].quantity++;
-                updateCartRow(row);
-                recalcCartTotal();
-            });
-            row.querySelector('.ticket-qty-minus').addEventListener('click', function () {
-                if (!cart[id] || cart[id].quantity <= 0) { return; }
-                cart[id].quantity--;
-                if (cart[id].quantity === 0) { delete cart[id]; }
-                updateCartRow(row);
-                recalcCartTotal();
-            });
+            const line = cart[id];
+            if (!line) { return; }
+            if (e.target.closest('.cart-line-plus')) { setLineQuantity(id, line.name, line.price, line.quantity + 1); }
+            else if (e.target.closest('.cart-line-minus')) { setLineQuantity(id, line.name, line.price, line.quantity - 1); }
+            else if (e.target.closest('.cart-line-remove')) { setLineQuantity(id, line.name, line.price, 0); }
         });
+        document.getElementById('cartList').addEventListener('change', function (e) {
+            if (!e.target.classList.contains('cart-line-qty-input')) { return; }
+            const row = e.target.closest('.cart-line');
+            const id = row.dataset.id;
+            const line = cart[id];
+            if (!line) { return; }
+            setLineQuantity(id, line.name, line.price, parseInt(e.target.value, 10) || 0);
+        });
+
         function resetCart() {
             cart = {};
-            document.querySelectorAll('.ticket-row').forEach(updateCartRow);
-            recalcCartTotal();
+            renderCart();
             document.getElementById('ticketCustomerName').value = '';
             document.getElementById('ticketCustomerMobile').value = '';
-            document.getElementById('ticketCustomerEmail').value = '';
         }
         function cartAsArray() {
             return Object.values(cart).map(function (l) { return { ticket_id: l.id, name: l.name, price: l.price, quantity: l.quantity }; });
         }
+
+        // ---------- Quantity modal (tap-to-add) ----------
+        const qtyModalOverlay = document.getElementById('qtyModalOverlay');
+        let qtyModalTicket = null;
+        function openQtyModal(tile) {
+            if (!CAN_SELL) { return; }
+            const id = tile.dataset.id;
+            qtyModalTicket = { id: id, name: tile.dataset.name, price: parseFloat(tile.dataset.price) };
+            document.getElementById('qtyModalTitle').textContent = qtyModalTicket.name;
+            document.getElementById('qtyModalPrice').textContent = CURRENCY_CODE + ' ' + qtyModalTicket.price.toFixed(2) + ' each';
+            document.getElementById('qtyModalValue').textContent = (cart[id] && cart[id].quantity) || 1;
+            qtyModalOverlay.classList.add('active');
+        }
+        document.getElementById('itemsGrid').addEventListener('click', function (e) {
+            const tile = e.target.closest('.pos-item-tile');
+            if (tile) { openQtyModal(tile); }
+        });
+        document.getElementById('qtyModalPlus').addEventListener('click', function () {
+            const el = document.getElementById('qtyModalValue');
+            el.textContent = parseInt(el.textContent, 10) + 1;
+        });
+        document.getElementById('qtyModalMinus').addEventListener('click', function () {
+            const el = document.getElementById('qtyModalValue');
+            el.textContent = Math.max(0, parseInt(el.textContent, 10) - 1);
+        });
+        document.getElementById('qtyModalCancel').addEventListener('click', function () {
+            qtyModalOverlay.classList.remove('active');
+        });
+        document.getElementById('qtyModalConfirm').addEventListener('click', function () {
+            const qty = parseInt(document.getElementById('qtyModalValue').textContent, 10) || 0;
+            setLineQuantity(qtyModalTicket.id, qtyModalTicket.name, qtyModalTicket.price, qty);
+            qtyModalOverlay.classList.remove('active');
+        });
 
         // ---------- Payment method ----------
         const methodRow = document.getElementById('posMethodRow');
@@ -359,57 +484,59 @@
             if (orderId) { window.open('/admin/tickets/print/' + orderId, '_blank'); }
         }
 
-        document.getElementById('posSaveBtn').addEventListener('click', function () {
-            const cartLines = cartAsArray();
-            const total = recalcCartTotal();
-            if (!cartLines.length || total <= 0) { showToast('Add at least one ticket to the order.', true); return; }
+        const posSaveBtn = document.getElementById('posSaveBtn');
+        if (posSaveBtn) {
+            posSaveBtn.addEventListener('click', function () {
+                const cartLines = cartAsArray();
+                const total = recalcCartTotal();
+                if (!cartLines.length || total <= 0) { showToast('Add at least one ticket to the order.', true); return; }
 
-            const name = document.getElementById('ticketCustomerName').value.trim();
-            const email = document.getElementById('ticketCustomerEmail').value.trim();
-            const mobile = document.getElementById('ticketCustomerMobile').value.trim();
-            const btn = this;
-            btn.disabled = true;
+                const name = document.getElementById('ticketCustomerName').value.trim();
+                const mobile = document.getElementById('ticketCustomerMobile').value.trim();
+                const btn = this;
+                btn.disabled = true;
 
-            if (selectedMethod === 'EFT Terminal') {
-                startOrResumeEftPurchase(btn, {
-                    clientRef: newClientRef(),
-                    amount: total,
-                    name: name || 'Customer',
-                    email: email,
-                    mobile: mobile,
-                    cart: cartLines,
-                });
-                return;
-            }
+                if (selectedMethod === 'EFT Terminal') {
+                    startOrResumeEftPurchase(btn, {
+                        clientRef: newClientRef(),
+                        amount: total,
+                        name: name || 'Customer',
+                        email: '',
+                        mobile: mobile,
+                        cart: cartLines,
+                    });
+                    return;
+                }
 
-            const body = new URLSearchParams();
-            body.set('customer_name', name);
-            body.set('email', email);
-            body.set('mobile', mobile);
-            body.set('cart_json', JSON.stringify(cartLines));
-            body.set('payment_method', selectedMethod);
+                const body = new URLSearchParams();
+                body.set('customer_name', name);
+                body.set('email', '');
+                body.set('mobile', mobile);
+                body.set('cart_json', JSON.stringify(cartLines));
+                body.set('payment_method', selectedMethod);
 
-            fetch(STORE_ORDER_URL, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString(),
-            })
-                .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
-                .then(function (result) {
-                    btn.disabled = false;
-                    if (result.status >= 200 && result.status < 300 && result.data.success) {
-                        showToast('Sale recorded — printing…');
-                        openPrintView(result.data.order_id);
-                        resetCart();
-                    } else {
-                        showToast(result.data.message || 'Failed to save.', true);
-                    }
+                fetch(STORE_ORDER_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
                 })
-                .catch(function () {
-                    btn.disabled = false;
-                    showToast('Network error — please try again.', true);
-                });
-        });
+                    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+                    .then(function (result) {
+                        btn.disabled = false;
+                        if (result.status >= 200 && result.status < 300 && result.data.success) {
+                            showToast('Sale recorded — printing…');
+                            openPrintView(result.data.order_id);
+                            resetCart();
+                        } else {
+                            showToast(result.data.message || 'Failed to save.', true);
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        showToast('Network error — please try again.', true);
+                    });
+            });
+        }
 
         function startOrResumeEftPurchase(btn, freshAttempt) {
             const attempt = loadEftAttempt() || freshAttempt;
@@ -459,7 +586,7 @@
                 eftPollCancelled = true;
                 clearEftAttempt();
                 hideEftModal();
-                document.getElementById('posSaveBtn').disabled = false;
+                if (posSaveBtn) { posSaveBtn.disabled = false; }
                 showToast('Sale cancelled.', true);
                 return;
             }
@@ -479,7 +606,7 @@
                         eftPollCancelled = true;
                         clearEftAttempt();
                         hideEftModal();
-                        document.getElementById('posSaveBtn').disabled = false;
+                        if (posSaveBtn) { posSaveBtn.disabled = false; }
                         showToast('Cancelled on the terminal.');
                     } else {
                         showToast(data.message || 'Could not cancel — the transaction may still complete. Please wait for the result.', true);
@@ -548,8 +675,10 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            renderCart();
+
             const banner = document.getElementById('eftResumeBanner');
-            if (!banner) { return; }
+            if (!banner || !posSaveBtn) { return; }
 
             if (PENDING_EFT_RECOVERY) {
                 const p = PENDING_EFT_RECOVERY;
@@ -562,14 +691,13 @@
                     clearEftAttempt();
                 });
 
-                const btn = document.getElementById('posSaveBtn');
-                btn.disabled = true;
+                posSaveBtn.disabled = true;
                 eftPollCancelled = false;
                 eftCurrentSessionId = p.sessionId;
                 eftConsecutiveTransientErrors = 0;
                 saveEftAttempt({ clientRef: p.clientRef, amount: p.amount, name: p.name, email: p.email, mobile: p.mobile, cart: [] });
                 showEftModal(p.amount);
-                pollEftTransaction(p.sessionId, btn, p.amount, Date.now());
+                pollEftTransaction(p.sessionId, posSaveBtn, p.amount, Date.now());
             }
         });
     </script>

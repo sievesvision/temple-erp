@@ -27,7 +27,7 @@ class RolePermission extends Model
      */
     public static function roles(): array
     {
-        return ['Admin', 'Devotee', 'Priest', 'Trustee', 'Staff', 'Accountant', 'Committee', 'Event Coordinator'];
+        return ['Admin', 'Devotee', 'Priest', 'Trustee', 'Staff', 'Accountant', 'Committee', 'Event Coordinator', 'Ticket Controller'];
     }
 
     /**
@@ -78,7 +78,8 @@ class RolePermission extends Model
             'Trustee' => 5,
             'Staff' => 6,
             'Event Coordinator' => 7,
-            'Devotee' => 8,
+            'Ticket Controller' => 8,
+            'Devotee' => 9,
         ];
     }
 

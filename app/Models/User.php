@@ -91,6 +91,11 @@ protected $fillable = [
             // works correctly against a multi-row table; see EventCoordinatorController for
             // the per-event scoping this role actually relies on.
             'Event Coordinator' => 'event_coordinators',
+            // A flat grant, unlike event_coordinators — one row per user (unique on
+            // user_id), never scoped to anything, since Tickets is a standalone module. See
+            // App\Services\TicketControllerLevel for the view/entry/admin tier its own
+            // 'level' column holds.
+            'Ticket Controller' => 'ticket_controllers',
         ];
     }
 

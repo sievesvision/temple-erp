@@ -12,6 +12,7 @@ use App\Models\Event;
 use App\Services\AuditLogService;
 use App\Services\DonationReceiptService;
 use App\Services\EventCoordinatorLevel;
+use App\Services\TicketControllerLevel;
 use App\Services\LinklyEftService;
 use App\Models\LinklyTransaction;
 use App\Services\StripeConfigService;
@@ -705,8 +706,15 @@ class DonationController extends Controller
      */
     private function canUseEftTerminal($user, ?string $activeRole, $eventId): bool
     {
-        return $this->canRecordDonation($user, $activeRole, $eventId)
-            || RolePermission::can($activeRole, 'tickets', 'add');
+        if ($this->canRecordDonation($user, $activeRole, $eventId) || RolePermission::can($activeRole, 'tickets', 'add')) {
+            return true;
+        }
+
+        if ($activeRole === 'Ticket Controller') {
+            return TicketControllerLevel::atLeast(TicketControllerLevel::of($user->id), 'entry');
+        }
+
+        return false;
     }
 
     /**
@@ -886,8 +894,14 @@ class DonationController extends Controller
 
         if ($recordType === 'ticket_order') {
             // Tickets are a standalone module (not tied to an Event) — its own permission
-            // resource, not canRecordDonation()'s event-scoped check.
-            if (!$user || !RolePermission::can($activeRole, 'tickets', 'add')) {
+            // resource, not canRecordDonation()'s event-scoped check. A Ticket Controller has
+            // no RolePermission grid entries at all (mirroring Event Coordinator), so they're
+            // authorised here via TicketControllerLevel instead, same as canUseEftTerminal().
+            $ticketAuthorised = $user && (
+                RolePermission::can($activeRole, 'tickets', 'add')
+                || ($activeRole === 'Ticket Controller' && TicketControllerLevel::atLeast(TicketControllerLevel::of($user->id), 'entry'))
+            );
+            if (!$ticketAuthorised) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
             }
         } elseif (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
