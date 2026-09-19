@@ -419,8 +419,8 @@ class LinklyEftService
             // key press — safe to log the body verbatim, unlike the transaction/receipt
             // postbacks, so a genuine "terminal already moved past that step" rejection can
             // be told apart from a malformed-request 400.
-            Log::warning('Linkly sendKey failed', ['session_id' => $sessionId, 'status' => $response->status(), 'body' => $response->body()]);
-            return ['success' => false, 'message' => 'The terminal did not accept the cancel request — it may have already moved past that step.'];
+            Log::warning('Linkly sendKey failed', ['session_id' => $sessionId, 'key' => $key, 'status' => $response->status(), 'body' => $response->body()]);
+            return ['success' => false, 'message' => 'The terminal did not accept that — the transaction may have already finished.'];
         }
 
         return ['success' => true, 'message' => 'Cancel sent to the terminal.'];

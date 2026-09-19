@@ -1026,7 +1026,28 @@ class DonationController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
+        if ($alreadyDone = $this->alreadyTerminalKeyMessage($sessionId)) {
+            return response()->json(['success' => false, 'message' => $alreadyDone]);
+        }
+
         return response()->json(LinklyEftService::cancel($sessionId));
+    }
+
+    /**
+     * A stale button click (the modal briefly showed Cancel/OK/Yes/No/Authorise for a display
+     * notification that arrived moments before Linkly actually resolved the transaction) would
+     * otherwise reach Linkly and come back with a generic, confusing "the terminal did not
+     * accept that" — this checks our own already-synced ledger first (see syncLedgerFromPoll())
+     * so a click that's simply too late gets a clear, accurate explanation instead, without a
+     * pointless round-trip to a terminal we already know has moved on.
+     */
+    private function alreadyTerminalKeyMessage(string $sessionId): ?string
+    {
+        $txn = LinklyTransaction::where('linkly_session_id', $sessionId)->first();
+        if ($txn && $txn->isTerminal()) {
+            return 'This transaction has already finished (' . $txn->status . ') — no action needed.';
+        }
+        return null;
     }
 
     /**
@@ -1049,6 +1070,10 @@ class DonationController extends Controller
         $validated = $request->validate([
             'key' => 'required|string|in:ok,yes,no,authorise',
         ]);
+
+        if ($alreadyDone = $this->alreadyTerminalKeyMessage($sessionId)) {
+            return response()->json(['success' => false, 'message' => $alreadyDone]);
+        }
 
         // Linkly's sendkey codes: "0"=Cancel (see LinklyEftService::cancel()), "1"=Yes/OK,
         // "2"=No, "3"=Authorise — OK and Yes share the same code since the terminal exposes

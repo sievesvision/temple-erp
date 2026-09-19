@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
     <style>
         :root {
             --maroon: #6B0F1A;
@@ -246,12 +247,12 @@
            option labels ("Sponsorship for a Conch") — the data underneath is just numbers. */
         table.console-table th { background: var(--cream); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.02em; line-height: 1.25; position: sticky; top: 0; z-index: 5; white-space: normal; vertical-align: bottom; }
         table.console-table td.col-name { white-space: normal; min-width: 110px; max-width: 160px; font-weight: 600; }
-        table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-variant-numeric: tabular-nums; }
-        table.console-table th.col-amount { max-width: 80px; }
-        table.console-table td.col-amount.total { font-weight: 800; color: var(--text-primary); }
+        table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        table.console-table th.col-amount { max-width: 80px; font-family: 'Inter', sans-serif; }
+        table.console-table td.col-amount.total { font-weight: 700; color: var(--text-primary); }
         table.console-table td.col-contact { white-space: normal; max-width: 130px; }
         table.console-table td.col-contact .contact-email { display: block; font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
-        table.console-table td.col-txn { max-width: 100px; overflow: hidden; text-overflow: ellipsis; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.74rem; color: var(--text-secondary); }
+        table.console-table td.col-txn { max-width: 100px; overflow: hidden; text-overflow: ellipsis; font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace; font-size: 0.74rem; color: var(--text-secondary); }
         table.console-table tbody tr:hover { background: var(--cream); }
         .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
         .status-pill.status-paid { background: var(--success-bg); color: var(--success); }
@@ -284,7 +285,7 @@
         .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
         .stat-tile .stat-text { min-width: 0; }
         .stat-tile .label { color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .stat-tile .value { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); margin-top: 2px; overflow-wrap: break-word; }
+        .stat-tile .value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; overflow-wrap: break-word; }
 
         .breakdown-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .breakdown-row:last-child { border-bottom: none; }

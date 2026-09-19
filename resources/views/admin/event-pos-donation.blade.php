@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
+    <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
     <style>
         :root {
             --maroon: #6B0F1A;
@@ -60,7 +61,8 @@
         .pos-section-title:first-child { margin-top: 0; }
 
         .pos-quick-amounts { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-        .pos-quick-amount-btn { flex: 1 1 calc(25% - 10px); min-width: 90px; background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 800; padding: 16px 8px; min-height: 58px; border-radius: 14px; font-size: 1.05rem; }
+        .pos-quick-amount-btn { flex: 1 1 calc(25% - 10px); min-width: 90px; background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; padding: 16px 8px; min-height: 58px; border-radius: 14px; font-size: 1.05rem; }
+        #posAmount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
         .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.32); }
 
         .pos-tier-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border: 2px solid var(--border); border-radius: 14px; margin-bottom: 10px; flex-wrap: wrap; background: var(--white); }
@@ -92,13 +94,13 @@
         .pos-orders-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); padding: 10px clamp(16px, 3vw, 30px); box-shadow: 0 -4px 14px rgba(31,42,55,0.05); }
         .pos-orders-header { display: flex; align-items: center; justify-content: space-between; max-width: 760px; margin: 0 auto 6px; cursor: pointer; }
         .pos-orders-header h4 { margin: 0; font-size: 0.88rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-        .pos-orders-header .pos-orders-total { font-weight: 800; color: var(--gold-hover); font-size: 0.95rem; }
+        .pos-orders-header .pos-orders-total { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--gold-hover); font-size: 0.95rem; }
         .pos-orders-list { max-width: 760px; margin: 0 auto; max-height: 160px; overflow-y: auto; display: none; }
         .pos-orders-list.expanded { display: block; }
         .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--cream); font-size: 0.85rem; }
         .pos-order-item:last-child { border-bottom: none; }
         .pos-order-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-        .pos-order-amount { font-weight: 800; color: var(--text-primary); flex-shrink: 0; }
+        .pos-order-amount { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
         .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
         .pos-orders-empty { color: var(--text-secondary); font-size: 0.85rem; text-align: center; padding: 10px 0; }
 
@@ -122,7 +124,7 @@
             font-size: 0.95rem; text-transform: uppercase;
         }
         .eft-modal-body { padding: 30px 26px 26px; }
-        .eft-modal-amount { font-family: var(--serif); font-size: 2.4rem; font-weight: 800; color: var(--text-primary); margin-bottom: 18px; }
+        .eft-modal-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: 14px;
             padding: 18px 16px; min-height: 90px; display: flex; flex-direction: column;

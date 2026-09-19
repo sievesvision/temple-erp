@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\LinklyTransaction;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -382,5 +383,48 @@ class LinklyWebhookTest extends TestCase
         $response = $this->actingAs($coordinator)->postJson("/admin/eft/charge/sendkey/{$sessionId}", ['key' => 'ok']);
 
         $response->assertStatus(403);
+    }
+
+    // A button click that arrives after the transaction has already resolved (a display
+    // notification's key flag was still showing when the operator clicked, but Linkly
+    // resolved the transaction in the same ~1.2s poll window) gets a clear "already
+    // finished" message from our own already-synced ledger, instead of forwarding a stale
+    // click to Linkly and surfacing its generic, confusing rejection.
+    public function test_send_key_rejects_locally_once_ledger_shows_transaction_already_terminal(): void
+    {
+        $sessionId = (string) Str::uuid();
+        LinklyTransaction::create([
+            'pos_txn_ref' => 'EFTALREADY1',
+            'linkly_session_id' => $sessionId,
+            'txn_type' => 'purchase',
+            'amount' => 10,
+            'status' => 'approved',
+            'initiated_by' => $this->adminUser()->id,
+        ]);
+
+        $response = $this->actingAs($this->adminUser())->postJson("/admin/eft/charge/sendkey/{$sessionId}", ['key' => 'ok']);
+
+        $response->assertOk()->assertJson(['success' => false]);
+        $this->assertStringContainsString('already finished', $response->json('message'));
+        Http::assertNothingSent();
+    }
+
+    public function test_cancel_rejects_locally_once_ledger_shows_transaction_already_terminal(): void
+    {
+        $sessionId = (string) Str::uuid();
+        LinklyTransaction::create([
+            'pos_txn_ref' => 'EFTALREADY2',
+            'linkly_session_id' => $sessionId,
+            'txn_type' => 'purchase',
+            'amount' => 10,
+            'status' => 'declined',
+            'initiated_by' => $this->adminUser()->id,
+        ]);
+
+        $response = $this->actingAs($this->adminUser())->postJson("/admin/eft/charge/cancel/{$sessionId}");
+
+        $response->assertOk()->assertJson(['success' => false]);
+        $this->assertStringContainsString('already finished', $response->json('message'));
+        Http::assertNothingSent();
     }
 }
