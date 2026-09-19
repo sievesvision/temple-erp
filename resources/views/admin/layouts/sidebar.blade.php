@@ -104,6 +104,11 @@
       <a href="{{ route('admin.donations.index') }}" class="nav-link {{ request()->routeIs('admin.donations.*') ? 'active' : '' }}"><i class="bi bi-wallet2"></i> Donations</a>
     </li>
     @endif
+    @if($can('tickets'))
+    <li class="nav-item">
+      <a href="{{ route('admin.tickets.index') }}" class="nav-link {{ request()->routeIs('admin.tickets.*') ? 'active' : '' }}"><i class="bi bi-ticket-perforated-fill"></i> Tickets</a>
+    </li>
+    @endif
     @if($can('events'))
     <li class="nav-item">
       <a href="{{ route('admin.events.index') }}" class="nav-link {{ request()->routeIs('admin.events.*') ? 'active' : '' }}"><i class="bi bi-stars"></i> Events</a>

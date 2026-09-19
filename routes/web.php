@@ -539,10 +539,6 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
     Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
     Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
-    Route::post('/admin/eft/charge/start', [\App\Http\Controllers\DonationController::class, 'startEftCharge'])->name('admin.eft.charge.start');
-    Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
-    Route::post('/admin/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('admin.eft.charge.cancel');
-    Route::post('/admin/eft/charge/sendkey/{sessionId}', [\App\Http\Controllers\DonationController::class, 'sendEftKey'])->name('admin.eft.charge.sendkey');
     // Event-admin-only EFTPOS management (Refund/Logon/Reprint/Pairing) — DonationController's
     // own canManageEftForEvent() does the finer per-event, admin-level check; this route group
     // only gets the request as far as "some kind of console user", same broader-than-capability
@@ -616,6 +612,38 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Event Coordinator'])
     Route::post('/admin/donation/approve-guest/{id}', [\App\Http\Controllers\DonationController::class, 'approveGuestDonation'])->name('admin.donations.approveGuest');
     Route::post('/admin/donation/approve-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'approveDevoteeDonation'])->name('admin.donations.approveDevotee');
     Route::post('/admin/donation/check-stripe-status/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'checkStripeStatus'])->name('admin.donations.checkStripeStatus');
+});
+
+// EFT Terminal start/poll/cancel/sendkey are shared by BOTH the donation POS/console flow and
+// the standalone Ticket Kiosk (see DonationController's generalised startEftCharge()/
+// canUseEftTerminal() — these four act on a Linkly session generically, regardless of what
+// it's actually paying for), so this role list is the union of both call sites' roles rather
+// than living inside either one's own narrower group.
+Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Priest,Trustee,Staff'])->group(function () {
+    Route::post('/admin/eft/charge/start', [\App\Http\Controllers\DonationController::class, 'startEftCharge'])->name('admin.eft.charge.start');
+    Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
+    Route::post('/admin/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('admin.eft.charge.cancel');
+    Route::post('/admin/eft/charge/sendkey/{sessionId}', [\App\Http\Controllers\DonationController::class, 'sendEftKey'])->name('admin.eft.charge.sendkey');
+});
+
+// ============================================
+// TICKETS — a standalone module, not tied to any Event. Route access is deliberately as
+// broad as every non-Devotee role, same "narrowed inline via the Role Permissions grid"
+// pattern as Donations above (see TicketController) — unlike Donations/Events, Tickets has
+// no natural "owning" set of roles, so which roles can actually use it is entirely up to
+// whatever an Admin grants via that grid, not this route list.
+// ============================================
+Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff,Event Coordinator'])->group(function () {
+    Route::get('/admin/manage-tickets', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
+    Route::post('/admin/ticket/store', [\App\Http\Controllers\TicketController::class, 'storeTicket'])->name('admin.tickets.store');
+    Route::post('/admin/ticket/update/{id}', [\App\Http\Controllers\TicketController::class, 'updateTicket'])->name('admin.tickets.update');
+    Route::delete('/admin/ticket/delete/{id}', [\App\Http\Controllers\TicketController::class, 'deleteTicket'])->name('admin.tickets.delete');
+
+    Route::get('/admin/tickets/pos', [\App\Http\Controllers\TicketController::class, 'posShow'])->name('admin.tickets.pos');
+    Route::post('/admin/tickets/order', [\App\Http\Controllers\TicketController::class, 'storeOrder'])->name('admin.tickets.storeOrder');
+    Route::get('/admin/tickets/print/{order}', [\App\Http\Controllers\TicketController::class, 'printOrder'])->name('admin.tickets.print');
+
+    Route::get('/admin/ticket-orders', [\App\Http\Controllers\TicketController::class, 'manageOrders'])->name('admin.tickets.orders');
 });
 
 // ============================================

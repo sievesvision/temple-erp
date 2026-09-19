@@ -43,6 +43,7 @@ class RolePermission extends Model
             'accountants' => 'Accountants',
             'events' => 'Events',
             'donations' => 'Donations',
+            'tickets' => 'Tickets',
             'bookings' => 'Pooja Bookings',
             'inventory' => 'Inventory',
             'leaves' => 'Leave Requests',

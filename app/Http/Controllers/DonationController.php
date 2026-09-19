@@ -697,6 +697,19 @@ class DonationController extends Controller
     }
 
     /**
+     * Shared by pollEftCharge()/cancelEftCharge()/sendEftKey() — these three act on a
+     * Linkly session generically, regardless of what it's actually paying for, so they must
+     * accept anyone authorised to have started ONE of the record types that flow through
+     * startEftCharge(): a donation (canRecordDonation()) or a standalone ticket order
+     * ('tickets' add permission — never event-scoped, since tickets aren't tied to an event).
+     */
+    private function canUseEftTerminal($user, ?string $activeRole, $eventId): bool
+    {
+        return $this->canRecordDonation($user, $activeRole, $eventId)
+            || RolePermission::can($activeRole, 'tickets', 'add');
+    }
+
+    /**
      * Whether the given user/active-role may manage (edit/approve/resend/check-status) a
      * donation belonging to $eventId — same per-event coordinator carve-out as
      * canRecordDonation(), reusable for actions on an existing donation. $minLevel lets a
@@ -869,7 +882,15 @@ class DonationController extends Controller
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
-        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+        $recordType = $request->input('record_type', 'donation') === 'ticket_order' ? 'ticket_order' : 'donation';
+
+        if ($recordType === 'ticket_order') {
+            // Tickets are a standalone module (not tied to an Event) — its own permission
+            // resource, not canRecordDonation()'s event-scoped check.
+            if (!$user || !RolePermission::can($activeRole, 'tickets', 'add')) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+            }
+        } elseif (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -890,6 +911,8 @@ class DonationController extends Controller
             'mobile' => 'nullable|string|max:20',
             'purpose' => 'nullable|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',
+            // Ticket-order fields only.
+            'cart_json' => 'nullable|string',
         ]);
 
         // Resume-in-place: if this exact attempt already has a non-final Linkly session
@@ -925,6 +948,23 @@ class DonationController extends Controller
         );
 
         if ($result['success']) {
+            $meta = $recordType === 'ticket_order'
+                ? [
+                    'record_type' => 'ticket_order',
+                    'cart' => json_decode($validated['cart_json'] ?? '[]', true) ?: [],
+                    'customer_name' => $validated['donor_name'] ?? null,
+                    'email' => $validated['email'] ?? null,
+                    'mobile' => $validated['mobile'] ?? null,
+                ]
+                : [
+                    'record_type' => 'donation',
+                    'donor_name' => $validated['donor_name'] ?? null,
+                    'email' => $validated['email'] ?? null,
+                    'mobile' => $validated['mobile'] ?? null,
+                    'purpose' => $validated['purpose'] ?? null,
+                    'purpose_details' => $validated['purpose_details'] ?? null,
+                ];
+
             LinklyTransaction::create([
                 'pos_txn_ref' => $txnRef,
                 'client_ref' => $validated['client_ref'],
@@ -935,13 +975,7 @@ class DonationController extends Controller
                 'currency_code' => Setting::get('currency_code', 'AUD'),
                 'status' => 'initiated',
                 'initiated_by' => $user->id,
-                'meta' => [
-                    'donor_name' => $validated['donor_name'] ?? null,
-                    'email' => $validated['email'] ?? null,
-                    'mobile' => $validated['mobile'] ?? null,
-                    'purpose' => $validated['purpose'] ?? null,
-                    'purpose_details' => $validated['purpose_details'] ?? null,
-                ],
+                'meta' => $meta,
             ]);
         }
 
@@ -952,7 +986,7 @@ class DonationController extends Controller
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
-        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+        if (!$user || !$this->canUseEftTerminal($user, $activeRole, $request->input('event_id'))) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -1022,7 +1056,7 @@ class DonationController extends Controller
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
-        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+        if (!$user || !$this->canUseEftTerminal($user, $activeRole, $request->input('event_id'))) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -1063,7 +1097,7 @@ class DonationController extends Controller
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
-        if (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
+        if (!$user || !$this->canUseEftTerminal($user, $activeRole, $request->input('event_id'))) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -1188,6 +1222,19 @@ class DonationController extends Controller
         }
 
         $meta = $txn->meta ?? [];
+        $transactionRef = $result['rrn'] ?: ($result['auth_code'] ?: $txn->pos_txn_ref);
+
+        if (($meta['record_type'] ?? 'donation') === 'ticket_order') {
+            if (empty($meta['cart'])) {
+                return null;
+            }
+            $orderId = app(\App\Http\Controllers\TicketController::class)->createOrderFromLedgerMeta($meta, $transactionRef);
+            if ($orderId) {
+                $this->linkLedgerToDonation($sessionId, 'ticket_order', $orderId);
+            }
+            return $orderId;
+        }
+
         if (empty($meta['donor_name'])) {
             // Nothing was captured to create from (e.g. an older transaction from before this
             // fallback existed) — leave it to the browser's own storeGuestDonation() call.
@@ -1204,7 +1251,7 @@ class DonationController extends Controller
             'purpose_details' => $meta['purpose_details'] ?? null,
             'payment_method' => 'EFT Terminal',
             'payment_status' => 'Paid',
-            'transaction_id' => $result['rrn'] ?: ($result['auth_code'] ?: $txn->pos_txn_ref),
+            'transaction_id' => $transactionRef,
             'donation_date' => now()->toDateString(),
         ]);
         $this->linkLedgerToDonation($sessionId, 'guest', $donationId);
@@ -1329,7 +1376,11 @@ class DonationController extends Controller
             return;
         }
 
-        $table = $txn->donation_type === 'devotee' ? 'donations' : 'donations_without_logins';
+        $table = match ($txn->donation_type) {
+            'devotee' => 'donations',
+            'ticket_order' => 'ticket_orders',
+            default => 'donations_without_logins',
+        };
         DB::table($table)->where('id', $txn->donation_id)->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
     }
 
