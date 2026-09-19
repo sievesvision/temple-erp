@@ -335,7 +335,10 @@
                         </div>
 
                         <div class="card-panel mt-3">
-                            <div class="fw-bold mb-2">Registered EFT Terminals</div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="fw-bold">Registered EFT Terminals</div>
+                                <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="small"><i class="bi bi-question-circle me-1"></i>Help</a>
+                            </div>
                             <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Pairing and refunds happen from the EFTPOS pane; add a brand new terminal here.</p>
                             @foreach($eftTerminals as $terminal)
                             <div class="d-flex align-items-center gap-2 flex-wrap mb-2 pb-2 border-bottom">
@@ -368,6 +371,9 @@
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
                             <div><h2>EFTPOS — Linkly Core Payments</h2><p>Terminal pairing and refunds for ticket sales.</p></div>
+                            <div class="page-header-actions">
+                                <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
+                            </div>
                         </div>
                         <div class="card-panel mb-3">
                             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">

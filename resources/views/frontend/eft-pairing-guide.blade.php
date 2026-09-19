@@ -56,6 +56,31 @@
             <p>If the terminal is replaced, factory reset, or the pairing is lost for any reason, simply repeat steps 1&ndash;4 with a freshly generated pairing code — this can be done at any time without affecting existing transaction history.</p>
         </div>
 
+        <header style="margin-top: 44px;">
+            <span class="badge">Multiple Terminals</span>
+            <h1 style="font-size: 1.4rem;">Running More Than One Terminal at Once</h1>
+            <p>SievesPOS can pair and run several EFTPOS terminals at the same time — for example, one for the Ticket Kiosk and a separate one for an event's donation POS, or two ticket-selling computers each on their own terminal, so neither queue has to wait for the other.</p>
+        </header>
+
+        <div class="step">
+            <h2><span class="step-num">6</span> Register a new terminal</h2>
+            <p>Go to <strong>Settings &rarr; EFT Terminals</strong> (Admin), the standalone <strong>EFT Terminal Settings</strong> page, or the <strong>Ticket Console &rarr; Settings</strong> pane — all three show the same shared list. Under <strong>Add Another Terminal</strong>, give it a short <strong>Key</strong> (no spaces, e.g. <code>ticket-counter-2</code>) and a friendly <strong>Label</strong> (e.g. "Ticket Counter 2"), then submit. This creates the terminal record but does not pair it yet.</p>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-num">7</span> Pair that specific terminal</h2>
+            <p>Each registered terminal has its own <strong>Pairing Code</strong> field and its own Paired/Not Paired status — repeat steps 1&ndash;4 above for the new terminal's row specifically, using a pairing code generated on <em>that</em> physical (or virtual) PIN pad. Pairing one terminal never affects any other terminal's pairing.</p>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-num">8</span> Choose which terminal each computer uses</h2>
+            <p>Which terminal a given computer actually charges to is set <strong>on that computer only</strong> — it is never a shared, server-wide setting, which is what lets two computers run two terminals at once without conflicting:</p>
+            <p>&bull; On the <strong>Ticket Kiosk</strong> screen itself, tap the <strong>Terminal</strong> button in the top bar to see and choose from the registered, paired terminals.</p>
+            <p>&bull; Or, from the <strong>Ticket Console &rarr; Settings</strong> pane, use <strong>This Computer's EFT Terminal</strong> to pick and save a terminal for whichever computer you're using at the time — it takes effect on the Ticket Kiosk on that same computer immediately.</p>
+            <p>&bull; The <strong>Event POS</strong> donation screen has the same Terminal button in its top bar for choosing that station's terminal.</p>
+            <div class="note"><strong>Note:</strong> this choice is stored only in that browser (not sent to SievesPOS's server), so it must be set again on each new computer or if that browser's data is cleared — the kiosk will use the registry's default terminal until it is.</div>
+        </div>
+
         <footer>
             SievesPOS is developed by SievesVision. For support, contact your SievesPOS administrator.
         </footer>

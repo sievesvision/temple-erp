@@ -36,6 +36,7 @@
     @php $temple = \App\Models\Setting::templeBranding(); @endphp
     <header class="topbar">
         <h1><i class="bi bi-credit-card-2-front-fill me-2"></i>EFT Terminal Settings</h1>
+        <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="topbar-btn"><i class="bi bi-question-circle"></i>Help</a>
         <a href="{{ url()->previous() }}" class="topbar-btn"><i class="bi bi-arrow-left"></i>Back</a>
         <a href="{{ route('logout') }}" class="topbar-btn"><i class="bi bi-box-arrow-right"></i>Logout</a>
     </header>

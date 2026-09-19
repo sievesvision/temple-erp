@@ -518,6 +518,7 @@
                             <h5><i class="bi bi-credit-card-2-front-fill me-2"></i>EFT Terminals</h5>
                             <p class="text-muted small mb-3">Terminal registration, pairing and defaults now live on their own page — reachable by an event-admin coordinator or ticket-admin controller too, not just Admin/Committee.</p>
                             <a href="{{ route('admin.eft-terminals.index') }}" class="btn btn-submit"><i class="bi bi-box-arrow-up-right me-1"></i>Open EFT Terminal Settings</a>
+                            <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary ms-2"><i class="bi bi-question-circle me-1"></i>Help</a>
                         </div>
                     </div>
                 </div>

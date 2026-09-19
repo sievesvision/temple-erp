@@ -1053,6 +1053,9 @@
                             <h2>EFTPOS — Linkly Core Payments</h2>
                             <p>Terminal pairing, accreditation testing and per-transaction refunds for this event.</p>
                         </div>
+                        <div class="page-header-actions">
+                            <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
+                        </div>
                     </div>
 
                     <div class="card-panel mb-3">
