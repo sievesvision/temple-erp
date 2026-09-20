@@ -48,10 +48,38 @@ class EftTerminalController extends Controller
         return view('admin.eft-terminal-settings', compact('eftTerminals', 'linklyMode', 'canManageRegistryLevel', 'isSystemAdmin'));
     }
 
+    /**
+     * Where to send the browser back to after an action here — whichever console the form
+     * was actually submitted from (a hidden "return_context" field, same pattern as
+     * EventCoordinatorController::redirectAfterAction()), rather than always landing on this
+     * controller's own standalone page. Which *pane* re-opens on that console is handled
+     * entirely client-side (the console's own "consoleActivePane" localStorage convention —
+     * see event-console.blade.php/ticket-console.blade.php — the same mechanism already
+     * used for their Settings/Coordinators forms), so nothing about that needs to travel
+     * through this redirect.
+     */
+    private function redirectAfterAction(Request $request)
+    {
+        $context = $request->input('return_context');
+
+        if ($context === 'ticket-console') {
+            return redirect()->route('admin.tickets.index');
+        }
+
+        if (is_string($context) && str_starts_with($context, 'event-console:')) {
+            $eventId = substr($context, strlen('event-console:'));
+            if (ctype_digit($eventId)) {
+                return redirect()->route('admin.events.console', ['event' => $eventId]);
+            }
+        }
+
+        return redirect()->route('admin.eft-terminals.index');
+    }
+
     public function store(Request $request)
     {
         if (!$this->canManageRegistry()) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
+            return $this->redirectAfterAction($request)->with('error', 'Unauthorized access.');
         }
 
         $validated = $request->validate([
@@ -68,7 +96,7 @@ class EftTerminalController extends Controller
 
         AuditLogService::log("Added EFT terminal '{$terminal->label}' ({$terminal->key})");
 
-        return redirect()->route('admin.eft-terminals.index')->with('success', "Terminal \"{$terminal->label}\" added — pair it below.");
+        return $this->redirectAfterAction($request)->with('success', "Terminal \"{$terminal->label}\" added — pair it below.");
     }
 
     public function setDefault(Request $request, EftTerminal $terminal)

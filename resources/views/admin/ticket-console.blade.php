@@ -350,6 +350,7 @@
                             @endforeach
                             <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-2 align-items-end mt-2">
                                 @csrf
+                                <input type="hidden" name="return_context" value="ticket-console">
                                 <div class="col-md-4">
                                     <label class="field-label">Key (unique, no spaces)</label>
                                     <input type="text" name="key" class="form-control" placeholder="e.g. ticket-counter-2" maxlength="40" required>
@@ -378,7 +379,7 @@
                         <div class="card-panel mb-3">
                             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                                 <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second ticket counter can run its own concurrently.</div>
-                                <a href="{{ route('admin.eft-terminals.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg me-1"></i>Manage Terminals</a>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-pane="pane-settings"><i class="bi bi-plus-lg me-1"></i>Add a Terminal</button>
                             </div>
                             @foreach($eftTerminals as $terminal)
                             <div class="row g-3 align-items-center border-top pt-3 mt-2">
@@ -714,16 +715,40 @@
                 }
             });
         })();
+        function activatePane(paneId) {
+            const link = document.querySelector('[data-pane="' + paneId + '"]');
+            if (!link) { return false; }
+            document.querySelectorAll('[data-pane]').forEach(function (b) { b.classList.remove('active'); });
+            link.classList.add('active');
+            document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
+            document.getElementById('appSidebar').classList.remove('open');
+            document.getElementById('sidebarBackdrop').classList.remove('show');
+            return true;
+        }
         document.querySelectorAll('[data-pane]').forEach(function (el) {
-            el.addEventListener('click', function () {
-                const paneId = this.dataset.pane;
-                document.querySelectorAll('[data-pane]').forEach(function (b) { b.classList.remove('active'); });
-                this.classList.add('active');
-                document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
-                document.getElementById('appSidebar').classList.remove('open');
-                document.getElementById('sidebarBackdrop').classList.remove('show');
+            el.addEventListener('click', function () { activatePane(this.dataset.pane); });
+        });
+        // The Settings/EFTPOS/Ticket Controllers forms are plain full-page POST/redirects
+        // (not AJAX), so the client-side "which pane is active" state would otherwise reset
+        // back to Dashboard after saving — same "consoleActivePane" localStorage convention
+        // as event-console.blade.php, so a form submission anywhere in one of these panes
+        // reopens that exact pane once the page reloads.
+        ['pane-settings', 'pane-eftpos', 'pane-controllers'].forEach(function (paneId) {
+            const pane = document.getElementById(paneId);
+            if (!pane) { return; }
+            pane.querySelectorAll('form').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    try { localStorage.setItem('consoleActivePane', paneId); } catch (e) {}
+                });
             });
         });
+        (function restoreActivePane() {
+            let savedPane = null;
+            try { savedPane = localStorage.getItem('consoleActivePane'); } catch (e) {}
+            if (savedPane && activatePane(savedPane)) {
+                try { localStorage.removeItem('consoleActivePane'); } catch (e) {}
+            }
+        })();
         const sidebarToggle = document.getElementById('sidebarToggle');
         if (sidebarToggle) {
             sidebarToggle.addEventListener('click', function () {

@@ -81,6 +81,12 @@
             <div class="note"><strong>Note:</strong> this choice is stored only in that browser (not sent to SievesPOS's server), so it must be set again on each new computer or if that browser's data is cleared — the kiosk will use the registry's default terminal until it is.</div>
         </div>
 
+        <div class="step">
+            <h2><span class="step-num">9</span> Testing two terminals on <em>one</em> computer</h2>
+            <p>If you're testing two virtual PIN pads by opening two browser tabs on the same computer rather than using two separate computers, use the <strong>Terminal</strong> button in each tab's own top bar to explicitly choose that tab's terminal — don't rely only on a default set from Settings. Each tab remembers its own explicit choice for as long as that tab stays open, even across a page refresh, and it is never silently changed by another tab picking something else.</p>
+            <p>If a payment fails with a message like <em>"already has a payment in progress on another screen"</em>, or the terminal reports offline/auto-cancelled/an unexpected pairing, it means two tabs or computers ended up pointed at the <strong>same</strong> terminal at the same time — re-check the Terminal button in each tab and confirm they show two different terminals before trying again.</p>
+        </div>
+
         <footer>
             SievesPOS is developed by SievesVision. For support, contact your SievesPOS administrator.
         </footer>

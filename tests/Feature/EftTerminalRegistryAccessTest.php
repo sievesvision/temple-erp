@@ -121,6 +121,45 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
     }
 
+    // return_context tells EftTerminalController where the "Add Terminal" form was actually
+    // submitted from (Ticket Console / a specific event's Console / the standalone page) so
+    // the browser lands back there instead of always ending up on the standalone page — see
+    // EftTerminalController::redirectAfterAction(). Which *pane* re-opens on that console is
+    // then handled entirely client-side (the "consoleActivePane" localStorage convention).
+    public function test_return_context_ticket_console_redirects_to_the_ticket_console(): void
+    {
+        $user = $this->ticketAdminController();
+
+        $response = $this->actingAs($user)->post('/admin/eft-terminals', [
+            'key' => 'from-ticket-console', 'label' => 'From Ticket Console',
+            'return_context' => 'ticket-console',
+        ]);
+
+        $response->assertRedirect(route('admin.tickets.index'));
+        $this->assertDatabaseHas('eft_terminals', ['key' => 'from-ticket-console']);
+    }
+
+    public function test_return_context_event_console_redirects_to_that_events_console(): void
+    {
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Return Context Event', 'event_date' => now()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'admin',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user)->post('/admin/eft-terminals', [
+            'key' => 'from-event-console', 'label' => 'From Event Console',
+            'return_context' => "event-console:{$eventId}",
+        ]);
+
+        $response->assertRedirect(route('admin.events.console', $eventId));
+        $this->assertDatabaseHas('eft_terminals', ['key' => 'from-event-console']);
+    }
+
     public function test_admin_can_set_default_and_remove_a_non_default_terminal(): void
     {
         $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);

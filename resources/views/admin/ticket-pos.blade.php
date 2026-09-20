@@ -319,19 +319,34 @@
             else { document.exitFullscreen(); }
         });
 
-        // ---------- This station's EFT terminal (per-browser, via localStorage) ----------
-        // Lets two computers each pick a different registered terminal and run fully
-        // independent, concurrent ticket counters — see EftTerminal / EftTerminalController.
-        const TERMINAL_STORAGE_KEY = 'ticketPosEftTerminalId';
+        // ---------- This station's EFT terminal ----------
+        // Two storage layers, deliberately: sessionStorage is scoped per TAB (never shared,
+        // even between two tabs of the same browser/computer showing this same page) and
+        // always wins once this tab has explicitly picked a terminal — this is what keeps
+        // two kiosk tabs on ONE computer (e.g. two virtual PIN pads for testing) genuinely
+        // independent. localStorage is shared across every tab of this browser and is only
+        // ever used as the *suggested default* for a brand-new tab that hasn't picked yet
+        // (and is what the Ticket Console's "This Computer's EFT Terminal" Settings control
+        // writes to) — a tab that has made its own explicit choice never has it silently
+        // overridden by another tab picking something else. Without this split, reloading a
+        // tab after a different tab picked a different terminal would silently move THIS
+        // tab onto that other terminal too — which is what previously caused two concurrent
+        // sessions to land on the same physical/virtual terminal and get rejected by Linkly
+        // as offline/auto-cancelled.
+        const TERMINAL_LOCAL_KEY = 'ticketPosEftTerminalId';
+        const TERMINAL_SESSION_KEY = 'ticketPosEftTerminalId_tab';
         function loadSelectedTerminalId() {
             let saved = null;
-            try { saved = localStorage.getItem(TERMINAL_STORAGE_KEY); } catch (e) {}
+            try { saved = sessionStorage.getItem(TERMINAL_SESSION_KEY); } catch (e) {}
+            if (saved && EFT_TERMINALS.some(function (t) { return String(t.id) === String(saved); })) { return saved; }
+            try { saved = localStorage.getItem(TERMINAL_LOCAL_KEY); } catch (e) {}
             if (saved && EFT_TERMINALS.some(function (t) { return String(t.id) === String(saved); })) { return saved; }
             const def = EFT_TERMINALS.find(function (t) { return t.is_default; }) || EFT_TERMINALS[0];
             return def ? String(def.id) : null;
         }
         function saveSelectedTerminalId(id) {
-            try { localStorage.setItem(TERMINAL_STORAGE_KEY, id); } catch (e) {}
+            try { sessionStorage.setItem(TERMINAL_SESSION_KEY, id); } catch (e) {}
+            try { localStorage.setItem(TERMINAL_LOCAL_KEY, id); } catch (e) {}
         }
         let selectedTerminalId = loadSelectedTerminalId();
         function currentTerminalLabel() {

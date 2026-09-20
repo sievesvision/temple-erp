@@ -961,6 +961,26 @@ class DonationController extends Controller
             ]);
         }
 
+        // Never let a second, genuinely different checkout attempt start on a terminal that
+        // already has one in flight — one physical/virtual PIN pad can only actually be
+        // running one transaction at a time, and sending it a second one concurrently is
+        // exactly what produces Linkly-side "offline"/auto-cancelled/cross-wired results
+        // rather than a clean rejection here. Scoped to the last ~3 minutes (Linkly's own
+        // transaction window, same threshold pollEftCharge() uses to call a stuck one
+        // "unknown") so a genuinely abandoned/stale row from much earlier never blocks new
+        // use of the terminal forever.
+        $terminalBusy = LinklyTransaction::where('eft_terminal_id', $terminal->id)
+            ->where('txn_type', 'purchase')
+            ->whereNotIn('status', LinklyTransaction::TERMINAL_STATUSES)
+            ->where('created_at', '>=', now()->subSeconds(200))
+            ->exists();
+        if ($terminalBusy) {
+            return response()->json([
+                'success' => false,
+                'message' => "\"{$terminal->label}\" already has a payment in progress on another screen — wait for it to finish (or check its status) before starting another on this terminal.",
+            ], 409);
+        }
+
         $txnRef = 'EFT' . now()->format('mdHis') . rand(100, 999);
 
         $result = LinklyEftService::startPurchase(

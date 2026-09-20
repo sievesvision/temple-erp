@@ -1062,7 +1062,7 @@
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                             <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second station can run its own concurrently.</div>
                             <div class="d-flex gap-2">
-                                <a href="{{ route('admin.eft-terminals.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg me-1"></i>Manage Terminals</a>
+                                <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
                                 <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
                             </div>
                         </div>
@@ -1091,6 +1091,22 @@
                             </div>
                         </div>
                         @endforeach
+
+                        <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-2 align-items-end border-top pt-3 mt-2">
+                            @csrf
+                            <input type="hidden" name="return_context" value="event-console:{{ $event->event_id }}">
+                            <div class="col-md-4">
+                                <label class="field-label small">New terminal key</label>
+                                <input type="text" name="key" class="form-control form-control-sm" placeholder="e.g. event-counter-2" maxlength="40" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="field-label small">Label</label>
+                                <input type="text" name="label" class="form-control form-control-sm" placeholder="e.g. Event Counter 2" required>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-outline-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Add Terminal</button>
+                            </div>
+                        </form>
                     </div>
 
                     <div class="card-panel" style="padding:0;">
@@ -1441,6 +1457,11 @@
         document.querySelectorAll('#pane-coordinators form').forEach(function (form) {
             form.addEventListener('submit', function () {
                 try { localStorage.setItem('consoleActivePane', 'pane-coordinators'); } catch (e) {}
+            });
+        });
+        document.querySelectorAll('#pane-eftpos form').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                try { localStorage.setItem('consoleActivePane', 'pane-eftpos'); } catch (e) {}
             });
         });
         (function restoreActivePane() {

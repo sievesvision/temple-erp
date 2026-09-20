@@ -118,8 +118,43 @@ class LinklyCorePaymentsTest extends TestCase
     }
 
     // 8. Two different checkout attempts (different client_ref) get two different, unique
-    // POS transaction references.
+    // POS transaction references — once the first has actually finished on the terminal
+    // (the terminal-busy guard below deliberately refuses to let a second, different
+    // attempt start while an earlier one is still in flight on the same terminal).
     public function test_two_purchases_get_distinct_transaction_references(): void
+    {
+        $eventId = $this->createEvent();
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*' => function ($request) {
+                if (strtoupper($request->method()) === 'GET') {
+                    return Http::response(['response' => ['success' => true, 'responseCode' => '00', 'authCode' => 1, 'rrn' => '1']], 200);
+                }
+                return Http::response('', 202);
+            },
+        ]);
+        $user = $this->adminUser();
+
+        $first = $this->actingAs($user)->postJson('/admin/eft/charge/start', ['amount' => '10.00', 'client_ref' => 'ref-a', 'event_id' => $eventId]);
+        // Resolve the first to a terminal status before starting a second, different
+        // attempt — matches how a real terminal is actually used (one payment at a time).
+        $this->actingAs($user)->getJson("/admin/eft/charge/status/{$first->json('session_id')}?event_id={$eventId}");
+
+        $second = $this->actingAs($user)->postJson('/admin/eft/charge/start', ['amount' => '10.00', 'client_ref' => 'ref-b', 'event_id' => $eventId]);
+        $second->assertOk()->assertJson(['success' => true]);
+
+        $refA = LinklyTransaction::where('linkly_session_id', $first->json('session_id'))->value('pos_txn_ref');
+        $refB = LinklyTransaction::where('linkly_session_id', $second->json('session_id'))->value('pos_txn_ref');
+
+        $this->assertNotSame($refA, $refB);
+    }
+
+    // The terminal-busy guard itself: a second, genuinely different checkout attempt must
+    // be refused outright while an earlier one is still unresolved on the SAME terminal —
+    // this is what stops two concurrent sessions ever being sent to one physical/virtual
+    // PIN pad (previously observed as Linkly-side "offline"/auto-cancelled/cross-wired
+    // results when two kiosk stations picked the same terminal by mistake).
+    public function test_starting_a_second_purchase_on_a_busy_terminal_is_refused(): void
     {
         $eventId = $this->createEvent();
         Http::fake([
@@ -128,13 +163,12 @@ class LinklyCorePaymentsTest extends TestCase
         ]);
         $user = $this->adminUser();
 
-        $first = $this->actingAs($user)->postJson('/admin/eft/charge/start', ['amount' => '10.00', 'client_ref' => 'ref-a', 'event_id' => $eventId]);
-        $second = $this->actingAs($user)->postJson('/admin/eft/charge/start', ['amount' => '10.00', 'client_ref' => 'ref-b', 'event_id' => $eventId]);
+        $this->actingAs($user)->postJson('/admin/eft/charge/start', ['amount' => '10.00', 'client_ref' => 'busy-ref-a', 'event_id' => $eventId])
+            ->assertOk()->assertJson(['success' => true]);
 
-        $refA = LinklyTransaction::where('linkly_session_id', $first->json('session_id'))->value('pos_txn_ref');
-        $refB = LinklyTransaction::where('linkly_session_id', $second->json('session_id'))->value('pos_txn_ref');
+        $second = $this->actingAs($user)->postJson('/admin/eft/charge/start', ['amount' => '10.00', 'client_ref' => 'busy-ref-b', 'event_id' => $eventId]);
 
-        $this->assertNotSame($refA, $refB);
+        $second->assertStatus(409)->assertJson(['success' => false]);
     }
 
     // 9. Duplicate payment protection: re-submitting the SAME client_ref (double-clicked Pay,
