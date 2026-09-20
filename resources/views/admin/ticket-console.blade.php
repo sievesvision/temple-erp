@@ -341,11 +341,22 @@
                             </div>
                             <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Pairing and refunds happen from the EFTPOS pane; add a brand new terminal here.</p>
                             @foreach($eftTerminals as $terminal)
+                            @php $lastKnown = $terminal->lastKnownStatus(); @endphp
                             <div class="d-flex align-items-center gap-2 flex-wrap mb-2 pb-2 border-bottom">
                                 <strong>{{ $terminal->label }}</strong>
                                 <span class="text-muted small">({{ $terminal->key }})</span>
                                 @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
                                 <span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span>
+                                @if($lastKnown['state'] === 'online')
+                                <span class="status-pill status-paid">Online</span>
+                                @elseif($lastKnown['state'] === 'offline')
+                                <span class="status-pill status-cancelled">Offline</span>
+                                @else
+                                <span class="status-pill status-pending">Not checked</span>
+                                @endif
+                                @if($lastKnown['at'])
+                                <span class="text-muted" style="font-size:0.72rem;">({{ $lastKnown['at']->diffForHumans() }})</span>
+                                @endif
                             </div>
                             @endforeach
                             <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-2 align-items-end mt-2">
@@ -382,14 +393,29 @@
                                 <button type="button" class="btn btn-outline-secondary btn-sm" data-pane="pane-settings"><i class="bi bi-plus-lg me-1"></i>Add a Terminal</button>
                             </div>
                             @foreach($eftTerminals as $terminal)
+                            @php $lastKnown = $terminal->lastKnownStatus(); @endphp
                             <div class="row g-3 align-items-center border-top pt-3 mt-2">
                                 <div class="col-md-3">
                                     <strong>{{ $terminal->label }}</strong>
                                     @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
                                     <div class="text-muted small">{{ $terminal->key }}</div>
                                 </div>
-                                <div class="col-md-2"><span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span></div>
-                                <div class="col-md-4">
+                                <div class="col-md-2">
+                                    <span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span>
+                                </div>
+                                <div class="col-md-2">
+                                    @if($lastKnown['state'] === 'online')
+                                    <span class="status-pill status-paid" title="Last confirmed via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Online</span>
+                                    @elseif($lastKnown['state'] === 'offline')
+                                    <span class="status-pill status-cancelled" title="Last attempt via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Offline</span>
+                                    @else
+                                    <span class="status-pill status-pending">Not checked</span>
+                                    @endif
+                                    @if($lastKnown['at'])
+                                    <div class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</div>
+                                    @endif
+                                </div>
+                                <div class="col-md-3">
                                     <form action="{{ route('admin.tickets.eft.pair') }}" method="POST" class="d-flex gap-2">
                                         @csrf
                                         <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
@@ -397,11 +423,11 @@
                                         <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
                                     </form>
                                 </div>
-                                <div class="col-md-3">
-                                    <form action="{{ route('admin.tickets.eft.logon') }}" method="POST" onsubmit="return confirm('Run a Logon against {{ $terminal->label }} now?')">
+                                <div class="col-md-2">
+                                    <form action="{{ route('admin.tickets.eft.logon') }}" method="POST" onsubmit="return confirm('Check {{ $terminal->label }} is online now?')">
                                         @csrf
                                         <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Logon</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Status</button>
                                     </form>
                                 </div>
                             </div>

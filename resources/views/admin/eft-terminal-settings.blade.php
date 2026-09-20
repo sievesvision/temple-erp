@@ -29,6 +29,7 @@
         .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
         .status-pill.paid { background: #ECFDF5; color: var(--success); }
         .status-pill.cancelled { background: #FEF2F2; color: var(--error); }
+        .status-pill.pending { background: #FFF7ED; color: #F59E0B; }
         .btn-save { padding: 10px 22px; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 0.92rem; }
     </style>
 </head>
@@ -48,12 +49,23 @@
         <p class="text-muted small mb-3">Each terminal below is independently paired via Linkly Cloud, so more than one physical (or virtual test) PIN pad can be in use at once — e.g. one for the Ticket Kiosk and another for an event's donation POS, running simultaneously. Mode: <strong class="text-uppercase">{{ $linklyMode }}</strong> (set by the <code>LINKLY_*</code> credentials configured on the server).</p>
 
         @foreach($eftTerminals as $terminal)
+        @php $lastKnown = $terminal->lastKnownStatus(); @endphp
         <div class="card-panel">
             <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
                 <strong>{{ $terminal->label }}</strong>
                 <span class="text-muted small">({{ $terminal->key }})</span>
                 @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
                 <span class="status-pill {{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not Paired' }}</span>
+                @if($lastKnown['state'] === 'online')
+                <span class="status-pill paid">Online</span>
+                @elseif($lastKnown['state'] === 'offline')
+                <span class="status-pill cancelled">Offline</span>
+                @else
+                <span class="status-pill pending">Not checked</span>
+                @endif
+                @if($lastKnown['at'])
+                <span class="text-muted small">({{ $lastKnown['at']->diffForHumans() }})</span>
+                @endif
             </div>
             <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-3 align-items-end mb-2">
                 @csrf

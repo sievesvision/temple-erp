@@ -1067,13 +1067,28 @@
                             </div>
                         </div>
                         @foreach($eftTerminals as $terminal)
+                        @php $lastKnown = $terminal->lastKnownStatus(); @endphp
                         <div class="row g-3 align-items-center border-top pt-3 mt-2">
                             <div class="col-md-3">
                                 <strong>{{ $terminal->label }}</strong>
                                 @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
                                 <div class="text-muted small">{{ $terminal->key }}</div>
                             </div>
-                            <div class="col-md-2"><span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span></div>
+                            <div class="col-md-2">
+                                <span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span>
+                            </div>
+                            <div class="col-md-2">
+                                @if($lastKnown['state'] === 'online')
+                                <span class="status-pill status-paid" title="Last confirmed via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Online</span>
+                                @elseif($lastKnown['state'] === 'offline')
+                                <span class="status-pill status-cancelled" title="Last attempt via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Offline</span>
+                                @else
+                                <span class="status-pill status-pending">Not checked</span>
+                                @endif
+                                @if($lastKnown['at'])
+                                <div class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</div>
+                                @endif
+                            </div>
                             <div class="col-md-3">
                                 <form action="{{ route('admin.events.eft.pair', $event->event_id) }}" method="POST" class="d-flex gap-2">
                                     @csrf
@@ -1082,11 +1097,11 @@
                                     <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
                                 </form>
                             </div>
-                            <div class="col-md-4">
-                                <form action="{{ route('admin.events.eft.logon', $event->event_id) }}" method="POST" onsubmit="return confirm('Run a Logon against {{ $terminal->label }} now?')">
+                            <div class="col-md-2">
+                                <form action="{{ route('admin.events.eft.logon', $event->event_id) }}" method="POST" onsubmit="return confirm('Check {{ $terminal->label }} is online now?')">
                                     @csrf
                                     <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Logon</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Status</button>
                                 </form>
                             </div>
                         </div>

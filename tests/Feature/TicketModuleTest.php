@@ -117,6 +117,27 @@ class TicketModuleTest extends TestCase
         $this->actingAs($user)->get("/admin/tickets/print/{$orderId}")->assertOk();
     }
 
+    // The stub is sized for a thermal receipt printer (58mm/80mm — the two standard roll
+    // widths) rather than regular paper, with a toggle between them.
+    public function test_print_view_is_sized_for_thermal_paper_with_a_width_toggle(): void
+    {
+        $user = $this->ticketUser();
+        $ticket = Ticket::create(['name' => 'Thermal Test Ticket', 'price' => 5.00, 'status' => 'Active']);
+
+        $response = $this->actingAs($user)->postJson('/admin/tickets/order', [
+            'cart_json' => json_encode([['ticket_id' => $ticket->id, 'name' => $ticket->name, 'price' => 5.00, 'quantity' => 1]]),
+            'payment_method' => 'Cash',
+        ]);
+        $orderId = $response->json('order_id');
+
+        $print = $this->actingAs($user)->get("/admin/tickets/print/{$orderId}");
+
+        $print->assertOk();
+        $print->assertSee('@page { size: 80mm auto; margin: 0; }', false);
+        $print->assertSee('setPaperWidth(\'58mm\'', false);
+        $print->assertSee('setPaperWidth(\'80mm\'', false);
+    }
+
     // The kiosk tile picks up the ticket type's own background_color theme (see
     // resources/views/admin/ticket-pos.blade.php's color-mix()-derived --tile-accent).
     public function test_kiosk_tile_reflects_the_tickets_colour_theme(): void

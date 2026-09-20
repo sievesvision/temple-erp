@@ -89,4 +89,34 @@ class EftTerminal extends Model
     {
         return $this->hasMany(LinklyTransaction::class);
     }
+
+    /**
+     * "Online" isn't a persistent flag — Linkly has no standing connection to poll — so this
+     * infers it from the most recent transaction that actually got a definitive response
+     * from the terminal, of ANY kind (a real purchase/refund counts just as much as an
+     * explicit Logon check): 'approved' or 'declined' both mean the terminal was reached and
+     * responded (a decline is still a real response, just not a successful one); 'failed'
+     * (Linkly's own bucket for a timeout/system error — see LinklyEftService::
+     * mapResponseToStatus()) means it wasn't. Purely in-flight/inconclusive statuses
+     * (initiated/in_progress/unknown) are skipped since they prove nothing either way.
+     *
+     * @return array{state: 'online'|'offline'|'unknown', at: ?\Illuminate\Support\Carbon, via: ?string}
+     */
+    public function lastKnownStatus(): array
+    {
+        $txn = $this->linklyTransactions()
+            ->whereIn('status', ['approved', 'declined', 'failed'])
+            ->latest('id')
+            ->first();
+
+        if (!$txn) {
+            return ['state' => 'unknown', 'at' => null, 'via' => null];
+        }
+
+        return [
+            'state' => $txn->status === 'failed' ? 'offline' : 'online',
+            'at' => $txn->created_at,
+            'via' => $txn->txn_type,
+        ];
+    }
 }
