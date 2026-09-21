@@ -27,6 +27,7 @@ class Event extends Model
         'theme_accent_color',
         'theme_dark_color',
         'theme_body_color',
+        'theme_enabled',
         'gallery_images',
         'enabled_payment_methods',
         'show_donation_summary',
@@ -46,6 +47,7 @@ class Event extends Model
         'require_donor_email' => 'boolean',
         'require_donor_mobile' => 'boolean',
         'date_tbc' => 'boolean',
+        'theme_enabled' => 'boolean',
     ];
 
     public function donationOptions()
@@ -196,11 +198,25 @@ class Event extends Model
      * event can override just one or two colours and still inherit the rest. See
      * resources/views/frontend/event-donate.blade.php's :root block.
      *
+     * theme_enabled is a separate on/off switch from whether these columns hold values —
+     * switching it off always reverts to the temple's default theme (the "previous" look)
+     * without discarding whatever custom colours are saved, so switching back on again a
+     * moment (or a month) later needs no re-entry. Optional and fully reversible by design.
+     *
      * @param array{primary_color: string, accent_color: string, dark_color: string} $templeDefaults
      * @return array{primary: string, accent: string, dark: string, body: string}
      */
     public function themeColors(array $templeDefaults): array
     {
+        if (!$this->theme_enabled) {
+            return [
+                'primary' => $templeDefaults['primary_color'],
+                'accent' => $templeDefaults['accent_color'],
+                'dark' => $templeDefaults['dark_color'],
+                'body' => '#fbf8f1',
+            ];
+        }
+
         return [
             'primary' => $this->theme_primary_color ?: $templeDefaults['primary_color'],
             'accent' => $this->theme_accent_color ?: $templeDefaults['accent_color'],

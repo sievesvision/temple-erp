@@ -109,6 +109,7 @@ class EventController extends Controller
         $validated['require_donor_email'] = $request->boolean('require_donor_email');
         $validated['require_donor_mobile'] = $request->boolean('require_donor_mobile');
         $validated['date_tbc'] = $request->boolean('date_tbc');
+        $validated['theme_enabled'] = $request->boolean('theme_enabled');
         $validated['slug'] = Event::resolveSlug($validated['slug'] ?? null, $validated['event_name'], $validated['event_date']);
 
         try {
@@ -165,13 +166,19 @@ class EventController extends Controller
         $validated['require_donor_mobile'] = $request->boolean('require_donor_mobile');
         $validated['date_tbc'] = $request->boolean('date_tbc');
 
-        // Theme colour overrides — same "absent means leave untouched" rule as the payment-
-        // method override below: the older Manage Events modal has none of these fields, so
-        // a save from there must never silently clear an event's custom theme. The console's
-        // own form always sends all four (even as empty strings when cleared), so this only
-        // ever short-circuits for a submission that genuinely doesn't know about them.
-        foreach (['theme_primary_color', 'theme_accent_color', 'theme_dark_color', 'theme_body_color'] as $themeField) {
-            if (!$request->has($themeField)) {
+        // Theme colour overrides (and the theme_enabled switch) — same "absent means leave
+        // untouched" rule as the payment-method override below: the older Manage Events
+        // modal has none of these fields, so a save from there must never silently clear an
+        // event's custom theme or flip it off. theme_primary_color is always present on the
+        // console's own form (even as an empty string when cleared) and absent everywhere
+        // else, so its presence alone signals "this submission is theme-aware" for all five
+        // fields — theme_enabled included, via its own always-present hidden companion
+        // field so an unchecked checkbox (which browsers omit entirely) is still detected as
+        // an explicit "off" rather than "the form doesn't know about this at all".
+        if ($request->has('theme_primary_color')) {
+            $validated['theme_enabled'] = $request->boolean('theme_enabled');
+        } else {
+            foreach (['theme_primary_color', 'theme_accent_color', 'theme_dark_color', 'theme_body_color'] as $themeField) {
                 unset($validated[$themeField]);
             }
         }

@@ -800,34 +800,41 @@
 
                                         <div class="settings-section">
                                             <h5><i class="bi bi-palette-fill"></i>Theme Colours</h5>
-                                            <p class="text-muted small">Give this event's public donation page its own colour theme instead of the temple's usual one. Leave any colour blank to inherit the temple's global theme for that one.</p>
-                                            <div class="row g-3">
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small d-block">Primary <span class="text-muted">(buttons)</span></label>
-                                                    <div class="d-flex gap-2 align-items-center">
-                                                        <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_primary_color ?: $temple['primary_color'] }}" data-color-for="theme_primary_color">
-                                                        <input type="text" name="theme_primary_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_primary_color }}" maxlength="20" id="theme_primary_color">
+                                            <p class="text-muted small">An entirely optional, reversible switch — off (the default) uses the temple's usual theme; turning it on applies this event's own colours instead. Turning it back off always restores the temple's default look without losing whatever custom colours are saved here, so switching back and forth never needs re-entering them.</p>
+                                            <div class="form-check form-switch mb-3">
+                                                <input type="hidden" name="theme_enabled" value="0">
+                                                <input type="checkbox" class="form-check-input" role="switch" id="themeEnabledSwitch" name="theme_enabled" value="1" {{ $event->theme_enabled ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="themeEnabledSwitch">Use a custom theme for this event</label>
+                                            </div>
+                                            <div id="themeColorFields" style="{{ $event->theme_enabled ? '' : 'display:none;' }}">
+                                                <div class="row g-3">
+                                                    <div class="col-6 col-md-3">
+                                                        <label class="form-label small d-block">Primary <span class="text-muted">(buttons)</span></label>
+                                                        <div class="d-flex gap-2 align-items-center">
+                                                            <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_primary_color ?: $temple['primary_color'] }}" data-color-for="theme_primary_color">
+                                                            <input type="text" name="theme_primary_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_primary_color }}" maxlength="20" id="theme_primary_color">
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small d-block">Accent <span class="text-muted">(highlights)</span></label>
-                                                    <div class="d-flex gap-2 align-items-center">
-                                                        <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_accent_color ?: $temple['accent_color'] }}" data-color-for="theme_accent_color">
-                                                        <input type="text" name="theme_accent_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_accent_color }}" maxlength="20" id="theme_accent_color">
+                                                    <div class="col-6 col-md-3">
+                                                        <label class="form-label small d-block">Accent <span class="text-muted">(highlights)</span></label>
+                                                        <div class="d-flex gap-2 align-items-center">
+                                                            <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_accent_color ?: $temple['accent_color'] }}" data-color-for="theme_accent_color">
+                                                            <input type="text" name="theme_accent_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_accent_color }}" maxlength="20" id="theme_accent_color">
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small d-block">Dark <span class="text-muted">(hero &amp; headings)</span></label>
-                                                    <div class="d-flex gap-2 align-items-center">
-                                                        <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_dark_color ?: $temple['dark_color'] }}" data-color-for="theme_dark_color">
-                                                        <input type="text" name="theme_dark_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_dark_color }}" maxlength="20" id="theme_dark_color">
+                                                    <div class="col-6 col-md-3">
+                                                        <label class="form-label small d-block">Dark <span class="text-muted">(hero &amp; headings)</span></label>
+                                                        <div class="d-flex gap-2 align-items-center">
+                                                            <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_dark_color ?: $temple['dark_color'] }}" data-color-for="theme_dark_color">
+                                                            <input type="text" name="theme_dark_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_dark_color }}" maxlength="20" id="theme_dark_color">
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small d-block">Page background</label>
-                                                    <div class="d-flex gap-2 align-items-center">
-                                                        <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_body_color ?: '#fbf8f1' }}" data-color-for="theme_body_color">
-                                                        <input type="text" name="theme_body_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_body_color }}" maxlength="20" id="theme_body_color">
+                                                    <div class="col-6 col-md-3">
+                                                        <label class="form-label small d-block">Page background</label>
+                                                        <div class="d-flex gap-2 align-items-center">
+                                                            <input type="color" class="form-control form-control-color" style="width:44px;" value="{{ $event->theme_body_color ?: '#fbf8f1' }}" data-color-for="theme_body_color">
+                                                            <input type="text" name="theme_body_color" class="form-control form-control-sm" placeholder="Inherit" value="{{ $event->theme_body_color }}" maxlength="20" id="theme_body_color">
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1476,6 +1483,12 @@
             if (!textField) { return; }
             swatch.addEventListener('input', function () { textField.value = swatch.value; });
         });
+        const themeEnabledSwitch = document.getElementById('themeEnabledSwitch');
+        if (themeEnabledSwitch) {
+            themeEnabledSwitch.addEventListener('change', function () {
+                document.getElementById('themeColorFields').style.display = this.checked ? '' : 'none';
+            });
+        }
 
         // Sidebar / pane switching — sidebar links, the "View All Donations" button, and the
         // "View Pending" button all just switch which console-pane is visible.

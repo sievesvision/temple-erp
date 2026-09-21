@@ -50,7 +50,7 @@ class EventThemeColorsTest extends TestCase
         Setting::set('theme_primary_color', '#111111');
         Setting::set('theme_accent_color', '#222222');
         Setting::set('theme_dark_color', '#333333');
-        $event = $this->makeEvent(['theme_accent_color' => '#FFC700']);
+        $event = $this->makeEvent(['theme_enabled' => true, 'theme_accent_color' => '#FFC700']);
 
         $colors = $event->themeColors(Setting::templeBranding());
 
@@ -59,9 +59,31 @@ class EventThemeColorsTest extends TestCase
         $this->assertSame('#333333', $colors['dark']);
     }
 
+    // theme_enabled is a switch separate from whether the colour columns hold values —
+    // turning it off must always show the temple's default theme even though the event's
+    // own colours are still saved underneath, ready to switch back on.
+    public function test_theme_enabled_off_shows_the_default_theme_even_with_colours_saved(): void
+    {
+        Setting::set('theme_primary_color', '#111111');
+        Setting::set('theme_accent_color', '#222222');
+        Setting::set('theme_dark_color', '#333333');
+        $event = $this->makeEvent([
+            'theme_enabled' => false,
+            'theme_primary_color' => '#A66A00',
+            'theme_accent_color' => '#FFC700',
+        ]);
+
+        $colors = $event->themeColors(Setting::templeBranding());
+
+        $this->assertSame('#111111', $colors['primary']);
+        $this->assertSame('#222222', $colors['accent']);
+        $this->assertSame('#A66A00', $event->theme_primary_color, 'the saved colour must survive being switched off');
+    }
+
     public function test_public_event_page_reflects_the_events_own_theme(): void
     {
         $event = $this->makeEvent([
+            'theme_enabled' => true,
             'theme_primary_color' => '#A66A00',
             'theme_accent_color' => '#FFC700',
             'theme_dark_color' => '#4A2E0A',
@@ -87,6 +109,7 @@ class EventThemeColorsTest extends TestCase
             'event_date' => $event->event_date,
             'start_time' => '09:00', 'end_time' => '17:00', 'location' => 'Temple',
             'status' => 'Upcoming',
+            'theme_enabled' => '1',
             'theme_primary_color' => '#A66A00',
             'theme_accent_color' => '#FFC700',
             'theme_dark_color' => '#4A2E0A',
@@ -95,8 +118,37 @@ class EventThemeColorsTest extends TestCase
 
         $response->assertRedirect();
         $event->refresh();
+        $this->assertTrue($event->theme_enabled);
         $this->assertSame('#A66A00', $event->theme_primary_color);
         $this->assertSame('#FFC700', $event->theme_accent_color);
+    }
+
+    // Submitting the form with the switch unchecked (its hidden companion field sends "0")
+    // must turn theme_enabled off — this proves an unchecked checkbox is distinguished from
+    // the older modal's form not knowing about theme fields at all (see the guard in
+    // EventController::update(), keyed off theme_primary_color's presence).
+    public function test_unchecking_the_switch_disables_the_theme_without_losing_colours(): void
+    {
+        $admin = $this->adminUser();
+        $event = $this->makeEvent(['theme_enabled' => true, 'theme_primary_color' => '#A66A00', 'theme_accent_color' => '#FFC700']);
+
+        $response = $this->actingAs($admin)->post(route('admin.events.update', $event->event_id), [
+            'event_name' => $event->event_name,
+            'event_date' => $event->event_date,
+            'start_time' => '09:00', 'end_time' => '17:00', 'location' => 'Temple',
+            'status' => 'Upcoming',
+            'theme_enabled' => '0', // the hidden companion field's value when the checkbox is unchecked
+            'theme_primary_color' => '#A66A00',
+            'theme_accent_color' => '#FFC700',
+            'theme_dark_color' => '',
+            'theme_body_color' => '',
+        ]);
+
+        $response->assertRedirect();
+        $event->refresh();
+        $this->assertFalse($event->theme_enabled);
+        $this->assertSame('#A66A00', $event->theme_primary_color, 'colours must survive being switched off, ready to re-enable');
+        $this->assertSame(Setting::templeBranding()['primary_color'], $event->themeColors(Setting::templeBranding())['primary']);
     }
 
     // A save from the older Manage Events modal (which has no theme colour fields at all)
