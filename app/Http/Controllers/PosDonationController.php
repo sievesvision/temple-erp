@@ -87,14 +87,6 @@ class PosDonationController extends Controller
 
         $temple = Setting::templeBranding();
 
-        // The same per-event theme switch already exposed in the Event Console's Public
-        // Page settings (Event::themeColors()) also drives this screen's colours — an event
-        // with no custom theme (theme_enabled false, the default) keeps the POS screen's own
-        // maroon/gold look untouched rather than inheriting the temple's public-site theme,
-        // which is a different palette meant for a different page. Only an event that has
-        // explicitly turned its own theme on re-colours the POS screen to match it.
-        $eventTheme = $event->theme_enabled ? $event->themeColors($temple) : null;
-
         // Power Fail recovery (Core Payments accreditation 4.1.2) must survive worse than a
         // page refresh — the browser tab itself can be gone entirely (closed, crashed, a
         // different device even), taking sessionStorage's own copy of the in-flight attempt
@@ -135,7 +127,6 @@ class PosDonationController extends Controller
             'switchableEvents',
             'canReturnToConsole',
             'temple',
-            'eventTheme',
             'pendingEftRecovery',
             'eftTerminalsForJs'
         ));

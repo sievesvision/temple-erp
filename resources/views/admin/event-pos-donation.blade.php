@@ -13,18 +13,11 @@
     <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
     <style>
         :root {
-            /* Falls back to the POS screen's own maroon/gold identity by default; an event
-               that has turned its own theme on (see Event Console > Public Page > Theme
-               Colours) re-colours this screen to match instead — "dark" drives the header/
-               primary-action tone, "accent" the highlight/selected tone, "body" the page
-               background. --maroon-dark and --gold-hover are computed shades of those two
-               rather than separate fields, since Event::themeColors() only carries four. */
-            --maroon: {{ $eventTheme['dark'] ?? '#6B0F1A' }};
-            --maroon-dark: color-mix(in srgb, var(--maroon) 82%, black);
-            --gold: {{ $eventTheme['accent'] ?? '#C9952E' }};
-            --gold-hover: color-mix(in srgb, var(--gold) 78%, black);
-            --gold-text-on: color-mix(in srgb, var(--gold) 25%, black);
-            --cream: {{ $eventTheme['body'] ?? '#FFF9EE' }};
+            --maroon: #6B0F1A;
+            --maroon-dark: #741521;
+            --gold: #C9952E;
+            --gold-hover: #D3A333;
+            --cream: #FFF9EE;
             --white: #FFFFFF;
             --border: #E6E9ED;
             --shade: #F1F4F7;
@@ -105,21 +98,21 @@
         /* Donation Summary — deliberately NOT another plain white card, so the running total
            reads at a glance as the "money" panel rather than just more form. */
         .pos-summary-card {
-            background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 10%, white) 0%, color-mix(in srgb, var(--gold) 26%, white) 100%);
-            border: 1px solid color-mix(in srgb, var(--gold) 55%, white); border-radius: 14px; padding: 20px 22px;
+            background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%);
+            border: 1px solid #E7C36A; border-radius: 14px; padding: 20px 22px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.06);
         }
         .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-        .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gold-text-on); font-weight: 800; margin-bottom: 0; }
-        .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid color-mix(in srgb, var(--gold) 55%, white); border-radius: 8px; padding: 6px 12px; font-size: 0.76rem; font-weight: 700; color: var(--gold-text-on); }
+        .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 0; }
+        .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 12px; font-size: 0.76rem; font-weight: 700; color: #8A6A1E; }
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
         .pos-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
         .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
         .pos-summary-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
-        .pos-summary-divider { height: 1px; background: color-mix(in srgb, var(--gold) 40%, transparent); margin: 14px 0; }
+        .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
         .pos-summary-total-row .pos-summary-row-label { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); }
-        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 5.5vw, 2.8rem); font-weight: 800; color: var(--gold-text-on); }
-        .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 5.5vw, 2.8rem); font-weight: 800; color: #A56B13; }
+        .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
         .pos-actions-row { display: flex; flex-direction: column; gap: 10px; }
@@ -185,9 +178,9 @@
         .pos-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
         .pos-quick-amount-btn { background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary); font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px; border-radius: 12px; font-size: 1.3rem; }
         .pos-quick-amount-btn:active { background: #E7ECF1; }
-        .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: var(--gold-text-on); box-shadow: 0 6px 16px rgba(201,149,46,0.32); }
+        .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.32); }
         .pos-quick-amount-btn.custom-amount-btn, .pos-tier-quick-btn.custom-amount-btn {
-            background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 10%, white) 0%, color-mix(in srgb, var(--gold) 26%, white) 100%); border-color: var(--gold);
+            background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%); border-color: var(--gold);
             color: var(--text-primary); font-size: 1rem; font-weight: 700; line-height: 1.5;
         }
 
@@ -198,7 +191,7 @@
         .pos-tier-pills-row { display: flex; flex-wrap: wrap; gap: 10px; }
         .pos-tier-pill { display: inline-flex; align-items: center; gap: 8px; padding: 0 22px; min-height: 54px; border-radius: 10px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 1.02rem; color: var(--text-primary); cursor: pointer; user-select: none; }
         .pos-tier-pill input[type="checkbox"] { display: none; }
-        .pos-tier-pill.active { background: var(--gold); border-color: var(--gold); color: var(--gold-text-on); }
+        .pos-tier-pill.active { background: var(--gold); border-color: var(--gold); color: #fff; }
 
         .pos-tier-detail { display: none; }
         .pos-tier-detail.active { display: block; }
@@ -207,28 +200,28 @@
         .pos-tier-qty { width: 84px; min-height: 52px; padding: 10px; font-size: 1.1rem; font-weight: 700; border: 2px solid var(--border); border-radius: 10px; text-align: center; }
         .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; margin-bottom: 12px; }
         .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary); font-weight: 800; min-height: 72px; border-radius: 12px; font-size: 1.25rem; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: var(--gold-text-on); }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
         .pos-tier-total-row { display: none; }
 
         .pos-method-row { display: flex; gap: 12px; flex-wrap: wrap; }
         .pos-method-btn { flex: 1 1 calc(33.33% - 8px); min-width: 100px; padding: 14px 10px; min-height: 116px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 1rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: var(--gold-text-on); box-shadow: 0 6px 16px rgba(201,149,46,0.3); }
+        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.3); }
         .pos-method-icon-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--cream); margin-bottom: 8px; }
-        .pos-method-btn.active .pos-method-icon-badge { background: rgba(255,255,255,0.3); }
+        .pos-method-btn.active .pos-method-icon-badge { background: rgba(255,255,255,0.25); }
         .pos-method-icon-badge i { font-size: 1.3rem; color: var(--gold-hover); }
-        .pos-method-btn.active .pos-method-icon-badge i { color: var(--gold-text-on); }
+        .pos-method-btn.active .pos-method-icon-badge i { color: #fff; }
 
         .pos-save-btn {
             width: 100%; padding: 18px; border-radius: 12px; border: none;
-            background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; font-weight: 700; font-size: 1.15rem;
-            box-shadow: 0 4px 14px color-mix(in srgb, var(--maroon) 40%, transparent); min-height: 68px;
+            background: linear-gradient(135deg, #8A1020, #A41428); color: white; font-weight: 700; font-size: 1.15rem;
+            box-shadow: 0 4px 14px rgba(138,16,32,0.3); min-height: 68px;
         }
         .pos-save-btn:disabled { opacity: 0.55; }
         .pos-save-btn:active { transform: scale(0.98); }
 
         /* ---------- Recent Orders popup (opened from the Donation Summary link) ---------- */
         .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
-        .pos-orders-modal-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--gold-text-on); }
+        .pos-orders-modal-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: #A56B13; }
         .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
         .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--cream); font-size: 0.92rem; }
         .pos-order-item:last-child { border-bottom: none; }
