@@ -106,6 +106,7 @@
             color: var(--text-primary); background: var(--white); min-height: 56px;
         }
         .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
+        .pos-input::placeholder, .pos-amount-input-wrap input::placeholder { color: #9AA7B4; font-weight: 400; opacity: 1; }
         .pos-textarea { min-height: 78px; font-weight: 500; font-size: 1rem; resize: vertical; }
         .pos-row { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
         .pos-row:last-child { margin-bottom: 0; }
@@ -118,7 +119,7 @@
         .pos-amount-input-wrap { display: flex; align-items: stretch; border: 2px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--white); }
         .pos-amount-input-wrap:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
         .pos-amount-prefix { display: flex; align-items: center; justify-content: center; padding: 0 16px; background: var(--cream); color: var(--text-secondary); font-weight: 800; font-size: 1rem; border-right: 2px solid var(--border); flex-shrink: 0; }
-        .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 60px; padding: 14px 16px; font-size: 1.25rem; font-weight: 700; color: var(--text-primary); background: transparent; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 60px; padding: 14px 16px; font-size: 1.25rem; font-weight: 600; color: var(--text-primary); background: transparent; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         .pos-amount-input-wrap input:focus { outline: none; box-shadow: none; }
 
         .pos-section-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); margin: 20px 0 10px; }
@@ -126,8 +127,7 @@
         .pos-section-title i { font-size: 1rem; color: var(--gold-hover); }
 
         .pos-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-        .pos-quick-amount-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 68px; border-radius: 12px; font-size: 1.05rem; }
-        #posAmount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        .pos-quick-amount-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 68px; border-radius: 12px; font-size: 1.05rem; }
         .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.32); }
         .pos-quick-amount-btn.custom-amount-btn { color: var(--text-secondary); font-size: 0.92rem; }
 
@@ -139,7 +139,7 @@
         .pos-tier-option .pos-tier-qty { width: 70px; padding: 10px; font-size: 1rem; border: 2px solid var(--border); border-radius: 10px; }
         .pos-tier-option .pos-tier-free-block { flex: 1 1 100%; margin-top: 6px; }
         .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; margin-bottom: 10px; }
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; min-height: 68px; border-radius: 12px; font-size: 1.02rem; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; min-height: 68px; border-radius: 12px; font-size: 1.02rem; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
         .pos-tier-free-quick-amounts .pos-tier-quick-btn.custom-amount-btn { color: var(--text-secondary); font-size: 0.92rem; }
         .pos-tier-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.1rem; color: var(--text-primary); padding: 10px 4px; }
@@ -303,7 +303,7 @@
                     <div class="pos-card-subtitle">Select an amount or enter a custom amount</div>
                     <div id="posTiersWrap" style="display:none;">
                         <div id="posTiers"></div>
-                        <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
+                        <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">—</span></div>
                     </div>
                     <div id="posSimpleAmountWrap">
                         <div class="pos-quick-amounts" id="posQuickAmounts"></div>
@@ -325,12 +325,12 @@
                     <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
                     <div class="pos-summary-row">
                         <span class="pos-summary-row-label">Amount</span>
-                        <span class="pos-summary-row-value" id="posSummaryAmount">{{ $temple['currency'] ?? '' }} 0.00</span>
+                        <span class="pos-summary-row-value" id="posSummaryAmount">—</span>
                     </div>
                     <div class="pos-summary-divider"></div>
                     <div class="pos-summary-row pos-summary-total-row">
                         <span class="pos-summary-row-label">Total</span>
-                        <span class="pos-summary-row-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
+                        <span class="pos-summary-row-value" id="posSummaryTotal">—</span>
                     </div>
                     <div class="pos-summary-name" id="posSummaryName">Donor not entered yet</div>
                     <div class="pos-summary-method" id="posSummaryMethod"></div>
@@ -597,14 +597,17 @@
         function updatePosSummary() {
             const amt = parseFloat((amountInput.value || '').trim()) || 0;
             const amtText = CURRENCY_CODE + ' ' + amt.toFixed(2);
+            // Nothing entered yet reads as blank ("—"), never a fabricated "0.00" — the
+            // summary should never look like a $0 donation has already been decided.
+            const displayText = amt > 0 ? amtText : '—';
             const name = document.getElementById('posGuestName').value.trim();
 
             const summaryAmount = document.getElementById('posSummaryAmount');
             const summaryTotal = document.getElementById('posSummaryTotal');
             const summaryName = document.getElementById('posSummaryName');
             const summaryMethod = document.getElementById('posSummaryMethod');
-            if (summaryAmount) { summaryAmount.textContent = amtText; }
-            if (summaryTotal) { summaryTotal.textContent = amtText; }
+            if (summaryAmount) { summaryAmount.textContent = displayText; }
+            if (summaryTotal) { summaryTotal.textContent = displayText; }
             if (summaryName) { summaryName.textContent = name || 'Donor not entered yet'; }
             if (summaryMethod) { summaryMethod.textContent = selectedMethod ? ('via ' + selectedMethod) : ''; }
 
@@ -705,7 +708,7 @@
                     }
                 });
                 amountInput.value = total > 0 ? total.toFixed(2) : '';
-                tierTotalDisplay.textContent = CURRENCY_CODE + ' ' + total.toFixed(2);
+                tierTotalDisplay.textContent = total > 0 ? (CURRENCY_CODE + ' ' + total.toFixed(2)) : '—';
                 purposeValue = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
                 updatePosSummary();
             }
@@ -722,7 +725,7 @@
                 tiersContainer.querySelectorAll('.pos-tier-option').forEach(function (row) {
                     if (!row.classList.contains('single-option')) { row.classList.remove('selected'); }
                 });
-                tierTotalDisplay.textContent = CURRENCY_CODE + ' 0.00';
+                tierTotalDisplay.textContent = '—';
                 selections = [];
                 purposeValue = 'Event Donation';
                 if (singleOption) { recalcTiers(); }
