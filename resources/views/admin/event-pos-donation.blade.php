@@ -6,7 +6,9 @@
     <title>POS · {{ $event->event_name }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
-    <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
     <style>
@@ -18,6 +20,8 @@
             --cream: #FFF9EE;
             --white: #FFFFFF;
             --border: #E6E9ED;
+            --shade: #F1F4F7;
+            --shade-border: #E3E8ED;
             --text-primary: #102A43;
             --text-secondary: #52667A;
             --success: #10B981;
@@ -88,13 +92,16 @@
             border: 1px solid #E7C36A; border-radius: 14px; padding: 20px 22px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.06);
         }
-        .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 14px; }
+        .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 0; }
+        .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 12px; font-size: 0.76rem; font-weight: 700; color: #8A6A1E; }
+        .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
         .pos-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
         .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
         .pos-summary-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
         .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
-        .pos-summary-total-row .pos-summary-row-label { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
-        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(1.7rem, 4vw, 2.1rem); font-weight: 800; color: #A56B13; }
+        .pos-summary-total-row .pos-summary-row-label { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); }
+        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 5.5vw, 2.8rem); font-weight: 800; color: #A56B13; }
         .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
@@ -156,7 +163,8 @@
         .pos-card-header-row .pos-card-subtitle { margin: 4px 0 0; }
 
         .pos-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
-        .pos-quick-amount-btn { background: var(--white); border: 2px solid var(--border); color: var(--text-primary); font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px; border-radius: 12px; font-size: 1.3rem; }
+        .pos-quick-amount-btn { background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary); font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px; border-radius: 12px; font-size: 1.3rem; }
+        .pos-quick-amount-btn:active { background: #E7ECF1; }
         .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.32); }
         .pos-quick-amount-btn.custom-amount-btn, .pos-tier-quick-btn.custom-amount-btn {
             background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%); border-color: var(--gold);
@@ -178,7 +186,7 @@
         .pos-tier-fixed-amount { font-weight: 700; font-size: 1.1rem; color: var(--text-primary); }
         .pos-tier-qty { width: 84px; min-height: 52px; padding: 10px; font-size: 1.1rem; font-weight: 700; border: 2px solid var(--border); border-radius: 10px; text-align: center; }
         .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; margin-bottom: 12px; }
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--white); border: 2px solid var(--border); color: var(--text-primary); font-weight: 800; min-height: 72px; border-radius: 12px; font-size: 1.25rem; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary); font-weight: 800; min-height: 72px; border-radius: 12px; font-size: 1.25rem; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
         .pos-tier-total-row { display: none; }
 
@@ -198,19 +206,16 @@
         .pos-save-btn:disabled { opacity: 0.55; }
         .pos-save-btn:active { transform: scale(0.98); }
 
-        /* ---------- Orders this session — compact bottom status strip ---------- */
-        .pos-orders-bar { background: var(--white); border-top: 1px solid var(--border); padding: 8px 24px; }
-        .pos-orders-header { display: flex; align-items: center; justify-content: space-between; max-width: 1600px; margin: 0 auto; cursor: pointer; }
-        .pos-orders-header h4 { margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
-        .pos-orders-header .pos-orders-total { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); font-size: 0.92rem; }
-        .pos-orders-list { max-width: 1600px; margin: 6px auto 0; max-height: 160px; overflow-y: auto; display: none; }
-        .pos-orders-list.expanded { display: block; }
-        .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--cream); font-size: 0.85rem; }
+        /* ---------- Recent Orders popup (opened from the Donation Summary link) ---------- */
+        .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+        .pos-orders-modal-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: #A56B13; }
+        .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
+        .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--cream); font-size: 0.92rem; }
         .pos-order-item:last-child { border-bottom: none; }
         .pos-order-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
         .pos-order-amount { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
         .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
-        .pos-orders-empty { color: var(--text-secondary); font-size: 0.85rem; text-align: center; padding: 10px 0; }
+        .pos-orders-empty { color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 20px 0; }
 
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: 14px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
@@ -384,7 +389,12 @@
 
             <div class="pos-side">
                 <div class="pos-summary-card">
-                    <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
+                    <div class="pos-summary-top-row">
+                        <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
+                        <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
+                            <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
+                        </button>
+                    </div>
                     <div class="pos-summary-row">
                         <span class="pos-summary-row-label">Amount</span>
                         <span class="pos-summary-row-value" id="posSummaryAmount">—</span>
@@ -427,12 +437,21 @@
         </div>
     </div>
 
-    <div class="pos-orders-bar">
-        <div class="pos-orders-header" id="posOrdersToggle">
-            <h4><i class="bi bi-clock-history"></i>Orders This Session (<span id="posOrdersCount">0</span>)<i class="bi bi-chevron-up ms-1" id="posOrdersChevron"></i></h4>
-            <span class="pos-orders-total" id="posOrdersTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
+    <!-- Recent Orders — opened from the link at the top of the Donation Summary card,
+         rather than a permanent bottom bar, so the bottom of the page stays the plain
+         temple-branded footer. -->
+    <div class="eft-modal-overlay" id="ordersModalOverlay">
+        <div class="eft-modal" style="max-width: 440px; text-align: left;">
+            <div class="eft-modal-header" style="text-align:center;"><i class="bi bi-clock-history me-2"></i>Orders This Session</div>
+            <div class="eft-modal-body" style="text-align:left; padding: 20px 22px;">
+                <div class="pos-orders-modal-total-row">
+                    <span>Total this session</span>
+                    <span id="posOrdersTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
+                </div>
+                <div class="pos-orders-list" id="posOrdersList"></div>
+                <button type="button" class="eft-modal-cancel-btn" id="ordersModalCloseBtn">Close</button>
+            </div>
         </div>
-        <div class="pos-orders-list" id="posOrdersList"></div>
     </div>
 
     <div class="pos-toast" id="posToast"></div>
@@ -977,13 +996,11 @@
         renderSessionOrders();
         updatePosSummary();
 
-        const ordersToggle = document.getElementById('posOrdersToggle');
-        const ordersList = document.getElementById('posOrdersList');
-        const ordersChevron = document.getElementById('posOrdersChevron');
-        ordersToggle.addEventListener('click', function () {
-            ordersList.classList.toggle('expanded');
-            ordersChevron.classList.toggle('bi-chevron-up');
-            ordersChevron.classList.toggle('bi-chevron-down');
+        document.getElementById('posOrdersLink').addEventListener('click', function () {
+            document.getElementById('ordersModalOverlay').classList.add('active');
+        });
+        document.getElementById('ordersModalCloseBtn').addEventListener('click', function () {
+            document.getElementById('ordersModalOverlay').classList.remove('active');
         });
 
         function resetPosForm() {
