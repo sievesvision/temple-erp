@@ -231,6 +231,27 @@
         .btn-view-pending { display: block; width: 100%; text-align: center; margin-top: 14px; padding: 11px; border-radius: 10px; border: 1.5px solid var(--gold); background: var(--white); color: var(--gold-hover); font-weight: 700; font-size: 0.85rem; cursor: pointer; }
         .btn-view-pending:hover { background: var(--cream); }
 
+        /* ---------- Dashboard: Donation Trend (weekly/monthly bar chart) ---------- */
+        .trend-toggle { display: flex; gap: 8px; }
+        .trend-toggle button { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 6px 14px; min-height: 34px; border-radius: 8px; font-size: 0.8rem; }
+        .trend-toggle button.active { background: var(--gold); border-color: var(--gold); color: white; }
+        .trend-chart { display: flex; align-items: flex-end; gap: 6px; height: 170px; padding-top: 10px; }
+        .trend-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; min-width: 0; }
+        .trend-bar { width: 100%; max-width: 36px; background: linear-gradient(180deg, var(--gold), var(--gold-hover)); border-radius: 6px 6px 0 0; min-height: 3px; }
+        .trend-bar-label { font-size: 0.66rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+        /* ---------- All Donations: search + date filter bar ---------- */
+        .donations-filter-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+        .donations-search-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
+        .donations-search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; }
+        .donations-search-wrap input { width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.9rem; min-height: 42px; color: var(--text-primary); }
+        .donations-date-input { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.86rem; min-height: 42px; color: var(--text-primary); }
+        .donations-filter-row input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+        .donations-filter-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+        .donations-filter-pills button { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 8px 16px; min-height: 38px; border-radius: 999px; font-size: 0.8rem; }
+        .donations-filter-pills button.active { background: var(--gold); border-color: var(--gold); color: white; }
+        .donations-filter-clear { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 10px 16px; min-height: 42px; border-radius: 10px; font-size: 0.85rem; }
+
         .recent-mini-card h4 { font-size: 0.98rem; font-weight: 800; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
         .recent-mini-list { display: flex; flex-direction: column; gap: 12px; max-height: 360px; overflow-y: auto; }
         .recent-mini-item { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
@@ -435,6 +456,38 @@
                         </div>
                     </div>
 
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <div class="card-panel">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2" style="margin-bottom:14px;">
+                                    <div class="section-title" style="margin:0;"><span class="icon-badge-sm"><i class="bi bi-graph-up-arrow"></i></span>Donation Trend (Paid)</div>
+                                    <div class="trend-toggle">
+                                        <button type="button" class="active" id="trendToggleWeekly">Weekly</button>
+                                        <button type="button" id="trendToggleMonthly">Monthly</button>
+                                    </div>
+                                </div>
+                                @php $maxWeekly = $weeklyTrend->max('total') ?: 1; @endphp
+                                <div class="trend-chart" id="trendChartWeekly">
+                                    @foreach($weeklyTrend as $point)
+                                    <div class="trend-bar-col">
+                                        <div class="trend-bar" style="height: {{ $point['total'] > 0 ? max(6, round($point['total'] / $maxWeekly * 100)) : 2 }}%;" title="{{ $temple['currency'] ?? '' }} {{ number_format($point['total'], 2) }}"></div>
+                                        <div class="trend-bar-label">{{ $point['label'] }}</div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @php $maxMonthly = $monthlyTrend->max('total') ?: 1; @endphp
+                                <div class="trend-chart" id="trendChartMonthly" style="display:none;">
+                                    @foreach($monthlyTrend as $point)
+                                    <div class="trend-bar-col">
+                                        <div class="trend-bar" style="height: {{ $point['total'] > 0 ? max(6, round($point['total'] / $maxMonthly * 100)) : 2 }}%;" title="{{ $temple['currency'] ?? '' }} {{ number_format($point['total'], 2) }}"></div>
+                                        <div class="trend-bar-label">{{ $point['label'] }}</div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="row g-3">
                         <div class="col-lg-6">
                             <div class="card-panel h-100">
@@ -484,9 +537,29 @@
                             <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
                         </div>
                     </div>
+                    <div class="card-panel">
+                        <div class="donations-filter-row">
+                            <div class="donations-search-wrap">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="donationsSearchInput" placeholder="Search by name or email...">
+                            </div>
+                            <input type="date" class="donations-date-input" id="donationsDateFrom">
+                            <span class="text-muted small">to</span>
+                            <input type="date" class="donations-date-input" id="donationsDateTo">
+                            <button type="button" class="donations-filter-clear" id="donationsFilterClear"><i class="bi bi-x-circle me-1"></i>Clear</button>
+                        </div>
+                        <div class="donations-filter-pills" id="donationsQuickFilters">
+                            <button type="button" class="active" data-range="all">All Time</button>
+                            <button type="button" data-range="today">Today</button>
+                            <button type="button" data-range="week">This Week</button>
+                            <button type="button" data-range="month">This Month</button>
+                            <button type="button" data-range="last_month">Last Month</button>
+                        </div>
+                        <div class="text-muted small" id="donationsFilterCount" style="margin-bottom:6px;"></div>
+                    </div>
                     <div class="card-panel" style="padding:0;">
                         <div class="table-scroll-wrap" style="max-height: calc(100vh - 220px);">
-                        <table class="console-table">
+                        <table class="console-table" id="donationsTable">
                             <thead>
                                 <tr>
                                     <th>Type</th><th>ID</th><th>Name</th><th>Contact</th>
@@ -496,7 +569,7 @@
                             </thead>
                             <tbody>
                                 @forelse($rows as $row)
-                                <tr>
+                                <tr data-donation-date="{{ date('Y-m-d', strtotime($row->donation_date)) }}" data-search="{{ strtolower($row->display_name.' '.($row->email ?? '').' '.($row->mobile ?? '')) }}">
                                     <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
                                     <td><strong>{{ $row->display_id }}</strong></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
@@ -526,6 +599,7 @@
                                 @empty
                                 <tr><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
                                 @endforelse
+                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No donations match your search/filter.</td></tr>
                             </tbody>
                         </table>
                         </div>
@@ -1546,6 +1620,114 @@
                 switchPane(savedPane);
                 try { localStorage.removeItem('consoleActivePane'); } catch (e) {}
             }
+        })();
+
+        // Dashboard: Donation Trend weekly/monthly toggle — both charts are pre-rendered
+        // server-side (see EventConsoleController), this just swaps which one is visible.
+        (function () {
+            const weeklyBtn = document.getElementById('trendToggleWeekly');
+            const monthlyBtn = document.getElementById('trendToggleMonthly');
+            const weeklyChart = document.getElementById('trendChartWeekly');
+            const monthlyChart = document.getElementById('trendChartMonthly');
+            if (!weeklyBtn || !monthlyBtn) { return; }
+            weeklyBtn.addEventListener('click', function () {
+                weeklyBtn.classList.add('active');
+                monthlyBtn.classList.remove('active');
+                weeklyChart.style.display = 'flex';
+                monthlyChart.style.display = 'none';
+            });
+            monthlyBtn.addEventListener('click', function () {
+                monthlyBtn.classList.add('active');
+                weeklyBtn.classList.remove('active');
+                monthlyChart.style.display = 'flex';
+                weeklyChart.style.display = 'none';
+            });
+        })();
+
+        // All Donations: client-side search + date-range filter over the already-rendered
+        // table (the event's own donation list is a bounded, single-page dataset — no need
+        // for a server round-trip). Quick pills just set the two date inputs and re-filter.
+        (function () {
+            const searchInput = document.getElementById('donationsSearchInput');
+            const dateFrom = document.getElementById('donationsDateFrom');
+            const dateTo = document.getElementById('donationsDateTo');
+            const clearBtn = document.getElementById('donationsFilterClear');
+            const countEl = document.getElementById('donationsFilterCount');
+            const noMatchRow = document.getElementById('donationsNoMatchRow');
+            const pillsWrap = document.getElementById('donationsQuickFilters');
+            if (!searchInput) { return; }
+            const rows = Array.from(document.querySelectorAll('#donationsTable tbody tr[data-donation-date]'));
+            const pills = pillsWrap ? Array.from(pillsWrap.querySelectorAll('button')) : [];
+
+            function applyFilters() {
+                const term = (searchInput.value || '').trim().toLowerCase();
+                const from = dateFrom.value || null;
+                const to = dateTo.value || null;
+                let visible = 0;
+                rows.forEach(function (row) {
+                    const matchesSearch = !term || row.dataset.search.indexOf(term) !== -1;
+                    const rowDate = row.dataset.donationDate;
+                    const matchesFrom = !from || rowDate >= from;
+                    const matchesTo = !to || rowDate <= to;
+                    const show = matchesSearch && matchesFrom && matchesTo;
+                    row.style.display = show ? '' : 'none';
+                    if (show) { visible++; }
+                });
+                if (noMatchRow) { noMatchRow.style.display = (rows.length && visible === 0) ? '' : 'none'; }
+                if (countEl) { countEl.textContent = rows.length ? (visible + ' of ' + rows.length + ' donations shown') : ''; }
+            }
+
+            function isoDate(d) {
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            }
+
+            function setQuickRange(range) {
+                const today = new Date();
+                if (range === 'today') {
+                    dateFrom.value = isoDate(today);
+                    dateTo.value = isoDate(today);
+                } else if (range === 'week') {
+                    const start = new Date(today);
+                    start.setDate(today.getDate() - today.getDay());
+                    dateFrom.value = isoDate(start);
+                    dateTo.value = isoDate(today);
+                } else if (range === 'month') {
+                    dateFrom.value = isoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                    dateTo.value = isoDate(today);
+                } else if (range === 'last_month') {
+                    dateFrom.value = isoDate(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+                    dateTo.value = isoDate(new Date(today.getFullYear(), today.getMonth(), 0));
+                } else {
+                    dateFrom.value = '';
+                    dateTo.value = '';
+                }
+                applyFilters();
+            }
+
+            pills.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    setQuickRange(btn.dataset.range);
+                });
+            });
+            searchInput.addEventListener('input', applyFilters);
+            [dateFrom, dateTo].forEach(function (el) {
+                el.addEventListener('change', function () {
+                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    applyFilters();
+                });
+            });
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    searchInput.value = '';
+                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    const allPill = pillsWrap.querySelector('[data-range="all"]');
+                    if (allPill) { allPill.classList.add('active'); }
+                    setQuickRange('all');
+                });
+            }
+            applyFilters();
         })();
 
         // Live clock in the topbar.

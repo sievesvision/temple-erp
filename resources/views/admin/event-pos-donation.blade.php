@@ -109,7 +109,10 @@
         .pos-clear-btn { width: 100%; padding: 0 20px; min-height: 54px; border-radius: 12px; border: 1px solid var(--border); background: var(--white); color: var(--text-primary); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .pos-clear-btn:active { background: var(--cream); }
 
-        .pos-footer { max-width: 1600px; margin: 6px auto 0; display: flex; align-items: center; gap: 16px; padding: 6px 2px 14px; color: var(--text-secondary); }
+        /* A proper full-width bar (like the header) rather than plain text sitting on the
+           page background — bottom of the page reads as a distinct navigation-style strip. */
+        .pos-footer-bar { background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
+        .pos-footer { max-width: 1600px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 12px 24px; color: var(--text-secondary); }
         .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
         .pos-footer-text strong { color: var(--text-primary); font-size: 0.85rem; }
@@ -430,6 +433,9 @@
             </div>
         </div>
 
+    </div>
+
+    <footer class="pos-footer-bar">
         <div class="pos-footer">
             <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
             <div class="pos-footer-text">
@@ -444,7 +450,7 @@
                 <div class="pos-footer-time" id="posFooterTime"></div>
             </div>
         </div>
-    </div>
+    </footer>
 
     <!-- Recent Orders — opened from the link at the top of the Donation Summary card,
          rather than a permanent bottom bar, so the bottom of the page stays the plain
@@ -617,7 +623,7 @@
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);
                     renderTerminalPickerButton();
-                    renderTerminalModalList();
+                    document.getElementById('terminalModalOverlay').classList.remove('active');
                 });
                 list.appendChild(row);
             });

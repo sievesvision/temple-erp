@@ -399,7 +399,7 @@
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);
                     renderTerminalPickerButton();
-                    renderTerminalModalList();
+                    document.getElementById('terminalModalOverlay').classList.remove('active');
                 });
                 list.appendChild(row);
             });

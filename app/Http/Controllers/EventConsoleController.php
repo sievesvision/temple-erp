@@ -81,6 +81,28 @@ class EventConsoleController extends Controller
             'method_totals' => $paidRows->groupBy(fn ($r) => $normalizeMethod($r->payment_method))->map->sum('amount'),
         ];
 
+        // Donation Trend (Dashboard) — paid totals bucketed by week (last 8) and by month
+        // (last 6), so a coordinator can see whether giving is picking up or slowing down
+        // without opening the full table. Dates parsed once and reused across both buckets
+        // rather than re-parsing donation_date on every week/month comparison.
+        $paidRowsWithDate = $paidRows->map(fn ($r) => (object) ['amount' => $r->amount, 'date' => \Carbon\Carbon::parse($r->donation_date)]);
+        $weeklyTrend = collect(range(7, 0))->map(function ($weeksAgo) use ($paidRowsWithDate) {
+            $weekStart = now()->subWeeks($weeksAgo)->startOfWeek();
+            $weekEnd = now()->subWeeks($weeksAgo)->endOfWeek();
+            return [
+                'label' => $weekStart->format('d M'),
+                'total' => $paidRowsWithDate->filter(fn ($r) => $r->date->between($weekStart, $weekEnd))->sum('amount'),
+            ];
+        });
+        $monthlyTrend = collect(range(5, 0))->map(function ($monthsAgo) use ($paidRowsWithDate) {
+            $monthStart = now()->subMonths($monthsAgo)->startOfMonth();
+            $monthEnd = now()->subMonths($monthsAgo)->endOfMonth();
+            return [
+                'label' => $monthStart->format('M Y'),
+                'total' => $paidRowsWithDate->filter(fn ($r) => $r->date->between($monthStart, $monthEnd))->sum('amount'),
+            ];
+        });
+
         $devotees = DB::table('devotees')
             ->join('users', 'devotees.user_id', '=', 'users.id')
             ->select('devotees.devotee_id', 'users.name', 'users.email', 'users.mobile')
@@ -190,6 +212,8 @@ class EventConsoleController extends Controller
             'options',
             'rows',
             'summary',
+            'weeklyTrend',
+            'monthlyTrend',
             'devotees',
             'enabledPaymentMethods',
             'globalPaymentMethods',
