@@ -23,6 +23,10 @@ class Event extends Model
         'header_image',
         'flyer_image',
         'qr_code_image',
+        'theme_primary_color',
+        'theme_accent_color',
+        'theme_dark_color',
+        'theme_body_color',
         'gallery_images',
         'enabled_payment_methods',
         'show_donation_summary',
@@ -184,6 +188,25 @@ class Event extends Model
 
         $decoded = json_decode($this->enabled_payment_methods, true);
         return is_array($decoded) ? array_values($decoded) : null;
+    }
+
+    /**
+     * This event's own public-page colour theme, merged over the temple's global defaults —
+     * each of the four channels (primary/accent/dark/body) falls back independently, so an
+     * event can override just one or two colours and still inherit the rest. See
+     * resources/views/frontend/event-donate.blade.php's :root block.
+     *
+     * @param array{primary_color: string, accent_color: string, dark_color: string} $templeDefaults
+     * @return array{primary: string, accent: string, dark: string, body: string}
+     */
+    public function themeColors(array $templeDefaults): array
+    {
+        return [
+            'primary' => $this->theme_primary_color ?: $templeDefaults['primary_color'],
+            'accent' => $this->theme_accent_color ?: $templeDefaults['accent_color'],
+            'dark' => $this->theme_dark_color ?: $templeDefaults['dark_color'],
+            'body' => $this->theme_body_color ?: '#fbf8f1',
+        ];
     }
 
     /**

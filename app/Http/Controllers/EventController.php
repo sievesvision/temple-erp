@@ -39,8 +39,9 @@ class EventController extends Controller
         $requireDonorEmail = (bool) $event->require_donor_email;
         $requireDonorMobile = (bool) $event->require_donor_mobile;
         $isClosed = $event->isClosedForDonations();
+        $eventTheme = $event->themeColors($temple);
 
-        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled', 'requireDonorEmail', 'requireDonorMobile', 'isClosed'));
+        return view('frontend.event-donate', compact('event', 'temple', 'raised', 'donationOptions', 'stripeEnabled', 'requireDonorEmail', 'requireDonorMobile', 'isClosed', 'eventTheme'));
     }
 
     /**
@@ -93,6 +94,10 @@ class EventController extends Controller
             'header_image' => 'nullable|string|max:255',
             'flyer_image' => 'nullable|string|max:255',
             'qr_code_image' => 'nullable|string|max:255',
+            'theme_primary_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'theme_accent_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'theme_dark_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'theme_body_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
             'coordinator_emails' => 'nullable|string|max:1000',
             'donation_account_name' => 'nullable|string|max:255',
             'donation_bank_name' => 'nullable|string|max:255',
@@ -144,6 +149,10 @@ class EventController extends Controller
             'header_image' => 'nullable|string|max:255',
             'flyer_image' => 'nullable|string|max:255',
             'qr_code_image' => 'nullable|string|max:255',
+            'theme_primary_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'theme_accent_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'theme_dark_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
+            'theme_body_color' => 'nullable|string|max:20|regex:/^#[0-9A-Fa-f]{3,8}$/',
             'coordinator_emails' => 'nullable|string|max:1000',
             'donation_account_name' => 'nullable|string|max:255',
             'donation_bank_name' => 'nullable|string|max:255',
@@ -155,6 +164,17 @@ class EventController extends Controller
         $validated['require_donor_email'] = $request->boolean('require_donor_email');
         $validated['require_donor_mobile'] = $request->boolean('require_donor_mobile');
         $validated['date_tbc'] = $request->boolean('date_tbc');
+
+        // Theme colour overrides — same "absent means leave untouched" rule as the payment-
+        // method override below: the older Manage Events modal has none of these fields, so
+        // a save from there must never silently clear an event's custom theme. The console's
+        // own form always sends all four (even as empty strings when cleared), so this only
+        // ever short-circuits for a submission that genuinely doesn't know about them.
+        foreach (['theme_primary_color', 'theme_accent_color', 'theme_dark_color', 'theme_body_color'] as $themeField) {
+            if (!$request->has($themeField)) {
+                unset($validated[$themeField]);
+            }
+        }
 
         // Per-event payment method override. The older Manage Events modal doesn't have
         // this field at all and never sends it — a save from there must leave whatever
