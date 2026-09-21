@@ -246,11 +246,20 @@
         .donations-search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; }
         .donations-search-wrap input { width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.9rem; min-height: 42px; color: var(--text-primary); }
         .donations-date-input { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.86rem; min-height: 42px; color: var(--text-primary); }
-        .donations-filter-row input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+        .donations-filter-row input:focus, .donations-filter-row select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+        .donations-filter-row select.donations-date-input { min-width: 150px; background: var(--white); }
         .donations-filter-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
         .donations-filter-pills button { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 8px 16px; min-height: 38px; border-radius: 999px; font-size: 0.8rem; }
         .donations-filter-pills button.active { background: var(--gold); border-color: var(--gold); color: white; }
         .donations-filter-clear { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 10px 16px; min-height: 42px; border-radius: 10px; font-size: 0.85rem; }
+        .donations-filter-summary { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 2px 2px; font-size: 0.85rem; color: var(--text-secondary); }
+        .donations-filter-total { font-weight: 700; color: var(--text-secondary); }
+        .donations-filter-total .amt { font-weight: 800; color: var(--gold-hover); font-size: 1rem; }
+
+        /* ---------- All Donations: clickable/sortable column headers ---------- */
+        .console-table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+        .console-table th.sortable .sort-icon { font-size: 0.68rem; margin-left: 5px; opacity: 0.35; }
+        .console-table th.sortable.sort-asc .sort-icon, .console-table th.sortable.sort-desc .sort-icon { opacity: 1; color: var(--gold-hover); }
 
         .recent-mini-card h4 { font-size: 0.98rem; font-weight: 800; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
         .recent-mini-list { display: flex; flex-direction: column; gap: 12px; max-height: 360px; overflow-y: auto; }
@@ -537,12 +546,28 @@
                             <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
                         </div>
                     </div>
+                    @php
+                        $distinctStatuses = $rows->pluck('payment_status')->filter()->unique()->sort()->values();
+                        $distinctPaymentMethods = $rows->pluck('payment_method')->filter()->unique()->sort()->values();
+                    @endphp
                     <div class="card-panel">
                         <div class="donations-filter-row">
                             <div class="donations-search-wrap">
                                 <i class="bi bi-search"></i>
                                 <input type="text" id="donationsSearchInput" placeholder="Search by name or email...">
                             </div>
+                            <select class="donations-date-input" id="donationsStatusFilter">
+                                <option value="">All Statuses</option>
+                                @foreach($distinctStatuses as $status)
+                                <option value="{{ strtolower($status) }}">{{ $status === 'Paid' ? 'Completed' : $status }}</option>
+                                @endforeach
+                            </select>
+                            <select class="donations-date-input" id="donationsPaymentFilter">
+                                <option value="">All Payment Methods</option>
+                                @foreach($distinctPaymentMethods as $method)
+                                <option value="{{ strtolower($method) }}">{{ $method }}</option>
+                                @endforeach
+                            </select>
                             <input type="date" class="donations-date-input" id="donationsDateFrom">
                             <span class="text-muted small">to</span>
                             <input type="date" class="donations-date-input" id="donationsDateTo">
@@ -555,21 +580,40 @@
                             <button type="button" data-range="month">This Month</button>
                             <button type="button" data-range="last_month">Last Month</button>
                         </div>
-                        <div class="text-muted small" id="donationsFilterCount" style="margin-bottom:6px;"></div>
+                        <div class="donations-filter-summary">
+                            <span id="donationsFilterCount"></span>
+                            <span class="donations-filter-total" id="donationsFilterTotal"></span>
+                        </div>
                     </div>
                     <div class="card-panel" style="padding:0;">
                         <div class="table-scroll-wrap" style="max-height: calc(100vh - 220px);">
                         <table class="console-table" id="donationsTable">
                             <thead>
                                 <tr>
-                                    <th>Type</th><th>ID</th><th>Name</th><th>Contact</th>
+                                    <th class="sortable" data-sort="type">Type<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="donationId">ID<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="name">Name<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th>Contact</th>
                                     @foreach($options as $opt)<th class="col-amount">{{ $opt->label }}</th>@endforeach
-                                    <th class="col-amount">Other</th><th class="col-amount">Total</th><th>Payment</th><th>Txn ID</th><th>Date</th><th>Status</th><th class="text-end">Actions</th>
+                                    <th class="col-amount">Other</th>
+                                    <th class="col-amount sortable" data-sort="amount">Total<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="payment">Payment<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th>Txn ID</th>
+                                    <th class="sortable" data-sort="donationDate">Date<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="status">Status<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($rows as $row)
-                                <tr data-donation-date="{{ date('Y-m-d', strtotime($row->donation_date)) }}" data-search="{{ strtolower($row->display_name.' '.($row->email ?? '').' '.($row->mobile ?? '')) }}">
+                                <tr data-donation-date="{{ date('Y-m-d', strtotime($row->donation_date)) }}"
+                                    data-search="{{ strtolower($row->display_name.' '.($row->email ?? '').' '.($row->mobile ?? '')) }}"
+                                    data-type="{{ $row->donation_type }}"
+                                    data-donation-id="{{ $row->display_id }}"
+                                    data-name="{{ strtolower($row->display_name) }}"
+                                    data-amount="{{ $row->amount }}"
+                                    data-payment="{{ strtolower($row->payment_method) }}"
+                                    data-status="{{ strtolower($row->payment_status) }}">
                                     <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
                                     <td><strong>{{ $row->display_id }}</strong></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
@@ -1644,37 +1688,53 @@
             });
         })();
 
-        // All Donations: client-side search + date-range filter over the already-rendered
-        // table (the event's own donation list is a bounded, single-page dataset — no need
-        // for a server round-trip). Quick pills just set the two date inputs and re-filter.
+        // All Donations: client-side search + status/payment/date filter over the already-
+        // rendered table (the event's own donation list is a bounded, single-page dataset —
+        // no need for a server round-trip). Quick pills just set the two date inputs and
+        // re-filter. The visible-rows total is recomputed on every filter change, not just
+        // shown once, so it always reflects exactly what's currently on screen.
         (function () {
             const searchInput = document.getElementById('donationsSearchInput');
+            const statusFilter = document.getElementById('donationsStatusFilter');
+            const paymentFilter = document.getElementById('donationsPaymentFilter');
             const dateFrom = document.getElementById('donationsDateFrom');
             const dateTo = document.getElementById('donationsDateTo');
             const clearBtn = document.getElementById('donationsFilterClear');
             const countEl = document.getElementById('donationsFilterCount');
+            const totalEl = document.getElementById('donationsFilterTotal');
             const noMatchRow = document.getElementById('donationsNoMatchRow');
             const pillsWrap = document.getElementById('donationsQuickFilters');
             if (!searchInput) { return; }
             const rows = Array.from(document.querySelectorAll('#donationsTable tbody tr[data-donation-date]'));
             const pills = pillsWrap ? Array.from(pillsWrap.querySelectorAll('button')) : [];
+            const donationsCurrency = @json($temple['currency'] ?? '');
 
             function applyFilters() {
                 const term = (searchInput.value || '').trim().toLowerCase();
+                const status = statusFilter && statusFilter.value ? statusFilter.value : null;
+                const payment = paymentFilter && paymentFilter.value ? paymentFilter.value : null;
                 const from = dateFrom.value || null;
                 const to = dateTo.value || null;
                 let visible = 0;
+                let totalAmount = 0;
                 rows.forEach(function (row) {
                     const matchesSearch = !term || row.dataset.search.indexOf(term) !== -1;
+                    const matchesStatus = !status || row.dataset.status === status;
+                    const matchesPayment = !payment || row.dataset.payment === payment;
                     const rowDate = row.dataset.donationDate;
                     const matchesFrom = !from || rowDate >= from;
                     const matchesTo = !to || rowDate <= to;
-                    const show = matchesSearch && matchesFrom && matchesTo;
+                    const show = matchesSearch && matchesStatus && matchesPayment && matchesFrom && matchesTo;
                     row.style.display = show ? '' : 'none';
-                    if (show) { visible++; }
+                    if (show) { visible++; totalAmount += parseFloat(row.dataset.amount) || 0; }
                 });
                 if (noMatchRow) { noMatchRow.style.display = (rows.length && visible === 0) ? '' : 'none'; }
                 if (countEl) { countEl.textContent = rows.length ? (visible + ' of ' + rows.length + ' donations shown') : ''; }
+                if (totalEl) {
+                    totalEl.innerHTML = rows.length
+                        ? 'Filtered Total: <span class="amt">' + donationsCurrency + ' ' + totalAmount.toFixed(2) + '</span>'
+                        : '';
+                }
             }
 
             function isoDate(d) {
@@ -1712,6 +1772,9 @@
                 });
             });
             searchInput.addEventListener('input', applyFilters);
+            [statusFilter, paymentFilter].forEach(function (el) {
+                if (el) { el.addEventListener('change', applyFilters); }
+            });
             [dateFrom, dateTo].forEach(function (el) {
                 el.addEventListener('change', function () {
                     pills.forEach(function (b) { b.classList.remove('active'); });
@@ -1721,6 +1784,8 @@
             if (clearBtn) {
                 clearBtn.addEventListener('click', function () {
                     searchInput.value = '';
+                    if (statusFilter) { statusFilter.value = ''; }
+                    if (paymentFilter) { paymentFilter.value = ''; }
                     pills.forEach(function (b) { b.classList.remove('active'); });
                     const allPill = pillsWrap.querySelector('[data-range="all"]');
                     if (allPill) { allPill.classList.add('active'); }
@@ -1728,6 +1793,42 @@
                 });
             }
             applyFilters();
+        })();
+
+        // All Donations: click a column header to sort by it (toggles ascending/descending
+        // on repeat clicks) — a plain DOM re-append of the row elements in the new order,
+        // so it composes cleanly with the filter above (hidden rows just move along with
+        // everything else; visibility is untouched by sorting).
+        (function () {
+            const table = document.getElementById('donationsTable');
+            if (!table) { return; }
+            const tbody = table.querySelector('tbody');
+            const headers = Array.from(table.querySelectorAll('th.sortable'));
+            const noMatchRow = document.getElementById('donationsNoMatchRow');
+            let sortDir = 1;
+            let sortKey = null;
+
+            headers.forEach(function (th) {
+                th.addEventListener('click', function () {
+                    const key = th.dataset.sort;
+                    sortDir = (sortKey === key) ? -sortDir : 1;
+                    sortKey = key;
+                    headers.forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); h.querySelector('.sort-icon').className = 'bi bi-arrow-down-up sort-icon'; });
+                    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+                    th.querySelector('.sort-icon').className = 'bi ' + (sortDir === 1 ? 'bi-caret-up-fill' : 'bi-caret-down-fill') + ' sort-icon';
+
+                    const rows = Array.from(tbody.querySelectorAll('tr[data-donation-date]'));
+                    const isNumeric = key === 'amount';
+                    rows.sort(function (a, b) {
+                        if (isNumeric) {
+                            return (parseFloat(a.dataset[key]) - parseFloat(b.dataset[key])) * sortDir;
+                        }
+                        return (a.dataset[key] || '').localeCompare(b.dataset[key] || '') * sortDir;
+                    });
+                    rows.forEach(function (row) { tbody.appendChild(row); });
+                    if (noMatchRow) { tbody.appendChild(noMatchRow); }
+                });
+            });
         })();
 
         // Live clock in the topbar.
