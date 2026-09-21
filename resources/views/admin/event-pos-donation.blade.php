@@ -12,14 +12,14 @@
     <style>
         :root {
             --maroon: #6B0F1A;
-            --maroon-dark: #4A0A12;
-            --gold: #C89B3C;
-            --gold-hover: #A67C2B;
-            --cream: #F9F3E7;
+            --maroon-dark: #741521;
+            --gold: #C9952E;
+            --gold-hover: #D3A333;
+            --cream: #FFF9EE;
             --white: #FFFFFF;
-            --border: #F0E5D6;
-            --text-primary: #1F2A37;
-            --text-secondary: #6B7280;
+            --border: #E6E9ED;
+            --text-primary: #102A43;
+            --text-secondary: #52667A;
             --success: #10B981;
             --error: #EF4444;
             --serif: 'Playfair Display', Georgia, serif;
@@ -32,9 +32,9 @@
 
         /* ---------- Minimal topbar — no dashboard chrome, just identity + exits ---------- */
         .pos-topbar {
-            background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
-            color: white; padding: 12px 20px; display: flex; align-items: center; gap: 14px;
-            flex-shrink: 0; box-shadow: 0 4px 18px rgba(74,10,18,0.25); z-index: 20;
+            background: var(--maroon);
+            color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px;
+            flex-shrink: 0; box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 72px;
         }
         .pos-topbar-logo { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.35); flex-shrink: 0; }
         .pos-topbar-title { flex: 1; min-width: 0; }
@@ -47,31 +47,52 @@
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         /* ---------- Main entry area ---------- */
-        .pos-main { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px 8px; }
+        /* Full-width POS workspace, not a narrow centred web form — the container just gets
+           a comfortable max-width so it doesn't stretch absurdly on a huge monitor, but on
+           every tablet/laptop size it fills essentially the whole browser width. */
+        .pos-main { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px 8px; }
 
-        /* Two-column layout on tablet-landscape/desktop — details+amount on the left,
-           a running total + payment + actions always visible on the right so the operator
-           never has to scroll down to find the Pay button. Collapses to one column (the
-           side panel simply falls below the details) on phones/narrow kiosks. */
-        .pos-grid { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
-        @media (min-width: 960px) { .pos-grid { grid-template-columns: 1.6fr 1fr; } }
-        .pos-panel { background: var(--white); border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(31,42,55,0.05); padding: 20px clamp(16px, 3vw, 30px); }
-        .pos-side { display: flex; flex-direction: column; gap: 18px; }
-        @media (min-width: 960px) { .pos-side { position: sticky; top: 18px; } }
-        .pos-side-card { background: var(--white); border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(31,42,55,0.05); padding: 20px clamp(16px, 3vw, 26px); }
+        /* Two-column layout, primary target = landscape tablet/desktop — left ~64% for the
+           entry fields, right ~36% for the running total/payment/actions, always visible
+           without scrolling. Collapses to one column (right panel falls below) on portrait
+           tablets and phones. */
+        .pos-grid { max-width: 1600px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+        @media (min-width: 900px) { .pos-grid { grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); } }
 
-        .pos-summary-card { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); border-radius: 18px; padding: 22px clamp(16px, 3vw, 28px); color: #fff; box-shadow: 0 10px 26px rgba(74,10,18,0.25); }
-        .pos-summary-label { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.68); font-weight: 700; margin-bottom: 8px; }
-        .pos-summary-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(2rem, 5vw, 2.5rem); font-weight: 800; color: var(--gold); line-height: 1.1; }
-        .pos-summary-name { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-summary-method { margin-top: 4px; font-size: 0.82rem; color: rgba(255,255,255,0.6); }
+        .pos-col-left { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .pos-card {
+            background: var(--white); border-radius: 14px; border: 1px solid var(--border);
+            box-shadow: 0 2px 10px rgba(15,23,42,0.06); padding: 20px 22px;
+        }
+        .pos-card-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.02rem; color: var(--text-primary); margin: 0; }
+        .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
+        .pos-card-subtitle { margin: 4px 0 16px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
 
-        .pos-actions-row { display: flex; gap: 12px; }
-        .pos-clear-btn { flex: 0 0 auto; padding: 0 20px; min-height: 68px; border-radius: 16px; border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; }
+        .pos-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        @media (min-width: 900px) { .pos-side { position: sticky; top: 20px; } }
+
+        /* Donation Summary — deliberately NOT another plain white card, so the running total
+           reads at a glance as the "money" panel rather than just more form. */
+        .pos-summary-card {
+            background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%);
+            border: 1px solid #E7C36A; border-radius: 14px; padding: 20px 22px;
+            box-shadow: 0 2px 10px rgba(15,23,42,0.06);
+        }
+        .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 14px; }
+        .pos-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+        .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
+        .pos-summary-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
+        .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
+        .pos-summary-total-row .pos-summary-row-label { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(1.7rem, 4vw, 2.1rem); font-weight: 800; color: #A56B13; }
+        .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
+
+        .pos-actions-row { display: flex; flex-direction: column; gap: 10px; }
+        .pos-clear-btn { width: 100%; padding: 0 20px; min-height: 54px; border-radius: 12px; border: 1px solid var(--border); background: var(--white); color: var(--text-primary); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .pos-clear-btn:active { background: var(--cream); }
-        @media (max-width: 420px) { .pos-actions-row { flex-direction: column-reverse; } .pos-clear-btn { width: 100%; justify-content: center; } }
 
-        .pos-footer { max-width: 1180px; margin: 6px auto 0; display: flex; align-items: center; gap: 12px; padding: 6px clamp(16px, 3vw, 30px) 14px; color: var(--text-secondary); }
+        .pos-footer { max-width: 1600px; margin: 6px auto 0; display: flex; align-items: center; gap: 12px; padding: 6px 2px 14px; color: var(--text-secondary); }
         .pos-footer-logo { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
         .pos-footer-text strong { color: var(--text-primary); font-size: 0.82rem; }
@@ -81,55 +102,67 @@
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
         .pos-input {
-            width: 100%; padding: 16px 18px; border: 2px solid var(--border); border-radius: 14px; font-size: 1.15rem; font-weight: 600;
-            color: var(--text-primary); background: var(--white); min-height: 58px;
+            width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 1.1rem; font-weight: 600;
+            color: var(--text-primary); background: var(--white); min-height: 56px;
         }
-        .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(200,155,60,0.15); }
-        .pos-textarea { min-height: auto; font-weight: 500; font-size: 1rem; resize: vertical; margin-bottom: 14px; }
+        .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
+        .pos-textarea { min-height: 78px; font-weight: 500; font-size: 1rem; resize: vertical; }
         .pos-row { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+        .pos-row:last-child { margin-bottom: 0; }
         .pos-row.two-col { grid-template-columns: 1fr; }
         @media (min-width: 560px) { .pos-row.two-col { grid-template-columns: 1fr 1fr; } }
+
+        /* Shared "currency-prefixed" amount field — used for both the plain free-amount
+           input and any per-tier free-amount input, so a donor/operator always sees the
+           currency right next to what they're typing. */
+        .pos-amount-input-wrap { display: flex; align-items: stretch; border: 2px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--white); }
+        .pos-amount-input-wrap:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
+        .pos-amount-prefix { display: flex; align-items: center; justify-content: center; padding: 0 16px; background: var(--cream); color: var(--text-secondary); font-weight: 800; font-size: 1rem; border-right: 2px solid var(--border); flex-shrink: 0; }
+        .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 60px; padding: 14px 16px; font-size: 1.25rem; font-weight: 700; color: var(--text-primary); background: transparent; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        .pos-amount-input-wrap input:focus { outline: none; box-shadow: none; }
 
         .pos-section-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); margin: 20px 0 10px; }
         .pos-section-title:first-child { margin-top: 0; }
         .pos-section-title i { font-size: 1rem; color: var(--gold-hover); }
 
-        .pos-quick-amounts { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-        .pos-quick-amount-btn { flex: 1 1 calc(25% - 10px); min-width: 90px; background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; padding: 16px 8px; min-height: 58px; border-radius: 14px; font-size: 1.05rem; }
+        .pos-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+        .pos-quick-amount-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 68px; border-radius: 12px; font-size: 1.05rem; }
         #posAmount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
-        .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.32); }
+        .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.32); }
+        .pos-quick-amount-btn.custom-amount-btn { color: var(--text-secondary); font-size: 0.92rem; }
 
-        .pos-tier-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border: 2px solid var(--border); border-radius: 14px; margin-bottom: 10px; flex-wrap: wrap; background: var(--white); }
+        .pos-tier-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border: 2px solid var(--border); border-radius: 12px; margin-bottom: 10px; flex-wrap: wrap; background: var(--white); }
         .pos-tier-option.selected { border-color: var(--gold); background: #FDF6EA; }
         .pos-tier-option.single-option input[type="checkbox"] { display: none; }
         .pos-tier-option label { display: flex; align-items: center; gap: 12px; margin: 0; cursor: pointer; flex: 1; min-width: 160px; font-size: 1.02rem; }
         .pos-tier-option input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--gold); flex-shrink: 0; }
         .pos-tier-option .pos-tier-qty { width: 70px; padding: 10px; font-size: 1rem; border: 2px solid var(--border); border-radius: 10px; }
-        .pos-tier-option .pos-tier-free { width: 120px; padding: 10px; font-size: 1rem; border: 2px solid var(--border); border-radius: 10px; }
-        .pos-tier-free-quick-amounts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; width: 100%; justify-content: flex-end; }
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; padding: 8px 14px; min-height: 40px; border-radius: 10px; font-size: 0.85rem; }
+        .pos-tier-option .pos-tier-free-block { flex: 1 1 100%; margin-top: 6px; }
+        .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; margin-bottom: 10px; }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; min-height: 68px; border-radius: 12px; font-size: 1.02rem; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
         .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn.custom-amount-btn { color: var(--text-secondary); font-size: 0.92rem; }
         .pos-tier-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.1rem; color: var(--text-primary); padding: 10px 4px; }
 
-        .pos-method-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
-        .pos-method-btn { flex: 1 1 calc(33% - 10px); min-width: 110px; padding: 16px 10px; min-height: 60px; border-radius: 14px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.95rem; color: var(--text-secondary); }
-        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.3); }
-        .pos-method-btn i { display: block; font-size: 1.3rem; margin-bottom: 4px; }
+        .pos-method-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .pos-method-btn { flex: 1 1 calc(33.33% - 8px); min-width: 100px; padding: 14px 10px; min-height: 112px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.95rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.3); }
+        .pos-method-btn i { display: block; font-size: 1.7rem; margin-bottom: 8px; }
 
         .pos-save-btn {
-            flex: 1; padding: 20px; border-radius: 16px; border: none;
-            background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.25rem;
-            box-shadow: 0 10px 26px rgba(200,155,60,0.35); min-height: 68px;
+            width: 100%; padding: 18px; border-radius: 12px; border: none;
+            background: linear-gradient(135deg, #8A1020, #A41428); color: white; font-weight: 700; font-size: 1.15rem;
+            box-shadow: 0 4px 14px rgba(138,16,32,0.3); min-height: 68px;
         }
         .pos-save-btn:disabled { opacity: 0.55; }
         .pos-save-btn:active { transform: scale(0.98); }
 
-        /* ---------- Orders this session — bottom strip ---------- */
-        .pos-orders-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); padding: 10px clamp(16px, 3vw, 30px); box-shadow: 0 -4px 14px rgba(31,42,55,0.05); }
-        .pos-orders-header { display: flex; align-items: center; justify-content: space-between; max-width: 760px; margin: 0 auto 6px; cursor: pointer; }
-        .pos-orders-header h4 { margin: 0; font-size: 0.88rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-        .pos-orders-header .pos-orders-total { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--gold-hover); font-size: 0.95rem; }
-        .pos-orders-list { max-width: 760px; margin: 0 auto; max-height: 160px; overflow-y: auto; display: none; }
+        /* ---------- Orders this session — compact bottom status strip ---------- */
+        .pos-orders-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); padding: 8px 24px; }
+        .pos-orders-header { display: flex; align-items: center; justify-content: space-between; max-width: 1600px; margin: 0 auto; cursor: pointer; }
+        .pos-orders-header h4 { margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
+        .pos-orders-header .pos-orders-total { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); font-size: 0.92rem; }
+        .pos-orders-list { max-width: 1600px; margin: 6px auto 0; max-height: 160px; overflow-y: auto; display: none; }
         .pos-orders-list.expanded { display: block; }
         .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--cream); font-size: 0.85rem; }
         .pos-order-item:last-child { border-bottom: none; }
@@ -243,55 +276,75 @@
 
     <div class="pos-main">
         <div class="pos-grid">
-            <div class="pos-panel">
-                <div class="pos-section-title"><i class="bi bi-person-fill"></i>Donor Details</div>
-                <div class="pos-row">
-                    <div>
-                        <label class="pos-field-label">Donor Name</label>
-                        <input type="text" class="pos-input" id="posGuestName" placeholder="Full name" autocomplete="off">
+            <div class="pos-col-left">
+                <div class="pos-card">
+                    <div class="pos-card-title"><i class="bi bi-person-fill"></i>Donor Details</div>
+                    <div class="pos-card-subtitle">Who this donation is being recorded for</div>
+                    <div class="pos-row">
+                        <div>
+                            <label class="pos-field-label">Full Name</label>
+                            <input type="text" class="pos-input" id="posGuestName" placeholder="Full name" autocomplete="off">
+                        </div>
                     </div>
-                </div>
-                <div class="pos-row two-col">
-                    <div>
-                        <label class="pos-field-label">Mobile{{ $event->require_donor_mobile ? '' : ' (optional)' }}</label>
-                        <input type="text" class="pos-input" id="posGuestMobile" placeholder="04XX XXX XXX" autocomplete="off">
-                    </div>
-                    <div>
-                        <label class="pos-field-label">Email{{ $event->require_donor_email ? '' : ' (optional)' }}</label>
-                        <input type="email" class="pos-input" id="posGuestEmail" placeholder="example@email.com" autocomplete="off">
+                    <div class="pos-row two-col">
+                        <div>
+                            <label class="pos-field-label">Mobile{{ $event->require_donor_mobile ? '' : ' (optional)' }}</label>
+                            <input type="text" class="pos-input" id="posGuestMobile" placeholder="04XX XXX XXX" autocomplete="off">
+                        </div>
+                        <div>
+                            <label class="pos-field-label">Email{{ $event->require_donor_email ? '' : ' (optional)' }}</label>
+                            <input type="email" class="pos-input" id="posGuestEmail" placeholder="example@email.com" autocomplete="off">
+                        </div>
                     </div>
                 </div>
 
-                <div class="pos-section-title"><i class="bi bi-heart-fill"></i>Donation Amount</div>
-                <div id="posTiersWrap" style="display:none;">
-                    <div id="posTiers"></div>
-                    <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
-                </div>
-                <div id="posSimpleAmountWrap">
-                    <div class="pos-quick-amounts" id="posQuickAmounts"></div>
-                    <input type="text" inputmode="decimal" class="pos-input" id="posAmount" placeholder="Amount ({{ $temple['currency'] ?? '' }})">
+                <div class="pos-card">
+                    <div class="pos-card-title"><i class="bi bi-heart-fill"></i>Donation Amount</div>
+                    <div class="pos-card-subtitle">Select an amount or enter a custom amount</div>
+                    <div id="posTiersWrap" style="display:none;">
+                        <div id="posTiers"></div>
+                        <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
+                    </div>
+                    <div id="posSimpleAmountWrap">
+                        <div class="pos-quick-amounts" id="posQuickAmounts"></div>
+                        <div class="pos-amount-input-wrap">
+                            <span class="pos-amount-prefix">{{ $temple['currency'] ?? '$' }}</span>
+                            <input type="text" inputmode="decimal" id="posAmount" placeholder="Enter amount">
+                        </div>
+                    </div>
                 </div>
 
-                <div class="pos-section-title"><i class="bi bi-card-text"></i>Details (optional)</div>
-                <textarea class="pos-input pos-textarea" id="posDetails" rows="2" placeholder="e.g. In memory of..., family name, special request..."></textarea>
+                <div class="pos-card">
+                    <div class="pos-card-title"><i class="bi bi-card-text"></i>Details (optional)</div>
+                    <textarea class="pos-input pos-textarea" id="posDetails" rows="2" placeholder="e.g. In memory of..., family name, special request..."></textarea>
+                </div>
             </div>
 
             <div class="pos-side">
                 <div class="pos-summary-card">
-                    <div class="pos-summary-label"><i class="bi bi-receipt"></i> Donation Summary</div>
-                    <div class="pos-summary-amount" id="posSummaryAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
+                    <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
+                    <div class="pos-summary-row">
+                        <span class="pos-summary-row-label">Amount</span>
+                        <span class="pos-summary-row-value" id="posSummaryAmount">{{ $temple['currency'] ?? '' }} 0.00</span>
+                    </div>
+                    <div class="pos-summary-divider"></div>
+                    <div class="pos-summary-row pos-summary-total-row">
+                        <span class="pos-summary-row-label">Total</span>
+                        <span class="pos-summary-row-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
+                    </div>
                     <div class="pos-summary-name" id="posSummaryName">Donor not entered yet</div>
                     <div class="pos-summary-method" id="posSummaryMethod"></div>
                 </div>
 
-                <div class="pos-side-card">
-                    <div class="pos-section-title" style="margin-top:0;"><i class="bi bi-credit-card"></i>Payment Method</div>
+                <div class="pos-card">
+                    <div class="pos-card-title"><i class="bi bi-credit-card"></i>Payment Method</div>
+                    <div class="pos-card-subtitle">Select how the donor would like to pay</div>
                     <div class="pos-method-row" id="posMethodRow"></div>
+                </div>
 
-                    <div class="pos-actions-row" style="margin-top:14px;">
-                        <button type="button" class="pos-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear</button>
-                        <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
-                    </div>
+                <div class="pos-actions-row">
+                    <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
+                    <button type="button" class="pos-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear Form</button>
                 </div>
             </div>
         </div>
@@ -490,6 +543,21 @@
             el.addEventListener('input', function () { sanitizeDecimalInput(el); });
         }
 
+        // Purely a touch affordance alongside the preset amount tiles — focuses the actual
+        // free-amount field rather than setting a value, so it never affects the real
+        // amount/total calculation (that logic lives entirely in the input's own listeners).
+        function appendCustomAmountButton(container, inputEl) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = container.id === 'posQuickAmounts' ? 'pos-quick-amount-btn custom-amount-btn' : 'pos-tier-quick-btn custom-amount-btn';
+            b.innerHTML = '<i class="bi bi-pencil-fill"></i><br>Custom Amount';
+            b.addEventListener('click', function () {
+                inputEl.focus();
+                inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+            container.appendChild(b);
+        }
+
         // Fullscreen — explicit button only.
         document.getElementById('posFullscreenBtn').addEventListener('click', function () {
             if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(function () {}); }
@@ -532,9 +600,11 @@
             const name = document.getElementById('posGuestName').value.trim();
 
             const summaryAmount = document.getElementById('posSummaryAmount');
+            const summaryTotal = document.getElementById('posSummaryTotal');
             const summaryName = document.getElementById('posSummaryName');
             const summaryMethod = document.getElementById('posSummaryMethod');
             if (summaryAmount) { summaryAmount.textContent = amtText; }
+            if (summaryTotal) { summaryTotal.textContent = amtText; }
             if (summaryName) { summaryName.textContent = name || 'Donor not entered yet'; }
             if (summaryMethod) { summaryMethod.textContent = selectedMethod ? ('via ' + selectedMethod) : ''; }
 
@@ -573,16 +643,18 @@
                     + (hasAmount ? (CURRENCY_CODE + ' ' + opt.amount.toFixed(2) + (opt.allow_quantity ? ' each' : '')) : 'Any amount')
                     + '</span></span></label>'
                     + (opt.allow_quantity ? '<input type="number" min="1" value="1" class="pos-tier-qty" style="' + (singleOption ? '' : 'display:none;') + '">' : '')
-                    + (!hasAmount ? '<div class="d-flex flex-column" style="flex:1 1 100%;"><input type="text" inputmode="decimal" placeholder="Amount" class="pos-tier-free">'
-                        + '<div class="pos-tier-free-quick-amounts"></div></div>' : '')
+                    + (!hasAmount ? '<div class="pos-tier-free-block">'
+                        + '<div class="pos-tier-free-quick-amounts"></div>'
+                        + '<div class="pos-amount-input-wrap"><span class="pos-amount-prefix">' + CURRENCY_CODE + '</span>'
+                        + '<input type="text" inputmode="decimal" placeholder="Enter amount" class="pos-tier-free"></div></div>' : '')
                     + '</div>';
             });
             tiersContainer.innerHTML = html;
             tiersContainer.querySelectorAll('.pos-tier-free').forEach(bindDecimalSanitizer);
 
-            // Quick-amount mini chips for each free-amount tier — the only place amount
-            // pills appear once an event has any donation options configured, since the
-            // top-level pills (posQuickAmounts) only render when an event has none at all.
+            // Quick-amount tiles for each free-amount tier — the only place preset amount
+            // buttons appear once an event has any donation options configured, since the
+            // top-level presets (posQuickAmounts) only render when an event has none at all.
             tiersContainer.querySelectorAll('.pos-tier-option').forEach(function (row) {
                 const quickWrap = row.querySelector('.pos-tier-free-quick-amounts');
                 if (!quickWrap) { return; }
@@ -600,6 +672,7 @@
                     });
                     quickWrap.appendChild(b);
                 });
+                appendCustomAmountButton(quickWrap, freeInput);
             });
 
             function recalcTiers() {
@@ -670,6 +743,7 @@
                 });
                 quickAmountsRow.appendChild(btn);
             });
+            appendCustomAmountButton(quickAmountsRow, amountInput);
             bindDecimalSanitizer(amountInput);
             amountInput.addEventListener('input', function () {
                 quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) {
