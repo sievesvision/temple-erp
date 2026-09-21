@@ -36,6 +36,7 @@
             color: white; padding: 12px 20px; display: flex; align-items: center; gap: 14px;
             flex-shrink: 0; box-shadow: 0 4px 18px rgba(74,10,18,0.25); z-index: 20;
         }
+        .pos-topbar-logo { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.35); flex-shrink: 0; }
         .pos-topbar-title { flex: 1; min-width: 0; }
         .pos-topbar-title h1 { font-size: clamp(1.05rem, 2.6vw, 1.35rem); font-weight: 800; color: var(--gold); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pos-topbar-title .pos-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
@@ -47,7 +48,36 @@
 
         /* ---------- Main entry area ---------- */
         .pos-main { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px 8px; }
-        .pos-card { max-width: 760px; margin: 0 auto; background: var(--white); border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(31,42,55,0.05); padding: 20px clamp(16px, 3vw, 30px); }
+
+        /* Two-column layout on tablet-landscape/desktop — details+amount on the left,
+           a running total + payment + actions always visible on the right so the operator
+           never has to scroll down to find the Pay button. Collapses to one column (the
+           side panel simply falls below the details) on phones/narrow kiosks. */
+        .pos-grid { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
+        @media (min-width: 960px) { .pos-grid { grid-template-columns: 1.6fr 1fr; } }
+        .pos-panel { background: var(--white); border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(31,42,55,0.05); padding: 20px clamp(16px, 3vw, 30px); }
+        .pos-side { display: flex; flex-direction: column; gap: 18px; }
+        @media (min-width: 960px) { .pos-side { position: sticky; top: 18px; } }
+        .pos-side-card { background: var(--white); border-radius: 18px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(31,42,55,0.05); padding: 20px clamp(16px, 3vw, 26px); }
+
+        .pos-summary-card { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); border-radius: 18px; padding: 22px clamp(16px, 3vw, 28px); color: #fff; box-shadow: 0 10px 26px rgba(74,10,18,0.25); }
+        .pos-summary-label { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.68); font-weight: 700; margin-bottom: 8px; }
+        .pos-summary-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(2rem, 5vw, 2.5rem); font-weight: 800; color: var(--gold); line-height: 1.1; }
+        .pos-summary-name { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 0.95rem; font-weight: 600; color: rgba(255,255,255,0.9); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-summary-method { margin-top: 4px; font-size: 0.82rem; color: rgba(255,255,255,0.6); }
+
+        .pos-actions-row { display: flex; gap: 12px; }
+        .pos-clear-btn { flex: 0 0 auto; padding: 0 20px; min-height: 68px; border-radius: 16px; border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; }
+        .pos-clear-btn:active { background: var(--cream); }
+        @media (max-width: 420px) { .pos-actions-row { flex-direction: column-reverse; } .pos-clear-btn { width: 100%; justify-content: center; } }
+
+        .pos-footer { max-width: 1180px; margin: 6px auto 0; display: flex; align-items: center; gap: 12px; padding: 6px clamp(16px, 3vw, 30px) 14px; color: var(--text-secondary); }
+        .pos-footer-logo { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
+        .pos-footer-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+        .pos-footer-text strong { color: var(--text-primary); font-size: 0.82rem; }
+        .pos-footer-text span { font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-footer-clock { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.82rem; color: var(--text-primary); flex-shrink: 0; }
+        @media (max-width: 600px) { .pos-footer-text span { display: none; } }
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
         .pos-input {
@@ -60,8 +90,9 @@
         .pos-row.two-col { grid-template-columns: 1fr; }
         @media (min-width: 560px) { .pos-row.two-col { grid-template-columns: 1fr 1fr; } }
 
-        .pos-section-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); margin: 20px 0 10px; }
+        .pos-section-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); margin: 20px 0 10px; }
         .pos-section-title:first-child { margin-top: 0; }
+        .pos-section-title i { font-size: 1rem; color: var(--gold-hover); }
 
         .pos-quick-amounts { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
         .pos-quick-amount-btn { flex: 1 1 calc(25% - 10px); min-width: 90px; background: var(--white); border: 2px solid var(--border); color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; padding: 16px 8px; min-height: 58px; border-radius: 14px; font-size: 1.05rem; }
@@ -86,8 +117,8 @@
         .pos-method-btn i { display: block; font-size: 1.3rem; margin-bottom: 4px; }
 
         .pos-save-btn {
-            width: 100%; padding: 20px; border-radius: 16px; border: none; margin-top: 18px;
-            background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.3rem;
+            flex: 1; padding: 20px; border-radius: 16px; border: none;
+            background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.25rem;
             box-shadow: 0 10px 26px rgba(200,155,60,0.35); min-height: 68px;
         }
         .pos-save-btn:disabled { opacity: 0.55; }
@@ -182,6 +213,7 @@
 </head>
 <body>
     <header class="pos-topbar">
+        <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-topbar-logo">
         <div class="pos-topbar-title">
             <h1>{{ $event->event_name }}</h1>
             <div class="pos-subtitle">Donation POS</div>
@@ -210,41 +242,67 @@
     </header>
 
     <div class="pos-main">
-        <div class="pos-card">
-            <div class="pos-row">
-                <div>
-                    <label class="pos-field-label">Donor Name</label>
-                    <input type="text" class="pos-input" id="posGuestName" placeholder="Full name" autocomplete="off">
+        <div class="pos-grid">
+            <div class="pos-panel">
+                <div class="pos-section-title"><i class="bi bi-person-fill"></i>Donor Details</div>
+                <div class="pos-row">
+                    <div>
+                        <label class="pos-field-label">Donor Name</label>
+                        <input type="text" class="pos-input" id="posGuestName" placeholder="Full name" autocomplete="off">
+                    </div>
+                </div>
+                <div class="pos-row two-col">
+                    <div>
+                        <label class="pos-field-label">Mobile{{ $event->require_donor_mobile ? '' : ' (optional)' }}</label>
+                        <input type="text" class="pos-input" id="posGuestMobile" placeholder="04XX XXX XXX" autocomplete="off">
+                    </div>
+                    <div>
+                        <label class="pos-field-label">Email{{ $event->require_donor_email ? '' : ' (optional)' }}</label>
+                        <input type="email" class="pos-input" id="posGuestEmail" placeholder="example@email.com" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="pos-section-title"><i class="bi bi-heart-fill"></i>Donation Amount</div>
+                <div id="posTiersWrap" style="display:none;">
+                    <div id="posTiers"></div>
+                    <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
+                </div>
+                <div id="posSimpleAmountWrap">
+                    <div class="pos-quick-amounts" id="posQuickAmounts"></div>
+                    <input type="text" inputmode="decimal" class="pos-input" id="posAmount" placeholder="Amount ({{ $temple['currency'] ?? '' }})">
+                </div>
+
+                <div class="pos-section-title"><i class="bi bi-card-text"></i>Details (optional)</div>
+                <textarea class="pos-input pos-textarea" id="posDetails" rows="2" placeholder="e.g. In memory of..., family name, special request..."></textarea>
+            </div>
+
+            <div class="pos-side">
+                <div class="pos-summary-card">
+                    <div class="pos-summary-label"><i class="bi bi-receipt"></i> Donation Summary</div>
+                    <div class="pos-summary-amount" id="posSummaryAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
+                    <div class="pos-summary-name" id="posSummaryName">Donor not entered yet</div>
+                    <div class="pos-summary-method" id="posSummaryMethod"></div>
+                </div>
+
+                <div class="pos-side-card">
+                    <div class="pos-section-title" style="margin-top:0;"><i class="bi bi-credit-card"></i>Payment Method</div>
+                    <div class="pos-method-row" id="posMethodRow"></div>
+
+                    <div class="pos-actions-row" style="margin-top:14px;">
+                        <button type="button" class="pos-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear</button>
+                        <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
+                    </div>
                 </div>
             </div>
-            <div class="pos-row two-col">
-                <div>
-                    <label class="pos-field-label">Mobile{{ $event->require_donor_mobile ? '' : ' (optional)' }}</label>
-                    <input type="text" class="pos-input" id="posGuestMobile" placeholder="04XX XXX XXX" autocomplete="off">
-                </div>
-                <div>
-                    <label class="pos-field-label">Email{{ $event->require_donor_email ? '' : ' (optional)' }}</label>
-                    <input type="email" class="pos-input" id="posGuestEmail" placeholder="example@email.com" autocomplete="off">
-                </div>
+        </div>
+
+        <div class="pos-footer">
+            <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
+            <div class="pos-footer-text">
+                <strong>{{ $temple['name'] ?? '' }}</strong>
+                <span>{{ $temple['address'] ?? '' }}</span>
             </div>
-
-            <div class="pos-section-title">Donation Amount</div>
-            <div id="posTiersWrap" style="display:none;">
-                <div id="posTiers"></div>
-                <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
-            </div>
-            <div id="posSimpleAmountWrap">
-                <div class="pos-quick-amounts" id="posQuickAmounts"></div>
-                <input type="text" inputmode="decimal" class="pos-input" id="posAmount" placeholder="Amount ({{ $temple['currency'] ?? '' }})">
-            </div>
-
-            <div class="pos-section-title">Details (optional)</div>
-            <textarea class="pos-input pos-textarea" id="posDetails" rows="2" placeholder="e.g. In memory of..., family name, special request..."></textarea>
-
-            <div class="pos-section-title">Payment Method</div>
-            <div class="pos-method-row" id="posMethodRow"></div>
-
-            <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
+            <div class="pos-footer-clock" id="posFooterClock"></div>
         </div>
     </div>
 
@@ -452,10 +510,43 @@
                 methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 selectedMethod = m;
+                updatePosSummary();
             });
             methodRow.appendChild(btn);
             if (idx === 0) { selectedMethod = m; }
         });
+
+        // Payment methods that confirm money on the spot ("PAY now") versus ones that only
+        // record a claim to be verified later ("pledge") — drives both the summary card's
+        // method line and the main action button's label/icon.
+        function methodIsImmediate(m) {
+            return m && m !== 'Bank Transfer' && m !== 'Cheque';
+        }
+
+        // Right-hand Donation Summary card + the main action button's label both track the
+        // amount/name/method live, so the operator (and the donor watching the screen) always
+        // see exactly what's about to be charged/recorded before pressing anything.
+        function updatePosSummary() {
+            const amt = parseFloat((amountInput.value || '').trim()) || 0;
+            const amtText = CURRENCY_CODE + ' ' + amt.toFixed(2);
+            const name = document.getElementById('posGuestName').value.trim();
+
+            const summaryAmount = document.getElementById('posSummaryAmount');
+            const summaryName = document.getElementById('posSummaryName');
+            const summaryMethod = document.getElementById('posSummaryMethod');
+            if (summaryAmount) { summaryAmount.textContent = amtText; }
+            if (summaryName) { summaryName.textContent = name || 'Donor not entered yet'; }
+            if (summaryMethod) { summaryMethod.textContent = selectedMethod ? ('via ' + selectedMethod) : ''; }
+
+            const saveBtn = document.getElementById('posSaveBtn');
+            if (!saveBtn) { return; }
+            if (methodIsImmediate(selectedMethod)) {
+                saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY' + (amt > 0 ? ' ' + amtText : '');
+            } else {
+                saveBtn.innerHTML = '<i class="bi bi-bookmark-check-fill me-2"></i>Record Pledge' + (amt > 0 ? ' — ' + amtText : '');
+            }
+        }
+        document.getElementById('posGuestName').addEventListener('input', updatePosSummary);
 
         // Donation amount — single-option auto-select / multi-option tiers / plain amount,
         // same logic as the full console's Quick Entry, restyled for touch.
@@ -543,6 +634,7 @@
                 amountInput.value = total > 0 ? total.toFixed(2) : '';
                 tierTotalDisplay.textContent = CURRENCY_CODE + ' ' + total.toFixed(2);
                 purposeValue = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
+                updatePosSummary();
             }
 
             tiersContainer.addEventListener('change', recalcTiers);
@@ -574,6 +666,7 @@
                     amountInput.value = amt.toFixed(2);
                     quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
                     btn.classList.add('active');
+                    updatePosSummary();
                 });
                 quickAmountsRow.appendChild(btn);
             });
@@ -582,6 +675,7 @@
                 quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) {
                     b.classList.toggle('active', parseFloat(b.textContent.replace(/[^0-9.]/g, '')) === parseFloat(amountInput.value));
                 });
+                updatePosSummary();
             });
             purposeValue = 'Event Donation';
             window.posResetTiers = function () {
@@ -728,6 +822,7 @@
                 : '<div class="pos-orders-empty">No donations recorded yet this session.</div>';
         }
         renderSessionOrders();
+        updatePosSummary();
 
         const ordersToggle = document.getElementById('posOrdersToggle');
         const ordersList = document.getElementById('posOrdersList');
@@ -745,7 +840,21 @@
             document.getElementById('posDetails').value = '';
             amountInput.value = '';
             if (window.posResetTiers) { window.posResetTiers(); }
+            updatePosSummary();
         }
+        document.getElementById('posClearBtn').addEventListener('click', function () {
+            resetPosForm();
+            document.getElementById('posGuestName').focus();
+        });
+
+        // A plain wall clock in the footer — purely cosmetic, no server round-trip.
+        function tickPosFooterClock() {
+            const el = document.getElementById('posFooterClock');
+            if (!el) { return; }
+            el.textContent = new Date().toLocaleString([], { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+        tickPosFooterClock();
+        setInterval(tickPosFooterClock, 15000);
 
         function submitGuestDonation(btn, amount, name, emailValue, mobileValue, transactionId, linklySessionId) {
             const today = new Date().toISOString().slice(0, 10);
