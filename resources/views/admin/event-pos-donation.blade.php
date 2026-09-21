@@ -29,23 +29,33 @@
             --serif: 'Playfair Display', Georgia, serif;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        /* Plain document flow, not a flex-column-with-an-inner-scrolling-region trick — the
-           latter depends on a perfect height chain (html/body/flex-child all reporting
-           real heights) that iOS Safari does not reliably honour once its own chrome
-           (address bar collapse, safe-area insets) gets involved, which is what silently
-           clipped content like the Details card on iPad. The whole page just scrolls
-           normally; the header stays put via position:sticky instead. */
+        /* One single, native scroll region (the document itself) rather than an inner
+           overflow-y:auto container — that nested-scroll trick depends on a perfect height
+           chain (html/body/flex-child all reporting real heights) that iOS Safari does not
+           reliably honour once its own chrome (address bar collapse, safe-area insets) gets
+           involved, which is what silently clipped content like the Details card on iPad.
+           body is still a flex column so the footer is pushed to the true bottom of the
+           screen when the page's own content is shorter than the viewport (instead of
+           floating right under the cards with a gap of empty page below it) — min-height,
+           not a fixed height, is what lets the page grow taller and scroll normally once
+           the content needs more room than that. */
         html, body { overflow-x: hidden; }
-        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; background: var(--cream); color: var(--text-primary); }
+        body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; background: var(--cream); color: var(--text-primary); }
         h1, h2 { font-family: var(--serif); }
         button, input, select, textarea { font-family: inherit; }
 
         /* ---------- Minimal topbar — no dashboard chrome, just identity + exits ---------- */
+        /* Three zones: identity on the left, temple brand centred, every action button
+           grouped on the right — the left and right zones share equal flex so the centred
+           brand actually sits in the visual middle of the bar rather than just wherever
+           space happens to be left over. */
         .pos-topbar {
-            background: var(--maroon); position: sticky; top: 0;
+            background: var(--maroon); position: sticky; top: 0; flex-shrink: 0;
             color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 76px;
         }
+        .pos-topbar-left { display: flex; align-items: center; gap: 14px; flex: 1 1 0; min-width: 0; }
+        .pos-topbar-actions { display: flex; align-items: center; gap: 10px; flex: 1 1 0; justify-content: flex-end; min-width: 0; }
         .pos-topbar-logo { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3); flex-shrink: 0; background: rgba(255,255,255,0.1); }
         .pos-topbar-title { flex: 1; min-width: 0; }
         .pos-topbar-title h1 { font-size: clamp(1.15rem, 2.6vw, 1.55rem); font-weight: 800; color: var(--gold); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -55,7 +65,7 @@
         .pos-terminal-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; height: 46px; padding: 0 16px; border-radius: 12px; font-size: 0.88rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 180px; }
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-topbar-brand { text-align: right; flex-shrink: 0; line-height: 1.35; padding-left: 4px; }
+        .pos-topbar-brand { text-align: center; flex-shrink: 0; line-height: 1.35; padding: 0 12px; }
         .pos-topbar-brand strong { display: block; font-size: 0.85rem; font-weight: 800; color: #fff; white-space: nowrap; }
         .pos-topbar-brand span { display: block; font-size: 0.7rem; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
         @media (max-width: 820px) { .pos-topbar-brand { display: none; } }
@@ -64,7 +74,7 @@
         /* Full-width POS workspace, not a narrow centred web form — the container just gets
            a comfortable max-width so it doesn't stretch absurdly on a huge monitor, but on
            every tablet/laptop size it fills essentially the whole browser width. */
-        .pos-main { padding: 20px 24px 8px; }
+        .pos-main { padding: 20px 24px 8px; flex: 1 0 auto; }
 
         /* Two-column layout, primary target = landscape tablet/desktop — left ~64% for the
            entry fields, right ~36% for the running total/payment/actions, always visible
@@ -111,7 +121,7 @@
 
         /* A proper full-width bar (like the header) rather than plain text sitting on the
            page background — bottom of the page reads as a distinct navigation-style strip. */
-        .pos-footer-bar { background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
+        .pos-footer-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
         .pos-footer { max-width: 1600px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 12px 24px; color: var(--text-secondary); }
         .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
@@ -304,35 +314,41 @@
 </head>
 <body>
     <header class="pos-topbar">
-        <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-topbar-logo">
-        <div class="pos-topbar-title">
-            <h1>{{ $event->event_name }}</h1>
-            <div class="pos-subtitle">Donation POS</div>
+        <div class="pos-topbar-left">
+            <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-topbar-logo">
+            <div class="pos-topbar-title">
+                <h1>{{ $event->event_name }}</h1>
+                <div class="pos-subtitle">Donation POS</div>
+            </div>
         </div>
-        @if($switchableEvents->count())
-        <div class="dropdown">
-            <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Event">
-                <i class="bi bi-arrow-left-right"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><h6 class="dropdown-header">Switch Event</h6></li>
-                @foreach($switchableEvents as $switchEvent)
-                <li><a class="dropdown-item" href="{{ route('admin.events.pos', $switchEvent->event_id) }}">{{ $switchEvent->event_name }}</a></li>
-                @endforeach
-            </ul>
-        </div>
-        @endif
-        <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
-            <i class="bi bi-pc-display"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
-        </button>
-        <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
-        @if($canReturnToConsole)
-        <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
-        @endif
-        <a href="{{ route('logout') }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
+
         <div class="pos-topbar-brand">
             <strong>{{ $temple['name'] ?? '' }}</strong>
             <span>{{ $temple['subtitle'] ?? '' }}</span>
+        </div>
+
+        <div class="pos-topbar-actions">
+            @if($switchableEvents->count())
+            <div class="dropdown">
+                <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Event">
+                    <i class="bi bi-arrow-left-right"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">Switch Event</h6></li>
+                    @foreach($switchableEvents as $switchEvent)
+                    <li><a class="dropdown-item" href="{{ route('admin.events.pos', $switchEvent->event_id) }}">{{ $switchEvent->event_name }}</a></li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
+            <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
+                <i class="bi bi-pc-display"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
+            </button>
+            <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+            @if($canReturnToConsole)
+            <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
+            @endif
+            <a href="{{ route('logout') }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
         </div>
     </header>
 
