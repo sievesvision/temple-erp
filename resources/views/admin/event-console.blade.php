@@ -201,6 +201,9 @@
         .settings-section { background: var(--cream); border: 1px solid var(--border); border-radius: 16px; padding: 22px; margin-bottom: 20px; }
         .settings-section:last-child { margin-bottom: 0; }
         .settings-section h5 { font-weight: 700; color: var(--gold-hover); margin-bottom: 14px; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; }
+        .theme-preset-btn { display: inline-flex; align-items: center; gap: 8px; }
+        .theme-preset-btn.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+        .theme-preset-swatch { width: 16px; height: 16px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; }
         .settings-section .form-label { font-weight: 600; color: var(--text-primary); font-size: 0.85rem; }
         .settings-section .form-control, .settings-section .form-select { border-color: var(--border); }
         .settings-section .form-control:focus, .settings-section .form-select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
@@ -924,6 +927,13 @@
                                                 <input type="checkbox" class="form-check-input" role="switch" id="themeEnabledSwitch" name="theme_enabled" value="1" {{ $event->theme_enabled ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="themeEnabledSwitch">Use a custom theme for this event</label>
                                             </div>
+                                            <div class="theme-preset-row mb-3">
+                                                <label class="form-label small d-block mb-2">Quick presets <span class="text-muted">(fills the fields below — still click Save Settings to apply)</span></label>
+                                                <div class="d-flex gap-2 flex-wrap">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm theme-preset-btn" data-preset="green"><span class="theme-preset-swatch" style="background:#24382f;"></span>Green Theme</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm theme-preset-btn" data-preset="yellow"><span class="theme-preset-swatch" style="background:#4A2E0A;"></span>Yellow Theme</button>
+                                                </div>
+                                            </div>
                                             <div id="themeColorFields" style="{{ $event->theme_enabled ? '' : 'display:none;' }}">
                                                 <div class="row g-3">
                                                     <div class="col-6 col-md-3">
@@ -1607,6 +1617,33 @@
                 document.getElementById('themeColorFields').style.display = this.checked ? '' : 'none';
             });
         }
+
+        // Theme Colours quick presets — named colour sets an admin can switch between later
+        // without hunting for hex codes again. Only fills the same four fields the manual
+        // colour pickers already write to (still saved by the normal Save Settings submit),
+        // so this needs no new backend fields or endpoint of its own.
+        const THEME_PRESETS = {
+            green: { theme_primary_color: '#c45b2c', theme_accent_color: '#e5ad45', theme_dark_color: '#24382f', theme_body_color: '#fbf8f1' },
+            yellow: { theme_primary_color: '#A66A00', theme_accent_color: '#FFC700', theme_dark_color: '#4A2E0A', theme_body_color: '#FFDE59' },
+        };
+        document.querySelectorAll('.theme-preset-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const preset = THEME_PRESETS[btn.dataset.preset];
+                if (!preset) { return; }
+                Object.keys(preset).forEach(function (name) {
+                    const textField = document.getElementById(name);
+                    const swatch = document.querySelector('[data-color-for="' + name + '"]');
+                    if (textField) { textField.value = preset[name]; }
+                    if (swatch) { swatch.value = preset[name]; }
+                });
+                if (themeEnabledSwitch && !themeEnabledSwitch.checked) {
+                    themeEnabledSwitch.checked = true;
+                    document.getElementById('themeColorFields').style.display = '';
+                }
+                document.querySelectorAll('.theme-preset-btn').forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+            });
+        });
 
         // Sidebar / pane switching — sidebar links, the "View All Donations" button, and the
         // "View Pending" button all just switch which console-pane is visible.
