@@ -341,7 +341,17 @@ class TicketController extends Controller
         // computers can each run their own ticket counter on two different terminals at once.
         $linklyMode = \App\Services\LinklyConfigService::mode();
         $eftTerminalsForJs = EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
-            ->map(fn ($t) => ['id' => $t->id, 'label' => $t->label, 'is_default' => (bool) $t->is_default, 'paired' => $t->isPaired($linklyMode)])
+            ->map(function ($t) use ($linklyMode) {
+                $status = $t->lastKnownStatus();
+                return [
+                    'id' => $t->id,
+                    'label' => $t->label,
+                    'is_default' => (bool) $t->is_default,
+                    'paired' => $t->isPaired($linklyMode),
+                    'status' => $status['state'],
+                    'status_at' => $status['at']?->diffForHumans(),
+                ];
+            })
             ->values();
 
         return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs'));

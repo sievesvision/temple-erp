@@ -29,6 +29,12 @@
         .pos-terminal-btn { background: rgba(255,255,255,0.12); border: none; color: white; height: 42px; padding: 0 14px; border-radius: 12px; font-size: 0.82rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 160px; }
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.22); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* At-a-glance online/offline dot on the terminal picker button — so the operator can
+           tell a terminal has gone offline without opening the picker. */
+        .terminal-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #9AA7B4; flex-shrink: 0; }
+        .terminal-status-dot.online { background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,0.3); }
+        .terminal-status-dot.offline { background: #F87171; box-shadow: 0 0 0 3px rgba(248,113,113,0.3); }
+        .terminal-status-dot.unknown { background: #FBBF24; }
 
         /* ---------- Full-width kiosk: items grid on the left, cart panel on the right ---------- */
         .pos-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -156,7 +162,7 @@
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
         <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
-            <i class="bi bi-credit-card-2-front-fill"></i><span id="terminalPickerLabel">Terminal</span>
+            <i class="bi bi-credit-card-2-front-fill"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
         </button>
         <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
         @if($canManageConsole)
@@ -353,8 +359,23 @@
             const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
             return t ? t.label : 'No terminal';
         }
+        // Online/offline is inferred from the terminal's own most recent transaction result
+        // (see EftTerminal::lastKnownStatus()) — 'unknown' just means no transaction has
+        // gone through yet on this terminal, never a guess.
+        function terminalStatusInfo(t) {
+            if (t.status === 'online') { return { color: 'var(--success)', text: 'Online', dot: 'online' }; }
+            if (t.status === 'offline') { return { color: 'var(--error)', text: 'Offline', dot: 'offline' }; }
+            return { color: '#B7791F', text: 'Not checked', dot: 'unknown' };
+        }
         function renderTerminalPickerButton() {
             document.getElementById('terminalPickerLabel').textContent = currentTerminalLabel();
+            const dot = document.getElementById('terminalStatusDot');
+            if (dot) {
+                const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+                const info = t ? terminalStatusInfo(t) : { text: 'No terminal selected', dot: 'unknown' };
+                dot.className = 'terminal-status-dot ' + info.dot;
+                dot.title = info.text + (t && t.status_at ? ' (' + t.status_at + ')' : '');
+            }
         }
         function renderTerminalModalList() {
             const list = document.getElementById('terminalModalList');
@@ -368,8 +389,12 @@
                 row.type = 'button';
                 row.className = 'qty-modal-btn';
                 row.style.cssText = 'width:100%; height:auto; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; font-size:0.95rem; border-radius:12px;' + (String(t.id) === String(selectedTerminalId) ? ' border-color:var(--gold); background:var(--cream);' : '');
+                const statusInfo = terminalStatusInfo(t);
                 row.innerHTML = '<span>' + t.label + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">(default)</span>' : '') + '</span>' +
-                    '<span style="font-size:0.75rem; font-weight:700; color:' + (t.paired ? 'var(--success)' : 'var(--error)') + ';">' + (t.paired ? 'Paired' : 'Not paired') + '</span>';
+                    '<span style="display:flex; align-items:center; gap:10px;">' +
+                    '<span style="font-size:0.75rem; font-weight:700; color:' + (t.paired ? 'var(--success)' : 'var(--error)') + ';">' + (t.paired ? 'Paired' : 'Not paired') + '</span>' +
+                    '<span style="font-size:0.75rem; font-weight:700; color:' + statusInfo.color + ';">' + statusInfo.text + '</span>' +
+                    '</span>';
                 row.addEventListener('click', function () {
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);

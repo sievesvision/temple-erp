@@ -264,11 +264,20 @@
 
         /* This station's EFT terminal picker — same modal box styling as the EFT status
            popup, since it's the same visual family, just listing selectable terminal rows. */
-        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); display: flex; align-items: center; justify-content: space-between; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
         .terminal-picker-row.selected { border-color: var(--gold); background: var(--cream); }
+        .terminal-picker-row .paired-badge-group { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .terminal-picker-row .paired-badge { font-size: 0.75rem; font-weight: 700; }
         .terminal-picker-row .paired-badge.yes { color: var(--success); }
         .terminal-picker-row .paired-badge.no { color: var(--error); }
+        .terminal-picker-row .paired-badge.unknown { color: #B7791F; }
+
+        /* Small at-a-glance online/offline dot on the header's terminal picker button —
+           so the operator can tell a terminal has gone offline without opening the picker. */
+        .terminal-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #9AA7B4; flex-shrink: 0; }
+        .terminal-status-dot.online { background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,0.3); }
+        .terminal-status-dot.offline { background: #F87171; box-shadow: 0 0 0 3px rgba(248,113,113,0.3); }
+        .terminal-status-dot.unknown { background: #FBBF24; }
 
         /* Terminal soft-key buttons (OK/Yes/No/Authorise) — only ever shown when Linkly's own
            display notification currently flags that key as available (data.controls), never
@@ -311,7 +320,7 @@
         </div>
         @endif
         <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
-            <i class="bi bi-pc-display"></i><span id="terminalPickerLabel">Terminal</span>
+            <i class="bi bi-pc-display"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
         </button>
         <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
         @if($canReturnToConsole)
@@ -567,9 +576,24 @@
             const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
             return t ? t.label : 'No terminal';
         }
+        // Online/offline is inferred from the terminal's own most recent transaction result
+        // (see EftTerminal::lastKnownStatus()) — 'unknown' just means no transaction has
+        // gone through yet on this terminal, never a guess.
+        function terminalStatusBadge(t) {
+            if (t.status === 'online') { return { cls: 'yes', text: 'Online' }; }
+            if (t.status === 'offline') { return { cls: 'no', text: 'Offline' }; }
+            return { cls: 'unknown', text: 'Not checked' };
+        }
         function renderTerminalPickerButton() {
             const el = document.getElementById('terminalPickerLabel');
             if (el) { el.textContent = currentTerminalLabel(); }
+            const dot = document.getElementById('terminalStatusDot');
+            if (dot) {
+                const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+                const badge = t ? terminalStatusBadge(t) : { cls: 'unknown', text: 'No terminal selected' };
+                dot.className = 'terminal-status-dot ' + (badge.cls === 'yes' ? 'online' : (badge.cls === 'no' ? 'offline' : 'unknown'));
+                dot.title = badge.text + (t && t.status_at ? ' (' + t.status_at + ')' : '');
+            }
         }
         function renderTerminalModalList() {
             const list = document.getElementById('terminalModalList');
@@ -583,8 +607,12 @@
                 const row = document.createElement('button');
                 row.type = 'button';
                 row.className = 'terminal-picker-row' + (String(t.id) === String(selectedTerminalId) ? ' selected' : '');
+                const statusBadge = terminalStatusBadge(t);
                 row.innerHTML = '<span>' + escapeHtmlPos(t.label) + (t.is_default ? ' <span class="text-muted small">(default)</span>' : '') + '</span>' +
-                    '<span class="paired-badge ' + (t.paired ? 'yes' : 'no') + '">' + (t.paired ? 'Paired' : 'Not paired') + '</span>';
+                    '<span class="paired-badge-group">' +
+                    '<span class="paired-badge ' + (t.paired ? 'yes' : 'no') + '">' + (t.paired ? 'Paired' : 'Not paired') + '</span>' +
+                    '<span class="paired-badge ' + statusBadge.cls + '">' + statusBadge.text + '</span>' +
+                    '</span>';
                 row.addEventListener('click', function () {
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);

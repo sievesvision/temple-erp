@@ -107,7 +107,17 @@ class PosDonationController extends Controller
         // event's POS concurrently, or one on this event and one on the Ticket Kiosk.
         $linklyMode = \App\Services\LinklyConfigService::mode();
         $eftTerminalsForJs = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
-            ->map(fn ($t) => ['id' => $t->id, 'label' => $t->label, 'is_default' => (bool) $t->is_default, 'paired' => $t->isPaired($linklyMode)])
+            ->map(function ($t) use ($linklyMode) {
+                $status = $t->lastKnownStatus();
+                return [
+                    'id' => $t->id,
+                    'label' => $t->label,
+                    'is_default' => (bool) $t->is_default,
+                    'paired' => $t->isPaired($linklyMode),
+                    'status' => $status['state'],
+                    'status_at' => $status['at']?->diffForHumans(),
+                ];
+            })
             ->values();
 
         return view('admin.event-pos-donation', compact(
