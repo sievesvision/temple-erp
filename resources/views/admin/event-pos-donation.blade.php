@@ -50,7 +50,7 @@
            brand actually sits in the visual middle of the bar rather than just wherever
            space happens to be left over. */
         .pos-topbar {
-            background: var(--maroon); position: sticky; top: 0; flex-shrink: 0;
+            background: #6B0F1A; position: sticky; top: 0; flex-shrink: 0;
             color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 76px;
         }
@@ -66,7 +66,7 @@
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-topbar-brand { text-align: center; flex-shrink: 0; line-height: 1.35; padding: 0 12px; }
-        .pos-topbar-brand strong { display: block; font-size: 0.85rem; font-weight: 800; color: #fff; white-space: nowrap; }
+        .pos-topbar-brand strong { display: block; font-family: var(--serif); font-size: 0.98rem; font-weight: 700; color: #fff; white-space: nowrap; }
         .pos-topbar-brand span { display: block; font-size: 0.7rem; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
         @media (max-width: 820px) { .pos-topbar-brand { display: none; } }
 
@@ -88,7 +88,7 @@
             background: var(--white); border-radius: 14px; border: 1px solid var(--border);
             box-shadow: 0 2px 10px rgba(15,23,42,0.06); padding: 20px 22px;
         }
-        .pos-card-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.02rem; color: var(--text-primary); margin: 0; }
+        .pos-card-title { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 700; font-size: 1.1rem; color: var(--text-primary); margin: 0; }
         .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
         .pos-card-subtitle { margin: 4px 0 16px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
 
@@ -110,7 +110,7 @@
         .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
         .pos-summary-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
         .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
-        .pos-summary-total-row .pos-summary-row-label { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); }
+        .pos-summary-total-row .pos-summary-row-label { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); }
         .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 5.5vw, 2.8rem); font-weight: 800; color: #A56B13; }
         .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
