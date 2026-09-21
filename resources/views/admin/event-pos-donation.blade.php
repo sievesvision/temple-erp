@@ -54,21 +54,29 @@
             color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 76px;
         }
-        .pos-topbar-left { display: flex; align-items: center; gap: 14px; flex: 1 1 0; min-width: 0; }
-        .pos-topbar-actions { display: flex; align-items: center; gap: 10px; flex: 1 1 0; justify-content: flex-end; min-width: 0; }
-        .pos-topbar-logo { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3); flex-shrink: 0; background: rgba(255,255,255,0.1); }
-        .pos-topbar-title { flex: 1; min-width: 0; }
-        .pos-topbar-title h1 { font-size: clamp(1.15rem, 2.6vw, 1.55rem); font-weight: 800; color: var(--gold); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pos-topbar-title .pos-subtitle { font-size: 0.74rem; color: rgba(255,255,255,0.75); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+        /* Matches the Event Console's own topbar pattern: temple logo+name fixed on the
+           left, the event title centred (with a flourish line either side) and taking all
+           the leftover space, action buttons fixed on the right. */
+        .pos-topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .pos-topbar-logo { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
+        .pos-topbar-temple-name { font-weight: 800; font-size: 1rem; line-height: 1.2; font-family: var(--serif); color: #fff; }
+        .pos-topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; }
+
+        .pos-topbar-event-title { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
+        .pos-flourish-line { flex: 1; max-width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); display: none; flex-shrink: 0; }
+        @media (min-width: 900px) { .pos-flourish-line { display: block; } }
+        .pos-topbar-event-title-text { min-width: 0; max-width: 100%; }
+        .pos-topbar-event-title-text h1 { font-family: var(--serif); font-size: clamp(1.15rem, 2.6vw, 1.6rem); font-weight: 800; color: var(--gold); margin: 0; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pos-event-motto { font-size: 0.74rem; color: rgba(255,255,255,0.75); letter-spacing: 0.03em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        @media (max-width: 900px) { .pos-event-motto { display: none; } }
+
+        .pos-topbar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .pos-topbar-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 46px; height: 46px; border-radius: 12px; font-size: 1.1rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; height: 46px; padding: 0 16px; border-radius: 12px; font-size: 0.88rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 180px; }
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-topbar-brand { text-align: center; flex-shrink: 0; line-height: 1.35; padding: 0 12px; }
-        .pos-topbar-brand strong { display: block; font-family: var(--serif); font-size: 0.98rem; font-weight: 700; color: #fff; white-space: nowrap; }
-        .pos-topbar-brand span { display: block; font-size: 0.7rem; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
-        @media (max-width: 820px) { .pos-topbar-brand { display: none; } }
+        @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
 
         /* ---------- Main entry area ---------- */
         /* Full-width POS workspace, not a narrow centred web form — the container just gets
@@ -108,10 +116,10 @@
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
         .pos-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
         .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
-        .pos-summary-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
+        .pos-summary-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
         .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
         .pos-summary-total-row .pos-summary-row-label { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); }
-        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 5.5vw, 2.8rem); font-weight: 800; color: #A56B13; }
+        .pos-summary-total-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 5.5vw, 2.8rem); font-weight: 800; color: #A56B13; }
         .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
@@ -131,7 +139,7 @@
         .pos-footer-tagline .line { flex: 1 1 40px; max-width: 60px; height: 1px; background: rgba(201,149,46,0.4); }
         .pos-footer-right { text-align: right; flex-shrink: 0; line-height: 1.35; }
         .pos-footer-date { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); }
-        .pos-footer-time { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); }
+        .pos-footer-time { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); }
         @media (max-width: 700px) { .pos-footer-tagline, .pos-footer-text span { display: none; } }
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
@@ -213,20 +221,20 @@
 
         .pos-save-btn {
             width: 100%; padding: 18px; border-radius: 12px; border: none;
-            background: linear-gradient(135deg, #8A1020, #A41428); color: white; font-weight: 700; font-size: 1.15rem;
-            box-shadow: 0 4px 14px rgba(138,16,32,0.3); min-height: 68px;
+            background: #6B0F1A; color: white; font-weight: 700; font-size: 1.15rem;
+            box-shadow: 0 4px 14px rgba(107,15,26,0.35); min-height: 68px;
         }
         .pos-save-btn:disabled { opacity: 0.55; }
         .pos-save-btn:active { transform: scale(0.98); }
 
         /* ---------- Recent Orders popup (opened from the Donation Summary link) ---------- */
         .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
-        .pos-orders-modal-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: #A56B13; }
+        .pos-orders-modal-total-row span:last-child { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: #A56B13; }
         .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
         .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--cream); font-size: 0.92rem; }
         .pos-order-item:last-child { border-bottom: none; }
         .pos-order-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-        .pos-order-amount { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
+        .pos-order-amount { font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
         .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
         .pos-orders-empty { color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 20px 0; }
 
@@ -250,7 +258,7 @@
             font-size: 0.95rem; text-transform: uppercase;
         }
         .eft-modal-body { padding: 30px 26px 26px; }
-        .eft-modal-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
+        .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: 14px;
             padding: 18px 16px; min-height: 90px; display: flex; flex-direction: column;
@@ -306,7 +314,6 @@
         .eft-modal-key-btn.key-no { background: var(--error); }
 
         @media (max-width: 600px) {
-            .pos-topbar-title .pos-subtitle { display: none; }
             .pos-quick-amount-btn { flex: 1 1 calc(50% - 10px); }
             .pos-method-btn { flex: 1 1 calc(50% - 10px); }
         }
@@ -314,17 +321,25 @@
 </head>
 <body>
     <header class="pos-topbar">
-        <div class="pos-topbar-left">
+        <div class="pos-topbar-brand">
             <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-topbar-logo">
-            <div class="pos-topbar-title">
-                <h1>{{ $event->event_name }}</h1>
-                <div class="pos-subtitle">Donation POS</div>
+            <div>
+                <div class="pos-topbar-temple-name">{{ $temple['name'] ?? 'Temple' }}</div>
+                @if(!empty($temple['subtitle']))
+                <div class="pos-topbar-temple-sub">{{ $temple['subtitle'] }}</div>
+                @endif
             </div>
         </div>
 
-        <div class="pos-topbar-brand">
-            <strong>{{ $temple['name'] ?? '' }}</strong>
-            <span>{{ $temple['subtitle'] ?? '' }}</span>
+        <div class="pos-topbar-event-title">
+            <span class="pos-flourish-line"></span>
+            <div class="pos-topbar-event-title-text">
+                <h1>{{ $event->event_name }}</h1>
+                @if(!empty($temple['eyebrow']))
+                <div class="pos-event-motto">{{ $temple['eyebrow'] }}</div>
+                @endif
+            </div>
+            <span class="pos-flourish-line"></span>
         </div>
 
         <div class="pos-topbar-actions">
@@ -395,7 +410,7 @@
                     </div>
                     <div id="posTiersWrap" style="display:none;">
                         <div id="posTiers"></div>
-                        <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">—</span></div>
+                        <div class="pos-tier-total-row"><span>Total</span><span id="posTierTotal">{{ $temple['currency'] ?? '' }} 0.00</span></div>
                     </div>
                     <div id="posSimpleAmountWrap">
                         <div class="pos-quick-amounts" id="posQuickAmounts"></div>
@@ -425,12 +440,12 @@
                     </div>
                     <div class="pos-summary-row">
                         <span class="pos-summary-row-label">Amount</span>
-                        <span class="pos-summary-row-value" id="posSummaryAmount">—</span>
+                        <span class="pos-summary-row-value" id="posSummaryAmount">{{ $temple['currency'] ?? '' }} 0.00</span>
                     </div>
                     <div class="pos-summary-divider"></div>
                     <div class="pos-summary-row pos-summary-total-row">
                         <span class="pos-summary-row-label">Total</span>
-                        <span class="pos-summary-row-value" id="posSummaryTotal">—</span>
+                        <span class="pos-summary-row-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
                     </div>
                     <div class="pos-summary-name" id="posSummaryName">Donor not entered yet</div>
                     <div class="pos-summary-method" id="posSummaryMethod"></div>
@@ -734,17 +749,14 @@
         function updatePosSummary() {
             const amt = parseFloat((amountInput.value || '').trim()) || 0;
             const amtText = CURRENCY_CODE + ' ' + amt.toFixed(2);
-            // Nothing entered yet reads as blank ("—"), never a fabricated "0.00" — the
-            // summary should never look like a $0 donation has already been decided.
-            const displayText = amt > 0 ? amtText : '—';
             const name = document.getElementById('posGuestName').value.trim();
 
             const summaryAmount = document.getElementById('posSummaryAmount');
             const summaryTotal = document.getElementById('posSummaryTotal');
             const summaryName = document.getElementById('posSummaryName');
             const summaryMethod = document.getElementById('posSummaryMethod');
-            if (summaryAmount) { summaryAmount.textContent = displayText; }
-            if (summaryTotal) { summaryTotal.textContent = displayText; }
+            if (summaryAmount) { summaryAmount.textContent = amtText; }
+            if (summaryTotal) { summaryTotal.textContent = amtText; }
             if (summaryName) { summaryName.textContent = name || 'Donor not entered yet'; }
             if (summaryMethod) { summaryMethod.textContent = selectedMethod ? ('via ' + selectedMethod) : ''; }
 
@@ -858,7 +870,7 @@
                     }
                 });
                 amountInput.value = total > 0 ? total.toFixed(2) : '';
-                tierTotalDisplay.textContent = total > 0 ? (CURRENCY_CODE + ' ' + total.toFixed(2)) : '—';
+                tierTotalDisplay.textContent = CURRENCY_CODE + ' ' + total.toFixed(2);
                 purposeValue = labels.length ? labels.join(', ').substring(0, 250) : 'Event Donation';
                 updatePosSummary();
             }
