@@ -623,6 +623,14 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
     Route::get('/admin/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('admin.eft.charge.status');
     Route::post('/admin/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('admin.eft.charge.cancel');
     Route::post('/admin/eft/charge/sendkey/{sessionId}', [\App\Http\Controllers\DonationController::class, 'sendEftKey'])->name('admin.eft.charge.sendkey');
+
+    // CBA Smart Terminal (mx51 SCI) transaction lifecycle — same role list as the Linkly
+    // group above, since both providers are usable from the same donation POS/console and
+    // Ticket Kiosk call sites.
+    Route::post('/admin/cba-sci/charge/start', [\App\Http\Controllers\CbaSciController::class, 'startPurchase'])->name('admin.cba-sci.charge.start');
+    Route::get('/admin/cba-sci/charge/status/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'poll'])->name('admin.cba-sci.charge.status');
+    Route::post('/admin/cba-sci/charge/action/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'submitAction'])->name('admin.cba-sci.charge.action');
+    Route::post('/admin/cba-sci/charge/override/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'override'])->name('admin.cba-sci.charge.override');
 });
 
 // ============================================

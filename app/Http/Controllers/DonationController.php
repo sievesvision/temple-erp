@@ -685,7 +685,7 @@ class DonationController extends Controller
      * specific event they're recording against (at least 'entry' level), never a blank/
      * general-fund donation.
      */
-    private function canRecordDonation($user, ?string $activeRole, $eventId): bool
+    public function canRecordDonation($user, ?string $activeRole, $eventId): bool
     {
         if (RolePermission::can($activeRole, 'donations', 'add')) {
             return true;
@@ -705,7 +705,7 @@ class DonationController extends Controller
      * startEftCharge(): a donation (canRecordDonation()) or a standalone ticket order
      * ('tickets' add permission — never event-scoped, since tickets aren't tied to an event).
      */
-    private function canUseEftTerminal($user, ?string $activeRole, $eventId): bool
+    public function canUseEftTerminal($user, ?string $activeRole, $eventId): bool
     {
         if ($this->canRecordDonation($user, $activeRole, $eventId) || RolePermission::can($activeRole, 'tickets', 'add')) {
             return true;
@@ -1223,7 +1223,7 @@ class DonationController extends Controller
      * 'selections_json' is deliberately not handled here — the fallback path never has a
      * tiered breakdown to save, only the flat purpose/amount.
      */
-    private function insertGuestDonationRecord(array $fields): int
+    public function insertGuestDonationRecord(array $fields): int
     {
         $donationId = DB::table('donations_without_logins')->insertGetId([
             'donor_name' => $fields['donor_name'],

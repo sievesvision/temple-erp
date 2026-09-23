@@ -170,6 +170,181 @@ class CbaSciService
     }
 
     /**
+     * Starts a purchase — POST {sci_api_base_url}/v1/transactions, signed. Returns the
+     * transaction's *initial* state (almost always PENDING) for the caller to persist onto
+     * an SciTransaction row and begin polling — see pollTransaction().
+     *
+     * @return array{success: bool, message: string, transaction_id: ?string, version: int, status: ?string, pos_instructions: ?array}
+     */
+    public static function createPurchase(EftTerminal $terminal, float $amount): array
+    {
+        return self::createTransaction($terminal, [
+            'purchase_details' => ['purchase_amount' => self::toCents($amount)],
+        ]);
+    }
+
+    /**
+     * Starts a refund against a previous SCI transaction. mx51's docs note that when a
+     * surcharge was applied to the original purchase, the refund amount should reference
+     * that original transaction's own result_amounts.surcharge_amount rather than a
+     * recomputed figure — left to the caller (CbaSciController) to pass in already-resolved.
+     */
+    public static function createRefund(EftTerminal $terminal, float $amount): array
+    {
+        return self::createTransaction($terminal, [
+            'refund_details' => ['refund_amount' => self::toCents($amount)],
+        ]);
+    }
+
+    private static function createTransaction(EftTerminal $terminal, array $details): array
+    {
+        try {
+            $response = self::signedRequest('POST', $terminal->sci_api_base_url . '/v1/transactions', $details, $terminal);
+        } catch (ConnectionException $e) {
+            Log::warning('CBA SCI transaction creation could not reach mx51', ['terminal' => $terminal->key, 'error' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'Could not reach the CBA Smart Terminal — check network and terminal connections and try again.', 'transaction_id' => null, 'version' => 0, 'status' => null, 'pos_instructions' => null];
+        }
+
+        if (!$response->successful()) {
+            return array_merge(
+                ['transaction_id' => null, 'version' => 0, 'status' => null, 'pos_instructions' => null],
+                ['success' => false, 'message' => self::transactionErrorMessage($response)]
+            );
+        }
+
+        $data = $response->json('data') ?? [];
+
+        return [
+            'success' => true,
+            'message' => $data['message'] ?? 'Transaction started.',
+            'transaction_id' => $data['transaction_id'] ?? null,
+            'version' => $data['version'] ?? 1,
+            'status' => $data['status'] ?? 'PENDING',
+            'pos_instructions' => $data['pos_instructions'] ?? null,
+        ];
+    }
+
+    /**
+     * GET {sci_api_base_url}/v1/transactions/{id}?min_version={minVersion}, signed. Per
+     * mx51's own polling rule, the caller must always pass back the *previous response's*
+     * `version` as the next `min_version` — never self-incrementing — since the API can
+     * skip versions between polls.
+     *
+     * The two documented 404 shapes are deliberately distinguished: `transaction_not_found_
+     * within_timeout` means the requested version simply isn't available *yet* (poll again
+     * immediately, `done: false`), while `transaction_not_found` means the id itself is
+     * wrong (a genuine error, `done: true, success: false`).
+     *
+     * @return array{done: bool, success: ?bool, status: ?string, message: ?string, version: int, pos_instructions: ?array, result_financial_status: ?string, result_amounts: ?array, result_card_details: ?array, merchant_receipt: ?string, customer_receipt: ?string, transient_error: bool}
+     */
+    public static function pollTransaction(EftTerminal $terminal, string $transactionId, int $minVersion): array
+    {
+        $base = [
+            'done' => false, 'success' => null, 'status' => null, 'message' => null, 'version' => $minVersion,
+            'pos_instructions' => null, 'result_financial_status' => null, 'result_amounts' => null,
+            'result_card_details' => null, 'merchant_receipt' => null, 'customer_receipt' => null, 'transient_error' => false,
+        ];
+
+        try {
+            $response = self::signedRequest(
+                'GET',
+                $terminal->sci_api_base_url . '/v1/transactions/' . $transactionId . '?min_version=' . $minVersion,
+                null,
+                $terminal
+            );
+        } catch (ConnectionException $e) {
+            Log::warning('CBA SCI poll could not reach mx51', ['terminal' => $terminal->key, 'transaction_id' => $transactionId, 'error' => $e->getMessage()]);
+            return array_merge($base, ['transient_error' => true, 'message' => 'Could not reach the CBA Smart Terminal — retrying.']);
+        }
+
+        if ($response->status() === 404) {
+            $code = $response->json('error.code') ?? $response->json('code');
+            if ($code === 'transaction_not_found_within_timeout') {
+                return $base; // expected — keep polling at the same min_version
+            }
+            return array_merge($base, ['done' => true, 'success' => false, 'message' => 'That transaction could not be found.']);
+        }
+
+        if ($response->status() === 424) {
+            return array_merge($base, ['done' => true, 'success' => false, 'status' => 'DEVICE_NOT_CONNECTED', 'message' => 'Please check network and terminal connections and try again.']);
+        }
+
+        if (!$response->successful()) {
+            return array_merge($base, ['done' => true, 'success' => false, 'message' => self::transactionErrorMessage($response)]);
+        }
+
+        $data = $response->json('data') ?? [];
+        $status = $data['status'] ?? null;
+        // "Always use data.version from the response as the basis for the next min_version
+        // — never self-increment" (mx51's own documented rule).
+        $version = $data['version'] ?? $minVersion;
+
+        if (!in_array($status, ['AWAITING_POS', 'FINALISED'], true)) {
+            // PENDING (or anything else in-flight) — keep polling.
+            return array_merge($base, ['version' => $version, 'message' => $data['message'] ?? null, 'pos_instructions' => $data['pos_instructions'] ?? null]);
+        }
+
+        $resultFinancialStatus = $data['result_financial_status'] ?? null;
+
+        return [
+            'done' => true,
+            'success' => $status === 'FINALISED' ? ($resultFinancialStatus === 'APPROVED') : null,
+            'status' => $status,
+            'message' => $data['message'] ?? null,
+            'version' => $version,
+            'pos_instructions' => $data['pos_instructions'] ?? null,
+            'result_financial_status' => $resultFinancialStatus,
+            'result_amounts' => $data['result_amounts'] ?? null,
+            'result_card_details' => $data['result_card_details'] ?? null,
+            'merchant_receipt' => $data['merchant_receipt'] ?? null,
+            'customer_receipt' => $data['customer_receipt'] ?? null,
+            'transient_error' => false,
+        ];
+    }
+
+    /**
+     * Sends a button/input Action Framework element's interaction back to mx51 — `$submitUrl`
+     * is already a complete URL (mx51 returns it fully-qualified in pos_instructions), so
+     * this only needs to sign and POST it, optionally with input element values as the body.
+     */
+    public static function submitAction(EftTerminal $terminal, string $submitUrl, array $formValues = []): array
+    {
+        try {
+            $response = self::signedRequest('POST', $submitUrl, $formValues ?: null, $terminal);
+        } catch (ConnectionException $e) {
+            Log::warning('CBA SCI action submission could not reach mx51', ['terminal' => $terminal->key, 'url' => $submitUrl, 'error' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'Could not reach the CBA Smart Terminal — check network and terminal connections and try again.'];
+        }
+
+        if (!$response->successful()) {
+            return ['success' => false, 'message' => self::transactionErrorMessage($response)];
+        }
+
+        return ['success' => true, 'message' => 'OK'];
+    }
+
+    private static function toCents(float $amount): int
+    {
+        return (int) round($amount * 100);
+    }
+
+    private static function transactionErrorMessage($response): string
+    {
+        $code = $response->json('error.code') ?? $response->json('code');
+        $map = [
+            'no_active_pairings_found' => 'This terminal is not currently paired — pair it again from EFT Terminal Settings.',
+            'transaction_refused' => 'The terminal is busy with another transaction — wait for it to finish and try again.',
+            'device_not_connected' => 'Please check network and terminal connections and try again.',
+        ];
+
+        if ($code && isset($map[$code])) {
+            return $map[$code];
+        }
+
+        return $response->json('error.message') ?? $response->json('message') ?? ('Request failed (HTTP ' . $response->status() . ').');
+    }
+
+    /**
      * Signs and sends one SCI API request per RFC 9421 HTTP Message Signatures, exactly as
      * documented at https://developer.mx51.io/docs/sci-api-credentials-authentication:
      *
