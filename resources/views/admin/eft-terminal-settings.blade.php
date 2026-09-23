@@ -67,6 +67,7 @@
                 <span class="text-muted small">({{ $lastKnown['at']->diffForHumans() }})</span>
                 @endif
             </div>
+            @if($terminal->provider === 'linkly')
             <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-3 align-items-end mb-2">
                 @csrf
                 <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
@@ -77,6 +78,9 @@
                     <button type="submit" class="btn btn-outline-primary">{{ $terminal->isPaired($linklyMode) ? 'Re-pair' : 'Pair' }}</button>
                 </div>
             </form>
+            @else
+            @include('admin.partials.cba-sci-pairing', ['terminal' => $terminal])
+            @endif
             @if($isSystemAdmin)
             <div class="d-flex gap-2">
                 @if(!$terminal->is_default)
@@ -98,15 +102,22 @@
             <div class="fw-semibold mb-2">Add Another Terminal</div>
             <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-3 align-items-end">
                 @csrf
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="form-label small">Key (unique, no spaces)</label>
                     <input type="text" name="key" class="form-control rounded-3" placeholder="e.g. ticket-counter-2" maxlength="40" required>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-label small">Label</label>
                     <input type="text" name="label" class="form-control rounded-3" placeholder="e.g. Ticket Counter 2" required>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label small">Provider</label>
+                    <select name="provider" class="form-select rounded-3">
+                        <option value="linkly">Linkly Cloud (PIN pad)</option>
+                        <option value="cba_sci">CBA Smart Terminal</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <button type="submit" class="btn-save w-100">Add Terminal</button>
                 </div>
             </form>

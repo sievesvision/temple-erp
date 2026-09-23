@@ -85,11 +85,13 @@ class EftTerminalController extends Controller
         $validated = $request->validate([
             'key' => 'required|string|max:40|alpha_dash|unique:eft_terminals,key',
             'label' => 'required|string|max:255',
+            'provider' => 'nullable|in:linkly,cba_sci',
         ]);
 
         $terminal = EftTerminal::create([
             'key' => $validated['key'],
             'label' => $validated['label'],
+            'provider' => $validated['provider'] ?? 'linkly',
             'pos_id' => EftTerminal::generatePosId(),
             'is_default' => !EftTerminal::query()->exists(),
         ]);
@@ -123,8 +125,12 @@ class EftTerminalController extends Controller
             return redirect()->back()->with('error', 'Cannot remove the default terminal — set another one as default first.');
         }
 
-        if ($terminal->linklyTransactions()->exists()) {
+        if ($terminal->linklyTransactions()->exists() || $terminal->sciTransactions()->exists()) {
             return redirect()->back()->with('error', 'Cannot remove a terminal with recorded transactions — it stays in the registry for that history to remain readable.');
+        }
+
+        if ($terminal->isSciPaired()) {
+            \App\Services\CbaSciService::unpair($terminal);
         }
 
         $label = $terminal->label;

@@ -688,6 +688,9 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Ticket Contro
     Route::post('/admin/eft-terminals/{terminal}/default', [\App\Http\Controllers\EftTerminalController::class, 'setDefault'])->name('admin.eft-terminals.setDefault');
     Route::delete('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'destroy'])->name('admin.eft-terminals.destroy');
     Route::post('/admin/eft/pair', [\App\Http\Controllers\LinklyController::class, 'pair'])->name('admin.eft.pair');
+    Route::post('/admin/cba-sci/pair', [\App\Http\Controllers\CbaSciController::class, 'pair'])->name('admin.cba-sci.pair');
+    Route::post('/admin/cba-sci/test', [\App\Http\Controllers\CbaSciController::class, 'testPairing'])->name('admin.cba-sci.test');
+    Route::post('/admin/cba-sci/unpair', [\App\Http\Controllers\CbaSciController::class, 'unpair'])->name('admin.cba-sci.unpair');
 });
 
 // ============================================

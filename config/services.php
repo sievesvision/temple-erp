@@ -61,6 +61,21 @@ return [
         'live_password' => env('LINKLY_LIVE_PASSWORD'),
     ],
 
+    // mx51 "Simple Cloud Integration" (SCI) — powers the CBA Smart Terminal payment option.
+    // The Pairing API Key and Signing Secret Part A are the merchant-held half of every
+    // signed SCI request; per mx51's own security requirement they must never be visible,
+    // configurable, or editable anywhere in the POS UI, so — same as Linkly above — they
+    // live only here, resolved via App\Services\CbaSciConfigService, never read directly
+    // nor exposed through any admin form. The per-pairing Signing Secret Part B (returned
+    // by mx51 for each individual terminal pairing) is the only piece that has to live in
+    // the database, on eft_terminals.sci_signing_secret_part_b, encrypted at rest.
+    'cba_sci' => [
+        'test_pairing_api_key' => env('CBA_SCI_TEST_PAIRING_API_KEY'),
+        'test_signing_secret_part_a' => env('CBA_SCI_TEST_SIGNING_SECRET_PART_A'),
+        'live_pairing_api_key' => env('CBA_SCI_LIVE_PAIRING_API_KEY'),
+        'live_signing_secret_part_a' => env('CBA_SCI_LIVE_SIGNING_SECRET_PART_A'),
+    ],
+
     // Google reCAPTCHA v2 ("I'm not a robot") keys — get a pair from
     // https://www.google.com/recaptcha/admin for this site's domain(s). Whether the
     // widget actually shows up on login/registration/donation forms is a separate

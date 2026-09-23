@@ -8,11 +8,15 @@ use Illuminate\Support\Str;
 
 /**
  * One independently-pairable EFT terminal (a physical PIN pad, or a virtual test one) — each
- * holds its own Linkly Cloud pairing secret per mode (sandbox/live) and its own posId, so
- * several can be paired and used at once (e.g. one station on the Ticket Kiosk, another on an
- * event's donation POS, running simultaneously without interfering). Everything else Linkly
- * needs (username/password/posVendorId/base URLs) stays global on LinklyConfigService — only
- * the pairing secret and posId actually differ per physical terminal.
+ * holds its own pairing state for whichever provider it speaks (Linkly Cloud, or CBA Smart
+ * Terminal via mx51's Simple Cloud Integration), so several can be paired and used at once
+ * (e.g. one station on the Ticket Kiosk, another on an event's donation POS, running
+ * simultaneously without interfering) regardless of provider. `provider` says which set of
+ * columns below is meaningful for a given row: Linkly's own username/password/posVendorId/
+ * base URLs stay global on LinklyConfigService (only the pairing secret and posId differ
+ * per terminal), and SCI's Pairing API Key + Signing Secret Part A stay global on
+ * CbaSciConfigService the same way — only the sci_* columns here (all returned by mx51's own
+ * pairing response) differ per terminal.
  */
 class EftTerminal extends Model
 {
@@ -21,14 +25,36 @@ class EftTerminal extends Model
     protected $fillable = [
         'key',
         'label',
+        'provider',
         'pos_id',
         'secret_sandbox',
         'secret_live',
         'is_default',
+        'sci_pairing_id',
+        'sci_key_id',
+        'sci_signing_secret_part_b',
+        'sci_api_base_url',
+        'sci_confirmation_code',
+        'sci_tid',
+        'sci_pairing_nickname',
+        'sci_terminal_nickname',
+        'sci_paired_at',
     ];
 
     protected $casts = [
         'is_default' => 'boolean',
+        // The only genuinely secret column here — the merchant-held Signing Secret Part A
+        // never touches the database at all (see config('services.cba_sci')) — encrypted at
+        // rest, transparently decrypted on read, and excluded from array/JSON output below
+        // so it can never leak into a view or an API response by accident.
+        'sci_signing_secret_part_b' => 'encrypted',
+        'sci_paired_at' => 'datetime',
+    ];
+
+    protected $hidden = [
+        'secret_sandbox',
+        'secret_live',
+        'sci_signing_secret_part_b',
     ];
 
     /**
@@ -90,20 +116,34 @@ class EftTerminal extends Model
         return $this->hasMany(LinklyTransaction::class);
     }
 
+    public function sciTransactions()
+    {
+        return $this->hasMany(SciTransaction::class);
+    }
+
+    public function isSciPaired(): bool
+    {
+        return $this->provider === 'cba_sci' && $this->sci_pairing_id !== null;
+    }
+
     /**
-     * "Online" isn't a persistent flag — Linkly has no standing connection to poll — so this
-     * infers it from the most recent transaction that actually got a definitive response
-     * from the terminal, of ANY kind (a real purchase/refund counts just as much as an
-     * explicit Logon check): 'approved' or 'declined' both mean the terminal was reached and
-     * responded (a decline is still a real response, just not a successful one); 'failed'
-     * (Linkly's own bucket for a timeout/system error — see LinklyEftService::
-     * mapResponseToStatus()) means it wasn't. Purely in-flight/inconclusive statuses
-     * (initiated/in_progress/unknown) are skipped since they prove nothing either way.
+     * "Online" isn't a persistent flag — neither provider has a standing connection to poll
+     * — so this infers it from the most recent transaction that actually got a definitive
+     * response from the terminal, branching on which protocol this row speaks.
      *
      * @return array{state: 'online'|'offline'|'unknown', at: ?\Illuminate\Support\Carbon, via: ?string}
      */
     public function lastKnownStatus(): array
     {
+        if ($this->provider === 'cba_sci') {
+            return $this->lastKnownSciStatus();
+        }
+
+        // Linkly: 'approved' or 'declined' both mean the terminal was reached and responded
+        // (a decline is still a real response, just not a successful one); 'failed' (Linkly's
+        // own bucket for a timeout/system error — see LinklyEftService::mapResponseToStatus())
+        // means it wasn't. Purely in-flight/inconclusive statuses (initiated/in_progress/
+        // unknown) are skipped since they prove nothing either way.
         $txn = $this->linklyTransactions()
             ->whereIn('status', ['approved', 'declined', 'failed'])
             ->latest('id')
@@ -116,6 +156,34 @@ class EftTerminal extends Model
         return [
             'state' => $txn->status === 'failed' ? 'offline' : 'online',
             'at' => $txn->created_at,
+            'via' => $txn->txn_type,
+        ];
+    }
+
+    /**
+     * SCI's own vocabulary: a FINALISED transaction (whatever its financial outcome) proves
+     * the terminal was reached and responded; a DEVICE_NOT_CONNECTED failure (recorded onto
+     * meta.error_code by CbaSciService — see its class docblock) proves it wasn't.
+     */
+    private function lastKnownSciStatus(): array
+    {
+        $txn = $this->sciTransactions()
+            ->where(function ($q) {
+                $q->where('status', 'FINALISED')
+                    ->orWhereJsonContains('meta->error_code', 'device_not_connected');
+            })
+            ->latest('id')
+            ->first();
+
+        if (!$txn) {
+            return ['state' => 'unknown', 'at' => null, 'via' => null];
+        }
+
+        $isDeviceError = ($txn->meta['error_code'] ?? null) === 'device_not_connected';
+
+        return [
+            'state' => $isDeviceError ? 'offline' : 'online',
+            'at' => $txn->updated_at,
             'via' => $txn->txn_type,
         ];
     }
