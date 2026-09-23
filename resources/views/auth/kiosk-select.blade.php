@@ -47,12 +47,18 @@
       max-width: 760px;
     }
 
+    .tile-grid form { display: contents; }
+
     .pos-tile {
+      width: 100%;
       background: #fdfbf7;
+      border: none;
       border-radius: 20px;
       padding: 2rem 1.25rem;
       text-align: center;
       text-decoration: none;
+      font-family: inherit;
+      cursor: pointer;
       color: var(--dark-bg);
       box-shadow: 0 18px 40px rgba(0,0,0,0.28);
       transition: transform 0.15s ease;
@@ -99,19 +105,28 @@
 
   <div class="tile-grid">
     @foreach($destinations as $destination)
-      @if($destination['type'] === 'event')
-        <a class="pos-tile" href="{{ route('admin.events.pos', $destination['event_id']) }}">
-          <span class="pos-tile-icon"><i class="bi bi-calendar-heart-fill"></i></span>
-          <span class="pos-tile-label">{{ $destination['label'] }}</span>
-          <span class="pos-tile-sub">{{ \Carbon\Carbon::parse($destination['date'])->format('d M Y') }}</span>
-        </a>
-      @else
-        <a class="pos-tile" href="{{ route('admin.tickets.pos') }}">
-          <span class="pos-tile-icon"><i class="bi bi-ticket-perforated-fill"></i></span>
-          <span class="pos-tile-label">{{ $destination['label'] }}</span>
-          <span class="pos-tile-sub">Point of Sale</span>
-        </a>
-      @endif
+      {{-- A POST, not a plain link — selectKioskPosDestination() must switch active_role to
+           match the destination before redirecting, since posShow()/PosDonationController
+           check the *active* role literally, not just whichever roles the route itself
+           allows through. --}}
+      <form method="POST" action="{{ route('kiosk.select.choose') }}">
+        @csrf
+        <input type="hidden" name="type" value="{{ $destination['type'] }}">
+        @if($destination['type'] === 'event')
+          <input type="hidden" name="event_id" value="{{ $destination['event_id'] }}">
+          <button type="submit" class="pos-tile">
+            <span class="pos-tile-icon"><i class="bi bi-calendar-heart-fill"></i></span>
+            <span class="pos-tile-label">{{ $destination['label'] }}</span>
+            <span class="pos-tile-sub">{{ \Carbon\Carbon::parse($destination['date'])->format('d M Y') }}</span>
+          </button>
+        @else
+          <button type="submit" class="pos-tile">
+            <span class="pos-tile-icon"><i class="bi bi-ticket-perforated-fill"></i></span>
+            <span class="pos-tile-label">{{ $destination['label'] }}</span>
+            <span class="pos-tile-sub">Point of Sale</span>
+          </button>
+        @endif
+      </form>
     @endforeach
   </div>
 

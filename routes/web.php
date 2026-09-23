@@ -60,6 +60,7 @@ Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kio
 // "Choose your counter" grid — only ever reached by an account holding more than one
 // kiosk-only destination (see AuthController::completeLogin()/possibleKioskPosDestinations()).
 Route::get('/kiosk/select', [AuthController::class, 'showKioskSelect'])->middleware('auth')->name('kiosk.select');
+Route::post('/kiosk/select', [AuthController::class, 'selectKioskPosDestination'])->middleware('auth')->name('kiosk.select.choose');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::get('/login/verify-otp', [AuthController::class, 'showLoginVerifyOtp'])->name('login.verify-otp');
 Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp'])->name('login.verify-otp.post');

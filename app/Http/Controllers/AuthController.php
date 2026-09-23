@@ -536,8 +536,20 @@ class AuthController extends Controller
         return $destinations;
     }
 
+    /**
+     * Also sets active_role to match the destination's own required role — necessary because
+     * completeLogin() has already set active_role to the account's PRIMARY role before this
+     * ever runs, and both PosDonationController::show() and TicketController::posShow()
+     * check the *active* role literally ('Event Coordinator'/'Ticket Controller') to look up
+     * the coordinator level / ticket controller level, not just whichever role the route's own
+     * middleware happened to allow through. Without this, a primary Event Coordinator whose
+     * only reachable destination is their secondary Ticket Controller grant (or vice versa)
+     * would 403 inside the destination page even though they legitimately hold that access.
+     */
     private function redirectToPosDestination(array $destination)
     {
+        session(['active_role' => $destination['type'] === 'event' ? 'Event Coordinator' : 'Ticket Controller']);
+
         return $destination['type'] === 'event'
             ? redirect()->route('admin.events.pos', $destination['event_id'])
             : redirect()->route('admin.tickets.pos');
@@ -563,6 +575,36 @@ class AuthController extends Controller
 
         $role = session('active_role', $user->role);
         return redirect()->route($this->dashboardRouteForRole($role));
+    }
+
+    /**
+     * Handles a tile tap on the "choose your counter" grid. Re-validates the chosen
+     * destination against possibleKioskPosDestinations() rather than trusting the posted
+     * type/event_id at face value — a POST is the only way to reach this (not a plain link),
+     * specifically so redirectToPosDestination() can switch active_role to match before
+     * redirecting (see its own docblock for why that's required).
+     */
+    public function selectKioskPosDestination(Request $request)
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'type' => 'required|in:event,tickets',
+            'event_id' => 'required_if:type,event|nullable|integer',
+        ]);
+
+        $destinations = $this->possibleKioskPosDestinations($user);
+        $match = collect($destinations)->first(function ($d) use ($validated) {
+            if ($d['type'] !== $validated['type']) {
+                return false;
+            }
+            return $d['type'] !== 'event' || (int) $d['event_id'] === (int) $validated['event_id'];
+        });
+
+        if (!$match) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        return $this->redirectToPosDestination($match);
     }
 
     /**

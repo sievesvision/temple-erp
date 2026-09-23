@@ -64,8 +64,78 @@ class KioskSelectTest extends TestCase
         $grid->assertOk();
         $grid->assertSee('Kiosk Event');
         $grid->assertSee('Ticket Sales');
-        $grid->assertSee(route('admin.events.pos', $eventId), false);
-        $grid->assertSee(route('admin.tickets.pos'), false);
+        $grid->assertSee('value="' . $eventId . '"', false);
+    }
+
+    /**
+     * Reproduces a real production bug: an Event Coordinator (primary role) who also holds a
+     * secondary Ticket Controller grant reaches the grid, but clicking "Ticket Sales" landed
+     * on a 403 — active_role stayed 'Event Coordinator' (set at login) all the way through,
+     * and TicketController::posShow() only recognises the ticket_controllers grant when
+     * active_role is literally 'Ticket Controller'. Exercises the actual POST endpoint the
+     * tile submits to, for both directions, to prove the fix holds.
+     */
+    public function test_choosing_the_ticket_tile_switches_active_role_and_actually_reaches_the_kiosk(): void
+    {
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = $this->makeEvent();
+        $this->assignEvent($user, $eventId, 'pos');
+        $this->grantTicketAccess($user, 'entry');
+
+        $response = $this->actingAs($user)->post(route('kiosk.select.choose'), ['type' => 'tickets']);
+
+        $response->assertRedirect(route('admin.tickets.pos'));
+        $this->assertSame('Ticket Controller', session('active_role'));
+
+        // Follow through to the real destination — must not 403.
+        $kiosk = $this->get(route('admin.tickets.pos'));
+        $kiosk->assertOk();
+    }
+
+    public function test_choosing_the_event_tile_switches_active_role_and_actually_reaches_the_kiosk(): void
+    {
+        $user = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = $this->makeEvent();
+        $this->assignEvent($user, $eventId, 'pos');
+        $this->grantTicketAccess($user, 'entry');
+
+        $response = $this->actingAs($user)->post(route('kiosk.select.choose'), ['type' => 'event', 'event_id' => $eventId]);
+
+        $response->assertRedirect(route('admin.events.pos', $eventId));
+        $this->assertSame('Event Coordinator', session('active_role'));
+
+        $kiosk = $this->get(route('admin.events.pos', $eventId));
+        $kiosk->assertOk();
+    }
+
+    public function test_choosing_a_destination_not_actually_granted_is_rejected(): void
+    {
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = $this->makeEvent();
+        $this->assignEvent($user, $eventId, 'pos');
+        $this->grantTicketAccess($user, 'entry');
+        $otherEventId = $this->makeEvent('Not Assigned To Me');
+
+        $response = $this->actingAs($user)->post(route('kiosk.select.choose'), ['type' => 'event', 'event_id' => $otherEventId]);
+
+        $response->assertForbidden();
+    }
+
+    public function test_the_single_destination_auto_redirect_also_switches_active_role(): void
+    {
+        // Primary role Event Coordinator, but their ONLY reachable destination is a
+        // secondary ticket grant (zero event assignments) — the count===1 fast path in
+        // completeLogin() must also switch active_role, not just the grid's own POST handler.
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
+        $this->grantTicketAccess($user, 'entry');
+
+        $response = $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
+
+        $response->assertRedirect(route('admin.tickets.pos'));
+        $this->assertSame('Ticket Controller', session('active_role'));
+
+        $kiosk = $this->get(route('admin.tickets.pos'));
+        $kiosk->assertOk();
     }
 
     public function test_two_pos_events_with_no_ticket_grant_also_lands_on_the_select_grid(): void
