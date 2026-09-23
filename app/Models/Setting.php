@@ -55,6 +55,21 @@ class Setting extends Model
     }
 
     /**
+     * The ticket system's own bank account reference, falling back to the temple's global
+     * donation account (same `?:` pattern as Event::effectiveDonationAccountName() etc.) —
+     * tickets had no bank account configuration of their own before this.
+     */
+    public static function effectiveTicketBankAccount(): array
+    {
+        return [
+            'account_name' => self::get('ticket_donation_account_name', '') ?: self::get('donation_account_name', ''),
+            'bank_name' => self::get('ticket_donation_bank_name', '') ?: self::get('donation_bank_name', ''),
+            'bsb' => self::get('ticket_donation_bsb', '') ?: self::get('donation_bsb', ''),
+            'account_number' => self::get('ticket_donation_account_number', '') ?: self::get('donation_account_number', ''),
+        ];
+    }
+
+    /**
      * The canonical temple branding/currency context used across the site —
      * public pages, every role dashboard, and the auth screens.
      */

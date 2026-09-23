@@ -205,6 +205,17 @@ class EventConsoleController extends Controller
         $eftTerminals = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $linklyMode = LinklyConfigService::mode();
 
+        // Cash Banking pane — same admin tier as Settings/Coordinators/EFTPOS/Logs above.
+        $cashPreview = null;
+        $cashBankings = collect();
+        $cashSettlements = collect();
+        if ($canEditEvent) {
+            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id);
+            $cashPreview = $cashPane['cashPreview'];
+            $cashBankings = $cashPane['cashBankings'];
+            $cashSettlements = $cashPane['cashSettlements'];
+        }
+
         $temple = Setting::templeBranding();
 
         return view('admin.event-console', compact(
@@ -214,6 +225,9 @@ class EventConsoleController extends Controller
             'summary',
             'weeklyTrend',
             'monthlyTrend',
+            'cashPreview',
+            'cashBankings',
+            'cashSettlements',
             'devotees',
             'enabledPaymentMethods',
             'globalPaymentMethods',

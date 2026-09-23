@@ -148,6 +148,7 @@
                     @if($canManageConsole)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-controllers"><i class="bi bi-people-fill"></i><span>Ticket Controllers</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
                     @endif
@@ -313,6 +314,33 @@
                         </div>
 
                         <div class="card-panel mt-3">
+                            <div class="fw-bold mb-2">Ticket Bank Account</div>
+                            <p class="text-muted small mb-3">Leave any field blank to use the temple's global donation account from Admin &gt; Settings. Set one here only to record a different account for ticket sales specifically — used on the Cash Banking report below.</p>
+                            <form action="{{ route('admin.tickets.settings.bankAccount') }}" method="POST" id="ticketBankAccountForm">
+                                @csrf
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Account Name</label>
+                                        <input type="text" name="ticket_donation_account_name" class="form-control" value="{{ old('ticket_donation_account_name', \App\Models\Setting::get('ticket_donation_account_name', '')) }}" placeholder="{{ $ticketBankAccount['account_name'] }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Bank Name</label>
+                                        <input type="text" name="ticket_donation_bank_name" class="form-control" value="{{ old('ticket_donation_bank_name', \App\Models\Setting::get('ticket_donation_bank_name', '')) }}" placeholder="{{ $ticketBankAccount['bank_name'] }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">BSB</label>
+                                        <input type="text" name="ticket_donation_bsb" class="form-control" value="{{ old('ticket_donation_bsb', \App\Models\Setting::get('ticket_donation_bsb', '')) }}" placeholder="{{ $ticketBankAccount['bsb'] }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Account Number</label>
+                                        <input type="text" name="ticket_donation_account_number" class="form-control" value="{{ old('ticket_donation_account_number', \App\Models\Setting::get('ticket_donation_account_number', '')) }}" placeholder="{{ $ticketBankAccount['account_number'] }}">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn-save mt-3">Save Bank Account</button>
+                            </form>
+                        </div>
+
+                        <div class="card-panel mt-3">
                             <div class="fw-bold mb-2">This Computer's EFT Terminal</div>
                             <p class="text-muted small mb-3">Which physical terminal <strong>this computer</strong> uses when selling tickets — saved only in this browser, not on the server, so two kiosk computers can each be set to a different terminal and sell concurrently without interfering. Setting it here takes effect on the Ticket Kiosk page on this same computer immediately.</p>
                             <div class="row g-2 align-items-end">
@@ -471,6 +499,20 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- CASH BANKING -->
+                    <div class="console-pane" id="pane-cash-banking">
+                        <div class="page-header">
+                            <div class="page-header-icon"><i class="bi bi-cash-stack"></i></div>
+                            <div>
+                                <h2>Cash Banking</h2>
+                                <p>Track cash taken to the bank and reconcile what's still on hand for ticket sales.</p>
+                            </div>
+                        </div>
+                        @if($cashPreview)
+                        @include('admin.partials.cash-banking-pane', ['scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'temple' => $temple])
+                        @endif
                     </div>
 
                     <!-- TICKET CONTROLLERS -->
@@ -759,7 +801,7 @@
         // back to Dashboard after saving — same "consoleActivePane" localStorage convention
         // as event-console.blade.php, so a form submission anywhere in one of these panes
         // reopens that exact pane once the page reloads.
-        ['pane-settings', 'pane-eftpos', 'pane-controllers'].forEach(function (paneId) {
+        ['pane-settings', 'pane-eftpos', 'pane-cash-banking', 'pane-controllers'].forEach(function (paneId) {
             const pane = document.getElementById(paneId);
             if (!pane) { return; }
             pane.querySelectorAll('form').forEach(function (form) {

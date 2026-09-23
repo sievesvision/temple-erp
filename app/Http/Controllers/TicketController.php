@@ -139,12 +139,31 @@ class TicketController extends Controller
         // these, regardless of what donations elsewhere are configured to accept".
         $ticketPaymentMethodsOverride = $this->ticketPaymentMethodsOverride();
 
+        // Cash Banking pane — same admin tier as the rest of the console (Settings/EFTPOS/
+        // Ticket Controllers/Logs). Tickets isn't event-scoped, so this is the global scope.
+        $cashPreview = null;
+        $cashBankings = collect();
+        $cashSettlements = collect();
+        if ($canManageConsole) {
+            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null);
+            $cashPreview = $cashPane['cashPreview'];
+            $cashBankings = $cashPane['cashBankings'];
+            $cashSettlements = $cashPane['cashSettlements'];
+        }
+        $temple = Setting::templeBranding();
+        $ticketBankAccount = Setting::effectiveTicketBankAccount();
+
         return view('admin.ticket-console', compact(
             'tickets',
             'canEdit',
             'canAdd',
             'canDelete',
             'canManageConsole',
+            'cashPreview',
+            'cashBankings',
+            'cashSettlements',
+            'temple',
+            'ticketBankAccount',
             'activeRole',
             'orders',
             'totalSold',

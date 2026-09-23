@@ -412,6 +412,7 @@
                     @endif
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
                     @endif
                     @if($canViewEventLogs)
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
@@ -1358,6 +1359,20 @@
                 </div>
                 @endif
 
+                @if($canEditEvent)
+                <!-- CASH BANKING -->
+                <div class="console-pane" id="pane-cash-banking">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-cash-stack"></i></div>
+                        <div>
+                            <h2>Cash Banking</h2>
+                            <p>Track cash taken to the bank and reconcile what's still on hand for {{ $event->event_name }}.</p>
+                        </div>
+                    </div>
+                    @include('admin.partials.cash-banking-pane', ['scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'temple' => $temple])
+                </div>
+                @endif
+
                 @if($canViewEventLogs)
                 <!-- EVENT LOGS -->
                 <div class="console-pane" id="pane-logs">
@@ -1692,6 +1707,11 @@
         document.querySelectorAll('#pane-eftpos form').forEach(function (form) {
             form.addEventListener('submit', function () {
                 try { localStorage.setItem('consoleActivePane', 'pane-eftpos'); } catch (e) {}
+            });
+        });
+        document.querySelectorAll('#pane-cash-banking form').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                try { localStorage.setItem('consoleActivePane', 'pane-cash-banking'); } catch (e) {}
             });
         });
         (function restoreActivePane() {

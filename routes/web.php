@@ -642,6 +642,13 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     Route::post('/admin/tickets/order', [\App\Http\Controllers\TicketController::class, 'storeOrder'])->name('admin.tickets.storeOrder');
     Route::get('/admin/tickets/print/{order}', [\App\Http\Controllers\TicketController::class, 'printOrder'])->name('admin.tickets.print');
 
+    // Shared by both the event- and tickets-scoped Cash Banking panes — which scope a
+    // submission means is carried in the form itself (see CashSettlementController::
+    // resolveScopeFromRequest()), re-checked against that scope's own access gate.
+    Route::post('/admin/cash-settlement/banking', [\App\Http\Controllers\CashSettlementController::class, 'recordBanking'])->name('admin.cash-settlement.recordBanking');
+    Route::post('/admin/cash-settlement/run', [\App\Http\Controllers\CashSettlementController::class, 'runSettlement'])->name('admin.cash-settlement.run');
+    Route::post('/admin/tickets/settings/bank-account', [\App\Http\Controllers\CashSettlementController::class, 'updateTicketBankSettings'])->name('admin.tickets.settings.bankAccount');
+
     Route::get('/admin/ticket-orders', [\App\Http\Controllers\TicketController::class, 'manageOrders'])->name('admin.tickets.orders');
 
     // Ticket Console's own Settings pane (kiosk payment-method override) — same admin-tier
