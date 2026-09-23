@@ -291,7 +291,11 @@ class CbaSciController extends Controller
 
         if (in_array($txn->status, SciTransaction::FINAL_STATUSES, true)) {
             // A real answer arrived after all — never let a manual override contradict it.
-            return response()->json(['success' => true, 'message' => 'A result was already received for this transaction.', 'status' => $txn->status, 'result_financial_status' => $txn->result_financial_status]);
+            return response()->json([
+                'success' => true, 'message' => 'A result was already received for this transaction.',
+                'status' => $txn->status, 'result_financial_status' => $txn->result_financial_status,
+                'donation_id' => $txn->donation_id,
+            ]);
         }
 
         $txn->update([

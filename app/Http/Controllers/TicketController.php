@@ -365,8 +365,9 @@ class TicketController extends Controller
                 return [
                     'id' => $t->id,
                     'label' => $t->label,
+                    'provider' => $t->provider,
                     'is_default' => (bool) $t->is_default,
-                    'paired' => $t->isPaired($linklyMode),
+                    'paired' => $t->isPairedFor($linklyMode),
                     'status' => $status['state'],
                     'status_at' => $status['at']?->diffForHumans(),
                 ];

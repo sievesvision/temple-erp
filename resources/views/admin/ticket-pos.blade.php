@@ -153,6 +153,28 @@
         .eft-modal-key-btn:active { filter: brightness(0.92); }
         .eft-modal-key-btn.key-ok, .eft-modal-key-btn.key-yes, .eft-modal-key-btn.key-authorise { background: var(--success); }
         .eft-modal-key-btn.key-no { background: var(--error); }
+
+        /* CBA Smart Terminal (mx51 SCI) — dynamic Action Framework elements, rendered from
+           whatever pos_instructions the terminal sends for this step (text/button/input/
+           image), never a fixed set like the Linkly soft-keys above. */
+        .sci-af-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .sci-af-row:last-child { margin-bottom: 0; }
+        .sci-af-text { width: 100%; font-size: 0.92rem; color: var(--text-secondary); text-align: left; }
+        .sci-af-btn { flex: 1 1 auto; min-width: 100px; padding: 13px 10px; border-radius: 12px; border: 2px solid transparent; font-weight: 700; font-size: 0.95rem; color: #fff; background: var(--maroon); }
+        .sci-af-btn:active { filter: brightness(0.92); }
+        .sci-af-input { flex: 1 1 auto; min-width: 140px; padding: 12px 14px; border-radius: 10px; border: 2px solid var(--border); font-size: 0.95rem; }
+        .sci-af-image { max-width: 100%; border-radius: 10px; }
+        .sci-af-details { text-align: left; font-size: 0.82rem; color: var(--text-secondary); }
+        #eftModalActionFramework { margin-bottom: 12px; }
+
+        /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
+           actually started, "Cancel" is replaced by an honest "confirm the real outcome"
+           prompt instead of pretending the payment can be stopped mid-flight. */
+        .eft-modal-override p { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 14px; }
+        .eft-modal-override-actions { display: flex; gap: 10px; margin-bottom: 10px; }
+        .eft-override-btn { flex: 1 1 auto; padding: 13px 10px; border-radius: 12px; border: 2px solid transparent; font-weight: 700; font-size: 0.9rem; color: #fff; }
+        .eft-override-btn.eft-override-yes { background: var(--success); }
+        .eft-override-btn.eft-override-no { background: var(--error); }
     </style>
 </head>
 <body>
@@ -292,12 +314,24 @@
                     <button type="button" class="eft-modal-key-btn key-no" id="eftModalKeyNo">No</button>
                     <button type="button" class="eft-modal-key-btn key-authorise" id="eftModalKeyAuthorise">Authorise</button>
                 </div>
+                <!-- CBA Smart Terminal (mx51 SCI) — dynamic Action Framework elements for
+                     whichever step the terminal is currently on (text/button/input/image). -->
+                <div id="eftModalActionFramework" hidden></div>
+                <div class="eft-modal-override" id="eftModalOverride" hidden>
+                    <p>We couldn't get a final answer from the terminal. Did the payment go through?</p>
+                    <div class="eft-modal-override-actions">
+                        <button type="button" class="eft-override-btn eft-override-yes" id="eftModalOverrideYes">Yes, it went through</button>
+                        <button type="button" class="eft-override-btn eft-override-no" id="eftModalOverrideNo">No / not sure</button>
+                    </div>
+                    <button type="button" class="eft-modal-cancel-btn" id="eftModalOverrideKeepWaiting">Keep Waiting</button>
+                </div>
                 <button type="button" class="eft-modal-cancel-btn" id="eftModalCancelBtn">Cancel Payment</button>
             </div>
         </div>
     </div>
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset('js/sci-action-framework.js') }}"></script>
     @php
         $pendingEftRecoveryForJs = $pendingEftRecovery ? [
             'sessionId' => $pendingEftRecovery->linkly_session_id,
@@ -319,6 +353,10 @@
         const CAN_SELL = @json($canSell);
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
         const EFT_TERMINALS = @json($eftTerminalsForJs);
+        const CBA_SCI_CHARGE_START_URL = @json(route('admin.cba-sci.charge.start'));
+        const CBA_SCI_CHARGE_STATUS_URL_BASE = @json(url('/admin/cba-sci/charge/status'));
+        const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
+        const CBA_SCI_CHARGE_OVERRIDE_URL_BASE = @json(url('/admin/cba-sci/charge/override'));
 
         document.getElementById('posFullscreenBtn').addEventListener('click', function () {
             if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(function () {}); }
@@ -585,13 +623,23 @@
             try { sessionStorage.removeItem(EFT_ATTEMPT_KEY); } catch (e) {}
         }
 
+        // Which payment flow currently owns the shared eft-modal-overlay DOM — Linkly's own
+        // handlers below and the SCI module (sci-action-framework.js) both attach listeners
+        // to the SAME cancel/status elements, so each must no-op on a click that isn't theirs.
+        let activeEftProvider = null;
         let eftModalLastSignature = null;
         let eftModalKeysSignature = null;
         function showEftModal(amount) {
+            activeEftProvider = 'linkly';
             eftModalAmount.textContent = CURRENCY_CODE + ' ' + amount.toFixed(2);
             eftModalLastSignature = null;
             setEftModalStatus(['Starting…'], 'pending');
             updateEftModalKeys(null, null);
+            document.getElementById('eftModalActionFramework').hidden = true;
+            document.getElementById('eftModalActionFramework').innerHTML = '';
+            document.getElementById('eftModalOverride').hidden = true;
+            document.getElementById('eftModalCancelBtn').hidden = false;
+            document.getElementById('eftModalCancelBtn').textContent = 'Cancel Payment';
             eftModalOverlay.classList.add('active');
         }
         function updateEftModalKeys(controls, sessionId) {
@@ -635,10 +683,60 @@
             eftModalStatusLine2.textContent = lines[1] || '';
         }
         function hideEftModal() {
+            activeEftProvider = null;
             eftModalOverlay.classList.remove('active');
             eftCurrentSessionId = null;
             updateEftModalKeys(null, null);
         }
+
+        // CBA Smart Terminal (mx51 SCI) payment flow — shares the same modal DOM as the
+        // Linkly flow above (see activeEftProvider guards) but is driven by
+        // sci-action-framework.js's generic Action Framework renderer/poller instead of
+        // Linkly's fixed 4-key layout.
+        const sciPaymentFlow = SciActionFramework.createFlow({
+            startUrl: CBA_SCI_CHARGE_START_URL,
+            statusUrlBase: CBA_SCI_CHARGE_STATUS_URL_BASE,
+            actionUrlBase: CBA_SCI_CHARGE_ACTION_URL_BASE,
+            overrideUrlBase: CBA_SCI_CHARGE_OVERRIDE_URL_BASE,
+            csrfToken: CSRF_TOKEN,
+            currencyCode: CURRENCY_CODE,
+            attemptStorageKey: 'sciTicketAttempt',
+            el: {
+                overlay: eftModalOverlay,
+                amount: eftModalAmount,
+                statusBox: eftModalStatusBox,
+                statusLine1: eftModalStatusLine1,
+                statusLine2: eftModalStatusLine2,
+                actionContainer: document.getElementById('eftModalActionFramework'),
+                cancelBtn: document.getElementById('eftModalCancelBtn'),
+                overrideBox: document.getElementById('eftModalOverride'),
+                overrideYesBtn: document.getElementById('eftModalOverrideYes'),
+                overrideNoBtn: document.getElementById('eftModalOverrideNo'),
+                overrideKeepWaitingBtn: document.getElementById('eftModalOverrideKeepWaiting'),
+            },
+            buildStartBody: function (attempt) {
+                return { record_type: 'ticket_order', cart_json: JSON.stringify(attempt.cart || []) };
+            },
+            onToast: function (message) { showToast(message, true); },
+            onApproved: function (donationId) {
+                activeEftProvider = null;
+                showToast('Sale recorded — printing…');
+                openPrintView(donationId);
+                resetCart();
+            },
+            onDeclined: function (message) {
+                activeEftProvider = null;
+                showToast(message || 'Card declined.', true);
+            },
+            onUnresolved: function (message) {
+                activeEftProvider = null;
+                showToast(message || 'No final result was received — check before retrying.', true);
+            },
+            onLocalCancel: function () {
+                activeEftProvider = null;
+                showToast('Sale cancelled.', true);
+            },
+        });
 
         function openPrintView(orderId) {
             if (orderId) { window.open('/admin/tickets/print/' + orderId, '_blank'); }
@@ -655,8 +753,9 @@
                 const mobile = document.getElementById('ticketCustomerMobile').value.trim();
                 const btn = this;
 
+                let selectedTerminal = null;
                 if (selectedMethod === 'EFT Terminal') {
-                    const selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+                    selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
                     if (!selectedTerminal || !selectedTerminal.paired) {
                         showToast('This station\'s EFT terminal (' + currentTerminalLabel() + ') is not paired yet — check the terminal picker.', true);
                         return;
@@ -665,6 +764,20 @@
                 btn.disabled = true;
 
                 if (selectedMethod === 'EFT Terminal') {
+                    if (selectedTerminal.provider === 'cba_sci') {
+                        activeEftProvider = 'cba_sci';
+                        sciPaymentFlow.start(btn, {
+                            clientRef: newClientRef(),
+                            amount: total,
+                            name: name || 'Customer',
+                            email: '',
+                            mobile: mobile,
+                            cart: cartLines,
+                            terminalId: selectedTerminalId,
+                        });
+                        return;
+                    }
+
                     startOrResumeEftPurchase(btn, {
                         clientRef: newClientRef(),
                         amount: total,
@@ -750,6 +863,7 @@
         let eftPollCancelled = false;
         let eftCurrentSessionId = null;
         document.getElementById('eftModalCancelBtn').addEventListener('click', function () {
+            if (activeEftProvider !== 'linkly') { return; }
             const sessionId = eftCurrentSessionId;
             if (!sessionId) {
                 eftPollCancelled = true;
@@ -867,6 +981,15 @@
                 saveEftAttempt({ clientRef: p.clientRef, amount: p.amount, name: p.name, email: p.email, mobile: p.mobile, cart: [] });
                 showEftModal(p.amount);
                 pollEftTransaction(p.sessionId, posSaveBtn, p.amount, Date.now());
+                return;
+            }
+
+            // CBA Smart Terminal has no server-authoritative recovery query yet (unlike
+            // PENDING_EFT_RECOVERY above) — this same-tab-refresh fallback is all that's
+            // wired up for it so far.
+            activeEftProvider = 'cba_sci';
+            if (!sciPaymentFlow.resumeFromStorage(posSaveBtn)) {
+                activeEftProvider = null;
             }
         });
     </script>

@@ -96,6 +96,16 @@ class EftTerminal extends Model
         return $this->secret($mode) !== null;
     }
 
+    /**
+     * Provider-agnostic "is this terminal usable right now" check for the terminal picker —
+     * branches on $provider the same way lastKnownStatus() does, so a CBA SCI row is never
+     * judged by Linkly's secret_live/secret_sandbox columns (which it never populates).
+     */
+    public function isPairedFor(string $linklyMode): bool
+    {
+        return $this->provider === 'cba_sci' ? $this->isSciPaired() : $this->isPaired($linklyMode);
+    }
+
     public function setSecret(string $mode, string $secret): void
     {
         $this->update($mode === 'live' ? ['secret_live' => $secret] : ['secret_sandbox' => $secret]);
