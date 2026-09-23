@@ -496,6 +496,76 @@ class AuthController extends Controller
     }
 
     /**
+     * Every "no-navigation kiosk page" this specific account can reach, regardless of which
+     * role is primary — reused by completeLogin() (decide where to land) and
+     * showKioskSelect() (render the picker, recomputed fresh rather than trusting anything
+     * stashed at login time). Returns [] the instant EITHER side of the account isn't purely
+     * kiosk-only — a coordinator managing even one event's console, or a ticket controller at
+     * 'admin' level — rather than a partial list, since a non-kiosk capability anywhere means
+     * this account already has real navigation elsewhere and should keep using today's
+     * existing (unmodified) redirect for that side, not be funnelled into this picker.
+     *
+     * @return array<int, array{type: 'event', event_id: int, label: string, date: string}|array{type: 'tickets', label: string}>
+     */
+    private function possibleKioskPosDestinations(User $user): array
+    {
+        $coordinatorRows = \Illuminate\Support\Facades\DB::table('event_coordinators')
+            ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
+            ->where('event_coordinators.user_id', $user->id)
+            ->orderBy('events.event_date')
+            ->select('events.event_id', 'events.event_name', 'events.event_date', 'event_coordinators.level')
+            ->get();
+
+        if ($coordinatorRows->isNotEmpty() && !$coordinatorRows->every(fn ($row) => $row->level === 'pos')) {
+            return [];
+        }
+
+        $ticketRow = \Illuminate\Support\Facades\DB::table('ticket_controllers')->where('user_id', $user->id)->first();
+        if ($ticketRow && !in_array($ticketRow->level, ['view', 'entry'], true)) {
+            return [];
+        }
+
+        $destinations = [];
+        foreach ($coordinatorRows as $row) {
+            $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'label' => $row->event_name, 'date' => $row->event_date];
+        }
+        if ($ticketRow) {
+            $destinations[] = ['type' => 'tickets', 'label' => 'Ticket Sales'];
+        }
+
+        return $destinations;
+    }
+
+    private function redirectToPosDestination(array $destination)
+    {
+        return $destination['type'] === 'event'
+            ? redirect()->route('admin.events.pos', $destination['event_id'])
+            : redirect()->route('admin.tickets.pos');
+    }
+
+    /**
+     * The "choose your counter" grid for an account that reached completeLogin() with more
+     * than one kiosk-only destination — recomputes fresh from the DB rather than trusting
+     * anything stashed at login time, so a stale bookmark or a since-changed assignment never
+     * shows a degenerate one-tile (or empty) grid: it just redirects straight past this page.
+     */
+    public function showKioskSelect()
+    {
+        $user = Auth::user();
+        $destinations = $this->possibleKioskPosDestinations($user);
+
+        if (count($destinations) > 1) {
+            return view('auth.kiosk-select', ['destinations' => $destinations]);
+        }
+        if (count($destinations) === 1) {
+            return $this->redirectToPosDestination($destinations[0]);
+        }
+
+        $role = session('active_role', $user->role);
+        return redirect()->route($this->dashboardRouteForRole($role));
+    }
+
+    /**
      * The shared "credentials/OTP are both good, finish signing them in" tail — used by both
      * the plain login() path (no 2FA) and verifyLoginOtp() (2FA verified) so the actual
      * session/role/redirect logic only exists once.
@@ -530,6 +600,27 @@ class AuthController extends Controller
         // Login the user
         Auth::login($user);
         $user->update(['last_login_at' => now()]);
+
+        // An account that is PURELY kiosk-only (every event assignment is 'pos' level, or a
+        // 'view'/'entry' Ticket Controller) may hold more than one such destination at once
+        // (two events, or an event plus ticket access) — neither kiosk page has any
+        // navigation to switch between them, so with more than one reachable destination the
+        // account picks at login instead of one being silently guessed. Only engages for
+        // these two roles — an Admin/Staff/etc. account holding the same grants as a
+        // secondary role keeps using the topbar's "Switch Role" as today, since it already
+        // has full navigation available.
+        if (in_array($role, ['Event Coordinator', 'Ticket Controller'], true)) {
+            $destinations = $this->possibleKioskPosDestinations($user);
+            if (count($destinations) > 1) {
+                return redirect()->route('kiosk.select');
+            }
+            if (count($destinations) === 1) {
+                return $this->redirectToPosDestination($destinations[0]);
+            }
+            // Zero kiosk-only destinations for this role — a console-level coordinator, an
+            // admin-level ticket controller, or a coordinator with a non-pos assignment mixed
+            // in — falls through to the existing role-specific logic below, unchanged.
+        }
 
         // An Event Coordinator always lands straight on their workspace — the console for
         // view/entry/admin level, or the kiosk-style POS page for pos level — rather than a

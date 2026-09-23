@@ -25,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // reloads itself client-side instead; see the fetch wrapper in
         // event-pos-donation.blade.php / ticket-pos.blade.php.
         $middleware->redirectGuestsTo(function ($request) {
-            $kioskRoutes = ['admin.events.pos', 'admin.tickets.pos'];
+            $kioskRoutes = ['admin.events.pos', 'admin.tickets.pos', 'kiosk.select'];
             if ($request->route() && in_array($request->route()->getName(), $kioskRoutes, true)) {
                 return route('kiosk.login');
             }
