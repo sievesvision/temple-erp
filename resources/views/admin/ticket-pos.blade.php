@@ -190,7 +190,7 @@
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
-        <a href="{{ route('logout') }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
+        <a href="{{ route('logout', ['from' => 'kiosk']) }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
     </header>
 
     <div class="pos-body">
@@ -343,6 +343,22 @@
         ] : null;
     @endphp
     <script>
+        // A session that expires while this kiosk is left open only ever surfaces to a
+        // background fetch() (the various polling/save calls below) as a plain 401 JSON body
+        // — Laravel's default unauthenticated() handler never redirects a request that
+        // expects JSON. Reloading the page turns that into a normal full-page navigation,
+        // which (now unauthenticated) is what actually triggers the server-side redirect to
+        // the kiosk login screen — see Authenticate::redirectUsing() in AppServiceProvider.
+        (function () {
+            const nativeFetch = window.fetch;
+            window.fetch = function () {
+                return nativeFetch.apply(this, arguments).then(function (res) {
+                    if (res.status === 401) { window.location.reload(); }
+                    return res;
+                });
+            };
+        })();
+
         const CSRF_TOKEN = @json(csrf_token());
         const STORE_ORDER_URL = @json(route('admin.tickets.storeOrder'));
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));

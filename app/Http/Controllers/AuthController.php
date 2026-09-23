@@ -255,6 +255,20 @@ class AuthController extends Controller
     }
 
     /**
+     * The POS-only kiosk login landing page — same step-1 form as showLogin() but a
+     * dedicated, kiosk-appropriate view (no registration/forgot-password links, no public
+     * navbar). Posts to the same login.post route, so completeLogin() below (unchanged)
+     * still decides the post-login destination purely from the account's role/level.
+     */
+    public function showKioskLogin()
+    {
+        return response()->view('auth.kiosk-login', ['step' => 1])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+    }
+
+    /**
      * Step 2 of login for a 2FA-enabled account — "Enter your OTP". Requires the pending
      * login state startLoginOtp() stashed in session; falls back to the plain login form if
      * that's missing (e.g. the user navigated here directly or the session already expired).
@@ -571,11 +585,13 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $fromKiosk = $request->query('from') === 'kiosk';
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login')
+        return redirect()->route($fromKiosk ? 'kiosk.login' : 'login')
             ->with('success', 'Logged out successfully.');
     }
 

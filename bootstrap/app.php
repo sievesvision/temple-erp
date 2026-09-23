@@ -11,6 +11,27 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // A session that times out while on one of the POS kiosk pages returns to the kiosk
+        // login, not the general devotee/management one — decided by which route the expired
+        // request was hitting (the user/session is already gone by the time this fires, so it
+        // can't be role-based). Must be set here, not via Authenticate::redirectUsing() in a
+        // service provider — ApplicationBuilder::withMiddleware() (Laravel's own bootstrap)
+        // unconditionally calls ->redirectGuestsTo(fn () => route('login')) on every kernel
+        // resolution, silently overwriting anything a provider's boot() registers; this
+        // closure runs immediately after that default, so it's the only place a custom
+        // callback actually sticks. Only affects a full-page redirect — the POS pages' own
+        // background fetch() polling gets a plain 401 JSON body from Laravel's default
+        // unauthenticated() handling (expectsJson() short-circuits before this ever runs) and
+        // reloads itself client-side instead; see the fetch wrapper in
+        // event-pos-donation.blade.php / ticket-pos.blade.php.
+        $middleware->redirectGuestsTo(function ($request) {
+            $kioskRoutes = ['admin.events.pos', 'admin.tickets.pos'];
+            if ($request->route() && in_array($request->route()->getName(), $kioskRoutes, true)) {
+                return route('kiosk.login');
+            }
+            return route('login');
+        });
+
         $middleware->appendToGroup('web', \App\Http\Middleware\RoleSwitchMiddleware::class);
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',

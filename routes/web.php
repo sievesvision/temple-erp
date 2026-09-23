@@ -53,6 +53,10 @@ Route::get('/register/verify-otp', [AuthController::class, 'showVerifyOtp'])->na
 Route::post('/register/verify-otp', [AuthController::class, 'verifyOtp'])->name('register.verify-otp.post');
 Route::post('/register/resend-otp', [AuthController::class, 'resendOtp'])->name('register.resend-otp');
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+// Dedicated kiosk-styled login landing page for POS-only accounts (an Event Coordinator at
+// 'pos' level, a Ticket Controller at 'view'/'entry' level) — posts to the same login.post
+// handler below, so credential/2FA/lockout/recaptcha logic is never duplicated.
+Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kiosk.login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::get('/login/verify-otp', [AuthController::class, 'showLoginVerifyOtp'])->name('login.verify-otp');
 Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp'])->name('login.verify-otp.post');
