@@ -49,5 +49,29 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // A 419 "Page Expired" is Laravel's default response to a CSRF token mismatch — the
+        // stock error page is a dead end on a kiosk terminal (no navigation, no way back to a
+        // working form) and is exactly what happens when a kiosk PIN pad or login form sits
+        // open long enough for the session/token to go stale before anyone taps it (a counter
+        // left idle overnight, well past SESSION_LIFETIME, is the normal case here, not an
+        // edge case). Redirect back to a fresh, working login screen instead — the kiosk one
+        // if the request was a kiosk route (PIN login/settings/select) or the kiosk's own
+        // email panel (flagged via ?from=kiosk on that shared login.post action, since that
+        // route is also posted to by the general login page), the general one otherwise.
+        // Laravel's own Handler::prepareException() converts TokenMismatchException into a
+        // plain HttpException(419, ..., $previous) BEFORE any custom render() callback gets
+        // a chance to run — a closure type-hinted for TokenMismatchException itself would
+        // never match. Check the status code instead (419 has no other source in this app).
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, $request) {
+            if ($e->getStatusCode() !== 419) {
+                return null;
+            }
+
+            $kioskRoutes = ['kiosk.pin-login', 'kiosk.pin.update', 'kiosk.select.choose'];
+            $isKiosk = ($request->route() && in_array($request->route()->getName(), $kioskRoutes, true))
+                || $request->query('from') === 'kiosk';
+
+            return redirect()->route($isKiosk ? 'kiosk.login' : 'login')
+                ->with('error', 'Your session timed out — please try again.');
+        });
     })->create();

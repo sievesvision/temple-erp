@@ -251,6 +251,20 @@
         </div>
       @endif
 
+      {{-- Session-timeout / expired-page recovery lands back here with a plain 'error'
+           flash (see bootstrap/app.php's TokenMismatchException handler) — this auth page
+           has no shared layout/notifications partial to render it otherwise, so without
+           this block the message would be silently dropped and the recovery would look like
+           an unexplained bounce back to a blank login screen. --}}
+      @if(session('error'))
+        <div class="alert alert-warning mb-3 text-start" style="border-radius: 12px; background-color: #fff7ea; border: 1px solid #f0dfb8;">
+          <div class="d-flex align-items-center gap-2 fw-bold" style="color:#8a6d1f;">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span>{{ session('error') }}</span>
+          </div>
+        </div>
+      @endif
+
       @php $showEmailFirst = $pinLocked || $errors->has('email') || $errors->has('password') || $errors->has('g-recaptcha-response'); @endphp
 
       @if($pinLocked)
@@ -290,7 +304,10 @@
           <p class="kiosk-card-title">Kiosk Login</p>
           <p class="kiosk-card-subtitle">Sign in with your email &amp; password</p>
         @endif
-        <form method="POST" action="{{ route('login.post') }}" id="kioskLoginForm">
+        {{-- ?from=kiosk survives a CSRF failure (a query string, unlike the POST body, isn't
+             invalidated by the token mismatch) — it's how the 419 handler in bootstrap/app.php
+             tells this shared login.post submission apart from the general login page's. --}}
+        <form method="POST" action="{{ route('login.post', ['from' => 'kiosk']) }}" id="kioskLoginForm">
           @csrf
 
           <div class="form-floating">

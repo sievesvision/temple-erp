@@ -505,6 +505,18 @@
             </div>
           @endif
 
+          {{-- A plain 'error' flash (e.g. the TokenMismatchException recovery redirect in
+               bootstrap/app.php after a 419) — distinct from the $errors validation bag above,
+               and otherwise silently dropped: this page has no shared notifications partial. --}}
+          @if(session('error'))
+            <div class="alert alert-warning mb-4" style="border-radius: 10px; background-color: #fff7ea; border: 1px solid #f0dfb8;">
+              <div class="d-flex align-items-center gap-2 fw-bold" style="color:#8a6d1f;">
+                <i class="bi bi-arrow-clockwise"></i>
+                <span>{{ session('error') }}</span>
+              </div>
+            </div>
+          @endif
+
           <!-- Form -->
           <form method="POST" action="{{ route('login.post') }}" id="loginForm">
             @csrf
