@@ -120,4 +120,51 @@ class KioskPinSettingsTest extends TestCase
 
         $this->assertNotNull(Setting::get('kiosk_pin_locked_at'));
     }
+
+    /**
+     * Regression: "Back to counter" used url()->previous(), which this page's own form
+     * (posting back to itself on save) silently corrupts — the session's tracked previous
+     * URL becomes this same settings page after the very first save, turning the link into a
+     * loop instead of a way out. The link must be derived from the account's own
+     * destination(s), not the request history.
+     */
+    public function test_back_to_counter_links_straight_to_the_single_event_regardless_of_referrer(): void
+    {
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Back Link Event', 'event_date' => now()->addMonth()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'pos',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // Simulate having just POSTed to this very page (the exact scenario that broke
+        // url()->previous()) before loading it again.
+        $response = $this->actingAs($user)->withHeaders(['referer' => route('kiosk.pin.edit')])->get(route('kiosk.pin.edit'));
+
+        $response->assertOk();
+        $response->assertSee(route('admin.events.pos', $eventId), false);
+        $response->assertDontSee('href="' . route('kiosk.pin.edit') . '"', false);
+    }
+
+    public function test_back_to_counter_links_to_the_select_grid_for_a_dual_access_account(): void
+    {
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Back Link Event 2', 'event_date' => now()->addMonth()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'pos',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('ticket_controllers')->insert(['user_id' => $user->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
+
+        $response = $this->actingAs($user)->get(route('kiosk.pin.edit'));
+
+        $response->assertOk();
+        $response->assertSee(route('kiosk.select'), false);
+    }
 }

@@ -553,9 +553,14 @@ class AuthController extends Controller
     {
         session(['active_role' => $destination['type'] === 'event' ? 'Event Coordinator' : 'Ticket Controller']);
 
+        return redirect($this->posDestinationUrl($destination));
+    }
+
+    private function posDestinationUrl(array $destination): string
+    {
         return $destination['type'] === 'event'
-            ? redirect()->route('admin.events.pos', $destination['event_id'])
-            : redirect()->route('admin.tickets.pos');
+            ? route('admin.events.pos', $destination['event_id'])
+            : route('admin.tickets.pos');
     }
 
     /**
@@ -672,11 +677,20 @@ class AuthController extends Controller
     public function showKioskPinSettings()
     {
         $user = Auth::user();
-        if (!$this->possibleKioskPosDestinations($user)) {
+        $destinations = $this->possibleKioskPosDestinations($user);
+        if (!$destinations) {
             abort(403, 'Unauthorized access.');
         }
 
-        return view('auth.kiosk-pin-settings', ['user' => $user]);
+        // Not url()->previous() — this page's own form posts back to itself (see
+        // updateKioskPinSettings()'s back() redirects), which overwrites the session's
+        // tracked "previous URL" with this same page on the very next load, turning "Back to
+        // counter" into a loop back to these settings instead. Deriving it the same way
+        // completeLogin() picks a destination is deterministic regardless of how this page
+        // was reached.
+        $backUrl = count($destinations) === 1 ? $this->posDestinationUrl($destinations[0]) : route('kiosk.select');
+
+        return view('auth.kiosk-pin-settings', ['user' => $user, 'backUrl' => $backUrl]);
     }
 
     /**

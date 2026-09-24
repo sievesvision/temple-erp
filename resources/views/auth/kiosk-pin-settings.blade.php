@@ -60,7 +60,7 @@
 </head>
 <body>
   <div class="settings-card">
-    <a href="{{ url()->previous() }}" class="back-link"><i class="bi bi-arrow-left"></i> Back to counter</a>
+    <a href="{{ $backUrl }}" class="back-link"><i class="bi bi-arrow-left"></i> Back to counter</a>
 
     <h1 class="settings-title font-divine">Your Kiosk PIN</h1>
     <p class="settings-subtitle">Set or change the 6-digit PIN used for fast counter sign-in.</p>
