@@ -57,6 +57,7 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 // 'pos' level, a Ticket Controller at 'view'/'entry' level) — posts to the same login.post
 // handler below, so credential/2FA/lockout/recaptcha logic is never duplicated.
 Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kiosk.login');
+Route::get('/kiosk', fn () => redirect()->route('kiosk.login'));
 // "Choose your counter" grid — only ever reached by an account holding more than one
 // kiosk-only destination (see AuthController::completeLogin()/possibleKioskPosDestinations()).
 Route::get('/kiosk/select', [AuthController::class, 'showKioskSelect'])->middleware('auth')->name('kiosk.select');

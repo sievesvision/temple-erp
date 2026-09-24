@@ -41,6 +41,13 @@ class KioskLoginTest extends TestCase
         $response->assertDontSee('Forgot Password');
     }
 
+    public function test_the_bare_kiosk_path_redirects_to_kiosk_login(): void
+    {
+        $response = $this->get('/kiosk');
+
+        $response->assertRedirect(route('kiosk.login'));
+    }
+
     public function test_logging_in_via_kiosk_page_still_lands_a_pos_level_coordinator_on_their_event(): void
     {
         [$user, $eventId] = $this->posLevelCoordinator();

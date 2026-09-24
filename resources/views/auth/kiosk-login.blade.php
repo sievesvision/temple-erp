@@ -16,239 +16,203 @@
       --primary-saffron: {{ $temple['primary_color'] }};
       --saffron-dark: {{ $temple['dark_color'] }};
       --primary-gold: {{ $temple['accent_color'] }};
-      --dark-bg: {{ $temple['dark_color'] }};
+      --ink: #1f2430;
+      --muted: #7d8494;
+      --bg: #f6f4f0;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* Body copy, labels and inputs use Inter — the same face the actual counter screens
-       (event-pos-donation / ticket-pos) already standardised on for numbers and UI text —
-       so the sign-in screen already feels like the device it's the front door to. Playfair
-       Display stays reserved for the temple's own name, matching every other page on the
-       site that carries it. */
+    /* Inter throughout — the same face the actual counter screens (event-pos-donation /
+       ticket-pos) already standardised on, kept self-hosted rather than pulling a heavier
+       display face from Google Fonts: this is a login screen, the one page where a kiosk
+       device depending on an external CDN just to render its own text is the wrong trade,
+       even though a heavier weight would sit closer to the reference's bolder wordmark. */
     body, input, button { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     .font-divine { font-family: 'Playfair Display', Georgia, serif; font-weight: 700; }
 
     html, body { height: 100%; }
 
-    /* A dedicated counter/tablet screen, not a browsed page — full-bleed, centered, nothing
-       to navigate away to. Deliberately no navbar, no footer, no other links. Fixed dark
-       backdrop by design (this is one physical device's own screen, not a themeable page). */
     body {
       position: relative;
-      /* auto, not hidden — a short landscape kiosk viewport (~768px and under is common)
-         must never silently clip the welcome header off the top; it scrolls instead. */
+      overflow-x: hidden;
       overflow-y: auto;
-      color: #2d2520;
+      color: var(--ink);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: var(--bg);
       padding: 24px;
-      background:
-        radial-gradient(720px 480px at 18% 8%, color-mix(in srgb, var(--primary-gold) 22%, transparent), transparent 62%),
-        radial-gradient(640px 520px at 88% 92%, color-mix(in srgb, var(--primary-saffron) 26%, transparent), transparent 60%),
-        linear-gradient(160deg, var(--dark-bg) 0%, #16110d 100%);
-    }
-
-    /* A faint repeating dot lattice — the kind of quiet texture a physical kiosk fascia
-       has — rather than a flat gradient doing all the work. */
-    body::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: radial-gradient(rgba(255,255,255,0.055) 1.4px, transparent 1.4px);
-      background-size: 26px 26px;
-      pointer-events: none;
-    }
-
-    .kiosk-wrap {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 960px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 2.25rem;
     }
 
-    /* ---------- Welcome header ---------- */
-    .welcome-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.74rem;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--primary-gold);
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.18);
-      padding: 0.45rem 1rem;
-      border-radius: 999px;
-      margin-bottom: 1rem;
-    }
-    .welcome-eyebrow i { font-size: 0.85rem; }
+    /* Soft blurred colour fields instead of a flat background — the reference's own quiet
+       blue blobs, re-tinted to the temple's own saffron/gold rather than a generic brand
+       blue, so this still reads as part of the same site as every other page. */
+    .kiosk-blob { position: fixed; border-radius: 50%; filter: blur(70px); pointer-events: none; z-index: 0; }
+    .kiosk-blob.b1 { width: 420px; height: 420px; top: -120px; left: -100px; background: color-mix(in srgb, var(--primary-gold) 35%, transparent); }
+    .kiosk-blob.b2 { width: 360px; height: 360px; bottom: -140px; right: -80px; background: color-mix(in srgb, var(--primary-saffron) 28%, transparent); }
+    .kiosk-blob.b3 { width: 260px; height: 260px; top: 40%; left: 8%; background: color-mix(in srgb, var(--primary-gold) 20%, transparent); }
 
-    .welcome-heading { text-align: center; color: #fff; }
-    .welcome-heading h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.2; }
-    .welcome-heading h1 .accent { color: var(--primary-gold); }
-    .welcome-heading p { margin-top: 0.5rem; color: rgba(255,255,255,0.62); font-size: 1rem; }
+    .kiosk-topbar { position: relative; z-index: 1; display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+    .kiosk-clock { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .kiosk-clock .time { font-size: 1.15rem; font-weight: 700; color: var(--ink); }
+    .kiosk-clock .date { font-size: 0.75rem; letter-spacing: 0.03em; }
+
+    .kiosk-shell {
+      position: relative; z-index: 1;
+      flex: 1;
+      width: 100%; max-width: 1120px; margin: 0 auto;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center;
+      gap: 2.75rem;
+      text-align: center;
+    }
+
+    .kiosk-intro h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; }
+    .kiosk-intro h1 .accent { color: var(--primary-saffron); }
+    .kiosk-intro-tagline { margin-top: 0.6rem; color: var(--muted); font-size: 1.05rem; }
+
+    .kiosk-feature-list { list-style: none; margin-top: 1.75rem; display: flex; flex-direction: column; gap: 0.9rem; align-items: center; }
+    .kiosk-feature-list li { display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--ink); font-size: 1rem; }
+    .feature-icon-badge {
+      width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .feature-icon-badge.tone-a { background: color-mix(in srgb, var(--primary-saffron) 14%, white); color: var(--primary-saffron); }
+    .feature-icon-badge.tone-b { background: color-mix(in srgb, var(--primary-gold) 20%, white); color: color-mix(in srgb, var(--primary-gold) 70%, black); }
 
     /* ---------- Sign-in card ---------- */
     .kiosk-card {
-      width: 100%;
-      max-width: 440px;
-      background: rgba(253, 251, 247, 0.98);
-      border-radius: 24px;
-      box-shadow: 0 40px 90px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06);
-      padding: 2.5rem 2.25rem 2.25rem;
-      animation: fadeInUp 0.5s ease-out;
+      width: 100%; max-width: 420px;
+      background: #fff;
+      border-radius: 26px;
+      box-shadow: 0 30px 70px rgba(31,36,48,0.12), 0 0 0 1px rgba(31,36,48,0.03);
+      padding: 2.25rem 2rem 1.75rem;
+      text-align: center;
     }
 
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(16px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    .kiosk-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 1.25rem; }
+    .kiosk-brand img { width: 52px; height: 52px; object-fit: contain; }
+    .kiosk-brand .om-mark { font-size: 2.1rem; line-height: 1; color: var(--primary-saffron); }
+    .kiosk-brand-name { font-size: 1.15rem; color: var(--ink); }
+    .kiosk-brand-tag { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 
-    .kiosk-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 1.6rem; }
-    .kiosk-brand img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
-    .kiosk-brand .om-mark { font-size: 1.9rem; line-height: 1; color: var(--primary-saffron); flex-shrink: 0; }
-    .kiosk-brand-name { font-size: 1.05rem; color: var(--dark-bg); line-height: 1.2; display: block; }
-    .kiosk-brand-tag { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: #948c7e; }
+    .kiosk-card-title { font-size: 1.15rem; font-weight: 800; color: var(--ink); margin-top: 0.5rem; }
+    .kiosk-card-subtitle { color: var(--muted); font-size: 0.88rem; margin-bottom: 1.5rem; }
 
     .form-floating { margin-bottom: 1rem; }
     .form-control {
-      min-height: 60px;
-      font-size: 1.05rem;
-      border: 1.5px solid #e7ddcd;
-      border-radius: 14px;
+      min-height: 58px; font-size: 1.02rem;
+      border: 1.5px solid #e8e4dc; border-radius: 14px; background: #faf9f6;
     }
-    .form-control:focus { border-color: var(--primary-saffron); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-saffron) 18%, transparent); }
-    .form-floating label { color: #948c7e; }
+    .form-control:focus { border-color: var(--primary-saffron); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-saffron) 16%, transparent); background: #fff; }
+    .form-floating label { color: var(--muted); }
 
     .btn-kiosk-login {
-      /* A self-darkened version of the primary colour, not --saffron-dark (the temple's
-         separate, unrelated "dark" brand tone, used for the page backdrop) — pairing an
-         arbitrary second brand colour into this gradient reads as muddy rather than warm. */
       background: linear-gradient(135deg, var(--primary-saffron), color-mix(in srgb, var(--primary-saffron) 55%, black));
-      border: none;
-      color: #fff;
-      font-weight: 700;
-      padding: 1.05rem;
-      border-radius: 14px;
-      font-size: 1.08rem;
-      width: 100%;
-      min-height: 60px;
-      box-shadow: 0 14px 30px color-mix(in srgb, var(--primary-saffron) 35%, transparent);
-      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      border: none; color: #fff; font-weight: 700; padding: 1.05rem; border-radius: 14px;
+      font-size: 1.05rem; width: 100%; min-height: 58px;
+      box-shadow: 0 14px 30px color-mix(in srgb, var(--primary-saffron) 30%, transparent);
     }
     .btn-kiosk-login:hover { color: #fff; }
     .btn-kiosk-login:active { transform: scale(0.98); }
 
-    .kiosk-footnote { text-align: center; color: #a89f92; font-size: 0.78rem; margin-top: 1.4rem; }
-    .kiosk-toggle-link { text-align: center; margin-top: 1.25rem; font-size: 0.9rem; }
+    .kiosk-toggle-link { text-align: center; margin-top: 1.1rem; font-size: 0.88rem; }
     .kiosk-toggle-link a { color: var(--primary-saffron); font-weight: 600; text-decoration: none; }
 
-    /* ---------- PIN keypad ---------- */
-    .pin-panel-title { text-align: center; font-weight: 700; color: var(--dark-bg); font-size: 1.05rem; margin-bottom: 0.3rem; }
-    .pin-panel-subtitle { text-align: center; color: #948c7e; font-size: 0.85rem; margin-bottom: 1.5rem; }
+    .kiosk-secure-note {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      border-top: 1px solid #eee9e0; margin-top: 1.5rem; padding-top: 1.1rem;
+      color: var(--muted); font-size: 0.8rem;
+    }
 
-    .pin-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 1.75rem; }
+    /* ---------- PIN keypad ---------- */
+    .pin-dots { display: flex; justify-content: center; gap: 9px; margin-bottom: 1.5rem; }
     .pin-dot {
-      width: 44px; height: 52px;
-      border: 1.5px solid #e7ddcd;
-      border-radius: 12px;
+      width: 42px; height: 50px; border: 1.5px solid #e8e4dc; border-radius: 12px;
+      background: #faf9f6;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.5rem; color: var(--dark-bg);
-      background: #fff;
       transition: border-color 0.15s ease;
     }
-    .pin-dot.filled { border-color: var(--primary-saffron); }
-    .pin-dot.filled::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: var(--primary-saffron); }
+    .pin-dot.filled { border-color: var(--primary-saffron); background: #fff; }
+    .pin-dot.filled::after { content: ''; width: 11px; height: 11px; border-radius: 50%; background: var(--primary-saffron); }
     .pin-panel.shake .pin-dot { border-color: #d9534f; animation: pinShake 0.4s; }
     @keyframes pinShake {
       0%, 100% { transform: translateX(0); }
-      20% { transform: translateX(-6px); }
-      40% { transform: translateX(6px); }
-      60% { transform: translateX(-4px); }
-      80% { transform: translateX(4px); }
+      20% { transform: translateX(-6px); } 40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); } 80% { transform: translateX(4px); }
     }
 
     .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .pin-key {
-      min-height: 58px;
-      border: 1.5px solid #e7ddcd;
-      border-radius: 14px;
-      background: #fff;
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--dark-bg);
+      min-height: 56px; border: none; border-radius: 14px; background: #f4f2ee;
+      font-size: 1.3rem; font-weight: 700; color: var(--ink);
     }
-    .pin-key:active { background: #f3ede3; }
-    .pin-key.pin-key-back { background: #f3ede3; color: #7a6e63; font-size: 1.1rem; }
+    .pin-key:active { background: #ebe7df; }
+    .pin-key.pin-key-back { color: var(--muted); font-size: 1.05rem; }
     .pin-key.pin-key-submit {
       background: linear-gradient(135deg, var(--primary-saffron), color-mix(in srgb, var(--primary-saffron) 55%, black));
-      color: #fff;
-      font-size: 1.3rem;
+      color: #fff; font-size: 1.25rem;
     }
-    .pin-key.pin-key-submit:disabled { opacity: 0.4; }
+    .pin-key.pin-key-submit:disabled { opacity: 0.35; }
+
     .pin-locked-note {
-      text-align: center;
-      background: #fff7ea;
-      border: 1px solid #f0dfb8;
-      color: #8a6d1f;
-      border-radius: 12px;
-      padding: 0.9rem 1rem;
-      font-size: 0.88rem;
-      margin-bottom: 1.25rem;
+      text-align: center; background: #fff7ea; border: 1px solid #f0dfb8; color: #8a6d1f;
+      border-radius: 12px; padding: 0.9rem 1rem; font-size: 0.88rem; margin-bottom: 1.25rem;
     }
 
-    /* ---------- Live clock — a quiet, familiar cue that this is a live terminal ---------- */
-    .kiosk-clock {
-      position: fixed;
-      top: env(safe-area-inset-top, 0px);
-      right: 0;
-      margin: 20px 24px 0 0;
-      text-align: right;
-      color: rgba(255,255,255,0.55);
-      font-variant-numeric: tabular-nums;
-      z-index: 1;
+    .kiosk-poweredby {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 1.75rem; color: var(--muted); font-size: 0.75rem;
     }
-    .kiosk-clock .time { font-size: 1.1rem; font-weight: 700; color: rgba(255,255,255,0.85); }
-    .kiosk-clock .date { font-size: 0.72rem; letter-spacing: 0.04em; }
+    .kiosk-poweredby img { height: 16px; width: auto; opacity: 0.85; }
+
+    @media (min-width: 980px) {
+      .kiosk-shell { flex-direction: row; align-items: center; justify-content: space-between; text-align: left; gap: 4rem; }
+      .kiosk-intro { flex: 1; }
+      .kiosk-feature-list { align-items: flex-start; }
+      .kiosk-card { flex-shrink: 0; }
+    }
 
     @media (max-width: 480px) {
-      .kiosk-clock { display: none; }
+      .kiosk-topbar { justify-content: center; }
     }
 
-    /* A landscape kiosk tablet is commonly ~700-800px tall — tighten the welcome header and
-       card padding rather than let the fixed clock/eyebrow/heading stack push the keypad
-       (the actually functional part) below the fold. */
+    /* A landscape kiosk tablet is commonly ~700-800px tall — tighten vertical spacing rather
+       than let the intro/card stack push the keypad (the functional part) below the fold. */
     @media (max-height: 820px) {
-      .kiosk-wrap { gap: 1.1rem; }
-      .welcome-eyebrow { margin-bottom: 0.5rem; }
-      .welcome-heading h1 { font-size: clamp(1.3rem, 3.2vw, 1.8rem); }
-      .welcome-heading p { display: none; }
-      .kiosk-card { padding: 1.5rem 1.75rem 1.5rem; }
-      .kiosk-brand { margin-bottom: 1rem; }
-      .pin-dots { margin-bottom: 1.1rem; }
-      .pin-key { min-height: 48px; }
+      .kiosk-shell { gap: 1.5rem; }
+      .kiosk-intro-tagline { display: none; }
+      .kiosk-feature-list { display: none; }
+      .kiosk-card { padding: 1.5rem 1.75rem 1.25rem; }
+      .kiosk-brand { margin-bottom: 0.75rem; }
+      .kiosk-card-subtitle { margin-bottom: 1rem; }
+      .pin-dots { margin-bottom: 1rem; }
+      .pin-key { min-height: 46px; }
     }
   </style>
 </head>
 <body>
-  <div class="kiosk-clock">
-    <div class="time" id="kioskClockTime">--:--</div>
-    <div class="date" id="kioskClockDate"></div>
+  <div class="kiosk-blob b1"></div>
+  <div class="kiosk-blob b2"></div>
+  <div class="kiosk-blob b3"></div>
+
+  <div class="kiosk-topbar">
+    <div class="kiosk-clock">
+      <div class="time" id="kioskClockTime">--:--</div>
+      <div class="date" id="kioskClockDate"></div>
+    </div>
   </div>
 
-  <div class="kiosk-wrap">
-    <div class="welcome-heading">
-      <span class="welcome-eyebrow"><i class="bi bi-sun-fill" id="kioskGreetingIcon"></i> <span id="kioskGreeting">Welcome</span></span>
-      <h1 class="font-divine">Welcome to <span class="accent">{{ $temple['brand_title'] ?: $temple['name'] }}</span></h1>
-      <p>Sign in to open your event donation or ticket counter</p>
+  <div class="kiosk-shell">
+    <div class="kiosk-intro">
+      <h1>Welcome to <span class="accent">{{ $temple['brand_title'] ?: $temple['name'] }}</span></h1>
+      <p class="kiosk-intro-tagline">Fast, secure sign-in for your counter team.</p>
+      <ul class="kiosk-feature-list">
+        <li><span class="feature-icon-badge tone-a"><i class="bi bi-calendar-heart-fill"></i></span> Event Donations</li>
+        <li><span class="feature-icon-badge tone-b"><i class="bi bi-ticket-perforated-fill"></i></span> Ticket Sales</li>
+      </ul>
     </div>
 
     <div class="kiosk-card">
@@ -259,13 +223,13 @@
           <span class="om-mark">ॐ</span>
         @endif
         <span>
-          <span class="kiosk-brand-name font-divine">{{ $temple['brand_title'] ?: $temple['name'] }}</span>
-          <span class="kiosk-brand-tag d-block">Counter Sign In</span>
+          <span class="kiosk-brand-name font-divine d-block">{{ $temple['brand_title'] ?: $temple['name'] }}</span>
+          <span class="kiosk-brand-tag">Counter Sign In</span>
         </span>
       </div>
 
       @if(isset($errors) && $errors->any())
-        <div class="alert alert-danger mb-3" style="border-radius: 12px; background-color: #fff2f2; border: 1px solid #f3c6c6;">
+        <div class="alert alert-danger mb-3 text-start" style="border-radius: 12px; background-color: #fff2f2; border: 1px solid #f3c6c6;">
           <div class="d-flex align-items-center gap-2 text-danger fw-bold mb-1">
             <i class="bi bi-exclamation-circle-fill"></i>
             <span>Sign in failed:</span>
@@ -279,7 +243,7 @@
       @endif
 
       @if(session('success'))
-        <div class="alert alert-success mb-3" style="border-radius: 12px; background-color: #f2fdf2; border: 1px solid #c6e8c6;">
+        <div class="alert alert-success mb-3 text-start" style="border-radius: 12px; background-color: #f2fdf2; border: 1px solid #c6e8c6;">
           <div class="d-flex align-items-center gap-2 text-success fw-bold">
             <i class="bi bi-check-circle-fill"></i>
             <span>{{ session('success') }}</span>
@@ -290,12 +254,12 @@
       @php $showEmailFirst = $pinLocked || $errors->has('email') || $errors->has('password') || $errors->has('g-recaptcha-response'); @endphp
 
       @if($pinLocked)
+        <p class="kiosk-card-title">Kiosk Login</p>
         <div class="pin-locked-note"><i class="bi bi-shield-lock-fill me-1"></i> PIN sign-in is temporarily disabled after too many incorrect attempts. Please sign in with your email and password below.</div>
       @else
-        {{-- PIN panel — the default, fast path for kiosk-only accounts. --}}
         <div id="kioskPinPanel" class="pin-panel {{ $showEmailFirst ? 'd-none' : '' }}">
-          <p class="pin-panel-title">Enter your PIN</p>
-          <p class="pin-panel-subtitle">6-digit counter PIN</p>
+          <p class="kiosk-card-title">Kiosk Login</p>
+          <p class="kiosk-card-subtitle">Enter your PIN to continue</p>
 
           <form method="POST" action="{{ route('kiosk.pin-login') }}" id="kioskPinForm">
             @csrf
@@ -322,6 +286,10 @@
       @endif
 
       <div id="kioskEmailPanel" class="{{ $showEmailFirst ? '' : 'd-none' }}">
+        @if(!$pinLocked)
+          <p class="kiosk-card-title">Kiosk Login</p>
+          <p class="kiosk-card-subtitle">Sign in with your email &amp; password</p>
+        @endif
         <form method="POST" action="{{ route('login.post') }}" id="kioskLoginForm">
           @csrf
 
@@ -353,8 +321,14 @@
         @endunless
       </div>
 
-      <p class="kiosk-footnote">Contact the temple office if you don't have counter credentials.</p>
+      <div class="kiosk-secure-note"><i class="bi bi-lock-fill"></i> Secure access. Please do not share your PIN.</div>
     </div>
+  </div>
+
+  <div class="kiosk-poweredby">
+    <span>Provided by</span>
+    <img src="{{ asset('sievespos_logo.png') }}" alt="SievesPOS">
+    <span>(Sievesvision)</span>
   </div>
 
   <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
@@ -373,15 +347,7 @@
       const timeEl = document.getElementById('kioskClockTime');
       const dateEl = document.getElementById('kioskClockDate');
       if (timeEl) { timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-      if (dateEl) { dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' }); }
-
-      const greeting = document.getElementById('kioskGreeting');
-      const greetingIcon = document.getElementById('kioskGreetingIcon');
-      if (greeting) {
-        const hour = now.getHours();
-        greeting.textContent = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
-        if (greetingIcon) { greetingIcon.className = hour >= 6 && hour < 18 ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill'; }
-      }
+      if (dateEl) { dateEl.textContent = now.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }); }
     }
     tickKioskClock();
     setInterval(tickKioskClock, 30000);
