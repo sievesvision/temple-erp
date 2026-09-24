@@ -127,6 +127,16 @@
     </div>
 @endif
 
+@if($kioskPinLocked)
+    <div class="alert border-0 rounded-4 shadow-sm mb-4 p-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: #fff7ea; color: #8a6d1f;">
+        <span><i class="bi bi-shield-lock-fill me-2"></i>Kiosk PIN sign-in is currently locked out after too many incorrect attempts — every counter must use email &amp; password until this is reset (or someone signs in with email/password, which clears it automatically).</span>
+        <form method="POST" action="{{ route('admin.kiosk-pin.reset-lockout') }}" class="m-0">
+            @csrf
+            <button type="submit" class="btn btn-sm fw-bold rounded-pill px-3" style="background:#8a6d1f; color:#fff; border:none;">Reset PIN Lockout</button>
+        </form>
+    </div>
+@endif
+
 <div class="filter-bar">
     <form method="GET" action="{{ route('admin.users.index') }}" class="row g-2 align-items-center">
         <div class="col-md-3">

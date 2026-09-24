@@ -32,6 +32,8 @@ protected $fillable = [
     'password_changed_at',
     'last_reset_email_sent_at',
     'two_factor_enabled',
+    'pos_pin',
+    'pos_pin_set_at',
 ];
 
     /**
@@ -42,6 +44,7 @@ protected $fillable = [
     protected $hidden = [
         'password',
         'remember_token',
+        'pos_pin',
     ];
 
     /**
@@ -57,6 +60,8 @@ protected $fillable = [
             'last_login_at' => 'datetime',
             'password_changed_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
+            'pos_pin' => 'hashed',
+            'pos_pin_set_at' => 'datetime',
         ];
     }
 

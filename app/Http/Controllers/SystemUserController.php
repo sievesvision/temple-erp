@@ -53,8 +53,9 @@ class SystemUserController extends Controller
 
         $users = $query->orderBy('name')->paginate(25)->withQueryString();
         $roles = RolePermission::roles();
+        $kioskPinLocked = (bool) \App\Models\Setting::get('kiosk_pin_locked_at');
 
-        return view('admin.system-users', compact('users', 'roles', 'roleFilter', 'search'));
+        return view('admin.system-users', compact('users', 'roles', 'roleFilter', 'search', 'kioskPinLocked'));
     }
 
     public function sendResetLink(Request $request, User $targetUser)
@@ -69,6 +70,28 @@ class SystemUserController extends Controller
         AuditLogService::log("Sent password reset link to {$targetUser->email}");
 
         return redirect()->back()->with('success', "Reset link sent to {$targetUser->name}.");
+    }
+
+    /**
+     * The global kiosk PIN login lockout (see AuthController::attemptKioskPinLogin()'s own
+     * docblock for why it's a single switch rather than per-account) is normally cleared by
+     * anyone's next successful email/password login — this is the "or by admin" escape
+     * hatch for when nobody's touched a real login yet (e.g. every kiosk is mid-shift and
+     * the office needs PIN access back immediately).
+     */
+    public function resetKioskPinLockout(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user || $user->role !== 'Admin') {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        \App\Models\Setting::set('kiosk_pin_failed_attempts', 0);
+        \App\Models\Setting::set('kiosk_pin_locked_at', null);
+
+        AuditLogService::log('Reset the kiosk PIN login lockout.');
+
+        return redirect()->back()->with('success', 'Kiosk PIN login has been re-enabled.');
     }
 
     /**

@@ -385,6 +385,9 @@
             @if($canReturnToConsole)
             <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
             @endif
+            @if($canManageKioskPin)
+            <a href="{{ route('kiosk.pin.edit') }}" class="pos-topbar-btn" title="Manage kiosk PIN"><i class="bi bi-grid-3x3-gap-fill"></i></a>
+            @endif
             <a href="{{ route('logout', ['from' => 'kiosk']) }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
         </div>
     </header>

@@ -61,6 +61,15 @@ Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kio
 // kiosk-only destination (see AuthController::completeLogin()/possibleKioskPosDestinations()).
 Route::get('/kiosk/select', [AuthController::class, 'showKioskSelect'])->middleware('auth')->name('kiosk.select');
 Route::post('/kiosk/select', [AuthController::class, 'selectKioskPosDestination'])->middleware('auth')->name('kiosk.select.choose');
+// PIN login — a faster alternative to email+password for kiosk-only accounts. No auth
+// middleware (this IS the login), and its own global lockout (see AuthController::
+// attemptKioskPinLogin()) rather than the framework's per-user throttle, since a wrong PIN
+// can't be attributed to a specific account until it matches one.
+Route::post('/kiosk/pin-login', [AuthController::class, 'attemptKioskPinLogin'])->name('kiosk.pin-login');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/kiosk/pin', [AuthController::class, 'showKioskPinSettings'])->name('kiosk.pin.edit');
+    Route::post('/kiosk/pin', [AuthController::class, 'updateKioskPinSettings'])->name('kiosk.pin.update');
+});
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::get('/login/verify-otp', [AuthController::class, 'showLoginVerifyOtp'])->name('login.verify-otp');
 Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp'])->name('login.verify-otp.post');
@@ -469,6 +478,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::get('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'index'])->name('admin.users.index');
     Route::post('/admin/users/{targetUser}/send-reset-link', [\App\Http\Controllers\SystemUserController::class, 'sendResetLink'])->name('admin.users.send-reset-link');
     Route::post('/admin/users/{targetUser}/toggle-2fa', [\App\Http\Controllers\SystemUserController::class, 'toggleTwoFactor'])->name('admin.users.toggle-2fa');
+    Route::post('/admin/kiosk-pin/reset-lockout', [\App\Http\Controllers\SystemUserController::class, 'resetKioskPinLockout'])->name('admin.kiosk-pin.reset-lockout');
     Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
 
     // Leave Requests Route (Admin management)

@@ -36,7 +36,9 @@
        backdrop by design (this is one physical device's own screen, not a themeable page). */
     body {
       position: relative;
-      overflow: hidden;
+      /* auto, not hidden — a short landscape kiosk viewport (~768px and under is common)
+         must never silently clip the welcome header off the top; it scrolls instead. */
+      overflow-y: auto;
       color: #2d2520;
       min-height: 100vh;
       display: flex;
@@ -59,11 +61,6 @@
       background-size: 26px 26px;
       pointer-events: none;
     }
-
-    @media (prefers-reduced-motion: no-preference) {
-      .glow { animation: driftGlow 14s ease-in-out infinite alternate; }
-    }
-    @keyframes driftGlow { from { transform: translate(0, 0); } to { transform: translate(-16px, 12px); } }
 
     .kiosk-wrap {
       position: relative;
@@ -94,20 +91,10 @@
     }
     .welcome-eyebrow i { font-size: 0.85rem; }
 
-    .welcome-heading {
-      text-align: center;
-      color: #fff;
-    }
-    .welcome-heading h1 {
-      font-size: clamp(1.7rem, 4vw, 2.4rem);
-      line-height: 1.2;
-    }
+    .welcome-heading { text-align: center; color: #fff; }
+    .welcome-heading h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.2; }
     .welcome-heading h1 .accent { color: var(--primary-gold); }
-    .welcome-heading p {
-      margin-top: 0.5rem;
-      color: rgba(255,255,255,0.62);
-      font-size: 1rem;
-    }
+    .welcome-heading p { margin-top: 0.5rem; color: rgba(255,255,255,0.62); font-size: 1rem; }
 
     /* ---------- Sign-in card ---------- */
     .kiosk-card {
@@ -130,8 +117,6 @@
     .kiosk-brand .om-mark { font-size: 1.9rem; line-height: 1; color: var(--primary-saffron); flex-shrink: 0; }
     .kiosk-brand-name { font-size: 1.05rem; color: var(--dark-bg); line-height: 1.2; display: block; }
     .kiosk-brand-tag { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: #948c7e; }
-
-    .kiosk-form-title { font-size: 1.05rem; font-weight: 700; color: var(--dark-bg); margin-bottom: 1.1rem; }
 
     .form-floating { margin-bottom: 1rem; }
     .form-control {
@@ -163,6 +148,62 @@
     .btn-kiosk-login:active { transform: scale(0.98); }
 
     .kiosk-footnote { text-align: center; color: #a89f92; font-size: 0.78rem; margin-top: 1.4rem; }
+    .kiosk-toggle-link { text-align: center; margin-top: 1.25rem; font-size: 0.9rem; }
+    .kiosk-toggle-link a { color: var(--primary-saffron); font-weight: 600; text-decoration: none; }
+
+    /* ---------- PIN keypad ---------- */
+    .pin-panel-title { text-align: center; font-weight: 700; color: var(--dark-bg); font-size: 1.05rem; margin-bottom: 0.3rem; }
+    .pin-panel-subtitle { text-align: center; color: #948c7e; font-size: 0.85rem; margin-bottom: 1.5rem; }
+
+    .pin-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 1.75rem; }
+    .pin-dot {
+      width: 44px; height: 52px;
+      border: 1.5px solid #e7ddcd;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; color: var(--dark-bg);
+      background: #fff;
+      transition: border-color 0.15s ease;
+    }
+    .pin-dot.filled { border-color: var(--primary-saffron); }
+    .pin-dot.filled::after { content: ''; width: 12px; height: 12px; border-radius: 50%; background: var(--primary-saffron); }
+    .pin-panel.shake .pin-dot { border-color: #d9534f; animation: pinShake 0.4s; }
+    @keyframes pinShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .pin-key {
+      min-height: 58px;
+      border: 1.5px solid #e7ddcd;
+      border-radius: 14px;
+      background: #fff;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--dark-bg);
+    }
+    .pin-key:active { background: #f3ede3; }
+    .pin-key.pin-key-back { background: #f3ede3; color: #7a6e63; font-size: 1.1rem; }
+    .pin-key.pin-key-submit {
+      background: linear-gradient(135deg, var(--primary-saffron), color-mix(in srgb, var(--primary-saffron) 55%, black));
+      color: #fff;
+      font-size: 1.3rem;
+    }
+    .pin-key.pin-key-submit:disabled { opacity: 0.4; }
+    .pin-locked-note {
+      text-align: center;
+      background: #fff7ea;
+      border: 1px solid #f0dfb8;
+      color: #8a6d1f;
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      font-size: 0.88rem;
+      margin-bottom: 1.25rem;
+    }
 
     /* ---------- Live clock — a quiet, familiar cue that this is a live terminal ---------- */
     .kiosk-clock {
@@ -180,6 +221,20 @@
 
     @media (max-width: 480px) {
       .kiosk-clock { display: none; }
+    }
+
+    /* A landscape kiosk tablet is commonly ~700-800px tall — tighten the welcome header and
+       card padding rather than let the fixed clock/eyebrow/heading stack push the keypad
+       (the actually functional part) below the fold. */
+    @media (max-height: 820px) {
+      .kiosk-wrap { gap: 1.1rem; }
+      .welcome-eyebrow { margin-bottom: 0.5rem; }
+      .welcome-heading h1 { font-size: clamp(1.3rem, 3.2vw, 1.8rem); }
+      .welcome-heading p { display: none; }
+      .kiosk-card { padding: 1.5rem 1.75rem 1.5rem; }
+      .kiosk-brand { margin-bottom: 1rem; }
+      .pin-dots { margin-bottom: 1.1rem; }
+      .pin-key { min-height: 48px; }
     }
   </style>
 </head>
@@ -232,31 +287,71 @@
         </div>
       @endif
 
-      <form method="POST" action="{{ route('login.post') }}" id="kioskLoginForm">
-        @csrf
+      @php $showEmailFirst = $pinLocked || $errors->has('email') || $errors->has('password') || $errors->has('g-recaptcha-response'); @endphp
 
-        <div class="form-floating">
-          <input type="email" class="form-control @error('email') is-invalid @enderror" name="email" id="kioskEmailInput" placeholder="name@example.com" required value="{{ old('email') }}" autocomplete="username">
-          <label for="kioskEmailInput"><i class="bi bi-envelope me-1"></i>Counter Email</label>
+      @if($pinLocked)
+        <div class="pin-locked-note"><i class="bi bi-shield-lock-fill me-1"></i> PIN sign-in is temporarily disabled after too many incorrect attempts. Please sign in with your email and password below.</div>
+      @else
+        {{-- PIN panel — the default, fast path for kiosk-only accounts. --}}
+        <div id="kioskPinPanel" class="pin-panel {{ $showEmailFirst ? 'd-none' : '' }}">
+          <p class="pin-panel-title">Enter your PIN</p>
+          <p class="pin-panel-subtitle">6-digit counter PIN</p>
+
+          <form method="POST" action="{{ route('kiosk.pin-login') }}" id="kioskPinForm">
+            @csrf
+            <input type="hidden" name="pin" id="kioskPinValue">
+
+            <div class="pin-dots" id="pinDots">
+              @for($i = 0; $i < 6; $i++)
+                <span class="pin-dot" data-dot="{{ $i }}"></span>
+              @endfor
+            </div>
+
+            <div class="pin-keypad">
+              @for($n = 1; $n <= 9; $n++)
+                <button type="button" class="pin-key" data-digit="{{ $n }}">{{ $n }}</button>
+              @endfor
+              <button type="button" class="pin-key pin-key-back" id="pinBackspace"><i class="bi bi-backspace-fill"></i></button>
+              <button type="button" class="pin-key" data-digit="0">0</button>
+              <button type="submit" class="pin-key pin-key-submit" id="pinSubmit" disabled><i class="bi bi-arrow-right"></i></button>
+            </div>
+          </form>
+
+          <p class="kiosk-toggle-link"><a href="#" id="showEmailPanelLink">Sign in with email &amp; password instead</a></p>
         </div>
+      @endif
 
-        <div class="form-floating position-relative">
-          <input type="password" class="form-control @error('password') is-invalid @enderror" name="password" id="kioskPasswordInput" placeholder="Password" required autocomplete="current-password">
-          <label for="kioskPasswordInput"><i class="bi bi-lock me-1"></i>Password</label>
-          <button type="button" class="btn position-absolute end-0 top-50 translate-middle-y border-0 me-2" onclick="toggleKioskPassword()" style="z-index: 10;" aria-label="Toggle password visibility">
-            <i id="kioskEyeIcon" class="bi bi-eye text-muted fs-5"></i>
+      <div id="kioskEmailPanel" class="{{ $showEmailFirst ? '' : 'd-none' }}">
+        <form method="POST" action="{{ route('login.post') }}" id="kioskLoginForm">
+          @csrf
+
+          <div class="form-floating">
+            <input type="email" class="form-control @error('email') is-invalid @enderror" name="email" id="kioskEmailInput" placeholder="name@example.com" required value="{{ old('email') }}" autocomplete="username">
+            <label for="kioskEmailInput"><i class="bi bi-envelope me-1"></i>Counter Email</label>
+          </div>
+
+          <div class="form-floating position-relative">
+            <input type="password" class="form-control @error('password') is-invalid @enderror" name="password" id="kioskPasswordInput" placeholder="Password" required autocomplete="current-password">
+            <label for="kioskPasswordInput"><i class="bi bi-lock me-1"></i>Password</label>
+            <button type="button" class="btn position-absolute end-0 top-50 translate-middle-y border-0 me-2" onclick="toggleKioskPassword()" style="z-index: 10;" aria-label="Toggle password visibility">
+              <i id="kioskEyeIcon" class="bi bi-eye text-muted fs-5"></i>
+            </button>
+          </div>
+
+          {{-- No "Remember me" here on purpose — a persistent login on a shared counter device
+               would defeat the point of a session timeout returning to this screen. --}}
+
+          @include('partials.recaptcha-widget')
+
+          <button class="btn btn-kiosk-login font-divine" type="submit">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
           </button>
-        </div>
+        </form>
 
-        {{-- No "Remember me" here on purpose — a persistent login on a shared counter device
-             would defeat the point of a session timeout returning to this screen. --}}
-
-        @include('partials.recaptcha-widget')
-
-        <button class="btn btn-kiosk-login font-divine" type="submit">
-          <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
-        </button>
-      </form>
+        @unless($pinLocked)
+          <p class="kiosk-toggle-link"><a href="#" id="showPinPanelLink">Use your PIN instead</a></p>
+        @endunless
+      </div>
 
       <p class="kiosk-footnote">Contact the temple office if you don't have counter credentials.</p>
     </div>
@@ -290,6 +385,75 @@
     }
     tickKioskClock();
     setInterval(tickKioskClock, 30000);
+
+    (function () {
+      const pinPanel = document.getElementById('kioskPinPanel');
+      const emailPanel = document.getElementById('kioskEmailPanel');
+      const showEmailLink = document.getElementById('showEmailPanelLink');
+      const showPinLink = document.getElementById('showPinPanelLink');
+      if (showEmailLink) {
+        showEmailLink.addEventListener('click', function (e) { e.preventDefault(); pinPanel.classList.add('d-none'); emailPanel.classList.remove('d-none'); });
+      }
+      if (showPinLink) {
+        showPinLink.addEventListener('click', function (e) { e.preventDefault(); emailPanel.classList.add('d-none'); pinPanel.classList.remove('d-none'); resetPin(); });
+      }
+      if (!pinPanel) { return; }
+
+      const dots = Array.prototype.slice.call(document.querySelectorAll('.pin-dot'));
+      const hiddenInput = document.getElementById('kioskPinValue');
+      const submitBtn = document.getElementById('pinSubmit');
+      const form = document.getElementById('kioskPinForm');
+      let digits = '';
+
+      function render() {
+        dots.forEach(function (dot, i) { dot.classList.toggle('filled', i < digits.length); });
+        hiddenInput.value = digits;
+        submitBtn.disabled = digits.length !== 6;
+      }
+
+      function resetPin() {
+        digits = '';
+        render();
+        pinPanel.classList.remove('shake');
+      }
+      window.resetPin = resetPin;
+
+      function addDigit(d) {
+        if (digits.length >= 6) { return; }
+        digits += d;
+        render();
+        if (digits.length === 6) {
+          // Auto-submit — the fast path this whole feature exists for; the arrow key stays
+          // visible/tappable too, but nobody should need it in the normal case.
+          setTimeout(function () { form.submit(); }, 120);
+        }
+      }
+
+      document.querySelectorAll('.pin-key[data-digit]').forEach(function (btn) {
+        btn.addEventListener('click', function () { addDigit(btn.dataset.digit); });
+      });
+      document.getElementById('pinBackspace').addEventListener('click', function () {
+        digits = digits.slice(0, -1);
+        render();
+      });
+
+      // A counter PC may have a real keyboard attached, not just a touchscreen.
+      document.addEventListener('keydown', function (e) {
+        if (pinPanel.classList.contains('d-none')) { return; }
+        if (e.key >= '0' && e.key <= '9') { addDigit(e.key); }
+        else if (e.key === 'Backspace') { digits = digits.slice(0, -1); render(); }
+      });
+
+      // A wrong-PIN response re-renders this same page with a 'pin' validation error —
+      // show that as a shake-and-clear instead of a wall of text, matching the keypad's own
+      // fast, glanceable style.
+      @if($errors->has('pin'))
+        pinPanel.classList.add('shake');
+        setTimeout(resetPin, 450);
+      @endif
+
+      render();
+    })();
   </script>
 </body>
 </html>

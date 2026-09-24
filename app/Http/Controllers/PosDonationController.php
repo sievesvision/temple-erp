@@ -85,6 +85,10 @@ class PosDonationController extends Controller
         // Events" list — so the only exit this page offers them is Logout.
         $canReturnToConsole = !($activeRole === 'Event Coordinator' && $coordinatorLevel === 'pos');
 
+        // The "Manage PIN" topbar icon only makes sense for an account the kiosk PIN feature
+        // actually applies to — showing it to everyone else would just be a dead-end 403.
+        $canManageKioskPin = (bool) app(AuthController::class)->possibleKioskPosDestinations($user);
+
         $temple = Setting::templeBranding();
 
         // Power Fail recovery (Core Payments accreditation 4.1.2) must survive worse than a
@@ -129,7 +133,8 @@ class PosDonationController extends Controller
             'canReturnToConsole',
             'temple',
             'pendingEftRecovery',
-            'eftTerminalsForJs'
+            'eftTerminalsForJs',
+            'canManageKioskPin'
         ));
     }
 }

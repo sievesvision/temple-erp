@@ -374,7 +374,11 @@ class TicketController extends Controller
             })
             ->values();
 
-        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs'));
+        // The "Manage PIN" topbar icon only makes sense for an account the kiosk PIN feature
+        // actually applies to — showing it to everyone else would just be a dead-end 403.
+        $canManageKioskPin = (bool) app(AuthController::class)->possibleKioskPosDestinations($user);
+
+        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManageKioskPin'));
     }
 
     /**

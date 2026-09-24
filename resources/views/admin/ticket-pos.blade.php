@@ -190,6 +190,9 @@
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
+        @if($canManageKioskPin)
+        <a href="{{ route('kiosk.pin.edit') }}" class="pos-topbar-btn" title="Manage kiosk PIN"><i class="bi bi-grid-3x3-gap-fill"></i></a>
+        @endif
         <a href="{{ route('logout', ['from' => 'kiosk']) }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
     </header>
 
