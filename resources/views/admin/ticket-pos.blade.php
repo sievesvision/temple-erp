@@ -20,15 +20,26 @@
         body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; background: var(--cream); color: var(--text-primary); display: flex; flex-direction: column; }
         button, input, select, textarea { font-family: inherit; }
 
-        .pos-topbar { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 12px 20px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; box-shadow: 0 4px 18px rgba(74,10,18,0.25); z-index: 20; }
+        .pos-topbar { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 12px 20px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; box-shadow: 0 4px 18px rgba(74,10,18,0.25); z-index: 20; flex-wrap: wrap; row-gap: 8px; }
         .pos-topbar-title { flex: 1; min-width: 0; }
         .pos-topbar-title h1 { font-size: clamp(1.05rem, 2.6vw, 1.35rem); font-weight: 800; color: var(--gold); margin: 0; }
         .pos-topbar-title .pos-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; }
+        .pos-topbar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .pos-topbar-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 42px; height: 42px; border-radius: 12px; font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.22); }
         .pos-terminal-btn { background: rgba(255,255,255,0.12); border: none; color: white; height: 42px; padding: 0 14px; border-radius: 12px; font-size: 0.82rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 160px; }
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.22); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* On a narrow tablet (a small iPad in portrait, etc.) the title and every action
+           button together no longer fit on one line — rather than let any button run off
+           the edge and get clipped by the page's own overflow-x:hidden, the whole action
+           group drops to its own full-width row below the title, wrapping further itself
+           if it still doesn't fit. Every nav item stays reachable; only the layout height
+           changes. */
+        @media (max-width: 820px) {
+            .pos-topbar-actions { flex-basis: 100%; flex-wrap: wrap; justify-content: center; }
+            .pos-topbar-title h1 { white-space: normal; }
+        }
         /* At-a-glance online/offline dot on the terminal picker button — so the operator can
            tell a terminal has gone offline without opening the picker. */
         .terminal-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #9AA7B4; flex-shrink: 0; }
@@ -183,17 +194,19 @@
             <h1>Ticket Kiosk</h1>
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
-        <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
-            <i class="bi bi-credit-card-2-front-fill"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
-        </button>
-        <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
-        @if($canManageConsole)
-        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
-        @endif
-        @if($canManageKioskPin)
-        <a href="{{ route('kiosk.pin.edit') }}" class="pos-topbar-btn" title="Manage kiosk PIN"><i class="bi bi-grid-3x3-gap-fill"></i></a>
-        @endif
-        <a href="{{ route('logout', ['from' => 'kiosk']) }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
+        <div class="pos-topbar-actions">
+            <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
+                <i class="bi bi-credit-card-2-front-fill"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
+            </button>
+            <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
+            @if($canManageConsole)
+            <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
+            @endif
+            @if($canManageKioskPin)
+            <a href="{{ route('kiosk.pin.edit') }}" class="pos-topbar-btn" title="Manage kiosk PIN"><i class="bi bi-grid-3x3-gap-fill"></i></a>
+            @endif
+            <a href="{{ route('logout', ['from' => 'kiosk']) }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
+        </div>
     </header>
 
     <div class="pos-body">

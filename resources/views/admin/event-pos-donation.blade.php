@@ -53,6 +53,7 @@
             background: #6B0F1A; position: sticky; top: 0; flex-shrink: 0;
             color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 76px;
+            flex-wrap: wrap; row-gap: 10px;
         }
         /* Matches the Event Console's own topbar pattern: temple logo+name fixed on the
            left, the event title centred (with a flourish line either side) and taking all
@@ -77,6 +78,19 @@
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
+
+        /* On a narrow tablet (a small iPad in portrait, etc.) the brand, event title and
+           every action button together no longer fit on one line — rather than let a button
+           run off the edge and get clipped by the page's own overflow-x:hidden, the whole
+           action group drops to its own full-width row, wrapping further itself if it still
+           doesn't fit. Every nav item stays reachable; only the layout height changes. The
+           event title is also allowed to wrap to two lines instead of truncating with an
+           ellipsis, since there's a full row to itself once actions move below. */
+        @media (max-width: 900px) {
+            .pos-topbar-actions { flex-basis: 100%; flex-wrap: wrap; justify-content: center; order: 3; }
+            .pos-topbar-event-title-text h1 { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; }
+            .pos-topbar-temple-name { line-height: 1.15; }
+        }
 
         /* ---------- Main entry area ---------- */
         /* Full-width POS workspace, not a narrow centred web form — the container just gets

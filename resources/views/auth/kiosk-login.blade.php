@@ -356,7 +356,7 @@
 
           <div class="kiosk-username-field">
             <label for="kioskUsernameInput">Counter Username</label>
-            <input type="text" name="username" id="kioskUsernameInput" maxlength="6" autocomplete="off" autocapitalize="off" spellcheck="false" value="{{ old('username') }}" placeholder="e.g. sieves">
+            <input type="text" name="username" id="kioskUsernameInput" maxlength="6" autocomplete="off" autocapitalize="off" spellcheck="false" value="{{ old('username') }}" placeholder="counter1">
           </div>
 
           <div class="pin-dots" id="pinDots">
