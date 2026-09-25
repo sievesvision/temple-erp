@@ -68,6 +68,12 @@
       text-align: center;
     }
 
+    /* Hidden by default (narrow/stacked layouts) since the card's own brand block below
+       still shows the same logo there — only the wide layout, which hides that block to
+       avoid repeating the temple's name twice, needs it here instead. */
+    .kiosk-intro-logo { display: none; width: 56px; height: 56px; object-fit: contain; margin-bottom: 1rem; }
+    .kiosk-intro-logo.om-mark { display: none; font-size: 2.4rem; line-height: 1; color: var(--primary-saffron); }
+
     .kiosk-intro h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; }
     .kiosk-intro h1 .accent { color: var(--primary-saffron); }
     .kiosk-intro-tagline { margin-top: 0.6rem; color: var(--muted); font-size: 1.05rem; }
@@ -171,6 +177,8 @@
     @media (min-width: 980px) {
       .kiosk-shell { flex-direction: row; align-items: center; justify-content: space-between; text-align: left; gap: 4rem; }
       .kiosk-intro { flex: 1; }
+      .kiosk-intro-logo { display: block; }
+      .kiosk-intro-logo.om-mark { display: block; }
       .kiosk-feature-list { align-items: flex-start; }
       .kiosk-card { flex-shrink: 0; }
       /* The left column already names the temple ("Welcome to {temple}") — repeating the
@@ -247,6 +255,16 @@
 
   <div class="kiosk-shell">
     <div class="kiosk-intro">
+      {{-- Only shown in the wide/landscape layout — the card's own brand block (with the
+           same logo) is hidden there to avoid repeating the temple's name twice, but that
+           left the logo itself with nowhere to appear at all. On narrow/stacked layouts the
+           card's brand block is still visible, so this stays hidden there instead of showing
+           the same mark twice. --}}
+      @if($temple['logo'])
+        <img src="{{ $temple['logo'] }}" alt="{{ $temple['name'] }} logo" class="kiosk-intro-logo">
+      @else
+        <span class="kiosk-intro-logo om-mark">ॐ</span>
+      @endif
       <h1>Welcome to <span class="accent">{{ $temple['brand_title'] ?: $temple['name'] }}</span></h1>
       <p class="kiosk-intro-tagline">Fast, secure sign-in for your counter team.</p>
       <ul class="kiosk-feature-list">
