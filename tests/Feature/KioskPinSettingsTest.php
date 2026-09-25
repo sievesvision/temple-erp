@@ -220,7 +220,7 @@ class KioskPinSettingsTest extends TestCase
         $response->assertDontSee('href="' . route('kiosk.pin.edit') . '"', false);
     }
 
-    public function test_back_to_counter_links_to_the_select_grid_for_a_dual_access_account(): void
+    public function test_back_to_counter_links_to_the_select_grid_for_a_dual_access_account_with_no_known_referrer(): void
     {
         [$user] = $this->posLevelCoordinator();
         DB::table('ticket_controllers')->insert(['user_id' => $user->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
@@ -229,5 +229,35 @@ class KioskPinSettingsTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(route('kiosk.select'), false);
+    }
+
+    /**
+     * Regression: a dual-destination account linking to the settings page FROM one specific
+     * counter (e.g. clicking "Manage kiosk PIN" while on Event 2's POS) used to always land
+     * back on the generic "choose your counter" grid instead of that same counter — the grid
+     * fallback only ever fired for the destination COUNT, never for where they actually came
+     * from. The real referrer must now be remembered and survive this page's own self-POST
+     * save (which is exactly what corrupts url()->previous() into a loop).
+     */
+    public function test_back_to_counter_returns_to_the_specific_counter_a_dual_access_account_came_from(): void
+    {
+        [$user, $eventId] = $this->posLevelCoordinator();
+        DB::table('ticket_controllers')->insert(['user_id' => $user->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
+
+        // Arrived from that event's own POS page.
+        $response = $this->actingAs($user)->withHeaders(['referer' => route('admin.events.pos', $eventId)])->get(route('kiosk.pin.edit'));
+        $response->assertOk();
+        $response->assertSee(route('admin.events.pos', $eventId), false);
+
+        // Saving (a self-POST back to this page) must not lose that memory...
+        $this->post(route('kiosk.pin.update'), [
+            'current_password' => 'password', 'destination_type' => 'event', 'destination_id' => $eventId,
+        ]);
+
+        // ...so reloading the settings page afterwards still offers the same specific counter,
+        // not the grid.
+        $response = $this->get(route('kiosk.pin.edit'));
+        $response->assertOk();
+        $response->assertSee(route('admin.events.pos', $eventId), false);
     }
 }

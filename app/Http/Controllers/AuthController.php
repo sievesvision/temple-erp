@@ -759,12 +759,27 @@ class AuthController extends Controller
         }
         unset($destination);
 
-        // Not url()->previous() — this page's own form posts back to itself, which
-        // overwrites the session's tracked "previous URL" with this same page on the very
-        // next load, turning "Back to counter" into a loop back to these settings instead.
-        // Deriving it the same way completeLogin() picks a destination is deterministic
-        // regardless of how this page was reached.
-        $backUrl = count($destinations) === 1 ? $this->posDestinationUrl($destinations[0]) : route('kiosk.select');
+        // Not bare url()->previous() — this page's own form posts back to itself, which
+        // would overwrite the session's tracked "previous URL" with this same page on the
+        // very next load, turning "Back to counter" into a loop. Instead, the referrer is
+        // captured into a dedicated session key ONLY when it's genuinely one of this
+        // account's own destination pages — true on the first real visit (linked from that
+        // kiosk page), never true on a reload of /kiosk/pin itself — so the stash is
+        // self-correcting: it's set once from a real kiosk page and never gets overwritten
+        // by this settings page's own URL. This is what lets a multi-destination account
+        // return to the SPECIFIC counter they came from, not just the grid.
+        $referrer = url()->previous();
+        $destinationUrls = collect($destinations)->map(fn ($d) => $this->posDestinationUrl($d));
+        if ($destinationUrls->contains($referrer)) {
+            session(['kiosk_pin_return_url' => $referrer]);
+        }
+
+        // Re-validated the same way on the way out too — a stashed URL from a destination
+        // this account no longer holds (revoked since it was stashed) is never trusted.
+        $stashed = session('kiosk_pin_return_url');
+        $backUrl = ($stashed && $destinationUrls->contains($stashed))
+            ? $stashed
+            : (count($destinations) === 1 ? $this->posDestinationUrl($destinations[0]) : route('kiosk.select'));
 
         return view('auth.kiosk-pin-settings', ['user' => $user, 'destinations' => $destinations, 'backUrl' => $backUrl]);
     }
