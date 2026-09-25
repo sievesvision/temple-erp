@@ -484,10 +484,26 @@
 
       function resetPin() {
         digits = '';
+        submitted = false;
         render();
         pinPanel.classList.remove('shake');
       }
       window.resetPin = resetPin;
+
+      // Guards against a real double-submit: the arrow button becomes tappable the instant
+      // the 6th digit lands, at the same moment the auto-submit timer starts counting down —
+      // tapping it in that window used to fire the form a SECOND time on top of the pending
+      // auto-submit. The first submission succeeds and rotates the session (a normal part of
+      // logging in), so the second one — still carrying the token from before that rotation —
+      // fails as a stale/mismatched token, which is what actually showed up as "session timed
+      // out" despite the PIN being entered correctly. Routing both triggers through this one
+      // guarded function makes a submission happen at most once, however it was triggered.
+      let submitted = false;
+      function submitPin() {
+        if (submitted || digits.length !== 6) { return; }
+        submitted = true;
+        form.submit();
+      }
 
       function addDigit(d) {
         if (digits.length >= 6) { return; }
@@ -496,7 +512,7 @@
         if (digits.length === 6) {
           // Auto-submit — the fast path this whole feature exists for; the arrow key stays
           // visible/tappable too, but nobody should need it in the normal case.
-          setTimeout(function () { form.submit(); }, 120);
+          setTimeout(submitPin, 120);
         }
       }
 
@@ -506,6 +522,13 @@
       document.getElementById('pinBackspace').addEventListener('click', function () {
         digits = digits.slice(0, -1);
         render();
+      });
+      // Intercepts the button's own native submit — without this, a manual tap fires the
+      // browser's default form submission independently of submitPin()'s guard, which is
+      // exactly the double-submit this whole guard exists to prevent.
+      submitBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        submitPin();
       });
 
       // A counter PC may have a real keyboard attached, not just a touchscreen.
