@@ -61,7 +61,9 @@ Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kio
 // own device, showing that counter's own name ("Kumbabisekam 2027 — Event Donation Kiosk",
 // "Ticketing Kiosk") instead of the generic page above. Purely cosmetic: login itself still
 // goes through the same login.post/kiosk.pin-login handlers regardless of which page was used.
-Route::get('/kiosk/login/event/{eventId}', [AuthController::class, 'showKioskLogin'])->name('kiosk.login.event');
+// {slug}, not the numeric event_id — matches the public events.show route's own convention
+// of readable URLs rather than exposing sequential internal ids.
+Route::get('/kiosk/login/event/{slug}', [AuthController::class, 'showKioskLogin'])->name('kiosk.login.event')->where('slug', '[A-Za-z0-9-]+');
 Route::get('/kiosk/login/tickets', [AuthController::class, 'showKioskLogin'])->name('kiosk.login.tickets');
 Route::get('/kiosk', fn () => redirect()->route('kiosk.login'));
 // Polled periodically by the kiosk login page itself to keep its embedded CSRF token from

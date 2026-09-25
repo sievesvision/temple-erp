@@ -21,6 +21,7 @@ class KioskLoginTest extends TestCase
         $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
         $eventId = DB::table('events')->insertGetId([
             'event_name' => 'Kiosk Test Event', 'event_date' => now()->addMonth()->toDateString(),
+            'slug' => 'kiosk-test-event',
             'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('event_coordinators')->insert([
@@ -115,9 +116,9 @@ class KioskLoginTest extends TestCase
 
     public function test_an_events_own_kiosk_login_page_shows_its_own_name(): void
     {
-        [, $eventId] = $this->posLevelCoordinator();
+        $this->posLevelCoordinator();
 
-        $response = $this->get(route('kiosk.login.event', $eventId));
+        $response = $this->get(route('kiosk.login.event', 'kiosk-test-event'));
 
         $response->assertOk();
         $response->assertSee('Kiosk Test Event — Event Donation Kiosk');
@@ -125,7 +126,7 @@ class KioskLoginTest extends TestCase
 
     public function test_a_nonexistent_events_kiosk_login_page_falls_back_to_the_generic_wording(): void
     {
-        $response = $this->get(route('kiosk.login.event', 999999));
+        $response = $this->get(route('kiosk.login.event', 'no-such-event'));
 
         $response->assertOk();
         $response->assertSee('Counter Sign In');
@@ -146,7 +147,7 @@ class KioskLoginTest extends TestCase
 
         // The destination-specific page is cosmetic only — the account's own destination
         // still decides where login lands, same as the generic page.
-        $this->get(route('kiosk.login.event', $eventId));
+        $this->get(route('kiosk.login.event', 'kiosk-test-event'));
 
         $response = $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
 

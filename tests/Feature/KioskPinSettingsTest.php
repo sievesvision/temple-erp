@@ -23,6 +23,7 @@ class KioskPinSettingsTest extends TestCase
         $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'), 'username' => $username]);
         $eventId = DB::table('events')->insertGetId([
             'event_name' => 'Pin Settings Event', 'event_date' => now()->addMonth()->toDateString(),
+            'slug' => 'pin-settings-event-' . uniqid(),
             'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('event_coordinators')->insert([
@@ -224,11 +225,12 @@ class KioskPinSettingsTest extends TestCase
     {
         [$user, $eventId] = $this->posLevelCoordinator();
         DB::table('ticket_controllers')->insert(['user_id' => $user->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
+        $slug = DB::table('events')->where('event_id', $eventId)->value('slug');
 
         $response = $this->actingAs($user)->get(route('kiosk.pin.edit'));
 
         $response->assertOk();
-        $response->assertSee(route('kiosk.login.event', $eventId), false);
+        $response->assertSee(route('kiosk.login.event', $slug), false);
         $response->assertSee(route('kiosk.login.tickets'), false);
     }
 

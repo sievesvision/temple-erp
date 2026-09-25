@@ -264,18 +264,20 @@ class AuthController extends Controller
      * bookmarked URL is meant for), never a restriction on who may sign in through it.
      *
      * Three ways to reach it: the plain generic page (kiosk.login), one bookmarked per event
-     * (kiosk.login.event/{eventId} — "{Event Name} — Event Donation Kiosk"), and one for
-     * ticket sales (kiosk.login.tickets — "Ticketing Kiosk"). A counter terminal is expected
-     * to have its OWN one of these bookmarked/pinned, rather than everyone sharing the one
-     * generic URL and having to recognise their own counter after signing in.
+     * — by its {slug}, matching the public events.show route's own readable-URL convention,
+     * not the numeric event_id (kiosk.login.event/{slug} — "{Event Name} — Event Donation
+     * Kiosk") — and one for ticket sales (kiosk.login.tickets — "Ticketing Kiosk"). A counter
+     * terminal is expected to have its OWN one of these bookmarked/pinned, rather than
+     * everyone sharing the one generic URL and having to recognise their own counter after
+     * signing in.
      */
-    public function showKioskLogin(Request $request, $eventId = null)
+    public function showKioskLogin(Request $request, $slug = null)
     {
         $kioskDestinationLabel = null;
         $routeName = $request->route()?->getName();
 
-        if ($routeName === 'kiosk.login.event' && $eventId) {
-            $eventName = \Illuminate\Support\Facades\DB::table('events')->where('event_id', $eventId)->value('event_name');
+        if ($routeName === 'kiosk.login.event' && $slug) {
+            $eventName = \Illuminate\Support\Facades\DB::table('events')->where('slug', $slug)->value('event_name');
             if ($eventName) {
                 $kioskDestinationLabel = $eventName . ' — Event Donation Kiosk';
             }
@@ -557,7 +559,7 @@ class AuthController extends Controller
      * this account already has real navigation elsewhere and should keep using today's
      * existing (unmodified) redirect for that side, not be funnelled into this picker.
      *
-     * @return array<int, array{type: 'event', event_id: int, label: string, date: string}|array{type: 'tickets', label: string}>
+     * @return array<int, array{type: 'event', event_id: int, slug: string, label: string, date: string}|array{type: 'tickets', label: string}>
      */
     public function possibleKioskPosDestinations(User $user): array
     {
@@ -565,7 +567,7 @@ class AuthController extends Controller
             ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
             ->where('event_coordinators.user_id', $user->id)
             ->orderBy('events.event_date')
-            ->select('events.event_id', 'events.event_name', 'events.event_date', 'event_coordinators.level')
+            ->select('events.event_id', 'events.event_name', 'events.event_date', 'events.slug', 'event_coordinators.level')
             ->get();
 
         if ($coordinatorRows->isNotEmpty() && !$coordinatorRows->every(fn ($row) => $row->level === 'pos')) {
@@ -579,7 +581,7 @@ class AuthController extends Controller
 
         $destinations = [];
         foreach ($coordinatorRows as $row) {
-            $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'label' => $row->event_name, 'date' => $row->event_date];
+            $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'slug' => $row->slug, 'label' => $row->event_name, 'date' => $row->event_date];
         }
         if ($ticketRow) {
             $destinations[] = ['type' => 'tickets', 'label' => 'Ticket Sales'];
@@ -780,7 +782,7 @@ class AuthController extends Controller
             // whoever sets up a physical kiosk device knows which URL to bookmark on it,
             // instead of everyone sharing the one generic /kiosk/login page.
             $destination['landing_url'] = $destination['type'] === 'event'
-                ? route('kiosk.login.event', $destination['event_id'])
+                ? route('kiosk.login.event', $destination['slug'])
                 : route('kiosk.login.tickets');
         }
         unset($destination);
