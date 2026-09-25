@@ -53,15 +53,20 @@
             background: #6B0F1A; position: sticky; top: 0; flex-shrink: 0;
             color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 76px;
-            flex-wrap: wrap; row-gap: 10px;
         }
         /* Matches the Event Console's own topbar pattern: temple logo+name fixed on the
            left, the event title centred (with a flourish line either side) and taking all
            the leftover space, action buttons fixed on the right. */
-        .pos-topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        /* flex-shrink:3 (rather than the default 1) so the brand block — the least
+           operationally important thing in this bar — gives up space before the event title
+           or the action buttons do. Its own text truncates instead of wrapping, so a long
+           temple name shortens itself with an ellipsis rather than pushing anything else
+           off-screen. */
+        .pos-topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 3; min-width: 0; }
         .pos-topbar-logo { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
-        .pos-topbar-temple-name { font-weight: 800; font-size: 1rem; line-height: 1.2; font-family: var(--serif); color: #fff; }
-        .pos-topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; }
+        .pos-topbar-brand-text { min-width: 0; overflow: hidden; }
+        .pos-topbar-temple-name { font-weight: 800; font-size: clamp(0.8rem, 2.4vw, 1rem); line-height: 1.2; font-family: var(--serif); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pos-topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         .pos-topbar-event-title { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
         .pos-flourish-line { flex: 1; max-width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); display: none; flex-shrink: 0; }
@@ -78,19 +83,6 @@
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
-
-        /* On a narrow tablet (a small iPad in portrait, etc.) the brand, event title and
-           every action button together no longer fit on one line — rather than let a button
-           run off the edge and get clipped by the page's own overflow-x:hidden, the whole
-           action group drops to its own full-width row, wrapping further itself if it still
-           doesn't fit. Every nav item stays reachable; only the layout height changes. The
-           event title is also allowed to wrap to two lines instead of truncating with an
-           ellipsis, since there's a full row to itself once actions move below. */
-        @media (max-width: 900px) {
-            .pos-topbar-actions { flex-basis: 100%; flex-wrap: wrap; justify-content: center; order: 3; }
-            .pos-topbar-event-title-text h1 { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; }
-            .pos-topbar-temple-name { line-height: 1.15; }
-        }
 
         /* ---------- Main entry area ---------- */
         /* Full-width POS workspace, not a narrow centred web form — the container just gets
@@ -359,7 +351,7 @@
     <header class="pos-topbar">
         <div class="pos-topbar-brand">
             <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-topbar-logo">
-            <div>
+            <div class="pos-topbar-brand-text">
                 <div class="pos-topbar-temple-name">{{ $temple['name'] ?? 'Temple' }}</div>
                 @if(!empty($temple['subtitle']))
                 <div class="pos-topbar-temple-sub">{{ $temple['subtitle'] }}</div>
@@ -395,14 +387,20 @@
             <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
                 <i class="bi bi-pc-display"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
             </button>
-            <button type="button" class="pos-topbar-btn" id="posFullscreenBtn" title="Toggle fullscreen"><i class="bi bi-arrows-fullscreen"></i></button>
             @if($canReturnToConsole)
             <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
             @endif
-            @if($canManageKioskPin)
-            <a href="{{ route('kiosk.pin.edit') }}" class="pos-topbar-btn" title="Manage kiosk PIN"><i class="bi bi-grid-3x3-gap-fill"></i></a>
-            @endif
-            <a href="{{ route('logout', ['from' => 'kiosk']) }}" class="pos-topbar-btn" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
+            <div class="dropdown">
+                <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
+                    <i class="bi bi-person-fill"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    @if($canManageKioskPin)
+                    <li><a class="dropdown-item" href="{{ route('kiosk.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage kiosk PIN</a></li>
+                    @endif
+                    <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'kiosk']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                </ul>
+            </div>
         </div>
     </header>
 
@@ -780,12 +778,6 @@
             });
             container.appendChild(b);
         }
-
-        // Fullscreen — explicit button only.
-        document.getElementById('posFullscreenBtn').addEventListener('click', function () {
-            if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(function () {}); }
-            else { document.exitFullscreen(); }
-        });
 
         // Payment method — big buttons instead of a dropdown.
         const methodRow = document.getElementById('posMethodRow');
