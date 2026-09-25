@@ -133,6 +133,15 @@
     }
 
     /* ---------- PIN keypad ---------- */
+    .kiosk-username-field { margin-bottom: 1rem; }
+    .kiosk-username-field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.3rem; font-weight: 600; text-align: center; }
+    .kiosk-username-field input {
+      display: block; width: 100%; text-align: center; letter-spacing: 0.08em;
+      min-height: 46px; border: 1.5px solid #e8e4dc; border-radius: 12px; background: #faf9f6;
+      font-size: 1.05rem; font-weight: 700; color: var(--ink);
+    }
+    .kiosk-username-field input:focus { outline: none; border-color: var(--primary-saffron); }
+    .pin-panel.shake .kiosk-username-field input { border-color: #d9534f; }
     .pin-dots { display: flex; justify-content: center; gap: 9px; margin-bottom: 1.5rem; }
     .pin-dot {
       width: 42px; height: 50px; border: 1.5px solid #e8e4dc; border-radius: 12px;
@@ -212,6 +221,8 @@
       .kiosk-brand { display: none; }
       .kiosk-card-title { margin-top: 0; }
       .kiosk-card-subtitle { margin-bottom: 0.85rem; }
+      .kiosk-username-field { margin-bottom: 0.6rem; }
+      .kiosk-username-field input { min-height: 40px; }
       .pin-dots { margin-bottom: 0.85rem; }
       .pin-key { min-height: 44px; }
       .kiosk-toggle-link { margin-top: 0.75rem; }
@@ -231,6 +242,9 @@
       .kiosk-card { padding: 1rem 1.25rem 0.85rem; }
       .kiosk-card-title { font-size: 1rem; }
       .kiosk-card-subtitle { font-size: 0.8rem; margin-bottom: 0.6rem; }
+      .kiosk-username-field { margin-bottom: 0.4rem; }
+      .kiosk-username-field label { margin-bottom: 0.15rem; }
+      .kiosk-username-field input { min-height: 34px; font-size: 0.92rem; }
       .pin-dots { gap: 6px; margin-bottom: 0.6rem; }
       .pin-dot { width: 34px; height: 38px; }
       .pin-keypad { gap: 6px; }
@@ -323,45 +337,50 @@
         </div>
       @endif
 
-      @php $showEmailFirst = $pinLocked || $errors->has('email') || $errors->has('password') || $errors->has('g-recaptcha-response'); @endphp
+      @php
+        $pinLockedError = collect($errors->get('pin'))->contains(fn ($m) => str_contains($m, 'Too many'));
+        $showEmailFirst = $pinLockedError || $errors->has('email') || $errors->has('password') || $errors->has('g-recaptcha-response');
+      @endphp
 
-      @if($pinLocked)
-        <p class="kiosk-card-title">Kiosk Login</p>
-        <div class="pin-locked-note"><i class="bi bi-shield-lock-fill me-1"></i> PIN sign-in is temporarily disabled after too many incorrect attempts. Please sign in with your email and password below.</div>
-      @else
-        <div id="kioskPinPanel" class="pin-panel {{ $showEmailFirst ? 'd-none' : '' }}">
-          <p class="kiosk-card-title">Kiosk Login</p>
-          <p class="kiosk-card-subtitle">Enter your PIN to continue</p>
-
-          <form method="POST" action="{{ route('kiosk.pin-login') }}" id="kioskPinForm">
-            @csrf
-            <input type="hidden" name="pin" id="kioskPinValue">
-
-            <div class="pin-dots" id="pinDots">
-              @for($i = 0; $i < 6; $i++)
-                <span class="pin-dot" data-dot="{{ $i }}"></span>
-              @endfor
-            </div>
-
-            <div class="pin-keypad">
-              @for($n = 1; $n <= 9; $n++)
-                <button type="button" class="pin-key" data-digit="{{ $n }}">{{ $n }}</button>
-              @endfor
-              <button type="button" class="pin-key pin-key-back" id="pinBackspace"><i class="bi bi-backspace-fill"></i></button>
-              <button type="button" class="pin-key" data-digit="0">0</button>
-              <button type="submit" class="pin-key pin-key-submit" id="pinSubmit" disabled><i class="bi bi-arrow-right"></i></button>
-            </div>
-          </form>
-
-          <p class="kiosk-toggle-link"><a href="#" id="showEmailPanelLink">Sign in with email &amp; password instead</a></p>
-        </div>
+      @if($pinLockedError)
+        <div class="pin-locked-note"><i class="bi bi-shield-lock-fill me-1"></i> PIN sign-in is temporarily disabled for this account after too many incorrect attempts. Please sign in with your email and password below.</div>
       @endif
 
+      <div id="kioskPinPanel" class="pin-panel {{ $showEmailFirst ? 'd-none' : '' }}">
+        <p class="kiosk-card-title">Kiosk Login</p>
+        <p class="kiosk-card-subtitle">Enter your username &amp; PIN to continue</p>
+
+        <form method="POST" action="{{ route('kiosk.pin-login') }}" id="kioskPinForm">
+          @csrf
+          <input type="hidden" name="pin" id="kioskPinValue">
+
+          <div class="kiosk-username-field">
+            <label for="kioskUsernameInput">Counter Username</label>
+            <input type="text" name="username" id="kioskUsernameInput" maxlength="6" autocomplete="off" autocapitalize="off" spellcheck="false" value="{{ old('username') }}" placeholder="e.g. sieves">
+          </div>
+
+          <div class="pin-dots" id="pinDots">
+            @for($i = 0; $i < 6; $i++)
+              <span class="pin-dot" data-dot="{{ $i }}"></span>
+            @endfor
+          </div>
+
+          <div class="pin-keypad">
+            @for($n = 1; $n <= 9; $n++)
+              <button type="button" class="pin-key" data-digit="{{ $n }}">{{ $n }}</button>
+            @endfor
+            <button type="button" class="pin-key pin-key-back" id="pinBackspace"><i class="bi bi-backspace-fill"></i></button>
+            <button type="button" class="pin-key" data-digit="0">0</button>
+            <button type="submit" class="pin-key pin-key-submit" id="pinSubmit" disabled><i class="bi bi-arrow-right"></i></button>
+          </div>
+        </form>
+
+        <p class="kiosk-toggle-link"><a href="#" id="showEmailPanelLink">Sign in with email &amp; password instead</a></p>
+      </div>
+
       <div id="kioskEmailPanel" class="{{ $showEmailFirst ? '' : 'd-none' }}">
-        @if(!$pinLocked)
-          <p class="kiosk-card-title">Kiosk Login</p>
-          <p class="kiosk-card-subtitle">Sign in with your email &amp; password</p>
-        @endif
+        <p class="kiosk-card-title">Kiosk Login</p>
+        <p class="kiosk-card-subtitle">Sign in with your email &amp; password</p>
         {{-- ?from=kiosk survives a CSRF failure (a query string, unlike the POST body, isn't
              invalidated by the token mismatch) — it's how the 419 handler in bootstrap/app.php
              tells this shared login.post submission apart from the general login page's. --}}
@@ -369,8 +388,8 @@
           @csrf
 
           <div class="form-floating">
-            <input type="email" class="form-control @error('email') is-invalid @enderror" name="email" id="kioskEmailInput" placeholder="name@example.com" required value="{{ old('email') }}" autocomplete="username">
-            <label for="kioskEmailInput"><i class="bi bi-envelope me-1"></i>Counter Email</label>
+            <input type="text" class="form-control @error('email') is-invalid @enderror" name="email" id="kioskEmailInput" placeholder="name@example.com" required value="{{ old('email') }}" autocomplete="username">
+            <label for="kioskEmailInput"><i class="bi bi-envelope me-1"></i>Email or Username</label>
           </div>
 
           <div class="form-floating position-relative">
@@ -391,9 +410,7 @@
           </button>
         </form>
 
-        @unless($pinLocked)
-          <p class="kiosk-toggle-link"><a href="#" id="showPinPanelLink">Use your PIN instead</a></p>
-        @endunless
+        <p class="kiosk-toggle-link"><a href="#" id="showPinPanelLink">Use your PIN instead</a></p>
       </div>
 
       <div class="kiosk-secure-note"><i class="bi bi-lock-fill"></i> Secure access. Please do not share your PIN.</div>
@@ -474,7 +491,18 @@
       const hiddenInput = document.getElementById('kioskPinValue');
       const submitBtn = document.getElementById('pinSubmit');
       const form = document.getElementById('kioskPinForm');
+      const usernameInput = document.getElementById('kioskUsernameInput');
       let digits = '';
+
+      // A counter terminal is typically used by one person per shift — remembering the last
+      // username typed on THIS device (never synced/shared) saves retyping it every time
+      // without weakening anything, since the PIN itself is never stored.
+      try {
+        if (usernameInput && !usernameInput.value) {
+          const remembered = window.localStorage.getItem('kioskUsername');
+          if (remembered) { usernameInput.value = remembered; }
+        }
+      } catch (e) { /* localStorage unavailable (private mode etc.) — just skip the convenience */ }
 
       function render() {
         dots.forEach(function (dot, i) { dot.classList.toggle('filled', i < digits.length); });
@@ -501,6 +529,11 @@
       let submitted = false;
       function submitPin() {
         if (submitted || digits.length !== 6) { return; }
+        if (!usernameInput.value.trim()) {
+          usernameInput.focus();
+          return;
+        }
+        try { window.localStorage.setItem('kioskUsername', usernameInput.value.trim()); } catch (e) { /* ignore */ }
         submitted = true;
         form.submit();
       }
@@ -541,7 +574,7 @@
       // A wrong-PIN response re-renders this same page with a 'pin' validation error —
       // show that as a shake-and-clear instead of a wall of text, matching the keypad's own
       // fast, glanceable style.
-      @if($errors->has('pin'))
+      @if($errors->has('pin') || $errors->has('username'))
         pinPanel.classList.add('shake');
         setTimeout(resetPin, 450);
       @endif

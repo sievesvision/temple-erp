@@ -96,6 +96,48 @@
         background: #b8863a;
         color: white;
     }
+    .btn-action-unlock {
+        background: rgba(220, 38, 38, 0.1);
+        color: #dc2626;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 40px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        transition: 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-action-unlock:hover {
+        background: #dc2626;
+        color: white;
+    }
+    .username-form {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .username-form input {
+        width: 84px;
+        font-size: 0.8rem;
+        padding: 4px 8px;
+        border-radius: 20px;
+        border: 1px solid #e5decf;
+    }
+    .username-form button {
+        background: rgba(139, 92, 246, 0.1);
+        color: #8b5cf6;
+        border: none;
+        border-radius: 20px;
+        padding: 4px 10px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+    .username-form button:hover {
+        background: #8b5cf6;
+        color: white;
+    }
     .filter-bar {
         background: white;
         border-radius: 20px;
@@ -124,16 +166,6 @@
     <div class="alert alert-danger alert-dismissible fade show border-0 rounded-4 shadow-sm mb-4 p-3" role="alert" style="background: #fee2e2; color: #991b1b;">
         <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error') }}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
-
-@if($kioskPinLocked)
-    <div class="alert border-0 rounded-4 shadow-sm mb-4 p-3 d-flex align-items-center justify-content-between flex-wrap gap-2" style="background: #fff7ea; color: #8a6d1f;">
-        <span><i class="bi bi-shield-lock-fill me-2"></i>Kiosk PIN sign-in is currently locked out after too many incorrect attempts — every counter must use email &amp; password until this is reset (or someone signs in with email/password, which clears it automatically).</span>
-        <form method="POST" action="{{ route('admin.kiosk-pin.reset-lockout') }}" class="m-0">
-            @csrf
-            <button type="submit" class="btn btn-sm fw-bold rounded-pill px-3" style="background:#8a6d1f; color:#fff; border:none;">Reset PIN Lockout</button>
-        </form>
     </div>
 @endif
 
@@ -171,6 +203,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Email</th>
+                    <th>Kiosk Username</th>
                     <th>Role</th>
                     <th>Status</th>
                     <th>Last Login</th>
@@ -184,6 +217,21 @@
                 <tr>
                     <td><strong>{{ $u->name }}</strong></td>
                     <td>{{ $u->email }}</td>
+                    <td>
+                        <form action="{{ route('admin.users.set-username', $u->id) }}" method="POST" class="username-form">
+                            @csrf
+                            <input type="text" name="username" value="{{ $u->username }}" maxlength="6" placeholder="none" title="4-6 characters, letters/numbers only">
+                            <button type="submit">Save</button>
+                        </form>
+                        @if($u->kiosk_pin_locked_at)
+                            <form action="{{ route('admin.kiosk-pin.reset-lockout', $u->id) }}" method="POST" class="d-inline mt-1">
+                                @csrf
+                                <button type="submit" class="btn-action-unlock">
+                                    <i class="bi bi-shield-lock-fill"></i> Unlock PIN
+                                </button>
+                            </form>
+                        @endif
+                    </td>
                     <td>
                         <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $u->role }}</span>
                         @foreach(array_diff($u->grantedRoles(), [$u->role, 'Devotee']) as $extraRole)
@@ -223,7 +271,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-5">
+                    <td colspan="9" class="text-center text-muted py-5">
                         <i class="bi bi-person-vcard fs-1 d-block mb-2 text-warning"></i>
                         No users found.
                     </td>

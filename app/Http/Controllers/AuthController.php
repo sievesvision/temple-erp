@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Devotee;
+use App\Models\KioskPin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -262,10 +263,10 @@ class AuthController extends Controller
      */
     public function showKioskLogin()
     {
-        return response()->view('auth.kiosk-login', [
-            'step' => 1,
-            'pinLocked' => (bool) \App\Models\Setting::get('kiosk_pin_locked_at'),
-        ])
+        // No "PIN login is disabled" pre-check here — lockout is per-account now (see
+        // attemptKioskPinLogin()), so which account might be locked isn't knowable until a
+        // username is actually submitted. The PIN panel is always offered by default.
+        return response()->view('auth.kiosk-login', [])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
@@ -421,8 +422,10 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        // Not 'email' — this field also accepts a kiosk-assigned username, which isn't a
+        // valid email address.
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|string|max:255',
             'password' => 'required',
         ]);
 
@@ -434,13 +437,18 @@ class AuthController extends Controller
             return back()->withErrors(['g-recaptcha-response' => 'Please complete the reCAPTCHA verification.'])->withInput();
         }
 
-        // Find user by email
-        $user = User::where('email', $request->email)->first();
+        // The "email" field also accepts a kiosk-assigned username (e.g. an Event
+        // Coordinator/Ticket Controller signing in from a regular browser, not the kiosk PIN
+        // pad) — registration/password-reset/OTP stay email-only, this is the only lookup
+        // that needs to accept either.
+        $user = User::where('email', $request->email)
+            ->orWhere('username', strtolower($request->email))
+            ->first();
 
         // Check if user exists
         if (!$user) {
             return back()
-                ->withErrors(['email' => 'No account found with this email.'])
+                ->withErrors(['email' => 'No account found with this email or username.'])
                 ->withInput();
         }
 
@@ -638,54 +646,94 @@ class AuthController extends Controller
 
     private const KIOSK_PIN_MAX_ATTEMPTS = 5;
 
-    private function clearKioskPinLockout(): void
+    private function clearKioskPinLockout(User $user): void
     {
-        \App\Models\Setting::set('kiosk_pin_failed_attempts', 0);
-        \App\Models\Setting::set('kiosk_pin_locked_at', null);
+        $user->update(['kiosk_pin_failed_attempts' => 0, 'kiosk_pin_locked_at' => null]);
+    }
+
+    /**
+     * Finds the possibleKioskPosDestinations() entry matching a stored destination_type/
+     * destination_id pair (from a KioskPin row) — this doubles as re-validating the grant is
+     * still current, since a revoked assignment simply won't appear in that list even though
+     * the KioskPin row itself is still stored.
+     */
+    private function matchDestination(array $destinations, string $type, ?int $destinationId): ?array
+    {
+        return collect($destinations)->first(function ($d) use ($type, $destinationId) {
+            if ($d['type'] !== $type) {
+                return false;
+            }
+            return $type !== 'event' || (int) $d['event_id'] === (int) $destinationId;
+        });
+    }
+
+    /**
+     * Finishes a PIN login for a destination that's already known (the matched PIN itself
+     * picked it) — deliberately bypasses completeLogin()'s "land on primary role, branch on
+     * destination count" logic, since there is nothing left to pick.
+     */
+    private function finishDirectKioskLogin(User $user, array $destination)
+    {
+        Auth::login($user);
+        $user->update(['last_login_at' => now()]);
+
+        return $this->redirectToPosDestination($destination);
     }
 
     /**
      * PIN login for kiosk-only accounts — a faster alternative to email+password on a
-     * counter terminal. A PIN alone doesn't name an account, so a submitted PIN is checked
-     * against every user that has one set until one matches (a handful of bcrypt
-     * comparisons at this app's actual scale, not a real cost) — then re-validated against
-     * possibleKioskPosDestinations() fresh, so a PIN silently stops working the moment that
-     * account's kiosk access is revoked, even though the PIN itself is still stored.
+     * counter terminal. Unlike the old single-PIN-per-account design, the account is
+     * identified by its own short username FIRST, so the PIN only ever needs to be checked
+     * against that one account's own KioskPin rows (one per destination — an event
+     * assignment, or ticket sales) rather than scanned globally. This is what lets a PIN
+     * directly pick a specific destination (no "choose your counter" step) and makes
+     * cross-account PIN collisions harmless — see KioskPin's own docblock.
      *
-     * The failed-attempt lockout is deliberately GLOBAL (one pair of Setting keys), not
-     * per-account or per-device: a wrong guess can't be attributed to a specific account
-     * (that's the whole point of trying to match it), and this app's kiosk terminals
-     * plausibly share one building's network, so an IP-keyed lock would let one bad streak
-     * on one kiosk lock out every other kiosk behind the same router. A global switch is
-     * simpler, matches "the system gets disabled" literally, and is trivially revocable —
-     * by any successful email/password login anywhere (clearKioskPinLockout(), called from
-     * completeLogin()) or by an admin's one-button reset (SystemUserController::
-     * resetKioskPinLockout()).
+     * Every failure — unknown username, wrong PIN, or a destination that's since been
+     * revoked — returns the exact same generic message, so a locked-out account can never
+     * be distinguished from a merely-wrong guess, and the lockout itself is scoped to that
+     * one account (clearable by that account's own next successful email login, or by an
+     * admin — see SystemUserController::resetKioskPinLockout()).
      */
     public function attemptKioskPinLogin(Request $request)
     {
-        if (\App\Models\Setting::get('kiosk_pin_locked_at')) {
+        $request->validate([
+            'username' => 'required|string|max:6',
+            'pin' => 'required|digits:6',
+        ]);
+
+        $genericError = ['pin' => 'Incorrect username or PIN.'];
+
+        $user = User::where('username', strtolower($request->username))->where('status', 'Active')->first();
+        if (!$user) {
+            return back()->withErrors($genericError);
+        }
+
+        if ($user->kiosk_pin_locked_at) {
             return back()->withErrors(['pin' => 'Too many incorrect attempts. Please sign in with your email and password.']);
         }
 
-        $request->validate(['pin' => 'required|digits:6']);
+        $pinRow = $user->kioskPins()->get()->first(fn ($row) => Hash::check($request->pin, $row->pin));
+        $destination = $pinRow
+            ? $this->matchDestination($this->possibleKioskPosDestinations($user), $pinRow->destination_type, $pinRow->destination_id)
+            : null;
 
-        $match = User::whereNotNull('pos_pin')->where('status', 'Active')->get()
-            ->first(fn ($candidate) => Hash::check($request->pin, $candidate->pos_pin));
+        if (!$destination) {
+            $attempts = $user->kiosk_pin_failed_attempts + 1;
+            $user->kiosk_pin_failed_attempts = $attempts;
+            if ($attempts >= self::KIOSK_PIN_MAX_ATTEMPTS) {
+                $user->kiosk_pin_locked_at = now();
+            }
+            $user->save();
 
-        if ($match && $this->possibleKioskPosDestinations($match)) {
-            $this->clearKioskPinLockout();
-            return $this->completeLogin($match);
+            return $attempts >= self::KIOSK_PIN_MAX_ATTEMPTS
+                ? back()->withErrors(['pin' => 'Too many incorrect attempts. Please sign in with your email and password.'])
+                : back()->withErrors($genericError);
         }
 
-        $attempts = (int) \App\Models\Setting::get('kiosk_pin_failed_attempts', 0) + 1;
-        \App\Models\Setting::set('kiosk_pin_failed_attempts', $attempts);
-        if ($attempts >= self::KIOSK_PIN_MAX_ATTEMPTS) {
-            \App\Models\Setting::set('kiosk_pin_locked_at', now()->toDateTimeString());
-            return back()->withErrors(['pin' => 'Too many incorrect attempts. Please sign in with your email and password.']);
-        }
+        $this->clearKioskPinLockout($user);
 
-        return back()->withErrors(['pin' => 'Incorrect PIN.']);
+        return $this->finishDirectKioskLogin($user, $destination);
     }
 
     /**
@@ -693,7 +741,8 @@ class AuthController extends Controller
      * kiosk pages themselves (there is no dashboard for a pos-level Event Coordinator or a
      * view/entry Ticket Controller to embed this in, per ProfileController's own role
      * branches). Locked to accounts that currently resolve at least one kiosk destination —
-     * "PIN logins are for pos role only."
+     * "PIN logins are for pos role only." Shows every reachable destination separately, each
+     * with its own PIN status — the username itself is admin-assigned, shown read-only here.
      */
     public function showKioskPinSettings()
     {
@@ -703,15 +752,21 @@ class AuthController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        // Not url()->previous() — this page's own form posts back to itself (see
-        // updateKioskPinSettings()'s back() redirects), which overwrites the session's
-        // tracked "previous URL" with this same page on the very next load, turning "Back to
-        // counter" into a loop back to these settings instead. Deriving it the same way
-        // completeLogin() picks a destination is deterministic regardless of how this page
-        // was reached.
+        $pins = $user->kioskPins()->get()->keyBy(fn ($row) => $row->destination_type . ':' . $row->destination_id);
+        foreach ($destinations as &$destination) {
+            $key = $destination['type'] . ':' . ($destination['type'] === 'event' ? $destination['event_id'] : '');
+            $destination['pin_set_at'] = optional($pins->get($key))->pin_set_at;
+        }
+        unset($destination);
+
+        // Not url()->previous() — this page's own form posts back to itself, which
+        // overwrites the session's tracked "previous URL" with this same page on the very
+        // next load, turning "Back to counter" into a loop back to these settings instead.
+        // Deriving it the same way completeLogin() picks a destination is deterministic
+        // regardless of how this page was reached.
         $backUrl = count($destinations) === 1 ? $this->posDestinationUrl($destinations[0]) : route('kiosk.select');
 
-        return view('auth.kiosk-pin-settings', ['user' => $user, 'backUrl' => $backUrl]);
+        return view('auth.kiosk-pin-settings', ['user' => $user, 'destinations' => $destinations, 'backUrl' => $backUrl]);
     }
 
     /**
@@ -719,43 +774,60 @@ class AuthController extends Controller
      * just an active session — a session started by PIN login could otherwise reach this
      * same form, and a compromised/guessed PIN must never be enough to install a new one.
      * Submitting the password alone (no new PIN) is a valid, deliberate "just clear the
-     * lockout" action — see the docblock on attemptKioskPinLogin() for why proving the real
-     * credential is what "revoke by email login" means here.
+     * lockout" action.
+     *
+     * The PIN uniqueness check only ever scans THIS account's OWN other KioskPin rows —
+     * never other users' — because a PIN only ever means anything paired with this
+     * account's own username. A collision here is a genuine usability problem (which of my
+     * own counters would it open?) and safe to name explicitly, since it can never reveal
+     * anything about anyone else's account.
      */
     public function updateKioskPinSettings(Request $request)
     {
         $user = Auth::user();
-        if (!$this->possibleKioskPosDestinations($user)) {
+        $destinations = $this->possibleKioskPosDestinations($user);
+        if (!$destinations) {
             abort(403, 'Unauthorized access.');
         }
 
-        $request->validate(['current_password' => 'required']);
+        $request->validate([
+            'current_password' => 'required',
+            'destination_type' => 'required|in:event,tickets',
+            'destination_id' => 'required_if:destination_type,event|nullable|integer',
+        ]);
+
+        $destination = $this->matchDestination($destinations, $request->destination_type, $request->destination_id ? (int) $request->destination_id : null);
+        if (!$destination) {
+            abort(403, 'Unauthorized access.');
+        }
+
         if (!Hash::check($request->current_password, $user->password)) {
             return back()->withErrors(['current_password' => 'That password is incorrect.']);
         }
 
-        $this->clearKioskPinLockout();
+        $this->clearKioskPinLockout($user);
+
+        $destinationId = $request->destination_type === 'event' ? (int) $request->destination_id : null;
 
         if ($request->filled('new_pin')) {
             $request->validate([
                 'new_pin' => 'digits:6|confirmed',
             ]);
 
-            // PINs are hashed, so uniqueness can't be enforced with a SQL WHERE — the same
-            // linear Hash::check scan attemptKioskPinLogin() uses to find a match is used
-            // here in reverse, to make sure this new PIN doesn't already belong to someone
-            // else (a collision would make login ambiguous — whoever hashes first would
-            // silently sign in as the wrong account).
-            $collision = User::whereNotNull('pos_pin')->where('id', '!=', $user->id)->get()
-                ->first(fn ($other) => Hash::check($request->new_pin, $other->pos_pin));
+            $collision = $user->kioskPins()->get()
+                ->reject(fn ($row) => $row->destination_type === $request->destination_type && (int) $row->destination_id === (int) $destinationId)
+                ->first(fn ($row) => Hash::check($request->new_pin, $row->pin));
             if ($collision) {
-                return back()->withErrors(['new_pin' => 'That PIN is already in use — please choose a different one.']);
+                return back()->withErrors(['new_pin' => 'You are already using that PIN for another counter — please choose a different one.']);
             }
 
-            $user->update(['pos_pin' => Hash::make($request->new_pin), 'pos_pin_set_at' => now()]);
-            \App\Services\AuditLogService::log('Updated kiosk PIN.');
+            KioskPin::updateOrCreate(
+                ['user_id' => $user->id, 'destination_type' => $request->destination_type, 'destination_id' => $destinationId],
+                ['pin' => Hash::make($request->new_pin), 'pin_set_at' => now()]
+            );
+            \App\Services\AuditLogService::log('Updated kiosk PIN for ' . $destination['label'] . '.');
 
-            return back()->with('success', 'Your kiosk PIN has been updated.');
+            return back()->with('success', 'Your PIN for ' . $destination['label'] . ' has been updated.');
         }
 
         return back()->with('success', 'Password verified.');
@@ -769,11 +841,10 @@ class AuthController extends Controller
     private function completeLogin(User $user)
     {
         // A successful sign-in through the real credential (email+password, or its OTP
-        // step) — anywhere, by anyone — is exactly what "revoke by using the email login"
-        // means for the global PIN-login lockout: it proves the front door still works, so
-        // there's no reason to keep the faster PIN path shut. See attemptKioskPinLogin()'s
-        // own docblock for why this lockout is global rather than per-account/device.
-        $this->clearKioskPinLockout();
+        // step) is exactly what "revoke by using the email login" means for this account's
+        // PIN-login lockout: it proves the front door still works, so there's no reason to
+        // keep the faster PIN path shut for them.
+        $this->clearKioskPinLockout($user);
 
         // Login always lands on the account's stored/default role — a user holding
         // additional roles (Committee, Event Coordinator, etc. via grant tables) switches

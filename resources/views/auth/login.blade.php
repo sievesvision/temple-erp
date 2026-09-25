@@ -523,8 +523,8 @@
 
             <!-- Email Input -->
             <div class="form-floating">
-              <input type="email" class="form-control @error('email') is-invalid @enderror" name="email" id="emailInput" placeholder="name@example.com" required value="{{ old('email') }}">
-              <label for="emailInput"><i class="bi bi-envelope me-1 text-muted"></i>Email Address</label>
+              <input type="text" class="form-control @error('email') is-invalid @enderror" name="email" id="emailInput" placeholder="name@example.com" required value="{{ old('email') }}" autocomplete="username">
+              <label for="emailInput"><i class="bi bi-envelope me-1 text-muted"></i>Email or Username</label>
             </div>
 
             <!-- Password Input -->
