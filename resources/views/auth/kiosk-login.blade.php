@@ -427,6 +427,36 @@
     tickKioskClock();
     setInterval(tickKioskClock, 30000);
 
+    // Keeps this page's embedded CSRF token (and the session it belongs to) alive for as
+    // long as the kiosk screen is left open — without this, a token baked in at page-load
+    // time goes stale the instant the session idles past SESSION_LIFETIME, OR the moment
+    // anyone logs in from a SECOND tab of this same browser (Laravel rotates the session/
+    // token on every login; tabs share one cookie jar), long before anyone actually taps a
+    // PIN. Refetches on an interval AND immediately whenever the tab becomes visible again
+    // (switched back to after using another tab/app), which is exactly when a cross-tab
+    // rotation would otherwise go unnoticed until the next failed submit.
+    (function () {
+      function refreshCsrfToken() {
+        fetch('{{ route('kiosk.csrf-token') }}', { headers: { 'Accept': 'application/json' } })
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .then(function (data) {
+            if (!data || !data.token) { return; }
+            document.querySelectorAll('input[name="_token"]').forEach(function (input) {
+              input.value = data.token;
+            });
+          })
+          .catch(function () { /* a transient network hiccup here just means the next scheduled
+                                    or focus-triggered attempt tries again — the existing 419
+                                    recovery redirect is still the safety net either way. */ });
+      }
+
+      setInterval(refreshCsrfToken, 5 * 60 * 1000);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') { refreshCsrfToken(); }
+      });
+      window.addEventListener('focus', refreshCsrfToken);
+    })();
+
     (function () {
       const pinPanel = document.getElementById('kioskPinPanel');
       const emailPanel = document.getElementById('kioskEmailPanel');

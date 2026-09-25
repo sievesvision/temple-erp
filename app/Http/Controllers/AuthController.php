@@ -272,6 +272,27 @@ class AuthController extends Controller
     }
 
     /**
+     * A kiosk terminal's login screen realistically sits open far longer than a normal login
+     * page — hours, sometimes overnight — and two things silently invalidate the CSRF token
+     * that was baked into the page's HTML at load time, well before SESSION_LIFETIME would
+     * ever be a factor on its own: (1) the session simply idles past SESSION_LIFETIME and
+     * gets garbage-collected, and (2) — the one that actually explains a "continuous"/frequent
+     * report rather than an overnight edge case — Laravel's SessionGuard::login() calls
+     * session()->regenerate(true) on EVERY successful login, anywhere; since browser tabs
+     * share one cookie jar per domain, an admin (or the kiosk itself) logging in from a
+     * SECOND tab of the SAME browser rotates the session/token out from under this already-
+     * open kiosk tab, with no visible sign anything changed until the next submit fails.
+     * The kiosk page polls this endpoint (see its own script) to keep its embedded token
+     * continuously in sync with whatever the current one actually is, so a stale-token 419
+     * becomes rare rather than routine — the recovery redirect in bootstrap/app.php stays in
+     * place as a last-resort safety net, not the primary way this is expected to behave.
+     */
+    public function refreshKioskCsrfToken(Request $request)
+    {
+        return response()->json(['token' => csrf_token()]);
+    }
+
+    /**
      * Step 2 of login for a 2FA-enabled account — "Enter your OTP". Requires the pending
      * login state startLoginOtp() stashed in session; falls back to the plain login form if
      * that's missing (e.g. the user navigated here directly or the session already expired).

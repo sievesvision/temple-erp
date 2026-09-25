@@ -58,6 +58,10 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 // handler below, so credential/2FA/lockout/recaptcha logic is never duplicated.
 Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kiosk.login');
 Route::get('/kiosk', fn () => redirect()->route('kiosk.login'));
+// Polled periodically by the kiosk login page itself to keep its embedded CSRF token from
+// ever going stale while the page sits open — see AuthController::refreshKioskCsrfToken()'s
+// own docblock for why this is necessary well before SESSION_LIFETIME alone would matter.
+Route::get('/kiosk/csrf-token', [AuthController::class, 'refreshKioskCsrfToken'])->name('kiosk.csrf-token');
 // "Choose your counter" grid — only ever reached by an account holding more than one
 // kiosk-only destination (see AuthController::completeLogin()/possibleKioskPosDestinations()).
 Route::get('/kiosk/select', [AuthController::class, 'showKioskSelect'])->middleware('auth')->name('kiosk.select');
