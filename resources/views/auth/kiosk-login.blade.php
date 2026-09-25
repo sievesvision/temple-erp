@@ -173,23 +173,63 @@
       .kiosk-intro { flex: 1; }
       .kiosk-feature-list { align-items: flex-start; }
       .kiosk-card { flex-shrink: 0; }
+      /* The left column already names the temple ("Welcome to {temple}") — repeating the
+         same name in the card's own header again is pure redundancy, and the ~130px it
+         costs is exactly what keypad rows need on a shorter widescreen display (a 1280x800-
+         class kiosk monitor with normal browser chrome has less usable height than its
+         nominal resolution suggests). */
+      .kiosk-brand { display: none; }
+      .kiosk-card { padding-top: 1.75rem; }
     }
 
     @media (max-width: 480px) {
       .kiosk-topbar { justify-content: center; }
     }
 
-    /* A landscape kiosk tablet is commonly ~700-800px tall — tighten vertical spacing rather
-       than let the intro/card stack push the keypad (the functional part) below the fold. */
-    @media (max-height: 820px) {
-      .kiosk-shell { gap: 1.5rem; }
+    /* These thresholds are deliberately generous, not tuned to exactly clear one nominal
+       resolution — a kiosk's REPORTED resolution (1280x853, "HD", an iPad's numbers, etc.)
+       is rarely its actual usable browser viewport once OS scaling, a toolbar, or a
+       bookmarks bar are accounted for, and guessing that overhead wrong is exactly how a
+       page ends up "technically responsive" but still clipped on the device someone is
+       actually holding. Two tiers, both purely height-driven (independent of width, since a
+       wide monitor can still have a short viewport): moderate first, aggressive once space is
+       genuinely tight — always keeping the keypad (the one thing that must never scroll out
+       of reach) as the last thing to give up size.
+       Tier 1 — moderate: drop the decorative tagline/feature list, trim padding. */
+    @media (max-height: 900px) {
+      .kiosk-shell { gap: 1.25rem; }
       .kiosk-intro-tagline { display: none; }
       .kiosk-feature-list { display: none; }
-      .kiosk-card { padding: 1.5rem 1.75rem 1.25rem; }
-      .kiosk-brand { margin-bottom: 0.75rem; }
-      .kiosk-card-subtitle { margin-bottom: 1rem; }
-      .pin-dots { margin-bottom: 1rem; }
-      .pin-key { min-height: 46px; }
+      .kiosk-card { padding: 1.35rem 1.5rem 1.1rem; }
+      .kiosk-brand { display: none; }
+      .kiosk-card-title { margin-top: 0; }
+      .kiosk-card-subtitle { margin-bottom: 0.85rem; }
+      .pin-dots { margin-bottom: 0.85rem; }
+      .pin-key { min-height: 44px; }
+      .kiosk-toggle-link { margin-top: 0.75rem; }
+      .kiosk-secure-note { margin-top: 0.9rem; padding-top: 0.7rem; }
+    }
+
+    /* Tier 2 — aggressive: for a genuinely short viewport (a scaled-down or landscape-
+       squeezed browser window), the secure-access footnote is the one thing left that isn't
+       load-bearing — everything else here is either the keypad itself or already at a
+       touch-usable floor. */
+    @media (max-height: 640px) {
+      body { padding: 12px; }
+      .kiosk-topbar { margin-bottom: 0.5rem; }
+      .kiosk-clock .time { font-size: 0.95rem; }
+      .kiosk-shell { gap: 0.75rem; }
+      .kiosk-intro h1 { font-size: clamp(1.3rem, 3.2vw, 1.7rem); }
+      .kiosk-card { padding: 1rem 1.25rem 0.85rem; }
+      .kiosk-card-title { font-size: 1rem; }
+      .kiosk-card-subtitle { font-size: 0.8rem; margin-bottom: 0.6rem; }
+      .pin-dots { gap: 6px; margin-bottom: 0.6rem; }
+      .pin-dot { width: 34px; height: 38px; }
+      .pin-keypad { gap: 6px; }
+      .pin-key { min-height: 38px; font-size: 1.05rem; }
+      .kiosk-toggle-link { margin-top: 0.5rem; font-size: 0.8rem; }
+      .kiosk-secure-note { display: none; }
+      .kiosk-poweredby { display: none; }
     }
   </style>
 </head>
@@ -344,7 +384,7 @@
 
   <div class="kiosk-poweredby">
     <span>Provided by</span>
-    <img src="{{ asset('sievespos_logo.png') }}" alt="SievesPOS">
+    <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
     <span>(Sievesvision)</span>
   </div>
 
