@@ -102,4 +102,54 @@ class KioskLoginTest extends TestCase
 
         $response->assertRedirect(route('login'));
     }
+
+    public function test_the_generic_kiosk_login_page_shows_no_destination_specific_wording(): void
+    {
+        $response = $this->get(route('kiosk.login'));
+
+        $response->assertOk();
+        $response->assertSee('Counter Sign In');
+        $response->assertDontSee('Event Donation Kiosk');
+        $response->assertDontSee('Ticketing Kiosk');
+    }
+
+    public function test_an_events_own_kiosk_login_page_shows_its_own_name(): void
+    {
+        [, $eventId] = $this->posLevelCoordinator();
+
+        $response = $this->get(route('kiosk.login.event', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('Kiosk Test Event — Event Donation Kiosk');
+    }
+
+    public function test_a_nonexistent_events_kiosk_login_page_falls_back_to_the_generic_wording(): void
+    {
+        $response = $this->get(route('kiosk.login.event', 999999));
+
+        $response->assertOk();
+        $response->assertSee('Counter Sign In');
+        $response->assertDontSee('Event Donation Kiosk');
+    }
+
+    public function test_the_tickets_kiosk_login_page_shows_its_own_name(): void
+    {
+        $response = $this->get(route('kiosk.login.tickets'));
+
+        $response->assertOk();
+        $response->assertSee('Ticketing Kiosk');
+    }
+
+    public function test_logging_in_from_an_events_own_landing_page_still_lands_on_that_event_regardless_of_page(): void
+    {
+        [$user, $eventId] = $this->posLevelCoordinator();
+
+        // The destination-specific page is cosmetic only — the account's own destination
+        // still decides where login lands, same as the generic page.
+        $this->get(route('kiosk.login.event', $eventId));
+
+        $response = $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
+
+        $response->assertRedirect(route('admin.events.pos', $eventId));
+    }
 }

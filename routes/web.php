@@ -57,6 +57,12 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 // 'pos' level, a Ticket Controller at 'view'/'entry' level) — posts to the same login.post
 // handler below, so credential/2FA/lockout/recaptcha logic is never duplicated.
 Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kiosk.login');
+// Destination-specific landing pages — each meant to be bookmarked on ONE physical counter's
+// own device, showing that counter's own name ("Kumbabisekam 2027 — Event Donation Kiosk",
+// "Ticketing Kiosk") instead of the generic page above. Purely cosmetic: login itself still
+// goes through the same login.post/kiosk.pin-login handlers regardless of which page was used.
+Route::get('/kiosk/login/event/{eventId}', [AuthController::class, 'showKioskLogin'])->name('kiosk.login.event');
+Route::get('/kiosk/login/tickets', [AuthController::class, 'showKioskLogin'])->name('kiosk.login.tickets');
 Route::get('/kiosk', fn () => redirect()->route('kiosk.login'));
 // Polled periodically by the kiosk login page itself to keep its embedded CSRF token from
 // ever going stale while the page sits open — see AuthController::refreshKioskCsrfToken()'s

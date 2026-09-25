@@ -220,6 +220,18 @@ class KioskPinSettingsTest extends TestCase
         $response->assertDontSee('href="' . route('kiosk.pin.edit') . '"', false);
     }
 
+    public function test_settings_page_shows_each_destinations_own_bookmarkable_landing_page(): void
+    {
+        [$user, $eventId] = $this->posLevelCoordinator();
+        DB::table('ticket_controllers')->insert(['user_id' => $user->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
+
+        $response = $this->actingAs($user)->get(route('kiosk.pin.edit'));
+
+        $response->assertOk();
+        $response->assertSee(route('kiosk.login.event', $eventId), false);
+        $response->assertSee(route('kiosk.login.tickets'), false);
+    }
+
     public function test_back_to_counter_links_to_the_select_grid_for_a_dual_access_account_with_no_known_referrer(): void
     {
         [$user] = $this->posLevelCoordinator();

@@ -50,6 +50,8 @@
     .destination-name { font-weight: 700; color: var(--dark-bg); font-size: 1rem; margin-bottom: 0.15rem; }
     .destination-pin-status { font-size: 0.82rem; color: #948c7e; margin-bottom: 0.9rem; }
     .destination-pin-status.set { color: #2f7d4f; }
+    .destination-landing-url { font-size: 0.76rem; color: #948c7e; margin: -0.5rem 0 1rem; word-break: break-all; }
+    .destination-landing-url a { color: var(--primary-saffron); }
 
     .form-floating { margin-bottom: 0.75rem; }
     .form-control { min-height: 50px; font-size: 0.95rem; border: 1.5px solid #e7ddcd; border-radius: 12px; }
@@ -107,6 +109,9 @@
             @else
               No PIN set yet for this counter
             @endif
+          </div>
+          <div class="destination-landing-url">
+            Bookmark this counter's own sign-in page on its device: <a href="{{ $destination['landing_url'] }}">{{ $destination['landing_url'] }}</a>
           </div>
 
           <form method="POST" action="{{ route('kiosk.pin.update') }}">

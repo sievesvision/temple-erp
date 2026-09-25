@@ -259,14 +259,34 @@ class AuthController extends Controller
      * The POS-only kiosk login landing page — same step-1 form as showLogin() but a
      * dedicated, kiosk-appropriate view (no registration/forgot-password links, no public
      * navbar). Posts to the same login.post route, so completeLogin() below (unchanged)
-     * still decides the post-login destination purely from the account's role/level.
+     * still decides the post-login destination purely from the account's role/level — this
+     * page's own destination-specific heading is purely cosmetic (which physical counter a
+     * bookmarked URL is meant for), never a restriction on who may sign in through it.
+     *
+     * Three ways to reach it: the plain generic page (kiosk.login), one bookmarked per event
+     * (kiosk.login.event/{eventId} — "{Event Name} — Event Donation Kiosk"), and one for
+     * ticket sales (kiosk.login.tickets — "Ticketing Kiosk"). A counter terminal is expected
+     * to have its OWN one of these bookmarked/pinned, rather than everyone sharing the one
+     * generic URL and having to recognise their own counter after signing in.
      */
-    public function showKioskLogin()
+    public function showKioskLogin(Request $request, $eventId = null)
     {
+        $kioskDestinationLabel = null;
+        $routeName = $request->route()?->getName();
+
+        if ($routeName === 'kiosk.login.event' && $eventId) {
+            $eventName = \Illuminate\Support\Facades\DB::table('events')->where('event_id', $eventId)->value('event_name');
+            if ($eventName) {
+                $kioskDestinationLabel = $eventName . ' — Event Donation Kiosk';
+            }
+        } elseif ($routeName === 'kiosk.login.tickets') {
+            $kioskDestinationLabel = 'Ticketing Kiosk';
+        }
+
         // No "PIN login is disabled" pre-check here — lockout is per-account now (see
         // attemptKioskPinLogin()), so which account might be locked isn't knowable until a
         // username is actually submitted. The PIN panel is always offered by default.
-        return response()->view('auth.kiosk-login', [])
+        return response()->view('auth.kiosk-login', ['kioskDestinationLabel' => $kioskDestinationLabel])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
@@ -756,6 +776,12 @@ class AuthController extends Controller
         foreach ($destinations as &$destination) {
             $key = $destination['type'] . ':' . ($destination['type'] === 'event' ? $destination['event_id'] : '');
             $destination['pin_set_at'] = optional($pins->get($key))->pin_set_at;
+            // The counter-specific landing page (see showKioskLogin()'s docblock) — shown so
+            // whoever sets up a physical kiosk device knows which URL to bookmark on it,
+            // instead of everyone sharing the one generic /kiosk/login page.
+            $destination['landing_url'] = $destination['type'] === 'event'
+                ? route('kiosk.login.event', $destination['event_id'])
+                : route('kiosk.login.tickets');
         }
         unset($destination);
 

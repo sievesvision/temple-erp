@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-  <title>{{ $temple['name'] }} · Counter Sign In</title>
+  <title>{{ $temple['name'] }} · {{ $kioskDestinationLabel ?? 'Counter Sign In' }}</title>
   <link rel="icon" type="image/gif" href="{{ $temple['logo'] }}">
 
   <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
@@ -215,7 +215,10 @@
        Tier 1 — moderate: drop the decorative tagline/feature list, trim padding. */
     @media (max-height: 900px) {
       .kiosk-shell { gap: 1.25rem; }
-      .kiosk-intro-tagline { display: none; }
+      /* Not hidden when it's carrying a destination-specific label (see showKioskLogin()) —
+         that text identifies WHICH counter this is, not decorative copy, so it must survive
+         the same height compaction that drops the generic tagline. */
+      .kiosk-intro-tagline:not(.has-destination) { display: none; }
       .kiosk-feature-list { display: none; }
       .kiosk-card { padding: 1.35rem 1.5rem 1.1rem; }
       .kiosk-brand { display: none; }
@@ -280,7 +283,7 @@
         <span class="kiosk-intro-logo om-mark">ॐ</span>
       @endif
       <h1>Welcome to <span class="accent">{{ $temple['brand_title'] ?: $temple['name'] }}</span></h1>
-      <p class="kiosk-intro-tagline">Fast, secure sign-in for your counter team.</p>
+      <p class="kiosk-intro-tagline {{ $kioskDestinationLabel ? 'has-destination' : '' }}">{{ $kioskDestinationLabel ?? 'Fast, secure sign-in for your counter team.' }}</p>
       <ul class="kiosk-feature-list">
         <li><span class="feature-icon-badge tone-a"><i class="bi bi-calendar-heart-fill"></i></span> Event Donations</li>
         <li><span class="feature-icon-badge tone-b"><i class="bi bi-ticket-perforated-fill"></i></span> Ticket Sales</li>
@@ -296,7 +299,7 @@
         @endif
         <span>
           <span class="kiosk-brand-name font-divine d-block">{{ $temple['brand_title'] ?: $temple['name'] }}</span>
-          <span class="kiosk-brand-tag">Counter Sign In</span>
+          <span class="kiosk-brand-tag">{{ $kioskDestinationLabel ?? 'Counter Sign In' }}</span>
         </span>
       </div>
 
