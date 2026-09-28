@@ -55,7 +55,7 @@
                 <strong>{{ $terminal->label }}</strong>
                 <span class="text-muted small">({{ $terminal->key }})</span>
                 @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
-                <span class="status-pill {{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not Paired' }}</span>
+                <span class="status-pill {{ $terminal->isPairedFor($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPairedFor($linklyMode) ? 'Paired' : 'Not Paired' }}</span>
                 @if($lastKnown['state'] === 'online')
                 <span class="status-pill paid">Online</span>
                 @elseif($lastKnown['state'] === 'offline')
