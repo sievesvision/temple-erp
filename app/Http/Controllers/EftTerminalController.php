@@ -42,6 +42,9 @@ class EftTerminalController extends Controller
 
         $eftTerminals = EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $linklyMode = LinklyConfigService::mode();
+        // Each provider has its own independent sandbox/live switch — a terminal's own "Mode"
+        // badge must read whichever one actually applies to it, not always Linkly's.
+        $cbaSciMode = \App\Services\CbaSciConfigService::mode();
         $canManageRegistryLevel = $this->canManageRegistry();
         $isSystemAdmin = $this->isAdmin();
 
@@ -52,7 +55,13 @@ class EftTerminalController extends Controller
         $activeTerminals = $eftTerminals->filter(fn ($t) => $t->isPairedFor($linklyMode))->values();
         $inactiveTerminals = $eftTerminals->reject(fn ($t) => $t->isPairedFor($linklyMode))->values();
 
-        return view('admin.eft-terminal-settings', compact('activeTerminals', 'inactiveTerminals', 'linklyMode', 'canManageRegistryLevel', 'isSystemAdmin'));
+        // "Not checked" isn't a known-bad state, only a genuine "offline" reading on an
+        // active terminal should ever hold this back — an unqueried terminal is optimistically
+        // assumed fine until proven otherwise, same as the per-terminal badge does.
+        $allOperational = $activeTerminals->isNotEmpty()
+            && $activeTerminals->every(fn ($t) => $t->lastKnownStatus()['state'] !== 'offline');
+
+        return view('admin.eft-terminal-settings', compact('activeTerminals', 'inactiveTerminals', 'linklyMode', 'cbaSciMode', 'canManageRegistryLevel', 'isSystemAdmin', 'allOperational'));
     }
 
     /**
