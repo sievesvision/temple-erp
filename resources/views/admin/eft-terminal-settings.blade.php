@@ -38,6 +38,16 @@
            active ones so it doesn't compete for attention, without hiding it entirely (it may
            still hold transaction history, or just be awaiting its first pairing). */
         .card-panel-inactive { opacity: 0.72; }
+
+        /* The full pairing form/details for a terminal only matter once you're actually
+           doing something with that specific terminal — collapsed by default so the page
+           reads as a scannable list of name + paired/online status, with the detail view
+           (pairing controls, Set Default/Remove) opening only for the one you click on. */
+        .terminal-summary-row { padding: 16px 24px; cursor: pointer; border-radius: 14px; }
+        .terminal-summary-row:hover { background: rgba(200,155,60,0.06); }
+        .terminal-summary-chevron { transition: transform 0.15s ease; color: var(--text-secondary); flex-shrink: 0; }
+        .terminal-summary-row[aria-expanded="true"] .terminal-summary-chevron { transform: rotate(90deg); }
+        .terminal-detail-body { padding: 0 24px 20px; border-top: 1px solid var(--border); margin-top: 4px; padding-top: 16px; }
     </style>
 </head>
 <body>
@@ -103,5 +113,7 @@
             </form>
         </div>
     </div>
+
+    <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 </body>
 </html>

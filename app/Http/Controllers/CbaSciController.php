@@ -65,7 +65,7 @@ class CbaSciController extends Controller
             AuditLogService::log("Paired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
 
-        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message']);
+        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
     public function testPairing(Request $request)
@@ -78,7 +78,7 @@ class CbaSciController extends Controller
         $terminal = EftTerminal::findOrFail($validated['terminal_id']);
         $result = CbaSciService::testPairing($terminal);
 
-        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message']);
+        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
     public function unpair(Request $request)
@@ -95,7 +95,7 @@ class CbaSciController extends Controller
             AuditLogService::log("Unpaired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
 
-        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message']);
+        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
     /**

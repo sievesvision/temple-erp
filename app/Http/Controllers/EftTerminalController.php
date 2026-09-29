@@ -105,7 +105,12 @@ class EftTerminalController extends Controller
 
         AuditLogService::log("Added EFT terminal '{$terminal->label}' ({$terminal->key})");
 
-        return $this->redirectAfterAction($request)->with('success', "Terminal \"{$terminal->label}\" added — pair it below.");
+        // The terminal's own detail view (pairing form etc.) is collapsed by default on this
+        // page — expand just the one you were actually working with instead of leaving you to
+        // find and re-click it.
+        return $this->redirectAfterAction($request)
+            ->with('success', "Terminal \"{$terminal->label}\" added — pair it below.")
+            ->with('expandTerminalId', $terminal->id);
     }
 
     public function setDefault(Request $request, EftTerminal $terminal)
@@ -119,7 +124,7 @@ class EftTerminalController extends Controller
 
         AuditLogService::log("Set '{$terminal->label}' as the default EFT terminal");
 
-        return redirect()->back()->with('success', "\"{$terminal->label}\" is now the default terminal.");
+        return redirect()->back()->with('success', "\"{$terminal->label}\" is now the default terminal.")->with('expandTerminalId', $terminal->id);
     }
 
     public function destroy(Request $request, EftTerminal $terminal)
@@ -129,11 +134,11 @@ class EftTerminalController extends Controller
         }
 
         if ($terminal->is_default) {
-            return redirect()->back()->with('error', 'Cannot remove the default terminal — set another one as default first.');
+            return redirect()->back()->with('error', 'Cannot remove the default terminal — set another one as default first.')->with('expandTerminalId', $terminal->id);
         }
 
         if ($terminal->linklyTransactions()->exists() || $terminal->sciTransactions()->exists()) {
-            return redirect()->back()->with('error', 'Cannot remove a terminal with recorded transactions — it stays in the registry for that history to remain readable.');
+            return redirect()->back()->with('error', 'Cannot remove a terminal with recorded transactions — it stays in the registry for that history to remain readable.')->with('expandTerminalId', $terminal->id);
         }
 
         if ($terminal->isSciPaired()) {

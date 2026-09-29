@@ -37,6 +37,7 @@ class LinklyController extends Controller
         $result = LinklyEftService::pair($validated['pair_code'], $terminal);
 
         return redirect()->back()
-            ->with($result['success'] ? 'success' : 'error', $result['message']);
+            ->with($result['success'] ? 'success' : 'error', $result['message'])
+            ->with('expandTerminalId', $terminal->id);
     }
 }
