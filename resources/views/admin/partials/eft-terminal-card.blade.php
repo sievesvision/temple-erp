@@ -11,7 +11,7 @@
 @endphp
 <div class="terminal-card{{ $paired ? '' : ' terminal-card-inactive' }}">
     <div class="terminal-summary-row" role="button" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}" aria-controls="{{ $detailId }}">
-        <span class="terminal-icon"><i class="bi bi-credit-card-2-front-fill"></i></span>
+        <span class="terminal-icon"><img src="{{ asset('images/eft-terminal-icon.jpg') }}" alt=""></span>
 
         <div class="terminal-summary-main">
             <div class="terminal-summary-name">
@@ -78,6 +78,7 @@
     </div>
 
     <div class="collapse{{ $startExpanded ? ' show' : '' }}" id="{{ $detailId }}">
+        <div class="terminal-detail-title"><i class="bi bi-credit-card-2-front-fill"></i> {{ $terminal->label }} <span class="text-muted fw-normal">— Settings</span></div>
         <div class="terminal-detail-body">
 
             <div class="terminal-detail-section">

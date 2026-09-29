@@ -44,12 +44,17 @@
         .operational-flag .dot { width: 8px; height: 8px; border-radius: 50%; background: #10B981; }
 
         /* ---------- Terminal card ---------- */
-        .terminal-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,0.04); }
+        /* A colour-coded left rail (gold = usable, grey = inactive) runs the full height of
+           the card — summary row AND expanded body — so the two visually read as one bounded
+           unit for one terminal, not a summary row that happens to sit above a detail panel. */
+        .terminal-card { background: linear-gradient(180deg, #FFFEFB, var(--white) 140px); border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: 12px; margin-bottom: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(16,24,40,0.06); }
+        .terminal-card-inactive { border-left-color: #C7CBD1; }
         .terminal-card-inactive .terminal-summary-row { background: #FAFAFA; }
         .terminal-summary-row { display: flex; align-items: center; gap: 20px; padding: 18px 20px; cursor: pointer; flex-wrap: wrap; }
         .terminal-summary-row:hover { background: #FBF9F6; }
         .terminal-card-inactive .terminal-summary-row:hover { background: #F3F4F6; }
-        .terminal-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--cream); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: var(--maroon); flex-shrink: 0; }
+        .terminal-icon { width: 56px; height: 56px; border-radius: 10px; background: linear-gradient(160deg, #FDF6E8, #F1E1BC); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; padding: 5px; }
+        .terminal-icon img { width: 100%; height: 100%; object-fit: contain; }
         .terminal-summary-main { flex: 1 1 240px; min-width: 200px; }
         .terminal-summary-name { font-size: 1rem; margin-bottom: 3px; }
         .terminal-summary-meta { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px; }
@@ -60,19 +65,26 @@
         .status-label { color: var(--text-secondary); min-width: 82px; }
         .terminal-summary-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 
-        .badge-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+        /* Squared-off chips with solid, saturated fills read as real status indicators rather
+           than soft decorative tags — deliberately distinct from badge-provider/badge-info,
+           which stay light since they're identity tags, not a state to react to. */
+        .badge-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 5px; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
         .badge-provider { background: #F3F4F6; color: #4B5563; }
         .badge-info { background: #DBEAFE; color: #1D4ED8; }
-        .badge-ok { background: #D1FAE5; color: #047857; }
-        .badge-bad { background: #FEE2E2; color: #B91C1C; }
-        .badge-warn { background: #FEF3C7; color: #92400E; }
+        .badge-ok { background: #10B981; color: #fff; }
+        .badge-bad { background: #EF4444; color: #fff; }
+        .badge-warn { background: #F59E0B; color: #fff; }
 
         .btn-terminal-settings { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text-primary); font-weight: 700; font-size: 0.82rem; min-height: 40px; }
         .btn-terminal-settings:hover { border-color: var(--maroon); color: var(--maroon); }
         .btn-terminal-more { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
         .btn-terminal-more:hover { background: #F9FAFB; }
 
-        .terminal-detail-body { padding: 4px 20px 20px; border-top: 1px solid var(--border); }
+        /* The detail title bar repeats which terminal this panel belongs to right at the top
+           of the expanded body — matters once more than one card is open, or the panel is
+           long enough that the summary row above has scrolled out of view. */
+        .terminal-detail-title { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 800; color: var(--maroon); padding: 12px 20px; background: var(--cream); border-top: 1px solid var(--border); }
+        .terminal-detail-body { padding: 4px 20px 20px; }
         .terminal-detail-section { padding: 16px 0; border-bottom: 1px solid var(--border); }
         .terminal-detail-section:last-child { border-bottom: none; padding-bottom: 4px; }
         .terminal-detail-heading { font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 10px; }

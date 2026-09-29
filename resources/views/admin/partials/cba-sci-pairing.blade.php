@@ -5,13 +5,7 @@
      paired states, Test/Cancel/Unpair, and error display all per mx51's own certification
      checklist. --}}
 @php $isPaired = $terminal->isSciPaired(); @endphp
-<div class="border rounded-3 p-3 mb-2" style="background:#F7FAFC; border-color:#CBD5E0 !important;">
-    <div class="d-flex align-items-center gap-2 mb-2">
-        <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; background:#1A2B4C; color:#fff; font-weight:800; font-size:0.68rem; flex-shrink:0;">SCI</span>
-        <strong style="color:#1A2B4C;">Simple Cloud Integration</strong>
-        <span class="text-muted small">— mx51 Cloud</span>
-    </div>
-
+<div>
     @if($isPaired)
         <div class="alert alert-success py-2 px-3 mb-2" style="font-size:0.88rem;">
             <i class="bi bi-check-circle-fill me-1"></i>Paired successfully.

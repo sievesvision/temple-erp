@@ -53,7 +53,7 @@ class CbaSciAdminUiTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.eft-terminals.index'));
 
         $response->assertOk();
-        $response->assertSee('Simple Cloud Integration', false);
+        $response->assertSee('name="pairing_code"', false);
         $response->assertSee('Pairing Code', false);
         $response->assertSee('name="pair_code"', false);
     }
