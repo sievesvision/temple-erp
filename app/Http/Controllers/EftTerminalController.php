@@ -48,6 +48,16 @@ class EftTerminalController extends Controller
         $canManageRegistryLevel = $this->canManageRegistry();
         $isSystemAdmin = $this->isAdmin();
 
+        // Viewing this page is one of the two moments mx51's own certification checklist
+        // requires a live pairing-info check (the other is just before a transaction starts,
+        // see CbaSciController::startPurchase()) — a mx51 terminal marked paired locally gets
+        // silently self-corrected here if it's actually been unpaired on mx51's own side.
+        foreach ($eftTerminals as $eftTerminal) {
+            if ($eftTerminal->provider === 'cba_sci' && $eftTerminal->isSciPaired()) {
+                \App\Services\CbaSciService::refreshPairingStatus($eftTerminal);
+            }
+        }
+
         // A terminal that isn't currently paired can't take a payment, so it's grouped apart
         // from the terminals actually usable right now rather than mixed in with them — this
         // is also where a retired terminal with recorded transaction history ends up once

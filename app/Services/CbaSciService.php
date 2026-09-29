@@ -127,17 +127,44 @@ class CbaSciService
         }
 
         if ($response->status() === 401 && ($response->json('error.code') ?? $response->json('code')) === 'no_active_pairings_found') {
-            return ['success' => false, 'message' => 'This pairing is no longer active on the terminal — please unpair and pair again.', 'still_paired' => false];
+            return ['success' => false, 'message' => 'This pairing is no longer active on the terminal — it has been cleared here too. Pair again when ready.', 'still_paired' => false];
         }
 
         return ['success' => false, 'message' => self::pairingErrorMessage($response), 'still_paired' => true];
     }
 
     /**
+     * Proactively confirms a locally-paired terminal is still actually paired on mx51's own
+     * side, self-healing immediately if it isn't — per mx51's own certification checklist
+     * (SCIPAIRING10/SCIMULTI03), the POS must check GET /pairing-info both when the pairing
+     * section is viewed and before a transaction is started, rather than trusting a stale
+     * local flag indefinitely (e.g. the terminal was re-paired to a different POS on mx51's
+     * side without this one ever being told). A transient network failure or any other
+     * unexpected response is treated as "assume still paired" — see testPairing() — since a
+     * momentary blip is never grounds to silently unpair a terminal that's actually fine.
+     *
+     * @return bool whether the terminal is (still) genuinely paired after this check
+     */
+    public static function refreshPairingStatus(EftTerminal $terminal): bool
+    {
+        if (!$terminal->isSciPaired()) {
+            return false;
+        }
+
+        $result = self::testPairing($terminal);
+        if (!$result['still_paired']) {
+            self::unpair($terminal);
+        }
+
+        return $result['still_paired'];
+    }
+
+    /**
      * Removes a pairing on mx51's side, then clears every sci_* column locally. Called
-     * either from the merchant's own "Unpair" button, or after testPairing()/a transaction
-     * reports the pairing is already gone externally — in that second case the mx51-side
-     * call will itself fail harmlessly (nothing to unpair), so the local cleanup still runs.
+     * either from the merchant's own "Unpair"/"Cancel" button, or after testPairing()/
+     * refreshPairingStatus() reports the pairing is already gone externally — in that second
+     * case the mx51-side call will itself fail harmlessly (nothing to unpair), so the local
+     * cleanup still runs.
      *
      * @return array{success: bool, message: string}
      */

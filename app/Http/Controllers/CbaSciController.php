@@ -78,9 +78,24 @@ class CbaSciController extends Controller
         $terminal = EftTerminal::findOrFail($validated['terminal_id']);
         $result = CbaSciService::testPairing($terminal);
 
+        // mx51 says this pairing is gone on its side — reflect that locally right away
+        // instead of leaving the terminal shown as "Paired" until someone notices it's dead.
+        if (!$result['still_paired']) {
+            CbaSciService::unpair($terminal);
+        }
+
         return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
+    /**
+     * Shared by two buttons on the pairing UI: the real "Unpair" action on an already-paired
+     * terminal, and "Cancel" on the pairing form itself (see mx51's own certification
+     * checklist, SCIPAIRING07 — cancelling must call this same Unpair endpoint and leave no
+     * incomplete pairing record behind). Both end up here because CbaSciService::unpair()
+     * already handles "nothing to unpair" gracefully; the only difference is the flash
+     * message and whether it's audit-logged, decided by whether there was really a live
+     * pairing to remove.
+     */
     public function unpair(Request $request)
     {
         if (!$this->canManageRegistry()) {
@@ -89,13 +104,16 @@ class CbaSciController extends Controller
 
         $validated = $request->validate(['terminal_id' => 'required|exists:eft_terminals,id']);
         $terminal = EftTerminal::findOrFail($validated['terminal_id']);
+        $wasPaired = $terminal->isSciPaired();
         $result = CbaSciService::unpair($terminal);
 
-        if ($result['success']) {
+        if ($result['success'] && $wasPaired) {
             AuditLogService::log("Unpaired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
 
-        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
+        $message = $result['success'] && !$wasPaired ? 'Pairing cancelled.' : $result['message'];
+
+        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $message)->with('expandTerminalId', $terminal->id);
     }
 
     /**
@@ -129,6 +147,12 @@ class CbaSciController extends Controller
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
         if (!$terminal || $terminal->provider !== 'cba_sci') {
             return response()->json(['success' => false, 'message' => 'No mx51 Cloud terminal is configured for this station.'], 422);
+        }
+        // The other of the two moments mx51's certification checklist requires a live
+        // pairing-info check (see EftTerminalController::index() for the other one) — never
+        // start charging against a pairing that's already been revoked on mx51's own side.
+        if ($terminal->isSciPaired()) {
+            \App\Services\CbaSciService::refreshPairingStatus($terminal);
         }
         if (!$terminal->isSciPaired()) {
             return response()->json(['success' => false, 'message' => "\"{$terminal->label}\" is not paired yet."], 422);

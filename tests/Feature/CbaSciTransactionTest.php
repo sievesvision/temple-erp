@@ -117,6 +117,11 @@ class CbaSciTransactionTest extends TestCase
         $this->assertDatabaseMissing('donations_without_logins', ['donor_name' => 'Declined Donor']);
     }
 
+    // startPurchase() now proactively re-checks pairing-info before starting (mx51's own
+    // certification checklist, SCIPAIRING10) — a terminal mx51 already considers unpaired is
+    // now caught and self-healed by that pre-check, before ever reaching the transactions
+    // endpoint at all, so the surfaced message is the ordinary "not paired yet" one rather
+    // than a transaction-specific error.
     public function test_no_active_pairings_found_is_surfaced_when_starting_a_purchase(): void
     {
         $admin = $this->adminUser();
@@ -130,7 +135,8 @@ class CbaSciTransactionTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJson(['success' => false]);
-        $this->assertStringContainsString('not currently paired', $response->json('message'));
+        $this->assertStringContainsString('not paired yet', $response->json('message'));
+        $this->assertFalse($terminal->fresh()->isSciPaired());
     }
 
     public function test_transaction_refused_terminal_busy_is_surfaced(): void

@@ -61,8 +61,18 @@
             </div>
             <div class="col-md-4 d-flex gap-2">
                 <button type="submit" class="btn btn-sm btn-outline-primary">Pair</button>
-                <button type="reset" class="btn btn-sm btn-outline-secondary">Cancel</button>
+                <button type="submit" form="{{ 'cancel-pairing-' . $terminal->id }}" class="btn btn-sm btn-outline-secondary">Cancel</button>
             </div>
+        </form>
+        {{-- Cancel is its own form (submitting the Unpair endpoint), not a plain reset — per
+             mx51's own certification checklist (SCIPAIRING07), cancelling a pairing attempt
+             must call POST Unpair too, so no incomplete pairing record is ever left behind
+             even if one happened to exist. Harmless when there was nothing to cancel: see
+             CbaSciService::unpair()'s own docblock. --}}
+        <form id="{{ 'cancel-pairing-' . $terminal->id }}" action="{{ route('admin.cba-sci.unpair') }}" method="POST" class="d-none">
+            @csrf
+            <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+            @if(isset($returnContext))<input type="hidden" name="return_context" value="{{ $returnContext }}">@endif
         </form>
         <p class="text-muted small mt-2 mb-0">On the terminal, open its pairing menu to display a pairing code, then enter it here.</p>
     @endif

@@ -160,6 +160,65 @@ class CbaSciPairingTest extends TestCase
         $this->assertStringContainsString('no longer active', $result['message']);
     }
 
+    // mx51's own certification checklist (SCIPAIRING10/SCIMULTI03) requires the POS to
+    // proactively confirm a pairing is still active — refreshPairingStatus() is what both
+    // EftTerminalController::index() (viewing the pairing section) and
+    // CbaSciController::startPurchase() (before a transaction) call for this.
+    public function test_refresh_pairing_status_self_heals_when_mx51_reports_no_active_pairing(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $stillPaired = CbaSciService::refreshPairingStatus($terminal);
+
+        $this->assertFalse($stillPaired);
+        $this->assertFalse($terminal->fresh()->isSciPaired());
+    }
+
+    public function test_refresh_pairing_status_leaves_a_genuinely_active_pairing_untouched(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => []], 200)]);
+
+        $stillPaired = CbaSciService::refreshPairingStatus($terminal);
+
+        $this->assertTrue($stillPaired);
+        $this->assertTrue($terminal->fresh()->isSciPaired());
+    }
+
+    public function test_refresh_pairing_status_fails_open_on_a_network_error(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => fn () => throw new ConnectionException('timed out')]);
+
+        $stillPaired = CbaSciService::refreshPairingStatus($terminal);
+
+        $this->assertTrue($stillPaired);
+        $this->assertTrue($terminal->fresh()->isSciPaired());
+    }
+
+    public function test_refresh_pairing_status_is_a_noop_for_an_already_unpaired_terminal(): void
+    {
+        $terminal = $this->makeTerminal();
+
+        $stillPaired = CbaSciService::refreshPairingStatus($terminal);
+
+        $this->assertFalse($stillPaired);
+        Http::assertNothingSent();
+    }
+
     public function test_unpair_clears_all_local_pairing_fields(): void
     {
         $terminal = $this->makeTerminal();

@@ -123,6 +123,57 @@ class CbaSciAdminUiTest extends TestCase
         $this->assertSame('Kiosk 2', $terminal->sci_pairing_nickname);
     }
 
+    // SCIPAIRING07 — cancelling a pairing attempt must call the Unpair endpoint too, even
+    // though for a terminal that was never paired this is a harmless no-op. It should read
+    // as "cancelled" rather than the (misleading, since nothing was ever paired) "unpaired"
+    // wording, and shouldn't clutter the audit log for what's essentially a no-op.
+    public function test_cancelling_an_unpaired_terminals_pairing_attempt_calls_unpair_harmlessly(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = EftTerminal::create(['key' => 'sci-cancel', 'label' => 'SCI Cancel', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid()]);
+
+        $response = $this->actingAs($admin)->post(route('admin.cba-sci.unpair'), ['terminal_id' => $terminal->id]);
+
+        $response->assertRedirect(route('admin.eft-terminals.index'));
+        $response->assertSessionHas('success', 'Pairing cancelled.');
+        $this->assertDatabaseMissing('audit_logs', ['action' => "Unpaired mx51 Cloud terminal 'SCI Cancel' (sci-cancel)"]);
+    }
+
+    public function test_unpairing_a_genuinely_paired_terminal_still_shows_the_normal_message_and_logs_it(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = EftTerminal::create([
+            'key' => 'sci-real-unpair', 'label' => 'SCI Real Unpair', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid(),
+            'sci_pairing_id' => 'pid_x', 'sci_key_id' => 'kid_x', 'sci_signing_secret_part_b' => 'secret',
+            'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
+
+        $response = $this->actingAs($admin)->post(route('admin.cba-sci.unpair'), ['terminal_id' => $terminal->id]);
+
+        $response->assertSessionHas('success', 'Terminal unpaired.');
+        $this->assertDatabaseHas('audit_logs', ['action' => "Unpaired mx51 Cloud terminal 'SCI Real Unpair' (sci-real-unpair)"]);
+    }
+
+    // SCIPAIRING10/SCIMULTI03 — viewing the pairing section must itself confirm any locally-
+    // paired mx51 terminal is still actually paired on mx51's side.
+    public function test_viewing_the_settings_page_self_heals_an_externally_unpaired_terminal(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = EftTerminal::create([
+            'key' => 'sci-stale', 'label' => 'SCI Stale', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid(),
+            'sci_pairing_id' => 'pid_stale', 'sci_key_id' => 'kid_stale', 'sci_signing_secret_part_b' => 'secret',
+            'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $response = $this->actingAs($admin)->get(route('admin.eft-terminals.index'));
+
+        $response->assertOk();
+        $response->assertSee('Not Paired', false);
+        $this->assertFalse($terminal->fresh()->isSciPaired());
+    }
+
     public function test_removing_a_terminal_with_recorded_sci_transactions_is_blocked(): void
     {
         $admin = $this->adminUser();
