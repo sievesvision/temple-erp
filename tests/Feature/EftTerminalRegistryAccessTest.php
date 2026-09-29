@@ -6,6 +6,7 @@ use App\Models\EftTerminal;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -195,6 +196,69 @@ class EftTerminalRegistryAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('href="' . route('admin.dashboard') . '"', false);
+    }
+
+    // Linkly has no cheap "is it reachable" metadata call the way mx51's pairing-info is —
+    // the only real check is a Logon, which actually reaches the physical terminal, so this
+    // is a real LinklyTransaction, same as the event console's own Logon button.
+    public function test_checking_connection_records_a_successful_logon(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+        $terminal = EftTerminal::default();
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*/transaction*' => Http::response(['response' => ['success' => true, 'responseText' => 'OK']], 200),
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.eft-terminals.checkConnection', $terminal));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Logon successful.');
+        $this->assertDatabaseHas('linkly_transactions', [
+            'eft_terminal_id' => $terminal->id, 'txn_type' => 'logon', 'status' => 'approved',
+        ]);
+    }
+
+    public function test_checking_connection_records_a_failed_logon(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+        $terminal = EftTerminal::default();
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*/transaction*' => Http::response(['response' => ['success' => false, 'responseText' => 'TERMINAL OFFLINE']], 200),
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.eft-terminals.checkConnection', $terminal));
+
+        $response->assertSessionHas('error', 'TERMINAL OFFLINE');
+        $this->assertDatabaseHas('linkly_transactions', [
+            'eft_terminal_id' => $terminal->id, 'txn_type' => 'logon', 'status' => 'failed',
+        ]);
+        $this->assertSame('offline', $terminal->fresh()->lastKnownStatus()['state']);
+    }
+
+    public function test_checking_connection_is_rejected_for_a_non_linkly_terminal(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci']);
+        Http::fake();
+
+        $response = $this->actingAs($admin)->post(route('admin.eft-terminals.checkConnection', $terminal));
+
+        $response->assertSessionHas('error');
+        Http::assertNothingSent();
+    }
+
+    public function test_checking_connection_requires_registry_access(): void
+    {
+        $user = $this->entryLevelCoordinator();
+        $terminal = EftTerminal::default();
+        Http::fake();
+
+        $response = $this->actingAs($user)->post(route('admin.eft-terminals.checkConnection', $terminal));
+
+        $response->assertSessionHas('error', 'Unauthorized access.');
+        Http::assertNothingSent();
     }
 
     public function test_admin_can_set_default_and_remove_a_non_default_terminal(): void

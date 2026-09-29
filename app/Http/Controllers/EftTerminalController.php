@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\EftTerminal;
+use App\Models\LinklyTransaction;
 use App\Services\AuditLogService;
 use App\Services\EftTerminalAccess;
 use App\Services\LinklyConfigService;
+use App\Services\LinklyEftService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -144,6 +146,42 @@ class EftTerminalController extends Controller
         AuditLogService::log("Set '{$terminal->label}' as the default EFT terminal");
 
         return redirect()->back()->with('success', "\"{$terminal->label}\" is now the default terminal.")->with('expandTerminalId', $terminal->id);
+    }
+
+    /**
+     * A real live check for a Linkly terminal — unlike mx51's Test button (a cheap metadata
+     * call to mx51's cloud), Linkly has no such thing: the only genuine connectivity check is
+     * a Logon, which round-trips to the physical terminal and visibly wakes it up. That's why
+     * this is its own explicit button rather than something run silently every time this page
+     * loads (see index()'s mx51 self-heal, which has no such side effect). Records a real
+     * LinklyTransaction, same as the Logon button on the event console, so lastKnownStatus()
+     * immediately reflects the fresh result.
+     */
+    public function checkConnection(Request $request, EftTerminal $terminal)
+    {
+        if (!$this->canManageRegistry()) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        if ($terminal->provider !== 'linkly') {
+            return redirect()->back()->with('error', 'Connection checks are only available for Linkly terminals.')->with('expandTerminalId', $terminal->id);
+        }
+
+        $result = LinklyEftService::logon($terminal);
+
+        LinklyTransaction::create([
+            'pos_txn_ref' => 'LGN' . now()->format('mdHis') . rand(100, 999),
+            'txn_type' => 'logon',
+            'eft_terminal_id' => $terminal->id,
+            'status' => $result['success'] ? 'approved' : 'failed',
+            'response_text' => $result['message'],
+            'initiated_by' => Auth::id(),
+            'authorised_by' => Auth::id(),
+        ]);
+
+        AuditLogService::log("Checked connection for EFT terminal '{$terminal->label}' ({$terminal->key}): {$result['message']}");
+
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
     public function destroy(Request $request, EftTerminal $terminal)

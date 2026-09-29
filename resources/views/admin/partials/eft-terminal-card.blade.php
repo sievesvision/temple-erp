@@ -105,6 +105,13 @@
                         <button type="submit" class="btn btn-outline-primary">{{ $paired ? 'Re-pair' : 'Pair' }}</button>
                     </div>
                 </form>
+                @if($paired)
+                <form action="{{ route('admin.eft-terminals.checkConnection', $terminal) }}" method="POST" class="mt-2">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Connection</button>
+                </form>
+                <p class="text-muted small mt-2 mb-0" style="font-size:0.78rem;">Sends a real Logon to the terminal — it will visibly respond.</p>
+                @endif
                 @endif
             </div>
 
