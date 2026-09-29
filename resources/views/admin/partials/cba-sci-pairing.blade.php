@@ -31,12 +31,14 @@
                 @csrf
                 <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
                 @if(isset($returnContext))<input type="hidden" name="return_context" value="{{ $returnContext }}">@endif
+                @if(!empty($embedded))<input type="hidden" name="embedded" value="1">@endif
                 <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Test</button>
             </form>
             <form action="{{ route('admin.cba-sci.unpair') }}" method="POST" onsubmit="return confirm('Unpair this terminal? The terminal will need a fresh pairing code to reconnect.');">
                 @csrf
                 <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
                 @if(isset($returnContext))<input type="hidden" name="return_context" value="{{ $returnContext }}">@endif
+                @if(!empty($embedded))<input type="hidden" name="embedded" value="1">@endif
                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Unpair</button>
             </form>
         </div>
@@ -45,6 +47,7 @@
             @csrf
             <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
             @if(isset($returnContext))<input type="hidden" name="return_context" value="{{ $returnContext }}">@endif
+            @if(!empty($embedded))<input type="hidden" name="embedded" value="1">@endif
             <div class="col-md-4">
                 <label class="form-label small mb-1">Pairing Code</label>
                 <input type="text" name="pairing_code" class="form-control form-control-sm rounded-3" placeholder="Code from the terminal" maxlength="20" required>
@@ -67,6 +70,7 @@
             @csrf
             <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
             @if(isset($returnContext))<input type="hidden" name="return_context" value="{{ $returnContext }}">@endif
+            @if(!empty($embedded))<input type="hidden" name="embedded" value="1">@endif
         </form>
         <p class="text-muted small mt-2 mb-0">On the terminal, open its pairing menu to display a pairing code, then enter it here.</p>
     @endif

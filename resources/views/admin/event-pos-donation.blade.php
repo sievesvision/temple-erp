@@ -589,7 +589,7 @@
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>This Station's EFT Terminal</div>
             <div class="eft-modal-body">
                 <div id="terminalModalList"></div>
-                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="d-block small mb-3"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings (pair or add a terminal)</a>
+                <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();" class="d-block small mb-3"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings (pair or add a terminal)</a>
                 <button type="button" class="eft-modal-cancel-btn" id="terminalModalCloseBtn">Close</button>
             </div>
         </div>
@@ -651,6 +651,7 @@
         const CBA_SCI_CHARGE_START_URL = @json(route('admin.cba-sci.charge.start'));
         const CBA_SCI_CHARGE_STATUS_URL_BASE = @json(url('/admin/cba-sci/charge/status'));
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
+        const CBA_SCI_CHARGE_CANCEL_URL_BASE = @json(url('/admin/cba-sci/charge/cancel'));
         const CBA_SCI_CHARGE_OVERRIDE_URL_BASE = @json(url('/admin/cba-sci/charge/override'));
 
         // ---------- This station's EFT terminal ----------
@@ -784,10 +785,15 @@
         const methodRow = document.getElementById('posMethodRow');
         let selectedMethod = null;
         const methodIcons = { Cash: 'bi-cash-coin', UPI: 'bi-phone-fill', 'Bank Transfer': 'bi-bank2', Cheque: 'bi-postcard-fill', 'EFT Terminal': 'bi-credit-card-2-front-fill', Stripe: 'bi-credit-card-fill' };
-        (ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash']).forEach(function (m, idx) {
+        const posMethodList = ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash'];
+        // EFT Terminal is the fastest, most reconciliation-friendly method when it's on offer
+        // at all — default to it rather than whichever method happens to sort first, so a
+        // clerk doesn't have to remember to switch off Cash every single sale.
+        const posDefaultMethod = posMethodList.includes('EFT Terminal') ? 'EFT Terminal' : posMethodList[0];
+        posMethodList.forEach(function (m) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'pos-method-btn' + (idx === 0 ? ' active' : '');
+            btn.className = 'pos-method-btn' + (m === posDefaultMethod ? ' active' : '');
             btn.innerHTML = '<span class="pos-method-icon-badge"><i class="bi ' + (methodIcons[m] || 'bi-wallet2') + '"></i></span>' + m;
             btn.dataset.method = m;
             btn.addEventListener('click', function () {
@@ -797,7 +803,7 @@
                 updatePosSummary();
             });
             methodRow.appendChild(btn);
-            if (idx === 0) { selectedMethod = m; }
+            if (m === posDefaultMethod) { selectedMethod = m; }
         });
 
         // Payment methods that confirm money on the spot ("PAY now") versus ones that only
@@ -1038,6 +1044,7 @@
             startUrl: CBA_SCI_CHARGE_START_URL,
             statusUrlBase: CBA_SCI_CHARGE_STATUS_URL_BASE,
             actionUrlBase: CBA_SCI_CHARGE_ACTION_URL_BASE,
+            cancelUrlBase: CBA_SCI_CHARGE_CANCEL_URL_BASE,
             overrideUrlBase: CBA_SCI_CHARGE_OVERRIDE_URL_BASE,
             csrfToken: CSRF_TOKEN,
             eventId: EVENT_ID,
@@ -1585,5 +1592,7 @@
             }
         });
     </script>
+
+    @include('admin.partials.eft-terminal-settings-modal')
 </body>
 </html>

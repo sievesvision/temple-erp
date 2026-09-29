@@ -50,6 +50,12 @@ class EftTerminalController extends Controller
         $cbaSciMode = \App\Services\CbaSciConfigService::mode();
         $canManageRegistryLevel = $this->canManageRegistry();
         $isSystemAdmin = $this->isAdmin();
+        // Embedded in an iframe popup from a console/POS page (see eft-terminal-settings-
+        // modal.blade.php) — kiosk-mode browsers and single-window POS setups can't open a
+        // new tab, so this is how they reach pairing without leaving the page they're on.
+        // The Back/Logout topbar links make no sense pointed at a small iframe, so they're
+        // hidden in favour of the modal's own close control.
+        $embedded = $request->boolean('embedded');
 
         // Viewing this page is one of the two moments mx51's own certification checklist
         // requires a live pairing-info check (the other is just before a transaction starts,
@@ -74,7 +80,7 @@ class EftTerminalController extends Controller
         $allOperational = $activeTerminals->isNotEmpty()
             && $activeTerminals->every(fn ($t) => $t->lastKnownStatus()['state'] !== 'offline');
 
-        return view('admin.eft-terminal-settings', compact('activeTerminals', 'inactiveTerminals', 'linklyMode', 'cbaSciMode', 'canManageRegistryLevel', 'isSystemAdmin', 'allOperational'));
+        return view('admin.eft-terminal-settings', compact('activeTerminals', 'inactiveTerminals', 'linklyMode', 'cbaSciMode', 'canManageRegistryLevel', 'isSystemAdmin', 'allOperational', 'embedded'));
     }
 
     /**
@@ -102,7 +108,10 @@ class EftTerminalController extends Controller
             }
         }
 
-        return redirect()->route('admin.eft-terminals.index');
+        // Embedded (opened as an iframe popup — see eft-terminal-settings-modal.blade.php)
+        // must stay embedded across a redirect, or the next render shows the full topbar
+        // (Back/Logout pointed nowhere useful) squeezed into the small modal frame.
+        return redirect()->route('admin.eft-terminals.index', $request->boolean('embedded') ? ['embedded' => 1] : []);
     }
 
     /**

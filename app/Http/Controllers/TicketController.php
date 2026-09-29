@@ -101,12 +101,11 @@ class TicketController extends Controller
 
         // Ticket-related Linkly transactions only — this is the shared terminal, but the
         // console should only ever show what's relevant to ticket sales (event_id is
-        // always null for these, since Tickets isn't event-scoped).
+        // always null for these, since Tickets isn't event-scoped). Purchase/refund only —
+        // a Logon proves nothing about money moving and just clutters a payment history.
         $linklyTransactions = LinklyTransaction::whereNull('event_id')
-            ->where(function ($q) {
-                $q->where('donation_type', 'ticket_order')
-                    ->orWhere('txn_type', 'logon');
-            })
+            ->where('donation_type', 'ticket_order')
+            ->whereIn('txn_type', ['purchase', 'refund'])
             ->orderByDesc('created_at')
             ->limit(200)
             ->get();

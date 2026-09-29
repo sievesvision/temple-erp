@@ -75,7 +75,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
 
         $response->assertOk();
-        $response->assertSee('href="' . route('admin.eft-terminals.index') . '"', false);
+        $response->assertSee('openEftTerminalSettingsModal()', false);
         $response->assertDontSee('name="pair_code"', false);
         // "name=\"key\"" is the Add-Terminal form's own field — distinct from the store()
         // route's URL, which is identical to index()'s (same path, different verb) and so
@@ -114,7 +114,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
 
         $response->assertOk();
-        $response->assertSee('href="' . route('admin.eft-terminals.index') . '"', false);
+        $response->assertSee('openEftTerminalSettingsModal()', false);
         $response->assertDontSee('name="pair_code"', false);
         $response->assertDontSee('name="key"', false);
     }
@@ -129,7 +129,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/pos");
 
         $response->assertOk();
-        $response->assertSee('href="' . route('admin.eft-terminals.index') . '"', false);
+        $response->assertSee('openEftTerminalSettingsModal()', false);
     }
 
     public function test_ticket_pos_page_links_to_eft_terminal_settings(): void
@@ -139,6 +139,6 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response = $this->actingAs($this->adminUser())->get('/admin/tickets/pos');
 
         $response->assertOk();
-        $response->assertSee('href="' . route('admin.eft-terminals.index') . '"', false);
+        $response->assertSee('openEftTerminalSettingsModal()', false);
     }
 }

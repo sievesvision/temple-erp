@@ -1236,7 +1236,7 @@
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                             <div class="text-muted small">Linkly: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; mx51: <strong class="text-uppercase">{{ $cbaSciMode }}</strong> &middot; each terminal is independently paired, so a second station can run its own concurrently.</div>
                             <div class="d-flex gap-2">
-                                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</a>
+                                <button type="button" onclick="openEftTerminalSettingsModal()" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
                                 <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
                             </div>
                         </div>
@@ -1266,7 +1266,7 @@
                             </div>
                         </div>
                         @empty
-                        <p class="text-muted small mb-0">No terminals registered yet — <a href="{{ route('admin.eft-terminals.index') }}" target="_blank">add one on the EFT Terminal Settings page</a>.</p>
+                        <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();">add one on the EFT Terminal Settings page</a>.</p>
                         @endforelse
                     </div>
 
@@ -2387,5 +2387,7 @@
         }
         @endif
     </script>
+
+    @include('admin.partials.eft-terminal-settings-modal')
 </body>
 </html>

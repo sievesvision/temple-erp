@@ -195,7 +195,10 @@ class EventConsoleController extends Controller
         $linklyTransactions = collect();
         $eftTransactions = collect();
         if ($canEditEvent) {
+            // Purchase/refund only — a Logon proves nothing about money moving and just
+            // clutters a list that's meant to be this event's actual payment history.
             $linklyTransactions = LinklyTransaction::where('event_id', $event->event_id)
+                ->whereIn('txn_type', ['purchase', 'refund'])
                 ->orderBy('created_at', 'desc')
                 ->limit(50)
                 ->get();

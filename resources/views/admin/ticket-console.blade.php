@@ -365,7 +365,7 @@
                         <div class="card-panel mt-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="fw-bold">Registered EFT Terminals</div>
-                                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</a>
+                                <button type="button" onclick="openEftTerminalSettingsModal()" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
                             </div>
                             <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Adding, pairing and unpairing terminals (Linkly or mx51) all happen on the EFT Terminal Settings page.</p>
                             @forelse($eftTerminals as $terminal)
@@ -388,7 +388,7 @@
                                 @endif
                             </div>
                             @empty
-                            <p class="text-muted small mb-0">No terminals registered yet — <a href="{{ route('admin.eft-terminals.index') }}" target="_blank">add one on the EFT Terminal Settings page</a>.</p>
+                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();">add one on the EFT Terminal Settings page</a>.</p>
                             @endforelse
                         </div>
                     </div>
@@ -400,7 +400,7 @@
                             <div><h2>EFTPOS</h2><p>Terminal status and refunds for ticket sales — pairing and adding terminals happens on the EFT Terminal Settings page.</p></div>
                             <div class="page-header-actions">
                                 <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
-                                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</a>
+                                <button type="button" onclick="openEftTerminalSettingsModal()" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
                             </div>
                         </div>
                         <div class="card-panel mb-3">
@@ -431,7 +431,7 @@
                                 </div>
                             </div>
                             @empty
-                            <p class="text-muted small mb-0">No terminals registered yet — <a href="{{ route('admin.eft-terminals.index') }}" target="_blank">add one on the EFT Terminal Settings page</a>.</p>
+                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();">add one on the EFT Terminal Settings page</a>.</p>
                             @endforelse
                         </div>
                         <div class="card-panel" style="padding:0;">
@@ -909,5 +909,7 @@
         }
         @endif
     </script>
+
+    @include('admin.partials.eft-terminal-settings-modal')
 </body>
 </html>

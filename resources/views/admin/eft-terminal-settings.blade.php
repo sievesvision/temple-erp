@@ -117,6 +117,7 @@
     @php $temple = \App\Models\Setting::templeBranding(); @endphp
     <header class="topbar">
         <h1><i class="bi bi-credit-card-2-front-fill me-2"></i>EFT Terminal Settings</h1>
+        @if(!$embedded)
         <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="topbar-btn"><i class="bi bi-question-circle"></i>Help</a>
         {{-- Not url()->previous() — this page is only ever linked to from Admin Settings, but
              is also directly reachable by an event-admin coordinator or ticket-admin controller
@@ -125,6 +126,7 @@
              visitor actually is, rather than trusting the browser's referrer. --}}
         <a href="{{ $isSystemAdmin ? route('admin.settings') : route('admin.dashboard') }}" class="topbar-btn"><i class="bi bi-arrow-left"></i>Back</a>
         <a href="{{ route('logout') }}" class="topbar-btn"><i class="bi bi-box-arrow-right"></i>Logout</a>
+        @endif
     </header>
 
     <div class="body-wrap">
@@ -197,7 +199,7 @@
         <div class="add-terminal-card">
             <div class="add-terminal-header"><i class="bi bi-plus-circle-fill"></i> Add New Terminal</div>
             <div class="add-terminal-sub">Add and configure a new EFT terminal. Each terminal requires a unique key and a label for easy identification.</div>
-            <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-3 align-items-start">
+            <form action="{{ route('admin.eft-terminals.store', $embedded ? ['embedded' => 1] : []) }}" method="POST" class="row g-3 align-items-start">
                 @csrf
                 <div class="col-md-3">
                     <label class="form-label small fw-semibold">Terminal Key</label>
