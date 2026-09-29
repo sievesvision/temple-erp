@@ -298,6 +298,7 @@
             <div class="qty-modal-header">This Station's EFT Terminal</div>
             <div class="qty-modal-body">
                 <div id="terminalModalList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;"></div>
+                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="d-block small mb-3"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings (pair or add a terminal)</a>
                 <div class="qty-modal-actions">
                     <button type="button" class="qty-modal-cancel" id="terminalModalCancel">Close</button>
                 </div>

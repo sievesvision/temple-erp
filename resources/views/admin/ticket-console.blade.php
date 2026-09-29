@@ -365,16 +365,17 @@
                         <div class="card-panel mt-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="fw-bold">Registered EFT Terminals</div>
-                                <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="small"><i class="bi bi-question-circle me-1"></i>Help</a>
+                                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</a>
                             </div>
-                            <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Pairing and refunds happen from the EFTPOS pane; add a brand new terminal here.</p>
-                            @foreach($eftTerminals as $terminal)
-                            @php $lastKnown = $terminal->lastKnownStatus(); @endphp
+                            <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Adding, pairing and unpairing terminals (Linkly or mx51) all happen on the EFT Terminal Settings page.</p>
+                            @forelse($eftTerminals as $terminal)
+                            @php $lastKnown = $terminal->lastKnownStatus(); $terminalPaired = $terminal->isPairedFor($linklyMode); @endphp
                             <div class="d-flex align-items-center gap-2 flex-wrap mb-2 pb-2 border-bottom">
                                 <strong>{{ $terminal->label }}</strong>
                                 <span class="text-muted small">({{ $terminal->key }})</span>
                                 @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
-                                <span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span>
+                                <span class="badge bg-secondary">{{ $terminal->provider === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud' }}</span>
+                                <span class="status-pill status-{{ $terminalPaired ? 'paid' : 'cancelled' }}">{{ $terminalPaired ? 'Paired' : 'Not paired' }}</span>
                                 @if($lastKnown['state'] === 'online')
                                 <span class="status-pill status-paid">Online</span>
                                 @elseif($lastKnown['state'] === 'offline')
@@ -386,23 +387,9 @@
                                 <span class="text-muted" style="font-size:0.72rem;">({{ $lastKnown['at']->diffForHumans() }})</span>
                                 @endif
                             </div>
-                            @endforeach
-                            <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-2 align-items-end mt-2">
-                                @csrf
-                                <input type="hidden" name="return_context" value="ticket-console">
-                                <div class="col-md-4">
-                                    <label class="field-label">Key (unique, no spaces)</label>
-                                    <input type="text" name="key" class="form-control" placeholder="e.g. ticket-counter-2" maxlength="40" required>
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="field-label">Label</label>
-                                    <input type="text" name="label" class="form-control" placeholder="e.g. Ticket Counter 2" required>
-                                </div>
-                                <div class="col-md-3">
-                                    <button type="submit" class="btn-save w-100">Add Terminal</button>
-                                </div>
-                            </form>
-                            <p class="text-muted small mt-2 mb-0">Pair a newly added terminal from the EFTPOS pane before assigning it to a computer above.</p>
+                            @empty
+                            <p class="text-muted small mb-0">No terminals registered yet — <a href="{{ route('admin.eft-terminals.index') }}" target="_blank">add one on the EFT Terminal Settings page</a>.</p>
+                            @endforelse
                         </div>
                     </div>
 
@@ -410,28 +397,27 @@
                     <div class="console-pane" id="pane-eftpos">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
-                            <div><h2>EFTPOS — Linkly Core Payments</h2><p>Terminal pairing and refunds for ticket sales.</p></div>
+                            <div><h2>EFTPOS</h2><p>Terminal status and refunds for ticket sales — pairing and adding terminals happens on the EFT Terminal Settings page.</p></div>
                             <div class="page-header-actions">
                                 <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
+                                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</a>
                             </div>
                         </div>
                         <div class="card-panel mb-3">
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                                <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second ticket counter can run its own concurrently.</div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" data-pane="pane-settings"><i class="bi bi-plus-lg me-1"></i>Add a Terminal</button>
-                            </div>
-                            @foreach($eftTerminals as $terminal)
-                            @php $lastKnown = $terminal->lastKnownStatus(); @endphp
+                            <div class="text-muted small mb-2">Linkly: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; mx51: <strong class="text-uppercase">{{ $cbaSciMode }}</strong> &middot; each terminal is independently paired, so a second ticket counter can run its own concurrently.</div>
+                            @forelse($eftTerminals as $terminal)
+                            @php $lastKnown = $terminal->lastKnownStatus(); $terminalPaired = $terminal->isPairedFor($linklyMode); @endphp
                             <div class="row g-3 align-items-center border-top pt-3 mt-2">
-                                <div class="col-md-3">
+                                <div class="col-md-4">
                                     <strong>{{ $terminal->label }}</strong>
                                     @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
+                                    <span class="badge bg-secondary ms-1">{{ $terminal->provider === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud' }}</span>
                                     <div class="text-muted small">{{ $terminal->key }}</div>
                                 </div>
-                                <div class="col-md-2">
-                                    <span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span>
+                                <div class="col-md-3">
+                                    <span class="status-pill status-{{ $terminalPaired ? 'paid' : 'cancelled' }}">{{ $terminalPaired ? 'Paired' : 'Not paired' }}</span>
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-5">
                                     @if($lastKnown['state'] === 'online')
                                     <span class="status-pill status-paid" title="Last confirmed via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Online</span>
                                     @elseif($lastKnown['state'] === 'offline')
@@ -440,34 +426,23 @@
                                     <span class="status-pill status-pending">Not checked</span>
                                     @endif
                                     @if($lastKnown['at'])
-                                    <div class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</div>
+                                    <span class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</span>
                                     @endif
                                 </div>
-                                <div class="col-md-3">
-                                    <form action="{{ route('admin.tickets.eft.pair') }}" method="POST" class="d-flex gap-2">
-                                        @csrf
-                                        <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                                        <input type="text" name="pair_code" class="form-control form-control-sm rounded-3" placeholder="Pair / repair code" required maxlength="10">
-                                        <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
-                                    </form>
-                                </div>
-                                <div class="col-md-2">
-                                    <form action="{{ route('admin.tickets.eft.logon') }}" method="POST" onsubmit="return confirm('Check {{ $terminal->label }} is online now?')">
-                                        @csrf
-                                        <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Status</button>
-                                    </form>
-                                </div>
                             </div>
-                            @endforeach
+                            @empty
+                            <p class="text-muted small mb-0">No terminals registered yet — <a href="{{ route('admin.eft-terminals.index') }}" target="_blank">add one on the EFT Terminal Settings page</a>.</p>
+                            @endforelse
                         </div>
                         <div class="card-panel" style="padding:0;">
-                            <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Transactions</h5></div>
+                            <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Transactions <span class="text-muted small fw-normal">(Linkly + mx51)</span></h5></div>
                             <div class="table-scroll-wrap" style="max-height: calc(100vh - 460px);">
                                 <table class="console-table">
-                                    <thead><tr><th>Type</th><th class="col-amount">Amount</th><th>Reference</th><th>Terminal</th><th>Date/Time</th><th>Result</th><th>Session ID</th><th class="text-end">Actions</th></tr></thead>
+                                    <thead><tr><th>Type</th><th class="col-amount">Amount</th><th>Reference</th><th>Provider</th><th>Terminal</th><th>Date/Time</th><th>Result</th><th class="text-end">Actions</th></tr></thead>
                                     <tbody>
-                                        @forelse($linklyTransactions as $txn)
+                                        @forelse($eftTransactions as $row)
+                                        @php $txn = $row->txn; @endphp
+                                        @if($row->provider === 'linkly')
                                         @php
                                             $pillClass = match($txn->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' };
                                             $canRefundRow = $txn->txn_type === 'purchase' && $txn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $txn->id && in_array($t->status, ['initiated', 'in_progress', 'approved']));
@@ -476,10 +451,10 @@
                                             <td class="text-capitalize">{{ $txn->txn_type }}</td>
                                             <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
                                             <td class="col-txn">{{ $txn->pos_txn_ref }}</td>
+                                            <td class="small text-muted">Linkly</td>
                                             <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
                                             <td>{{ $txn->created_at->format('d M Y H:i:s') }}</td>
                                             <td><span class="status-pill status-{{ $pillClass }}">{{ ucfirst($txn->status) }}</span></td>
-                                            <td class="col-txn">{{ $txn->linkly_session_id ?: '—' }}</td>
                                             <td class="text-end">
                                                 @if($txn->linkly_session_id)
                                                 <form action="{{ route('admin.tickets.eft.reprint', $txn->linkly_session_id) }}" method="POST" class="d-inline">
@@ -492,8 +467,30 @@
                                                 @endif
                                             </td>
                                         </tr>
+                                        @else
+                                        @php
+                                            $sciPillClass = match(true) {
+                                                $txn->result_financial_status === 'APPROVED' => 'paid',
+                                                in_array($txn->status, ['PENDING', 'AWAITING_POS']) => 'pending',
+                                                default => 'cancelled',
+                                            };
+                                            $sciResultLabel = $txn->result_financial_status ?: $txn->status;
+                                        @endphp
+                                        <tr>
+                                            <td class="text-capitalize">{{ $txn->txn_type }}</td>
+                                            <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
+                                            <td class="col-txn">{{ $txn->sci_transaction_id ?: $txn->client_ref }}</td>
+                                            <td class="small text-muted">mx51</td>
+                                            <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
+                                            <td>{{ $txn->created_at->format('d M Y H:i:s') }}</td>
+                                            <td><span class="status-pill status-{{ $sciPillClass }}">{{ ucfirst(strtolower($sciResultLabel)) }}</span></td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $txn->sci_transaction_id ?: $txn->client_ref }}')"><i class="bi bi-clipboard"></i></button>
+                                            </td>
+                                        </tr>
+                                        @endif
                                         @empty
-                                        <tr><td colspan="8" class="text-center text-muted py-4">No ticket-related Linkly transactions yet.</td></tr>
+                                        <tr><td colspan="8" class="text-center text-muted py-4">No ticket-related EFTPOS transactions yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>

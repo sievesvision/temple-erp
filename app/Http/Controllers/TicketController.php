@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EftTerminal;
 use App\Models\LinklyTransaction;
 use App\Models\RolePermission;
+use App\Models\SciTransaction;
 use App\Models\Setting;
 use App\Models\Ticket;
 use App\Models\TicketOrder;
@@ -96,6 +97,7 @@ class TicketController extends Controller
         // meant to use, or a second station on a different terminal without conflict.
         $eftTerminals = EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $linklyMode = \App\Services\LinklyConfigService::mode();
+        $cbaSciMode = \App\Services\CbaSciConfigService::mode();
 
         // Ticket-related Linkly transactions only — this is the shared terminal, but the
         // console should only ever show what's relevant to ticket sales (event_id is
@@ -108,6 +110,21 @@ class TicketController extends Controller
             ->orderByDesc('created_at')
             ->limit(200)
             ->get();
+
+        // Combined Linkly + mx51 view — see EventConsoleController::show()'s identical
+        // pattern; the two tables have different columns/status vocabularies, so each row
+        // carries its own 'provider' tag rather than forcing one shared shape onto both.
+        $sciTransactions = SciTransaction::with('eftTerminal')
+            ->whereNull('event_id')
+            ->where('donation_type', 'ticket_order')
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get();
+        $eftTransactions = $linklyTransactions->map(fn ($t) => (object) ['provider' => 'linkly', 'txn' => $t, 'created_at' => $t->created_at])
+            ->concat($sciTransactions->map(fn ($t) => (object) ['provider' => 'cba_sci', 'txn' => $t, 'created_at' => $t->created_at]))
+            ->sortByDesc('created_at')
+            ->take(200)
+            ->values();
 
         $ticketControllers = DB::table('ticket_controllers')
             ->join('users', 'ticket_controllers.user_id', '=', 'users.id')
@@ -170,7 +187,9 @@ class TicketController extends Controller
             'todayTotal',
             'eftTerminals',
             'linklyMode',
+            'cbaSciMode',
             'linklyTransactions',
+            'eftTransactions',
             'ticketControllers',
             'allUsersForControllers',
             'ticketLogs',

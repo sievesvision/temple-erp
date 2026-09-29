@@ -589,6 +589,7 @@
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>This Station's EFT Terminal</div>
             <div class="eft-modal-body">
                 <div id="terminalModalList"></div>
+                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="d-block small mb-3"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings (pair or add a terminal)</a>
                 <button type="button" class="eft-modal-cancel-btn" id="terminalModalCloseBtn">Close</button>
             </div>
         </div>
@@ -706,7 +707,7 @@
             if (!list) { return; }
             list.innerHTML = '';
             if (!EFT_TERMINALS.length) {
-                list.innerHTML = '<p class="text-muted small mb-0">No terminals registered yet — add one from Settings.</p>';
+                list.innerHTML = '<p class="text-muted small mb-0">No paired terminals yet — use the link below to pair one.</p>';
                 return;
             }
             EFT_TERMINALS.forEach(function (t) {

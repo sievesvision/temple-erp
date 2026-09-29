@@ -1224,8 +1224,8 @@
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
                         <div>
-                            <h2>EFTPOS — Linkly Core Payments</h2>
-                            <p>Terminal pairing, accreditation testing and per-transaction refunds for this event.</p>
+                            <h2>EFTPOS</h2>
+                            <p>Terminal status and per-transaction refunds for this event — pairing and adding terminals happens on the EFT Terminal Settings page.</p>
                         </div>
                         <div class="page-header-actions">
                             <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
@@ -1234,24 +1234,25 @@
 
                     <div class="card-panel mb-3">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                            <div class="text-muted small">Environment: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; each terminal below is independently paired, so a second station can run its own concurrently.</div>
+                            <div class="text-muted small">Linkly: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; mx51: <strong class="text-uppercase">{{ $cbaSciMode }}</strong> &middot; each terminal is independently paired, so a second station can run its own concurrently.</div>
                             <div class="d-flex gap-2">
-                                <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
+                                <a href="{{ route('admin.eft-terminals.index') }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</a>
                                 <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
                             </div>
                         </div>
-                        @foreach($eftTerminals as $terminal)
-                        @php $lastKnown = $terminal->lastKnownStatus(); @endphp
+                        @forelse($eftTerminals as $terminal)
+                        @php $lastKnown = $terminal->lastKnownStatus(); $terminalPaired = $terminal->isPairedFor($linklyMode); @endphp
                         <div class="row g-3 align-items-center border-top pt-3 mt-2">
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <strong>{{ $terminal->label }}</strong>
                                 @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
+                                <span class="badge bg-secondary ms-1">{{ $terminal->provider === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud' }}</span>
                                 <div class="text-muted small">{{ $terminal->key }}</div>
                             </div>
-                            <div class="col-md-2">
-                                <span class="status-pill status-{{ $terminal->isPaired($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</span>
+                            <div class="col-md-3">
+                                <span class="status-pill status-{{ $terminalPaired ? 'paid' : 'cancelled' }}">{{ $terminalPaired ? 'Paired' : 'Not paired' }}</span>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-5">
                                 @if($lastKnown['state'] === 'online')
                                 <span class="status-pill status-paid" title="Last confirmed via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Online</span>
                                 @elseif($lastKnown['state'] === 'offline')
@@ -1260,55 +1261,28 @@
                                 <span class="status-pill status-pending">Not checked</span>
                                 @endif
                                 @if($lastKnown['at'])
-                                <div class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</div>
+                                <span class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</span>
                                 @endif
                             </div>
-                            <div class="col-md-3">
-                                <form action="{{ route('admin.events.eft.pair', $event->event_id) }}" method="POST" class="d-flex gap-2">
-                                    @csrf
-                                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                                    <input type="text" name="pair_code" class="form-control form-control-sm rounded-3" placeholder="Pair / repair code" required maxlength="10">
-                                    <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap"><i class="bi bi-plug-fill me-1"></i>Pair</button>
-                                </form>
-                            </div>
-                            <div class="col-md-2">
-                                <form action="{{ route('admin.events.eft.logon', $event->event_id) }}" method="POST" onsubmit="return confirm('Check {{ $terminal->label }} is online now?')">
-                                    @csrf
-                                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Status</button>
-                                </form>
-                            </div>
                         </div>
-                        @endforeach
-
-                        <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-2 align-items-end border-top pt-3 mt-2">
-                            @csrf
-                            <input type="hidden" name="return_context" value="event-console:{{ $event->event_id }}">
-                            <div class="col-md-4">
-                                <label class="field-label small">New terminal key</label>
-                                <input type="text" name="key" class="form-control form-control-sm" placeholder="e.g. event-counter-2" maxlength="40" required>
-                            </div>
-                            <div class="col-md-5">
-                                <label class="field-label small">Label</label>
-                                <input type="text" name="label" class="form-control form-control-sm" placeholder="e.g. Event Counter 2" required>
-                            </div>
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-outline-primary btn-sm w-100"><i class="bi bi-plus-lg me-1"></i>Add Terminal</button>
-                            </div>
-                        </form>
+                        @empty
+                        <p class="text-muted small mb-0">No terminals registered yet — <a href="{{ route('admin.eft-terminals.index') }}" target="_blank">add one on the EFT Terminal Settings page</a>.</p>
+                        @endforelse
                     </div>
 
                     <div class="card-panel" style="padding:0;">
-                        <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Linkly Transactions</h5></div>
+                        <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent EFTPOS Transactions <span class="text-muted small fw-normal">(Linkly + mx51)</span></h5></div>
                         <div class="table-scroll-wrap" style="max-height: calc(100vh - 420px);">
                         <table class="console-table">
                             <thead>
                                 <tr>
-                                    <th>Type</th><th class="col-amount">Amount</th><th>Transaction Reference</th><th>Terminal</th><th>Donation</th><th>Date/Time</th><th>Result</th><th>Response Code</th><th>Session ID</th><th class="text-end">Actions</th>
+                                    <th>Type</th><th class="col-amount">Amount</th><th>Reference</th><th>Provider</th><th>Terminal</th><th>Donation</th><th>Date/Time</th><th>Result</th><th class="text-end">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($linklyTransactions as $txn)
+                                @forelse($eftTransactions as $row)
+                                @php $txn = $row->txn; @endphp
+                                @if($row->provider === 'linkly')
                                 @php
                                     $pillClass = match($txn->status) {
                                         'approved' => 'paid',
@@ -1321,6 +1295,7 @@
                                     <td class="text-capitalize">{{ $txn->txn_type }}</td>
                                     <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
                                     <td class="col-txn"><span id="txnref-{{ $txn->id }}">{{ $txn->pos_txn_ref }}</span></td>
+                                    <td class="small text-muted">Linkly</td>
                                     <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
                                     <td>
                                         @if($txn->donation_id)
@@ -1333,8 +1308,6 @@
                                     </td>
                                     <td><span id="txntime-{{ $txn->id }}">{{ $txn->created_at->format('d M Y H:i:s') }}</span></td>
                                     <td><span class="status-pill status-{{ $pillClass }}">{{ ucfirst($txn->status) }}</span></td>
-                                    <td>{{ $txn->response_code ?: '—' }}</td>
-                                    <td class="text-muted small text-break">{{ $txn->linkly_session_id ?: '—' }}</td>
                                     <td class="text-end">
                                         <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference + timestamp" onclick="copyEftRef('{{ $txn->id }}')"><i class="bi bi-clipboard"></i></button>
                                         @if($txn->linkly_session_id)
@@ -1349,8 +1322,37 @@
                                         @endif
                                     </td>
                                 </tr>
+                                @else
+                                @php
+                                    $sciPillClass = match(true) {
+                                        $txn->result_financial_status === 'APPROVED' => 'paid',
+                                        in_array($txn->status, ['PENDING', 'AWAITING_POS']) => 'pending',
+                                        default => 'cancelled',
+                                    };
+                                    $sciResultLabel = $txn->result_financial_status ?: $txn->status;
+                                @endphp
+                                <tr>
+                                    <td class="text-capitalize">{{ $txn->txn_type }}</td>
+                                    <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
+                                    <td class="col-txn">{{ $txn->sci_transaction_id ?: $txn->client_ref }}</td>
+                                    <td class="small text-muted">mx51</td>
+                                    <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
+                                    <td>
+                                        @if($txn->donation_id)
+                                        {{ ($txn->donation_type === 'devotee' ? 'DN' : 'GD') . str_pad($txn->donation_id, 5, '0', STR_PAD_LEFT) }}
+                                        @else
+                                        <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $txn->created_at->format('d M Y H:i:s') }}</td>
+                                    <td><span class="status-pill status-{{ $sciPillClass }}">{{ ucfirst(strtolower($sciResultLabel)) }}</span></td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $txn->sci_transaction_id ?: $txn->client_ref }}')"><i class="bi bi-clipboard"></i></button>
+                                    </td>
+                                </tr>
+                                @endif
                                 @empty
-                                <tr><td colspan="10" class="text-center text-muted py-4">No Linkly transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted py-4">No EFTPOS transactions recorded for this event yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>

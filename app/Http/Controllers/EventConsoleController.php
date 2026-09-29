@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LinklyTransaction;
 use App\Models\RolePermission;
+use App\Models\SciTransaction;
 use App\Models\Setting;
 use App\Services\EventCoordinatorLevel;
 use App\Services\EventDonationBreakdown;
@@ -192,11 +193,25 @@ class EventConsoleController extends Controller
         // per-event), so pairing status/mode/Cloud ID are global; only the recent
         // transactions list is scoped to this event.
         $linklyTransactions = collect();
+        $eftTransactions = collect();
         if ($canEditEvent) {
             $linklyTransactions = LinklyTransaction::where('event_id', $event->event_id)
                 ->orderBy('created_at', 'desc')
                 ->limit(50)
                 ->get();
+            // Combined Linkly + mx51 view — the two tables have different columns/status
+            // vocabularies, so each row carries its own 'provider' tag and the blade branches
+            // on that rather than trying to force one shared shape onto both.
+            $sciTransactions = SciTransaction::with('eftTerminal')
+                ->where('event_id', $event->event_id)
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get();
+            $eftTransactions = $linklyTransactions->map(fn ($t) => (object) ['provider' => 'linkly', 'txn' => $t, 'created_at' => $t->created_at])
+                ->concat($sciTransactions->map(fn ($t) => (object) ['provider' => 'cba_sci', 'txn' => $t, 'created_at' => $t->created_at]))
+                ->sortByDesc('created_at')
+                ->take(50)
+                ->values();
         }
         // Terminals are a shared, independently-pairable registry, not one-per-event (see
         // App\Models\EftTerminal) — the console shows every registered terminal's own status
@@ -204,6 +219,7 @@ class EventConsoleController extends Controller
         // use, or a second station on a different terminal without conflict.
         $eftTerminals = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
         $linklyMode = LinklyConfigService::mode();
+        $cbaSciMode = \App\Services\CbaSciConfigService::mode();
 
         // Cash Banking pane — same admin tier as Settings/Coordinators/EFTPOS/Logs above.
         $cashPreview = null;
@@ -246,8 +262,10 @@ class EventConsoleController extends Controller
             'activeRole',
             'temple',
             'linklyTransactions',
+            'eftTransactions',
             'eftTerminals',
-            'linklyMode'
+            'linklyMode',
+            'cbaSciMode'
         ));
     }
 }
