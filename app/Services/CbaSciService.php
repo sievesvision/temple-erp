@@ -267,22 +267,31 @@ class CbaSciService
     }
 
     /**
-     * GET {sci_api_base_url}/v1/transactions/{id}?min_version={minVersion}, signed. Per
-     * mx51's own polling rule, the caller must always pass back the *previous response's*
-     * `version` as the next `min_version` — never self-incrementing — since the API can
-     * skip versions between polls.
+     * GET {sci_api_base_url}/v1/transactions/{id}?min_version={minVersion}, signed.
+     *
+     * mx51's own documented rule: the NEXT request's min_version is always the response's
+     * own `data.version` PLUS ONE — never self-incremented from what was last requested,
+     * since the API can skip versions between polls (their own worked example: poll with
+     * min_version=2, get back version:4, next request uses min_version=5, not 3). The
+     * caller (CbaSciController::poll()) does that +1 arithmetic when it stores this method's
+     * returned `version` as the next call's `$minVersion` — this method itself always
+     * returns the transaction's actual current version (or null when nothing new arrived,
+     * e.g. a still-pending timeout or a network failure), never a guessed-at min_version, so
+     * a "nothing changed" response can never be mistaken for a real advance.
      *
      * The two documented 404 shapes are deliberately distinguished: `transaction_not_found_
-     * within_timeout` means the requested version simply isn't available *yet* (poll again
-     * immediately, `done: false`), while `transaction_not_found` means the id itself is
-     * wrong (a genuine error, `done: true, success: false`).
+     * within_timeout` means the requested version simply isn't available *yet* — mx51's docs
+     * call this "expected behaviour, not an error": immediately re-poll the SAME min_version
+     * with no artificial delay, since the API's own long-poll hold already did the waiting
+     * (`done: false`) — while `transaction_not_found` means the id itself is wrong (a
+     * genuine error, `done: true, success: false`).
      *
-     * @return array{done: bool, success: ?bool, status: ?string, message: ?string, version: int, pos_instructions: ?array, result_financial_status: ?string, result_amounts: ?array, result_card_details: ?array, merchant_receipt: ?string, customer_receipt: ?string, transient_error: bool}
+     * @return array{done: bool, success: ?bool, status: ?string, message: ?string, version: ?int, pos_instructions: ?array, result_financial_status: ?string, result_amounts: ?array, result_card_details: ?array, merchant_receipt: ?string, customer_receipt: ?string, transient_error: bool}
      */
     public static function pollTransaction(EftTerminal $terminal, string $transactionId, int $minVersion): array
     {
         $base = [
-            'done' => false, 'success' => null, 'status' => null, 'message' => null, 'version' => $minVersion,
+            'done' => false, 'success' => null, 'status' => null, 'message' => null, 'version' => null,
             'pos_instructions' => null, 'result_financial_status' => null, 'result_amounts' => null,
             'result_card_details' => null, 'merchant_receipt' => null, 'customer_receipt' => null, 'transient_error' => false,
         ];
@@ -302,7 +311,7 @@ class CbaSciService
         if ($response->status() === 404) {
             $code = $response->json('error.code') ?? $response->json('code');
             if ($code === 'transaction_not_found_within_timeout') {
-                return $base; // expected — keep polling at the same min_version
+                return $base; // expected — re-poll the same min_version immediately, no backoff
             }
             return array_merge($base, ['done' => true, 'success' => false, 'message' => 'That transaction could not be found.']);
         }
@@ -317,9 +326,9 @@ class CbaSciService
 
         $data = $response->json('data') ?? [];
         $status = $data['status'] ?? null;
-        // "Always use data.version from the response as the basis for the next min_version
-        // — never self-increment" (mx51's own documented rule).
-        $version = $data['version'] ?? $minVersion;
+        // The transaction's actual current version, per this response — never a guess at
+        // what min_version to ask for next (that +1 arithmetic is the caller's job).
+        $version = $data['version'] ?? null;
 
         if (!in_array($status, ['AWAITING_POS', 'FINALISED'], true)) {
             // PENDING (or anything else in-flight) — keep polling.

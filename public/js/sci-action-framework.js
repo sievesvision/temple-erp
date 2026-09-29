@@ -66,6 +66,13 @@
         var customerReceipt = null;
         var overrideOfferedAt = null;
         var startedAt = null;
+        // mx51's own reference timeout is measured "since the last successful response", not
+        // since the transaction started — a long but healthy run (steady PENDING updates)
+        // must not trip the override just because it's been going a while; only actual
+        // silence should. Set whenever the fetch itself succeeds (any HTTP response at all,
+        // including an error status mx51 sent us) — a genuine network-level failure (the
+        // .catch() branch below) is real silence and must NOT reset it.
+        var lastResponseAt = null;
         // Set the moment a real Cancel Transaction call is made — per mx51's own transaction-
         // recovery guidance, a cancel gets its own (shorter) no-response deadline before
         // falling back to the manual override dialog, distinct from an ordinary transaction's.
@@ -134,8 +141,15 @@
             hideOverride();
         }
 
+        // mx51's own docs are explicit that both the ordinary PENDING case ("immediately poll
+        // for the next version") and a transaction_not_found_within_timeout 404 ("immediately
+        // re-poll — this is expected behaviour, not an error") should be re-polled with no
+        // added delay — their own long-poll hold is what paces the loop. A large fixed delay
+        // here was compounding on top of that hold, making every step feel sluggish. Only a
+        // genuine transient failure (a network error, or an unexpected server error) backs
+        // off, and only then.
         function nextDelay(transient) {
-            if (!transient) { consecutiveTransientErrors = 0; return 1200; }
+            if (!transient) { consecutiveTransientErrors = 0; return 150; }
             consecutiveTransientErrors++;
             return Math.min(1200 * Math.pow(2, consecutiveTransientErrors), 30000);
         }
@@ -270,14 +284,17 @@
         function poll() {
             if (cancelled || !transactionId) { return; }
 
-            // Same 3-minute local guard as the Linkly flow — past this, offer the manual
-            // override rather than continuing to error out indefinitely. A cancel already
-            // requested gets its own, much shorter deadline instead — per mx51's own
-            // transaction-recovery guidance, if no finalised response arrives soon after a
-            // cancel request, the same override dialog should appear rather than waiting out
-            // the full normal timeout.
-            var overrideBaseline = cancelRequestedAt || startedAt;
-            var overrideDeadline = cancelRequestedAt ? 45000 : 180000;
+            // mx51's own documented recovery flow calls for a shorter deadline once a cancel
+            // has been requested than for an ordinary transaction — their reference POS
+            // (Espresso) uses 1 minute since the last successful response / 20 seconds after
+            // a cancel, explicitly as an indicative starting point rather than a mandated
+            // value, which is what these mirror.
+            // Cancellation uses a fixed deadline from the moment cancel was requested (mx51's
+            // wording: "no FINALISED response... within a defined period", not reset by
+            // interim chatter); the ordinary case resets on every response, per "no response
+            // for a defined period" — an actively-updating PENDING transaction never trips it.
+            var overrideBaseline = cancelRequestedAt || lastResponseAt || startedAt;
+            var overrideDeadline = cancelRequestedAt ? 20000 : 60000;
             if (overrideBaseline && Date.now() - overrideBaseline > overrideDeadline && !overrideOfferedAt) {
                 overrideOfferedAt = Date.now();
                 setStatus(['No response from the terminal yet', 'Confirm the outcome below, or keep waiting'], 'error');
@@ -288,6 +305,7 @@
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (cancelled) { return; }
+                    lastResponseAt = Date.now();
 
                     merchantReceipt = data.merchant_receipt || merchantReceipt;
                     customerReceipt = data.customer_receipt || customerReceipt;
@@ -357,6 +375,7 @@
             transactionId = null;
             consecutiveTransientErrors = 0;
             overrideOfferedAt = null;
+            lastResponseAt = null;
             cancelRequestedAt = null;
             formValues = {};
             cfg.el.cancelBtn.disabled = false;

@@ -238,10 +238,14 @@ class CbaSciController extends Controller
             return response()->json(['success' => false, 'message' => 'Transaction not found.'], 404);
         }
 
-        // The row's own last-seen version is the only trustworthy min_version — never the
-        // client's, which could be stale (a second tab, a slow request) and would otherwise
-        // risk re-processing an already-superseded response.
-        $result = CbaSciService::pollTransaction($txn->eftTerminal, $transactionId, $txn->sci_version);
+        // mx51's own documented rule: min_version is always the last CONFIRMED version + 1
+        // (never self-incremented from a previous request value) — sci_version stores the
+        // actual last-known version, not a pre-computed min_version, so that +1 happens here
+        // on every call rather than compounding across polls. The row's own last-seen
+        // version is the only trustworthy basis for it — never the client's, which could be
+        // stale (a second tab, a slow request) and would otherwise risk re-processing an
+        // already-superseded response.
+        $result = CbaSciService::pollTransaction($txn->eftTerminal, $transactionId, $txn->sci_version + 1);
 
         $txn->update(array_filter([
             'sci_version' => $result['version'],

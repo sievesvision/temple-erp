@@ -188,6 +188,42 @@ class CbaSciTransactionTest extends TestCase
         $response->assertJson(['done' => false]);
         $txn->refresh();
         $this->assertSame('PENDING', $txn->status);
+        // A "nothing new yet" response must never overwrite the last CONFIRMED version — the
+        // next poll has to re-request the exact same min_version, not silently advance past
+        // it (see CbaSciService::pollTransaction()'s docblock on this).
+        $this->assertSame(1, $txn->sci_version);
+    }
+
+    // mx51's own documented rule: the next request's min_version is the response's version
+    // PLUS ONE, computed fresh from what the response actually said — never the client's own
+    // running counter. Poll with sci_version=1 (so min_version=2 is requested); mx51 reports
+    // back version 4 (having skipped 2 and 3); the NEXT poll must ask for min_version=5, not
+    // 2 (self-incrementing from the stale local value) or 5-but-then-drift over more polls.
+    public function test_poll_computes_the_next_min_version_from_the_actual_response_not_the_stale_local_value(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $txn = SciTransaction::create([
+            'client_ref' => 'ref-version-skip', 'sci_transaction_id' => 'txn_version_skip', 'sci_version' => 1,
+            'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'PENDING', 'initiated_by' => $admin->id,
+        ]);
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'version' => 4, 'status' => 'PENDING', 'message' => 'Waiting for card',
+        ]], 200)]);
+
+        $this->actingAs($admin)->getJson(route('admin.cba-sci.charge.status', $txn->sci_transaction_id))->assertOk();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'min_version=2'));
+        $txn->refresh();
+        $this->assertSame(4, $txn->sci_version);
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'version' => 4, 'status' => 'PENDING', 'message' => 'Still waiting',
+        ]], 200)]);
+        $this->actingAs($admin)->getJson(route('admin.cba-sci.charge.status', $txn->sci_transaction_id))->assertOk();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'min_version=5'));
     }
 
     public function test_override_approved_records_the_donation_when_polling_never_resolves(): void
