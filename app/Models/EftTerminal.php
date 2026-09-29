@@ -39,6 +39,7 @@ class EftTerminal extends Model
         'sci_pairing_nickname',
         'sci_terminal_nickname',
         'sci_paired_at',
+        'sci_last_checked_at',
     ];
 
     protected $casts = [
@@ -49,6 +50,7 @@ class EftTerminal extends Model
         // so it can never leak into a view or an API response by accident.
         'sci_signing_secret_part_b' => 'encrypted',
         'sci_paired_at' => 'datetime',
+        'sci_last_checked_at' => 'datetime',
     ];
 
     protected $hidden = [
@@ -174,6 +176,13 @@ class EftTerminal extends Model
      * SCI's own vocabulary: a FINALISED transaction (whatever its financial outcome) proves
      * the terminal was reached and responded; a DEVICE_NOT_CONNECTED failure (recorded onto
      * meta.error_code by CbaSciService — see its class docblock) proves it wasn't.
+     *
+     * A terminal with no transactions yet (the common case right after pairing) has nothing
+     * to infer from there, so a successful pairing-info check (CbaSciService::testPairing(),
+     * via the Test button or the proactive self-heal) is also considered — whichever reading
+     * is more recent wins. Only a *successful* check is ever recorded this way: a failed one
+     * means the pairing is the problem, not proof the device is offline, so it's never used
+     * to claim "offline" here (that stays exclusively DEVICE_NOT_CONNECTED's job).
      */
     private function lastKnownSciStatus(): array
     {
@@ -185,16 +194,20 @@ class EftTerminal extends Model
             ->latest('id')
             ->first();
 
-        if (!$txn) {
-            return ['state' => 'unknown', 'at' => null, 'via' => null];
+        $txnReading = null;
+        if ($txn) {
+            $isDeviceError = ($txn->meta['error_code'] ?? null) === 'device_not_connected';
+            $txnReading = ['state' => $isDeviceError ? 'offline' : 'online', 'at' => $txn->updated_at, 'via' => $txn->txn_type];
         }
 
-        $isDeviceError = ($txn->meta['error_code'] ?? null) === 'device_not_connected';
+        $checkReading = $this->sci_last_checked_at
+            ? ['state' => 'online', 'at' => $this->sci_last_checked_at, 'via' => 'pairing check']
+            : null;
 
-        return [
-            'state' => $isDeviceError ? 'offline' : 'online',
-            'at' => $txn->updated_at,
-            'via' => $txn->txn_type,
-        ];
+        if ($txnReading && $checkReading) {
+            return $txnReading['at']->gte($checkReading['at']) ? $txnReading : $checkReading;
+        }
+
+        return $txnReading ?? $checkReading ?? ['state' => 'unknown', 'at' => null, 'via' => null];
     }
 }

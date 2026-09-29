@@ -725,6 +725,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
 Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Ticket Controller'])->group(function () {
     Route::get('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'index'])->name('admin.eft-terminals.index');
     Route::post('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'store'])->name('admin.eft-terminals.store');
+    Route::post('/admin/eft-terminals/mode', [\App\Http\Controllers\EftTerminalController::class, 'updateMode'])->name('admin.eft-terminals.updateMode');
     Route::post('/admin/eft-terminals/{terminal}/default', [\App\Http\Controllers\EftTerminalController::class, 'setDefault'])->name('admin.eft-terminals.setDefault');
     Route::post('/admin/eft-terminals/{terminal}/check-connection', [\App\Http\Controllers\EftTerminalController::class, 'checkConnection'])->name('admin.eft-terminals.checkConnection');
     Route::delete('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'destroy'])->name('admin.eft-terminals.destroy');

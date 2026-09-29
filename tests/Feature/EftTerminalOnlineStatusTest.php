@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\EftTerminal;
 use App\Models\LinklyTransaction;
+use App\Models\SciTransaction;
 use App\Models\Setting;
 use App\Models\User;
 use Tests\TestCase;
@@ -96,6 +97,72 @@ class EftTerminalOnlineStatusTest extends TestCase
         ]);
 
         $this->assertSame('online', $terminal->lastKnownStatus()['state']);
+    }
+
+    // mx51 terminals have no logon-style connectivity check of their own — a successful
+    // pairing-info check (CbaSciService::testPairing()) is the only proof of life available
+    // before any real transaction has happened, so it's folded into the same Connection
+    // reading rather than leaving a freshly-paired, never-transacted terminal stuck "Not
+    // checked" forever. See EftTerminal::lastKnownSciStatus().
+    public function test_a_never_checked_never_transacted_sci_terminal_is_unknown(): void
+    {
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci']);
+
+        $status = $terminal->lastKnownStatus();
+
+        $this->assertSame('unknown', $status['state']);
+        $this->assertNull($status['at']);
+    }
+
+    public function test_a_successful_pairing_check_marks_an_sci_terminal_online(): void
+    {
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_last_checked_at' => now()]);
+
+        $status = $terminal->lastKnownStatus();
+
+        $this->assertSame('online', $status['state']);
+        $this->assertNotNull($status['at']);
+    }
+
+    public function test_a_newer_sci_transaction_reading_wins_over_an_older_pairing_check(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow(now()->subHours(2));
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_last_checked_at' => now()]);
+        \Illuminate\Support\Carbon::setTestNow();
+        SciTransaction::create([
+            'client_ref' => 'sci-online-newer', 'eft_terminal_id' => $terminal->id, 'amount' => 10,
+            'status' => 'FINALISED',
+        ]);
+
+        $this->assertSame('online', $terminal->lastKnownStatus()['state']);
+    }
+
+    public function test_a_newer_pairing_check_wins_over_an_older_sci_transaction(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow(now()->subHours(2));
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci']);
+        SciTransaction::create([
+            'client_ref' => 'sci-device-error-older', 'eft_terminal_id' => $terminal->id, 'amount' => 10,
+            'status' => 'FINALISED', 'meta' => ['error_code' => 'device_not_connected'],
+        ]);
+        \Illuminate\Support\Carbon::setTestNow();
+        $terminal->update(['sci_last_checked_at' => now()]);
+
+        $this->assertSame('online', $terminal->lastKnownStatus()['state']);
+    }
+
+    // A failed pairing-info check means the pairing is the problem, not proof the physical
+    // device is offline — CbaSciService::testPairing() never records sci_last_checked_at on
+    // that path, so it can't ever surface as a false "offline" reading here.
+    public function test_a_device_not_connected_transaction_still_marks_an_sci_terminal_offline(): void
+    {
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_last_checked_at' => now()->subMinutes(5)]);
+        SciTransaction::create([
+            'client_ref' => 'sci-offline', 'eft_terminal_id' => $terminal->id, 'amount' => 10,
+            'status' => 'FAILED', 'meta' => ['error_code' => 'device_not_connected'], 'updated_at' => now(),
+        ]);
+
+        $this->assertSame('offline', $terminal->lastKnownStatus()['state']);
     }
 
     public function test_console_renders_online_and_offline_badges(): void

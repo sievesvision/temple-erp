@@ -311,6 +311,14 @@
                         finishDeclined(data.message);
                         return;
                     }
+                    // APPROVED-but-no-record (e.g. the donor name was missing, or a ticket
+                    // cart was already consumed by an earlier poll) is NOT the same as a
+                    // genuinely unknown result — the card WAS charged, so staff must be told
+                    // that plainly rather than being left thinking nothing happened.
+                    if (data.result_financial_status === 'APPROVED') {
+                        finishUnresolved('Card was charged (APPROVED) but the record could not be saved automatically — note the amount and record it manually. ' + (data.message || ''));
+                        return;
+                    }
                     finishUnresolved(data.message);
                 })
                 .catch(function () {

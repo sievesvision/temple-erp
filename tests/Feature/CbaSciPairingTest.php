@@ -144,6 +144,38 @@ class CbaSciPairingTest extends TestCase
         $this->assertTrue($result['still_paired']);
     }
 
+    // The Connection status shown on the settings page has nothing else to go on for a
+    // terminal that's never taken a real transaction — see EftTerminal::lastKnownSciStatus().
+    public function test_a_successful_test_pairing_records_when_it_was_last_checked(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => []], 200)]);
+
+        CbaSciService::testPairing($terminal);
+
+        $this->assertNotNull($terminal->fresh()->sci_last_checked_at);
+    }
+
+    // A failed check means the pairing is the problem, not the device — never recorded as a
+    // "last checked" reading, so it can't surface as a misleading "online" state.
+    public function test_a_failed_test_pairing_does_not_record_a_last_checked_time(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        CbaSciService::testPairing($terminal);
+
+        $this->assertNull($terminal->fresh()->sci_last_checked_at);
+    }
+
     // mx51's own Postman collection puts every signed SCI API endpoint under /v1 (including
     // pairing-info and unpair) — a missing /v1 here silently 404s ("Route not found") and,
     // because testPairing() fails open on anything but the documented 401, made every
@@ -282,7 +314,7 @@ class CbaSciPairingTest extends TestCase
         $terminal->update([
             'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
             'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
-            'sci_pairing_nickname' => 'Front Bar',
+            'sci_pairing_nickname' => 'Front Bar', 'sci_last_checked_at' => now(),
         ]);
         Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
 
@@ -292,6 +324,7 @@ class CbaSciPairingTest extends TestCase
         $terminal->refresh();
         $this->assertNull($terminal->sci_pairing_id);
         $this->assertNull($terminal->sci_signing_secret_part_b);
+        $this->assertNull($terminal->sci_last_checked_at);
         $this->assertFalse($terminal->isSciPaired());
     }
 

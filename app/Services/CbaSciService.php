@@ -123,6 +123,9 @@ class CbaSciService
         }
 
         if ($response->successful()) {
+            // The only proof of life a terminal with no transactions yet can offer — see
+            // EftTerminal::lastKnownSciStatus(), which folds this into the Connection reading.
+            $terminal->update(['sci_last_checked_at' => now()]);
             return ['success' => true, 'message' => 'Pairing is active.', 'still_paired' => true];
         }
 
@@ -202,6 +205,7 @@ class CbaSciService
             'sci_pairing_nickname' => null,
             'sci_terminal_nickname' => null,
             'sci_paired_at' => null,
+            'sci_last_checked_at' => null,
         ]);
 
         return ['success' => true, 'message' => 'Terminal unpaired.'];

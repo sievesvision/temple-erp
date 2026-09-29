@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\EftTerminal;
 use App\Models\LinklyTransaction;
+use App\Models\Setting;
 use App\Services\AuditLogService;
 use App\Services\EftTerminalAccess;
 use App\Services\LinklyConfigService;
@@ -102,6 +103,33 @@ class EftTerminalController extends Controller
         }
 
         return redirect()->route('admin.eft-terminals.index');
+    }
+
+    /**
+     * Switches a provider's sandbox/live environment — System-Admin-only, since going live
+     * means every subsequent transaction on that provider's terminals moves real money.
+     * Deliberately provider-scoped rather than one global switch: Linkly and mx51 already
+     * carry their own independent mode (see index()'s $cbaSciMode vs $linklyMode), so one
+     * provider can go live while the other stays in sandbox for ongoing testing.
+     */
+    public function updateMode(Request $request)
+    {
+        if (!$this->isAdmin()) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'provider' => 'required|in:linkly,cba_sci',
+            'mode' => 'required|in:sandbox,live',
+        ]);
+
+        $settingKey = $validated['provider'] === 'cba_sci' ? 'cba_sci_mode' : 'linkly_mode';
+        $providerLabel = $validated['provider'] === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud';
+        Setting::set($settingKey, $validated['mode']);
+
+        AuditLogService::log("Switched {$providerLabel} to " . strtoupper($validated['mode']) . ' mode');
+
+        return redirect()->back()->with('success', "{$providerLabel} is now in " . strtoupper($validated['mode']) . ' mode.');
     }
 
     public function store(Request $request)

@@ -198,6 +198,33 @@ class EftTerminalRegistryAccessTest extends TestCase
         $response->assertSee('href="' . route('admin.dashboard') . '"', false);
     }
 
+    // Each provider's sandbox/live switch is independent — see EftTerminalController::updateMode().
+    public function test_admin_can_switch_a_providers_mode(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $response = $this->actingAs($admin)->post(route('admin.eft-terminals.updateMode'), [
+            'provider' => 'cba_sci', 'mode' => 'live',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertSame('live', Setting::get('cba_sci_mode'));
+        $this->assertSame('sandbox', Setting::get('linkly_mode'));
+    }
+
+    public function test_non_admin_cannot_switch_a_providers_mode(): void
+    {
+        $user = $this->ticketAdminController();
+
+        $response = $this->actingAs($user)->post(route('admin.eft-terminals.updateMode'), [
+            'provider' => 'linkly', 'mode' => 'live',
+        ]);
+
+        $response->assertSessionHas('error', 'Unauthorized access.');
+        $this->assertSame('sandbox', Setting::get('linkly_mode'));
+    }
+
     // Linkly has no cheap "is it reachable" metadata call the way mx51's pairing-info is —
     // the only real check is a Logon, which actually reaches the physical terminal, so this
     // is a real LinklyTransaction, same as the event console's own Logon button.

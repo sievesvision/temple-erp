@@ -34,6 +34,13 @@
         .info-banner-text { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.55; }
         .mode-chip { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; background: #fff; border: 1px solid var(--info-border); color: var(--info-text); margin-left: 4px; }
 
+        /* ---------- Environment (sandbox/live) ---------- */
+        .mode-switch-card { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+        .mode-switch-heading { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); flex-basis: 100%; }
+        .mode-switch-row { display: flex; align-items: center; gap: 10px; }
+        .mode-switch-label { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
+        .mode-switch-form { display: inline-flex; }
+
         /* ---------- Section headings ---------- */
         .section-heading-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 28px 0 14px; }
         .section-heading-row:first-of-type { margin-top: 0; }
@@ -47,10 +54,10 @@
         /* A colour-coded left rail (gold = usable, grey = inactive) runs the full height of
            the card — summary row AND expanded body — so the two visually read as one bounded
            unit for one terminal, not a summary row that happens to sit above a detail panel. */
-        .terminal-card { background: linear-gradient(180deg, #FFFEFB, var(--white) 140px); border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: 12px; margin-bottom: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(16,24,40,0.06); }
+        .terminal-card { background: linear-gradient(180deg, #FFFEFB, var(--white) 140px); border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: 12px; border-top-left-radius: 0; border-bottom-left-radius: 0; margin-bottom: 14px; overflow: visible; box-shadow: 0 1px 3px rgba(16,24,40,0.06); }
         .terminal-card-inactive { border-left-color: #C7CBD1; }
         .terminal-card-inactive .terminal-summary-row { background: #FAFAFA; }
-        .terminal-summary-row { display: flex; align-items: center; gap: 20px; padding: 18px 20px; cursor: pointer; flex-wrap: wrap; }
+        .terminal-summary-row { display: flex; align-items: center; gap: 20px; padding: 18px 20px; cursor: pointer; flex-wrap: wrap; border-top-right-radius: 11px; }
         .terminal-summary-row:hover { background: #FBF9F6; }
         .terminal-card-inactive .terminal-summary-row:hover { background: #F3F4F6; }
         .terminal-icon { width: 56px; height: 56px; border-radius: 10px; background: linear-gradient(160deg, #FDF6E8, #F1E1BC); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; padding: 5px; }
@@ -130,10 +137,37 @@
                 <div class="info-banner-title">Multiple EFT terminals can be used at the same time</div>
                 <div class="info-banner-text">
                     Each terminal is independently paired via Linkly Cloud or mx51 Cloud, allowing multiple physical or virtual PIN pads to operate simultaneously — for example, one for the Ticket Kiosk and another for the Donation POS.
-                    <span class="mode-chip">{{ strtoupper($linklyMode) }}</span>
                 </div>
             </div>
         </div>
+
+        @if($isSystemAdmin)
+        <div class="mode-switch-card">
+            <div class="mode-switch-heading"><i class="bi bi-toggles me-1"></i>Environment — each provider switches independently</div>
+            <div class="mode-switch-row">
+                <span class="mode-switch-label">Linkly Cloud</span>
+                <form action="{{ route('admin.eft-terminals.updateMode') }}" method="POST" class="mode-switch-form">
+                    @csrf
+                    <input type="hidden" name="provider" value="linkly">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="submit" name="mode" value="sandbox" class="btn {{ $linklyMode === 'sandbox' ? 'btn-secondary' : 'btn-outline-secondary' }}" {{ $linklyMode === 'sandbox' ? 'disabled' : '' }}>Sandbox</button>
+                        <button type="submit" name="mode" value="live" class="btn {{ $linklyMode === 'live' ? 'btn-danger' : 'btn-outline-danger' }}" {{ $linklyMode === 'live' ? 'disabled' : '' }} onclick="return confirm('Switch Linkly Cloud to LIVE mode? Every subsequent transaction will process a real card.');">Live</button>
+                    </div>
+                </form>
+            </div>
+            <div class="mode-switch-row">
+                <span class="mode-switch-label">mx51 Cloud</span>
+                <form action="{{ route('admin.eft-terminals.updateMode') }}" method="POST" class="mode-switch-form">
+                    @csrf
+                    <input type="hidden" name="provider" value="cba_sci">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="submit" name="mode" value="sandbox" class="btn {{ $cbaSciMode === 'sandbox' ? 'btn-secondary' : 'btn-outline-secondary' }}" {{ $cbaSciMode === 'sandbox' ? 'disabled' : '' }}>Sandbox</button>
+                        <button type="submit" name="mode" value="live" class="btn {{ $cbaSciMode === 'live' ? 'btn-danger' : 'btn-outline-danger' }}" {{ $cbaSciMode === 'live' ? 'disabled' : '' }} onclick="return confirm('Switch mx51 Cloud to LIVE mode? Every subsequent transaction will process a real card.');">Live</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        @endif
 
         @if($activeTerminals->isEmpty() && $inactiveTerminals->isEmpty())
         <p class="text-muted">No terminals registered yet — add one below.</p>
