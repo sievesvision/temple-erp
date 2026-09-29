@@ -315,6 +315,10 @@ class LinklyEftService
         }
 
         $sessionId = (string) Str::uuid();
+        // Linkly rejects any transaction — Logon included — without a TxnRef, same as
+        // startSession()'s Purchase/Refund calls; a Logon has nothing to match it back to,
+        // so this is generated fresh here rather than taken from a caller.
+        $txnRef = substr('LGN' . now()->format('His') . rand(1000, 9999), 0, 16);
 
         try {
             $response = Http::timeout(30)
@@ -323,6 +327,7 @@ class LinklyEftService
                     'Request' => [
                         'Merchant' => '00',
                         'TxnType' => 'L',
+                        'TxnRef' => $txnRef,
                         'Application' => '00',
                     ],
                 ]);

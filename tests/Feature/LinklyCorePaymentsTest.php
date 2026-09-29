@@ -392,6 +392,30 @@ class LinklyCorePaymentsTest extends TestCase
         ]);
     }
 
+    // Observed live in production: Linkly rejects a Logon with no TxnRef ("The TxnRef field
+    // is required"), the same requirement startSession() already honours for Purchase/Refund
+    // — logon() just never carried one.
+    public function test_logon_request_includes_a_txn_ref(): void
+    {
+        $eventId = $this->createEvent();
+        $admin = $this->adminUser();
+
+        Http::fake([
+            '*/tokens/cloudpos' => Http::response(['token' => 'fake-token', 'expirySeconds' => 300], 200),
+            '*/sessions/*/transaction*' => Http::response(['response' => ['success' => true]], 200),
+        ]);
+
+        $this->actingAs($admin)->post("/admin/events/{$eventId}/eft/logon");
+
+        Http::assertSent(function ($request) {
+            if (!str_contains($request->url(), '/transaction')) {
+                return true;
+            }
+            $body = json_decode($request->body(), true);
+            return !empty($body['Request']['TxnRef']);
+        });
+    }
+
     // A completed EFT Terminal purchase's ledger row is linked to the resulting donation
     // record end-to-end (start -> approve -> save), the way the browser actually drives it —
     // not just asserted at the unit level, since this is the join the EFTPOS pane's
