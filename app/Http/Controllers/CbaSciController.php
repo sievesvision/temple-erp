@@ -43,7 +43,10 @@ class CbaSciController extends Controller
             }
         }
 
-        return redirect()->route('admin.eft-terminals.index');
+        // Embedded (opened as an iframe popup — see eft-terminal-settings-modal.blade.php)
+        // must stay embedded across a redirect, or the next render shows the full topbar
+        // (Back/Logout pointed nowhere useful) squeezed into the small modal frame.
+        return redirect()->route('admin.eft-terminals.index', $request->boolean('embedded') ? ['embedded' => 1] : []);
     }
 
     public function pair(Request $request)
@@ -264,6 +267,29 @@ class CbaSciController extends Controller
             'transient_error' => $result['transient_error'],
             'donation_id' => $donationId,
         ]);
+    }
+
+    /**
+     * Requests mx51 cancel a transaction still in progress — see CbaSciService::
+     * cancelTransaction()'s docblock for why this alone doesn't resolve the outcome; the
+     * frontend keeps polling afterward exactly as it already does for any other transaction.
+     */
+    public function cancel(Request $request, string $transactionId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !app(DonationController::class)->canUseEftTerminal($user, $activeRole, $request->input('event_id'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $txn = $this->resolveSciTransaction($transactionId);
+        if (!$txn || !$txn->eftTerminal) {
+            return response()->json(['success' => false, 'message' => 'Transaction not found.'], 404);
+        }
+
+        $result = CbaSciService::cancelTransaction($txn->eftTerminal, $transactionId);
+
+        return response()->json($result, $result['success'] ? 200 : 422);
     }
 
     public function submitAction(Request $request, string $transactionId)

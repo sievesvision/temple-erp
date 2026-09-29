@@ -42,6 +42,7 @@
      * @param {string} cfg.startUrl
      * @param {string} cfg.statusUrlBase   e.g. '/admin/cba-sci/charge/status'
      * @param {string} cfg.actionUrlBase   e.g. '/admin/cba-sci/charge/action'
+     * @param {string} cfg.cancelUrlBase   e.g. '/admin/cba-sci/charge/cancel'
      * @param {string} cfg.overrideUrlBase e.g. '/admin/cba-sci/charge/override'
      * @param {string} cfg.csrfToken
      * @param {?number|string} cfg.eventId  omitted entirely for a non-event-scoped kiosk (tickets)
@@ -65,6 +66,10 @@
         var customerReceipt = null;
         var overrideOfferedAt = null;
         var startedAt = null;
+        // Set the moment a real Cancel Transaction call is made — per mx51's own transaction-
+        // recovery guidance, a cancel gets its own (shorter) no-response deadline before
+        // falling back to the manual override dialog, distinct from an ordinary transaction's.
+        var cancelRequestedAt = null;
         var activeBtn = null;
         var currentAttempt = null;
         // Guards the shared modal's cancel/override buttons — this module and the caller's
@@ -266,9 +271,14 @@
             if (cancelled || !transactionId) { return; }
 
             // Same 3-minute local guard as the Linkly flow — past this, offer the manual
-            // override rather than continuing to error out indefinitely, since (unlike
-            // Linkly) SCI has no cancel API to fall back on if the card may still charge.
-            if (startedAt && Date.now() - startedAt > 180000 && !overrideOfferedAt) {
+            // override rather than continuing to error out indefinitely. A cancel already
+            // requested gets its own, much shorter deadline instead — per mx51's own
+            // transaction-recovery guidance, if no finalised response arrives soon after a
+            // cancel request, the same override dialog should appear rather than waiting out
+            // the full normal timeout.
+            var overrideBaseline = cancelRequestedAt || startedAt;
+            var overrideDeadline = cancelRequestedAt ? 45000 : 180000;
+            if (overrideBaseline && Date.now() - overrideBaseline > overrideDeadline && !overrideOfferedAt) {
                 overrideOfferedAt = Date.now();
                 setStatus(['No response from the terminal yet', 'Confirm the outcome below, or keep waiting'], 'error');
                 showOverride();
@@ -303,6 +313,20 @@
                         return;
                     }
 
+                    // AWAITING_POS is NOT a final result — it means the terminal needs the
+                    // operator to act on the Action Framework form just rendered above (e.g.
+                    // Approve/Decline Signature). Treating it as "done" here previously fell
+                    // through to finishUnresolved() and closed the modal before the operator
+                    // could ever click anything. mx51's own docs say to stop the normal
+                    // polling cadence in this state (the operator's click resumes it promptly
+                    // via submitElementAction()) — this much slower background check exists
+                    // only so an abandoned/buttonless AWAITING_POS still reaches the override
+                    // safety net above instead of hanging forever.
+                    if (data.status === 'AWAITING_POS') {
+                        setTimeout(poll, 4000);
+                        return;
+                    }
+
                     if (data.donation_id) {
                         finishSuccess(data.donation_id, null);
                         return;
@@ -333,7 +357,9 @@
             transactionId = null;
             consecutiveTransientErrors = 0;
             overrideOfferedAt = null;
+            cancelRequestedAt = null;
             formValues = {};
+            cfg.el.cancelBtn.disabled = false;
             activeBtn = btn;
             currentAttempt = attempt;
             saveAttempt(attempt);
@@ -386,11 +412,29 @@
                 cfg.onLocalCancel();
                 return;
             }
-            // No cancel API exists for SCI (confirmed in mx51's docs — the recovery flow is
-            // the only mechanism) — asking "did it go through?" is the only honest option
-            // once a transaction has actually started on the terminal.
-            setStatus(['Waiting for the terminal…', 'Confirm the outcome below if it\'s stuck'], 'pending');
-            showOverride();
+            if (cancelRequestedAt) { return; }
+            // A real Cancel Transaction call — this alone doesn't resolve the outcome (mx51
+            // may not be able to stop a card that's already charging), so polling keeps
+            // running exactly as it does for any other transaction and the eventual
+            // FINALISED result (CANCELLED, or APPROVED if the cancel came too late) is what
+            // actually closes the flow. The override dialog is the fallback if that never
+            // arrives — see poll()'s shorter cancel-specific deadline.
+            cancelRequestedAt = Date.now();
+            cfg.el.cancelBtn.disabled = true;
+            setStatus(['Cancelling…', 'Waiting for the terminal to confirm'], 'pending');
+            fetch(cfg.cancelUrlBase + '/' + encodeURIComponent(transactionId) + qs(), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': cfg.csrfToken, 'Accept': 'application/json' },
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (cancelled) { return; }
+                    if (!data.success) { showToastFallback(data.message || 'Could not cancel — still waiting for the terminal.'); }
+                })
+                .catch(function () {
+                    if (cancelled) { return; }
+                    showToastFallback('Could not reach the mx51 Cloud service to cancel — still waiting for the terminal.');
+                });
         });
 
         cfg.el.overrideKeepWaitingBtn.addEventListener('click', function () {

@@ -345,6 +345,33 @@ class CbaSciService
     }
 
     /**
+     * POST {sci_api_base_url}/v1/transactions/{id}/cancel, signed, no body — asks mx51 to
+     * cancel a transaction still in progress on the terminal. This does NOT resolve the
+     * outcome by itself: per mx51's own transaction-recovery guidance, the POS must keep
+     * polling afterward for the eventual FINALISED result (CANCELLED if it succeeded before
+     * the card was charged, APPROVED if the cancel came too late to stop it), falling back
+     * to the same manual override dialog as an unresponsive transaction if no result arrives
+     * within a short cancel-specific timeout. See CbaSciController::cancel().
+     *
+     * @return array{success: bool, message: string}
+     */
+    public static function cancelTransaction(EftTerminal $terminal, string $transactionId): array
+    {
+        try {
+            $response = self::signedRequest('POST', $terminal->sci_api_base_url . '/v1/transactions/' . $transactionId . '/cancel', null, $terminal);
+        } catch (ConnectionException $e) {
+            Log::warning('CBA SCI cancel request could not reach mx51', ['terminal' => $terminal->key, 'transaction_id' => $transactionId, 'error' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'Could not reach the mx51 Cloud service — check network and terminal connections.'];
+        }
+
+        if (!$response->successful()) {
+            return ['success' => false, 'message' => self::transactionErrorMessage($response)];
+        }
+
+        return ['success' => true, 'message' => 'Cancel requested — waiting for the terminal to confirm.'];
+    }
+
+    /**
      * Sends a button/input Action Framework element's interaction back to mx51 — `$submitUrl`
      * is already a complete URL (mx51 returns it fully-qualified in pos_instructions), so
      * this only needs to sign and POST it, optionally with input element values as the body.

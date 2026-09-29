@@ -261,4 +261,58 @@ class CbaSciTransactionTest extends TestCase
         $txn->refresh();
         $this->assertSame('DECLINED', $txn->result_financial_status);
     }
+
+    // mx51's own Postman collection documents POST /v1/transactions/{id}/cancel — an earlier
+    // version of this codebase incorrectly believed no such endpoint existed, so the Cancel
+    // button never actually told the terminal anything.
+    public function test_cancel_calls_the_real_cancel_endpoint(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        SciTransaction::create([
+            'client_ref' => 'ref-cancel-1', 'sci_transaction_id' => 'txn_cancel_1', 'sci_version' => 2,
+            'eft_terminal_id' => $terminal->id, 'amount' => 15, 'status' => 'PENDING', 'initiated_by' => $admin->id,
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => ['version' => 3]], 200)]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.cancel', 'txn_cancel_1'));
+
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
+        Http::assertSent(fn ($request) => $request->url() === 'https://sci-api.tenant.example/v1/transactions/txn_cancel_1/cancel'
+            && $request->method() === 'POST');
+    }
+
+    public function test_cancel_requires_eft_terminal_permission(): void
+    {
+        // The route group's own role:... middleware gate (not this controller) is what
+        // rejects a role like Devotee — it redirects rather than returning JSON, same as
+        // every other endpoint in this group when called by a role outside the allowed list.
+        $entryUser = User::factory()->create(['role' => 'Devotee', 'mobile' => fake()->unique()->numerify('04########')]);
+        $terminal = $this->pairedTerminal();
+        SciTransaction::create([
+            'client_ref' => 'ref-cancel-2', 'sci_transaction_id' => 'txn_cancel_2', 'sci_version' => 1,
+            'eft_terminal_id' => $terminal->id, 'amount' => 15, 'status' => 'PENDING',
+        ]);
+
+        $response = $this->actingAs($entryUser)->postJson(route('admin.cba-sci.charge.cancel', 'txn_cancel_2'));
+
+        $response->assertRedirect();
+    }
+
+    public function test_cancel_reports_an_unreachable_terminal_but_does_not_error_out(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        SciTransaction::create([
+            'client_ref' => 'ref-cancel-3', 'sci_transaction_id' => 'txn_cancel_3', 'sci_version' => 1,
+            'eft_terminal_id' => $terminal->id, 'amount' => 15, 'status' => 'PENDING', 'initiated_by' => $admin->id,
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('timed out')]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.cancel', 'txn_cancel_3'));
+
+        $response->assertStatus(422);
+        $response->assertJson(['success' => false]);
+    }
 }
