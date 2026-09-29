@@ -258,17 +258,24 @@
             cfg.el.actionContainer.hidden = cfg.el.actionContainer.children.length === 0;
         }
 
-        function finishSuccess(donationId, resultAmounts) {
+        // mx51's certification requirements are explicit: "Approved/Declined message and
+        // response code given by the Action Framework are displayed on the POS" — that's
+        // mx51's own data.message (their reference shows it as e.g. "(000) APPROVED"), not a
+        // generic string this app makes up. It's shown as the primary line; the generic label
+        // is only a fallback for the rare case mx51 didn't send one.
+        function finishSuccess(donationId, resultAmounts, resultMessage) {
             clearAttempt();
-            setStatus(['PAYMENT APPROVED', 'Saving…'], 'success');
+            setStatus([resultMessage || 'PAYMENT APPROVED', 'Saving…'], 'success');
             setTimeout(hideModal, 1200);
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onApproved(donationId, resultAmounts, currentAttempt);
         }
 
-        function finishDeclined(message) {
+        function finishDeclined(message, resultStatus) {
             clearAttempt();
-            setStatus(['PAYMENT DECLINED', message || ''], 'error');
+            var fallback = resultStatus === 'CANCELLED' ? 'PAYMENT CANCELLED' : 'PAYMENT DECLINED';
+            var subline = resultStatus === 'CANCELLED' ? 'Transaction cancelled' : 'Transaction declined';
+            setStatus([message || fallback, subline], 'error');
             setTimeout(hideModal, 1800);
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onDeclined(message);
@@ -323,7 +330,12 @@
                         return;
                     }
 
-                    if (data.message) { setStatus([data.status || 'Processing', data.message], 'pending'); }
+                    // Gating this on data.message being truthy left the status frozen on the
+                    // initial "Starting…" placeholder forever whenever a PENDING poll came
+                    // back without one (mx51 doesn't guarantee a message on every response,
+                    // only on real transitions) — the poll loop was working the whole time,
+                    // it just never looked like it. Always show something real.
+                    setStatus([data.status || 'Processing', data.message || 'Please wait…'], 'pending');
                     renderInstructions(pos);
 
                     if (!data.done) {
@@ -346,11 +358,11 @@
                     }
 
                     if (data.donation_id) {
-                        finishSuccess(data.donation_id, null);
+                        finishSuccess(data.donation_id, null, data.message);
                         return;
                     }
                     if (data.result_financial_status === 'DECLINED' || data.result_financial_status === 'CANCELLED') {
-                        finishDeclined(data.message);
+                        finishDeclined(data.message, data.result_financial_status);
                         return;
                     }
                     // APPROVED-but-no-record (e.g. the donor name was missing, or a ticket
@@ -411,6 +423,11 @@
                     }
                     transactionId = result.data.transaction_id;
                     startedAt = Date.now();
+                    // mx51's own create response carries a real message too (their docs'
+                    // example: "Waiting for terminal to accept transaction") — show it now
+                    // rather than leaving the generic "Starting…" placeholder up until the
+                    // first poll response comes back.
+                    setStatus([result.data.status || 'Processing', result.data.message || 'Please wait…'], 'pending');
                     renderInstructions(result.data.pos_instructions || null);
                     poll();
                 })
@@ -479,7 +496,7 @@
                     }
                     if (data.donation_id) { finishSuccess(data.donation_id, null); return; }
                     if (data.result_financial_status === 'APPROVED') { finishSuccess(data.donation_id, null); return; }
-                    if (data.result_financial_status && data.result_financial_status !== 'UNKNOWN') { finishDeclined(data.message); return; }
+                    if (data.result_financial_status && data.result_financial_status !== 'UNKNOWN') { finishDeclined(data.message, data.result_financial_status); return; }
                     finishUnresolved('Marked unresolved — please verify against the terminal/bank statement.');
                 })
                 .catch(function () {
