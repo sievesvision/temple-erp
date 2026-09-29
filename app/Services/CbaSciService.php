@@ -42,7 +42,7 @@ class CbaSciService
     {
         $apiKey = CbaSciConfigService::pairingApiKey();
         if (!$apiKey) {
-            return ['success' => false, 'message' => 'CBA Smart Terminal is not configured on this server yet — the Pairing API Key is missing.'];
+            return ['success' => false, 'message' => 'mx51 Cloud is not configured on this server yet — the Pairing API Key is missing.'];
         }
 
         try {
@@ -54,7 +54,7 @@ class CbaSciService
                 ]));
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI pairing request could not reach mx51', ['terminal' => $terminal->key, 'error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'Could not reach the CBA Smart Terminal pairing service — check network and terminal connections and try again.'];
+            return ['success' => false, 'message' => 'Could not reach the mx51 Cloud pairing service — check network and terminal connections and try again.'];
         }
 
         if (!$response->successful()) {
@@ -88,8 +88,8 @@ class CbaSciService
         $code = $response->json('error.code') ?? $response->json('code');
         $map = [
             'invalid_request' => 'The pairing code (or nickname) was invalid — check what was entered and try again.',
-            'api_key_invalid' => 'This server\'s CBA Smart Terminal credentials were rejected — contact whoever manages the integration.',
-            'api_key_missing' => 'This server\'s CBA Smart Terminal credentials are missing — contact whoever manages the integration.',
+            'api_key_invalid' => 'This server\'s mx51 Cloud credentials were rejected — contact whoever manages the integration.',
+            'api_key_missing' => 'This server\'s mx51 Cloud credentials are missing — contact whoever manages the integration.',
             'pairing_route_forbidden' => 'This terminal is not in an authorised environment for these credentials.',
             'test_api_key_forbidden_for_live_pairing' => 'A test (sandbox) key cannot pair a live terminal — switch this integration to live mode first.',
             'pairing_not_found' => 'That pairing code was not recognised — double-check it on the terminal and try again.',
@@ -119,7 +119,7 @@ class CbaSciService
             $response = self::signedRequest('GET', $terminal->sci_api_base_url . '/pairing-info', null, $terminal);
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI test-pairing request could not reach mx51', ['terminal' => $terminal->key, 'error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'Could not reach the CBA Smart Terminal service — check network and terminal connections and try again.', 'still_paired' => true];
+            return ['success' => false, 'message' => 'Could not reach the mx51 Cloud service — check network and terminal connections and try again.', 'still_paired' => true];
         }
 
         if ($response->successful()) {
@@ -202,7 +202,7 @@ class CbaSciService
             $response = self::signedRequest('POST', $terminal->sci_api_base_url . '/v1/transactions', $details, $terminal);
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI transaction creation could not reach mx51', ['terminal' => $terminal->key, 'error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'Could not reach the CBA Smart Terminal — check network and terminal connections and try again.', 'transaction_id' => null, 'version' => 0, 'status' => null, 'pos_instructions' => null];
+            return ['success' => false, 'message' => 'Could not reach mx51 Cloud — check network and terminal connections and try again.', 'transaction_id' => null, 'version' => 0, 'status' => null, 'pos_instructions' => null];
         }
 
         if (!$response->successful()) {
@@ -254,7 +254,7 @@ class CbaSciService
             );
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI poll could not reach mx51', ['terminal' => $terminal->key, 'transaction_id' => $transactionId, 'error' => $e->getMessage()]);
-            return array_merge($base, ['transient_error' => true, 'message' => 'Could not reach the CBA Smart Terminal — retrying.']);
+            return array_merge($base, ['transient_error' => true, 'message' => 'Could not reach mx51 Cloud — retrying.']);
         }
 
         if ($response->status() === 404) {
@@ -313,7 +313,7 @@ class CbaSciService
             $response = self::signedRequest('POST', $submitUrl, $formValues ?: null, $terminal);
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI action submission could not reach mx51', ['terminal' => $terminal->key, 'url' => $submitUrl, 'error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'Could not reach the CBA Smart Terminal — check network and terminal connections and try again.'];
+            return ['success' => false, 'message' => 'Could not reach mx51 Cloud — check network and terminal connections and try again.'];
         }
 
         if (!$response->successful()) {

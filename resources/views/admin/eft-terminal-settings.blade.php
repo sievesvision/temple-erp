@@ -94,7 +94,7 @@
                     <label class="form-label small">Provider</label>
                     <select name="provider" class="form-select rounded-3">
                         <option value="linkly">Linkly Cloud (PIN pad)</option>
-                        <option value="cba_sci">CBA Smart Terminal</option>
+                        <option value="cba_sci">mx51 Cloud</option>
                     </select>
                 </div>
                 <div class="col-md-2">

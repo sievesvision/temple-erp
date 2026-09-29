@@ -364,7 +364,7 @@
                 .catch(function () {
                     btn.disabled = false;
                     hideModal();
-                    showToastFallback('Could not reach the CBA Smart Terminal service — please try again.');
+                    showToastFallback('Could not reach the mx51 Cloud service — please try again.');
                 });
         }
 

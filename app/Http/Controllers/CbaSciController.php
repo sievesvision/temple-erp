@@ -62,7 +62,7 @@ class CbaSciController extends Controller
         $result = CbaSciService::pair($validated['pairing_code'], $validated['pairing_nickname'] ?? null, $terminal);
 
         if ($result['success']) {
-            AuditLogService::log("Paired CBA Smart Terminal '{$terminal->label}' ({$terminal->key})");
+            AuditLogService::log("Paired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
 
         return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message']);
@@ -92,7 +92,7 @@ class CbaSciController extends Controller
         $result = CbaSciService::unpair($terminal);
 
         if ($result['success']) {
-            AuditLogService::log("Unpaired CBA Smart Terminal '{$terminal->label}' ({$terminal->key})");
+            AuditLogService::log("Unpaired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
 
         return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message']);
@@ -128,7 +128,7 @@ class CbaSciController extends Controller
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
         if (!$terminal || $terminal->provider !== 'cba_sci') {
-            return response()->json(['success' => false, 'message' => 'No CBA Smart Terminal is configured for this station.'], 422);
+            return response()->json(['success' => false, 'message' => 'No mx51 Cloud terminal is configured for this station.'], 422);
         }
         if (!$terminal->isSciPaired()) {
             return response()->json(['success' => false, 'message' => "\"{$terminal->label}\" is not paired yet."], 422);
@@ -309,7 +309,7 @@ class CbaSciController extends Controller
         $donationId = $validated['outcome'] === 'approved' ? $this->createRecordIfApprovedAndUnrecorded($txn->fresh()) : null;
 
         AuditLogService::log(
-            "Manually overrode CBA Smart Terminal transaction {$transactionId} as {$validated['outcome']}",
+            "Manually overrode mx51 Cloud transaction {$transactionId} as {$validated['outcome']}",
             $user->id,
             $txn->event_id
         );

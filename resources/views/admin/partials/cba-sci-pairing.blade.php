@@ -9,7 +9,7 @@
     <div class="d-flex align-items-center gap-2 mb-2">
         <span style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; background:#1A2B4C; color:#fff; font-weight:800; font-size:0.68rem; flex-shrink:0;">SCI</span>
         <strong style="color:#1A2B4C;">Simple Cloud Integration</strong>
-        <span class="text-muted small">— CBA Smart Terminal</span>
+        <span class="text-muted small">— mx51 Cloud</span>
     </div>
 
     @if($isPaired)
@@ -58,6 +58,6 @@
                 <button type="reset" class="btn btn-sm btn-outline-secondary">Cancel</button>
             </div>
         </form>
-        <p class="text-muted small mt-2 mb-0">On the terminal, open the CBA Smart Terminal pairing menu to display a pairing code, then enter it here.</p>
+        <p class="text-muted small mt-2 mb-0">On the terminal, open its pairing menu to display a pairing code, then enter it here.</p>
     @endif
 </div>
