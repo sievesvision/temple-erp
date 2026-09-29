@@ -25,7 +25,13 @@
             @if($terminal->sci_terminal_nickname)
             <div class="col-md-6"><span class="text-muted">Terminal Nickname:</span> <strong>{{ $terminal->sci_terminal_nickname }}</strong></div>
             @endif
+            @if($terminal->sci_confirmation_code)
+            <div class="col-md-6"><span class="text-muted">Confirmation Code:</span> <strong>{{ $terminal->sci_confirmation_code }}</strong></div>
+            @endif
         </div>
+        @if($terminal->sci_confirmation_code)
+        <p class="text-muted small mt-n2 mb-3" style="font-size:0.78rem;">Check this matches the confirmation code shown on the terminal itself.</p>
+        @endif
         <div class="d-flex gap-2">
             <form action="{{ route('admin.cba-sci.test') }}" method="POST">
                 @csrf

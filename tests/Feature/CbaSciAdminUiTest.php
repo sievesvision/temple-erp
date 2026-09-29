@@ -65,6 +65,7 @@ class CbaSciAdminUiTest extends TestCase
             'key' => 'sci-paired', 'label' => 'SCI Paired', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid(),
             'sci_pairing_id' => 'pid_abc', 'sci_key_id' => 'kid_abc', 'sci_signing_secret_part_b' => 'secret',
             'sci_api_base_url' => 'https://sci-api.tenant.example', 'sci_pairing_nickname' => 'Front Bar',
+            'sci_confirmation_code' => '2022',
         ]);
 
         $response = $this->actingAs($admin)->get(route('admin.eft-terminals.index'));
@@ -73,6 +74,10 @@ class CbaSciAdminUiTest extends TestCase
         $response->assertSee('Paired successfully', false);
         $response->assertSee('Front Bar', false);
         $response->assertSee('pid_abc', false);
+        // The confirmation code mx51 returns during pairing is shown back to the operator so
+        // they can cross-check it against what the terminal itself displays.
+        $response->assertSee('Confirmation Code', false);
+        $response->assertSee('2022', false);
         $response->assertDontSee('secret</strong>', false);
     }
 
