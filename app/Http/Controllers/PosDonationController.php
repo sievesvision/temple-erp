@@ -105,12 +105,16 @@ class PosDonationController extends Controller
             ->latest('id')
             ->first();
 
-        // Every registered terminal (paired or not) — the station itself picks which one
-        // it's using (saved client-side, see event-pos-donation.blade.php's terminal
-        // picker), so two stations on two different terminals can each run this same
-        // event's POS concurrently, or one on this event and one on the Ticket Kiosk.
+        // Every currently PAIRED terminal — the station itself picks which one it's using
+        // (saved client-side, see event-pos-donation.blade.php's terminal picker), so two
+        // stations on two different terminals can each run this same event's POS
+        // concurrently, or one on this event and one on the Ticket Kiosk. An unpaired
+        // terminal can't take a payment at all, so it's left off this list entirely rather
+        // than offered as a selectable-but-broken option (it still shows on the EFT
+        // Terminal Settings page, grouped under "Inactive").
         $linklyMode = \App\Services\LinklyConfigService::mode();
         $eftTerminalsForJs = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
+            ->filter(fn ($t) => $t->isPairedFor($linklyMode))
             ->map(function ($t) use ($linklyMode) {
                 $status = $t->lastKnownStatus();
                 return [

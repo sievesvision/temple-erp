@@ -355,11 +355,15 @@ class TicketController extends Controller
         $canSell = $this->canSellTickets($user, $activeRole);
         $canManageConsole = $this->canManageTicketConsole($user, $activeRole, $controllerLevel);
 
-        // Every registered terminal (paired or not) — this kiosk station picks which one
-        // it's using (saved client-side, see ticket-pos.blade.php's terminal picker), so two
-        // computers can each run their own ticket counter on two different terminals at once.
+        // Every currently PAIRED terminal — this kiosk station picks which one it's using
+        // (saved client-side, see ticket-pos.blade.php's terminal picker), so two computers
+        // can each run their own ticket counter on two different terminals at once. An
+        // unpaired terminal can't take a payment at all, so it's left off this list entirely
+        // rather than offered as a selectable-but-broken option (it still shows on the EFT
+        // Terminal Settings page, grouped under "Inactive").
         $linklyMode = \App\Services\LinklyConfigService::mode();
         $eftTerminalsForJs = EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
+            ->filter(fn ($t) => $t->isPairedFor($linklyMode))
             ->map(function ($t) use ($linklyMode) {
                 $status = $t->lastKnownStatus();
                 return [

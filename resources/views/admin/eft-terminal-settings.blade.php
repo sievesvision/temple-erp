@@ -31,6 +31,13 @@
         .status-pill.cancelled { background: #FEF2F2; color: var(--error); }
         .status-pill.pending { background: #FFF7ED; color: #F59E0B; }
         .btn-save { padding: 10px 22px; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 0.92rem; }
+        .group-heading { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); margin: 28px 0 10px; display: flex; align-items: center; gap: 10px; }
+        .group-heading::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .group-heading:first-child { margin-top: 0; }
+        /* An inactive (unpaired) terminal can't take a payment — dimmed and grouped below the
+           active ones so it doesn't compete for attention, without hiding it entirely (it may
+           still hold transaction history, or just be awaiting its first pairing). */
+        .card-panel-inactive { opacity: 0.72; }
     </style>
 </head>
 <body>
@@ -38,7 +45,12 @@
     <header class="topbar">
         <h1><i class="bi bi-credit-card-2-front-fill me-2"></i>EFT Terminal Settings</h1>
         <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="topbar-btn"><i class="bi bi-question-circle"></i>Help</a>
-        <a href="{{ url()->previous() }}" class="topbar-btn"><i class="bi bi-arrow-left"></i>Back</a>
+        {{-- Not url()->previous() — this page is only ever linked to from Admin Settings, but
+             is also directly reachable by an event-admin coordinator or ticket-admin controller
+             (see the controller's own docblock), who can't necessarily open Admin Settings
+             itself (role.admin-gated) — so the parent page depends on which of those this
+             visitor actually is, rather than trusting the browser's referrer. --}}
+        <a href="{{ $isSystemAdmin ? route('admin.settings') : route('admin.dashboard') }}" class="topbar-btn"><i class="bi bi-arrow-left"></i>Back</a>
         <a href="{{ route('logout') }}" class="topbar-btn"><i class="bi bi-box-arrow-right"></i>Logout</a>
     </header>
 
@@ -48,55 +60,23 @@
 
         <p class="text-muted small mb-3">Each terminal below is independently paired via Linkly Cloud, so more than one physical (or virtual test) PIN pad can be in use at once — e.g. one for the Ticket Kiosk and another for an event's donation POS, running simultaneously. Mode: <strong class="text-uppercase">{{ $linklyMode }}</strong> (set by the <code>LINKLY_*</code> credentials configured on the server).</p>
 
-        @foreach($eftTerminals as $terminal)
-        @php $lastKnown = $terminal->lastKnownStatus(); @endphp
-        <div class="card-panel">
-            <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
-                <strong>{{ $terminal->label }}</strong>
-                <span class="text-muted small">({{ $terminal->key }})</span>
-                @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
-                <span class="status-pill {{ $terminal->isPairedFor($linklyMode) ? 'paid' : 'cancelled' }}">{{ $terminal->isPairedFor($linklyMode) ? 'Paired' : 'Not Paired' }}</span>
-                @if($lastKnown['state'] === 'online')
-                <span class="status-pill paid">Online</span>
-                @elseif($lastKnown['state'] === 'offline')
-                <span class="status-pill cancelled">Offline</span>
-                @else
-                <span class="status-pill pending">Not checked</span>
-                @endif
-                @if($lastKnown['at'])
-                <span class="text-muted small">({{ $lastKnown['at']->diffForHumans() }})</span>
-                @endif
-            </div>
-            @if($terminal->provider === 'linkly')
-            <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-3 align-items-end mb-2">
-                @csrf
-                <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                <div class="col-md-5">
-                    <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required>
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-outline-primary">{{ $terminal->isPaired($linklyMode) ? 'Re-pair' : 'Pair' }}</button>
-                </div>
-            </form>
-            @else
-            @include('admin.partials.cba-sci-pairing', ['terminal' => $terminal])
-            @endif
-            @if($isSystemAdmin)
-            <div class="d-flex gap-2">
-                @if(!$terminal->is_default)
-                <form action="{{ route('admin.eft-terminals.setDefault', $terminal) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">Set as Default</button>
-                </form>
-                <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('Remove this terminal?')">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                </form>
-                @endif
-            </div>
-            @endif
-        </div>
+        @if($activeTerminals->isEmpty() && $inactiveTerminals->isEmpty())
+        <p class="text-muted">No terminals registered yet — add one below.</p>
+        @endif
+
+        @if($activeTerminals->isNotEmpty())
+        <div class="group-heading">Active — paired &amp; usable</div>
+        @foreach($activeTerminals as $terminal)
+            @include('admin.partials.eft-terminal-card', ['terminal' => $terminal, 'linklyMode' => $linklyMode, 'isSystemAdmin' => $isSystemAdmin])
         @endforeach
+        @endif
+
+        @if($inactiveTerminals->isNotEmpty())
+        <div class="group-heading">Inactive — not currently paired</div>
+        @foreach($inactiveTerminals as $terminal)
+            @include('admin.partials.eft-terminal-card', ['terminal' => $terminal, 'linklyMode' => $linklyMode, 'isSystemAdmin' => $isSystemAdmin])
+        @endforeach
+        @endif
 
         <div class="card-panel" style="background:var(--cream);">
             <div class="fw-semibold mb-2">Add Another Terminal</div>

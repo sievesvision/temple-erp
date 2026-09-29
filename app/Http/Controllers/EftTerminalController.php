@@ -45,7 +45,14 @@ class EftTerminalController extends Controller
         $canManageRegistryLevel = $this->canManageRegistry();
         $isSystemAdmin = $this->isAdmin();
 
-        return view('admin.eft-terminal-settings', compact('eftTerminals', 'linklyMode', 'canManageRegistryLevel', 'isSystemAdmin'));
+        // A terminal that isn't currently paired can't take a payment, so it's grouped apart
+        // from the terminals actually usable right now rather than mixed in with them — this
+        // is also where a retired terminal with recorded transaction history ends up once
+        // unpaired, since destroy() below refuses to delete it outright.
+        $activeTerminals = $eftTerminals->filter(fn ($t) => $t->isPairedFor($linklyMode))->values();
+        $inactiveTerminals = $eftTerminals->reject(fn ($t) => $t->isPairedFor($linklyMode))->values();
+
+        return view('admin.eft-terminal-settings', compact('activeTerminals', 'inactiveTerminals', 'linklyMode', 'canManageRegistryLevel', 'isSystemAdmin'));
     }
 
     /**

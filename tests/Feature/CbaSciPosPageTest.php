@@ -43,7 +43,7 @@ class CbaSciPosPageTest extends TestCase
             'event_date' => now()->addMonth()->toDateString(), 'status' => 'Upcoming',
         ]);
         $sci = $this->pairedSciTerminal();
-        $this->unpairedLinklyTerminal();
+        $unpaired = $this->unpairedLinklyTerminal();
 
         $response = $this->actingAs($admin)->get(route('admin.events.pos', $event->event_id));
 
@@ -53,12 +53,16 @@ class CbaSciPosPageTest extends TestCase
         $response->assertSee('eftModalOverride', false);
         $response->assertSee('"provider":"cba_sci"', false);
         $response->assertSee('"id":' . $sci->id . ',"label":"SCI POS Terminal","provider":"cba_sci","is_default":false,"paired":true', false);
+        // An unpaired terminal can't take a payment, so it must never be offered as a
+        // selectable option in the terminal picker's JSON payload.
+        $response->assertDontSee('"id":' . $unpaired->id . ',', false);
     }
 
     public function test_ticket_pos_page_renders_and_lists_a_paired_cba_terminal(): void
     {
         $admin = $this->adminUser();
         $sci = $this->pairedSciTerminal();
+        $unpaired = $this->unpairedLinklyTerminal();
 
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
@@ -66,5 +70,6 @@ class CbaSciPosPageTest extends TestCase
         $response->assertSee('sci-action-framework.js', false);
         $response->assertSee('"provider":"cba_sci"', false);
         $response->assertSee('"id":' . $sci->id . ',"label":"SCI POS Terminal","provider":"cba_sci","is_default":false,"paired":true', false);
+        $response->assertDontSee('"id":' . $unpaired->id . ',', false);
     }
 }

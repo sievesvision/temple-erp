@@ -160,6 +160,43 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseHas('eft_terminals', ['key' => 'from-event-console']);
     }
 
+    // A terminal that isn't currently paired can't take a payment, so the settings page
+    // groups it apart from usable terminals instead of mixing them into one flat list.
+    public function test_settings_page_groups_terminals_by_active_and_inactive_pairing_state(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+        // setUp() already paired the default "main" terminal via defaultEftTerminal().
+        $unpaired = EftTerminal::factory()->create(['key' => 'unpaired-term', 'label' => 'Unpaired Term']);
+
+        $response = $this->actingAs($admin)->get('/admin/eft-terminals');
+
+        $response->assertOk();
+        $response->assertSeeInOrder(['Active', 'Main Terminal', 'Inactive', 'Unpaired Term']);
+    }
+
+    // The Back button used to be a bare url()->previous(), which breaks for a role that can't
+    // open Admin Settings (role.admin-gated) but can still reach this page directly — it must
+    // resolve a real parent route instead, and the right one depends on who's looking.
+    public function test_back_link_targets_admin_settings_for_a_system_admin(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $response = $this->actingAs($admin)->get('/admin/eft-terminals');
+
+        $response->assertOk();
+        $response->assertSee('href="' . route('admin.settings') . '"', false);
+    }
+
+    public function test_back_link_targets_the_dashboard_for_a_non_system_admin(): void
+    {
+        $user = $this->ticketAdminController();
+
+        $response = $this->actingAs($user)->get('/admin/eft-terminals');
+
+        $response->assertOk();
+        $response->assertSee('href="' . route('admin.dashboard') . '"', false);
+    }
+
     public function test_admin_can_set_default_and_remove_a_non_default_terminal(): void
     {
         $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
