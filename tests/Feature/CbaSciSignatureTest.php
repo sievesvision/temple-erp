@@ -108,6 +108,39 @@ class CbaSciSignatureTest extends TestCase
         Carbon::setTestNow();
     }
 
+    // mx51's own Postman collection signs POST/unpair the same way regardless of whether
+    // there's a body — its pre-request script always computes Content-Digest for POST/PUT/
+    // PATCH, hashing an empty string when there's none. Omitting it for a bodyless POST (the
+    // bug that broke unpair()) gets mx51's API to reject with missing_content_digest_header.
+    public function test_bodyless_post_still_includes_a_content_digest_of_the_empty_string(): void
+    {
+        config(['services.cba_sci.test_signing_secret_part_a' => 'part-a-secret']);
+        Http::fake(['*' => Http::response(null, 204)]);
+        Carbon::setTestNow(Carbon::createFromTimestamp(1715151961));
+
+        $terminal = $this->makeTerminal();
+        $this->invokeSignedRequest('POST', 'https://sci-api.tenant.example/v1/unpair', null, $terminal);
+
+        $expectedDigest = 'sha-256=:' . base64_encode(hash('sha256', '', true)) . ':';
+
+        Http::assertSent(function ($request) use ($expectedDigest) {
+            $this->assertSame('', $request->body());
+            $this->assertSame($expectedDigest, $request->header('Content-Digest')[0]);
+            $this->assertFalse($request->hasHeader('Content-Type'));
+
+            $expectedParams = '("@method" "@authority" "@request-target" "content-digest");created=1715151961;alg="hmac-sha256";keyid="kid_xxx"';
+            $expectedBase = "\"@method\": POST\n\"@authority\": sci-api.tenant.example\n\"@request-target\": /v1/unpair\n"
+                . '"content-digest": ' . $expectedDigest . "\n"
+                . '"@signature-params": ' . $expectedParams;
+            $expectedSignature = base64_encode(hash_hmac('sha256', $expectedBase, 'part-a-secretpart-b-secret', true));
+
+            $this->assertSame('sig1=:' . $expectedSignature . ':', $request->header('Signature')[0]);
+            return true;
+        });
+
+        Carbon::setTestNow();
+    }
+
     public function test_content_digest_format_matches_mx51s_documented_wrapper(): void
     {
         // Independent of the HTTP layer entirely — just the "sha-256=:...:" wrapping format

@@ -197,6 +197,45 @@ class CbaSciPairingTest extends TestCase
         $this->assertFalse($terminal->fresh()->isSciPaired());
     }
 
+    // Observed live: mx51's Pairing API and SCI API don't update in perfect lockstep, so a
+    // pairing-info check within seconds of a successful pair can genuinely come back
+    // no_active_pairings_found even though the pair just succeeded — self-healing on that
+    // would undo a pairing that's actually fine. A freshly-paired terminal gets a short grace
+    // period before this check is trusted, closing the race without weakening the check for
+    // any pairing older than that.
+    public function test_refresh_pairing_status_ignores_a_stale_looking_response_right_after_pairing(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+            'sci_paired_at' => now(),
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $stillPaired = CbaSciService::refreshPairingStatus($terminal);
+
+        $this->assertTrue($stillPaired);
+        $this->assertTrue($terminal->fresh()->isSciPaired());
+        Http::assertNothingSent();
+    }
+
+    public function test_refresh_pairing_status_trusts_the_check_once_the_grace_period_has_passed(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+            'sci_paired_at' => now()->subMinutes(2),
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $stillPaired = CbaSciService::refreshPairingStatus($terminal);
+
+        $this->assertFalse($stillPaired);
+        $this->assertFalse($terminal->fresh()->isSciPaired());
+    }
+
     public function test_refresh_pairing_status_leaves_a_genuinely_active_pairing_untouched(): void
     {
         $terminal = $this->makeTerminal();

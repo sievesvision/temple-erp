@@ -143,12 +143,23 @@ class CbaSciService
      * unexpected response is treated as "assume still paired" — see testPairing() — since a
      * momentary blip is never grounds to silently unpair a terminal that's actually fine.
      *
+     * mx51's own backend has a brief propagation lag between the (separate, unsigned) Pairing
+     * API completing a pair and the signed SCI API's own pairing-info reflecting it as active —
+     * observed directly as a real no_active_pairings_found response mere seconds after a
+     * successful pair. Checking within that window would immediately self-heal a pairing that
+     * only *looks* dead, so a freshly-created pairing gets a short grace period before this
+     * check is trusted at all.
+     *
      * @return bool whether the terminal is (still) genuinely paired after this check
      */
     public static function refreshPairingStatus(EftTerminal $terminal): bool
     {
         if (!$terminal->isSciPaired()) {
             return false;
+        }
+
+        if ($terminal->sci_paired_at && $terminal->sci_paired_at->gt(now()->subSeconds(60))) {
+            return true;
         }
 
         $result = self::testPairing($terminal);
@@ -378,7 +389,10 @@ class CbaSciService
      *   1. Content-Digest: "sha-256=:" + base64(sha256(rawBody)) + ":" — POST/PUT/PATCH only.
      *   2. Signature-Input: sig1=("@method" "@authority" "@request-target" ["content-digest"]);
      *      created={unix_ts};alg="hmac-sha256";keyid="{key_id}" — the content-digest
-     *      component is included only when a body is present (i.e. never for GET).
+     *      component is included for every POST/PUT/PATCH request, even a bodyless one (using
+     *      the SHA-256 digest of an empty string), and omitted only for GET — this exactly
+     *      matches mx51's own Postman collection's pre-request signing script, which computes
+     *      it unconditionally for those methods rather than only when a body is present.
      *   3. Signature base: newline-joined `"@component": value` lines for each component in
      *      the same order as (2), plus a final `"@signature-params": {the part of (2) after
      *      "sig1="}` line.
@@ -397,8 +411,8 @@ class CbaSciService
             $path .= '?' . $query;
         }
 
-        $hasBody = $body !== null && in_array($method, ['POST', 'PUT', 'PATCH'], true);
-        $rawBody = $hasBody ? json_encode($body) : null;
+        $isBodyMethod = in_array($method, ['POST', 'PUT', 'PATCH'], true);
+        $rawBody = $isBodyMethod ? ($body !== null ? json_encode($body) : '') : null;
 
         $components = ['"@method"', '"@authority"', '"@request-target"'];
         $baseLines = [
@@ -409,12 +423,14 @@ class CbaSciService
 
         $headers = ['Accept' => 'application/json'];
 
-        if ($hasBody) {
+        if ($isBodyMethod) {
             $digest = 'sha-256=:' . base64_encode(hash('sha256', $rawBody, true)) . ':';
             $components[] = '"content-digest"';
             $baseLines[] = '"content-digest": ' . $digest;
             $headers['Content-Digest'] = $digest;
-            $headers['Content-Type'] = 'application/json';
+            if ($body !== null) {
+                $headers['Content-Type'] = 'application/json';
+            }
         }
 
         $created = now()->timestamp;
@@ -437,6 +453,6 @@ class CbaSciService
         // despite being computed "correctly" against a body that was never actually sent.
         return Http::timeout(30)
             ->withHeaders($headers)
-            ->send($method, $url, $hasBody ? ['body' => $rawBody] : []);
+            ->send($method, $url, $isBodyMethod ? ['body' => $rawBody] : []);
     }
 }
