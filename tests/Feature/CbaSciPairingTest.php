@@ -144,6 +144,24 @@ class CbaSciPairingTest extends TestCase
         $this->assertTrue($result['still_paired']);
     }
 
+    // mx51's own Postman collection puts every signed SCI API endpoint under /v1 (including
+    // pairing-info and unpair) — a missing /v1 here silently 404s ("Route not found") and,
+    // because testPairing() fails open on anything but the documented 401, made every
+    // externally-unpaired terminal look permanently still-paired.
+    public function test_test_pairing_hits_the_versioned_pairing_info_path(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => []], 200)]);
+
+        CbaSciService::testPairing($terminal);
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://sci-api.tenant.example/v1/pairing-info');
+    }
+
     public function test_test_pairing_detects_externally_unpaired_terminal(): void
     {
         $terminal = $this->makeTerminal();
@@ -236,6 +254,20 @@ class CbaSciPairingTest extends TestCase
         $this->assertNull($terminal->sci_pairing_id);
         $this->assertNull($terminal->sci_signing_secret_part_b);
         $this->assertFalse($terminal->isSciPaired());
+    }
+
+    public function test_unpair_hits_the_versioned_unpair_path(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
+
+        CbaSciService::unpair($terminal);
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://sci-api.tenant.example/v1/unpair');
     }
 
     public function test_unpair_still_clears_local_state_when_mx51_call_fails(): void

@@ -116,7 +116,7 @@ class CbaSciService
         }
 
         try {
-            $response = self::signedRequest('GET', $terminal->sci_api_base_url . '/pairing-info', null, $terminal);
+            $response = self::signedRequest('GET', $terminal->sci_api_base_url . '/v1/pairing-info', null, $terminal);
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI test-pairing request could not reach mx51', ['terminal' => $terminal->key, 'error' => $e->getMessage()]);
             return ['success' => false, 'message' => 'Could not reach the mx51 Cloud service — check network and terminal connections and try again.', 'still_paired' => true];
@@ -172,7 +172,7 @@ class CbaSciService
     {
         if ($terminal->sci_api_base_url && $terminal->sci_pairing_id) {
             try {
-                $response = self::signedRequest('POST', $terminal->sci_api_base_url . '/unpair', null, $terminal);
+                $response = self::signedRequest('POST', $terminal->sci_api_base_url . '/v1/unpair', null, $terminal);
                 if (!$response->successful() && $response->status() !== 404) {
                     Log::warning('CBA SCI unpair call failed — clearing local pairing state anyway', ['terminal' => $terminal->key, 'status' => $response->status(), 'body' => $response->body()]);
                 }
