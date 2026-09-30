@@ -19,16 +19,29 @@
             --gold-hover: #D3A333;
             --cream: #FFF9EE;
             --white: #FFFFFF;
-            --border: #E6E9ED;
-            --shade: #F1F4F7;
-            --shade-border: #E3E8ED;
+            /* Firmer than the old #E6E9ED — a POS is read at a glance and worked fast, so
+               every card/input/button needs a border that actually registers rather than
+               nearly matching the white it sits on. */
+            --border: #C7D0DA;
+            --shade: #E7ECF1;
+            --shade-border: #C3CEDA;
             --text-primary: #102A43;
             --text-secondary: #52667A;
             --success: #10B981;
             --error: #EF4444;
             --serif: 'Playfair Display', Georgia, serif;
+            /* One shared radius scale, deliberately tighter than the old 12-22px range — a
+               terminal/kiosk reads as more purposeful with crisp, moderate corners than with
+               soft app-style bubbles. */
+            --radius-sm: 8px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        /* Kiosk hardening: no accidental text selection/callouts from a fast tap-and-hold,
+           and no 300ms ghost-click delay on older mobile Safari/Chrome — both matter more
+           here than on an ordinary page since this runs as an unattended counter device. */
+        button, .pos-tier-pill, .pos-method-btn, .terminal-picker-row { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
         /* One single, native scroll region (the document itself) rather than an inner
            overflow-y:auto container — that nested-scroll trick depends on a perfect height
            chain (html/body/flex-child all reporting real heights) that iOS Safari does not
@@ -45,30 +58,38 @@
         button, input, select, textarea { font-family: inherit; }
 
         /* ---------- Minimal topbar — no dashboard chrome, just identity + exits ---------- */
-        /* Three zones: identity on the left, temple brand centred, every action button
-           grouped on the right — the left and right zones share equal flex so the centred
-           brand actually sits in the visual middle of the bar rather than just wherever
-           space happens to be left over. */
+        /* True 3-column grid rather than flex-with-competing-shrink-priorities — the old
+           approach ("brand shrinks 3x eagerly, actions never shrink") meant the actions side
+           could simply out-muscle the event title for space on a narrow phone, squeezing it
+           to nothing rather than truncating gracefully. A grid's center track is genuinely
+           centered on the row regardless of how wide the two side tracks are, as long as it
+           fits — no shrink-priority tug-of-war involved. */
         .pos-topbar {
             background: #6B0F1A; position: sticky; top: 0; flex-shrink: 0;
-            color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px;
-            box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 76px;
+            color: white; padding: 12px 20px; display: grid;
+            grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+            grid-template-areas: "brand title actions";
+            align-items: center; column-gap: 14px;
+            box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 72px;
         }
-        /* Matches the Event Console's own topbar pattern: temple logo+name fixed on the
-           left, the event title centred (with a flourish line either side) and taking all
-           the leftover space, action buttons fixed on the right. */
-        /* flex-shrink:3 (rather than the default 1) so the brand block — the least
-           operationally important thing in this bar — gives up space before the event title
-           or the action buttons do. Its own text truncates instead of wrapping, so a long
-           temple name shortens itself with an ellipsis rather than pushing anything else
-           off-screen. */
-        .pos-topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 3; min-width: 0; }
-        .pos-topbar-logo { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
+        /* Below the point a single row gets cramped, the event name — the one thing an
+           operator actually needs to confirm at a glance — gets its own full-width row
+           instead of fighting brand/actions for leftover space. This is what actually
+           guarantees it stays dead-center and fully visible, rather than shrinking away. */
+        @media (max-width: 899px) {
+            .pos-topbar {
+                grid-template-columns: minmax(0,1fr) auto;
+                grid-template-areas: "brand actions" "title title";
+                row-gap: 10px; padding: 12px 16px 14px;
+            }
+        }
+        .pos-topbar-brand { grid-area: brand; display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .pos-topbar-logo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
         .pos-topbar-brand-text { min-width: 0; overflow: hidden; }
         .pos-topbar-temple-name { font-weight: 800; font-size: clamp(0.8rem, 2.4vw, 1rem); line-height: 1.2; font-family: var(--serif); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pos-topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .pos-topbar-event-title { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
+        .pos-topbar-event-title { grid-area: title; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
         .pos-flourish-line { flex: 1; max-width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); display: none; flex-shrink: 0; }
         @media (min-width: 900px) { .pos-flourish-line { display: block; } }
         .pos-topbar-event-title-text { min-width: 0; max-width: 100%; }
@@ -76,13 +97,20 @@
         .pos-event-motto { font-size: 0.74rem; color: rgba(255,255,255,0.75); letter-spacing: 0.03em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         @media (max-width: 900px) { .pos-event-motto { display: none; } }
 
-        .pos-topbar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        .pos-topbar-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 46px; height: 46px; border-radius: 12px; font-size: 1.1rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .pos-topbar-actions { grid-area: actions; display: flex; align-items: center; gap: 8px; min-width: 0; justify-content: flex-end; }
+        .pos-topbar-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 44px; height: 44px; border-radius: var(--radius-sm); font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.18); }
-        .pos-terminal-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; height: 46px; padding: 0 16px; border-radius: 12px; font-size: 0.88rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 180px; }
+        .pos-terminal-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; height: 44px; padding: 0 16px; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 180px; }
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
+        /* The terminal name competes hardest for row-1 space on a phone — its icon+status dot
+           already say everything an operator needs at a glance, so the label collapses first,
+           well before anything else has to. */
+        @media (max-width: 480px) {
+            .pos-terminal-btn { max-width: none; padding: 0; width: 44px; height: 44px; justify-content: center; }
+            .pos-terminal-btn span:not(.terminal-status-dot) { display: none; }
+        }
 
         /* ---------- Main entry area ---------- */
         /* Full-width POS workspace, not a narrow centred web form — the container just gets
@@ -99,8 +127,8 @@
 
         .pos-col-left { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
         .pos-card {
-            background: var(--white); border-radius: 14px; border: 1px solid var(--border);
-            box-shadow: 0 2px 10px rgba(15,23,42,0.06); padding: 20px 22px;
+            background: var(--white); border-radius: var(--radius-md); border: 1.5px solid var(--border);
+            box-shadow: 0 2px 8px rgba(15,23,42,0.08); padding: 20px 22px;
         }
         .pos-card-title { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 700; font-size: 1.1rem; color: var(--text-primary); margin: 0; }
         .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
@@ -113,8 +141,8 @@
            reads at a glance as the "money" panel rather than just more form. */
         .pos-summary-card {
             background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%);
-            border: 1px solid #E7C36A; border-radius: 14px; padding: 20px 22px;
-            box-shadow: 0 2px 10px rgba(15,23,42,0.06);
+            border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 20px 22px;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.08);
         }
         .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
         .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 0; }
@@ -130,7 +158,7 @@
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
         .pos-actions-row { display: flex; flex-direction: column; gap: 10px; }
-        .pos-clear-btn { width: 100%; padding: 0 20px; min-height: 54px; border-radius: 12px; border: 1px solid var(--border); background: var(--white); color: var(--text-primary); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .pos-clear-btn { width: 100%; padding: 0 20px; min-height: 54px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--white); color: var(--text-primary); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .pos-clear-btn:active { background: var(--cream); }
 
         /* A proper full-width bar (like the header) rather than plain text sitting on the
@@ -150,7 +178,7 @@
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
         .pos-input {
-            width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 1.1rem; font-weight: 600;
+            width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1.1rem; font-weight: 600;
             color: var(--text-primary); background: var(--white); min-height: 56px;
         }
         .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
@@ -163,7 +191,7 @@
 
         /* Donor fields — a leading icon plus a stacked label/placeholder inside one bordered
            box, all touch targets at least 60px tall. */
-        .pos-field-box { display: flex; align-items: center; gap: 12px; border: 2px solid var(--border); border-radius: 10px; padding: 8px 16px; min-height: 62px; background: var(--white); }
+        .pos-field-box { display: flex; align-items: center; gap: 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 16px; min-height: 62px; background: var(--white); }
         .pos-field-box:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
         .pos-field-icon { font-size: 1.2rem; color: var(--text-secondary); flex-shrink: 0; }
         .pos-field-stack { display: flex; flex-direction: column; flex: 1; min-width: 0; }
@@ -173,7 +201,7 @@
         /* Shared "currency-prefixed" amount field — used for both the plain free-amount
            input and any per-tier free-amount input, so a donor/operator always sees the
            currency right next to what they're typing. */
-        .pos-amount-input-wrap { display: flex; align-items: stretch; border: 2px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--white); }
+        .pos-amount-input-wrap { display: flex; align-items: stretch; border: 2px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--white); }
         .pos-amount-input-wrap:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
         .pos-amount-prefix { display: flex; align-items: center; justify-content: center; padding: 0 16px; background: var(--cream); color: var(--text-secondary); font-weight: 800; font-size: 1.1rem; border-right: 2px solid var(--border); flex-shrink: 0; }
         .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 64px; padding: 14px 16px; font-size: 1.3rem; font-weight: 600; color: var(--text-primary); background: transparent; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
@@ -189,8 +217,10 @@
         .pos-card-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
         .pos-card-header-row .pos-card-subtitle { margin: 4px 0 0; }
 
-        .pos-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
-        .pos-quick-amount-btn { background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary); font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px; border-radius: 12px; font-size: 1.3rem; }
+        /* auto-fit rather than a fixed 3 columns — reflows gracefully at any width instead of
+           forcing three equal columns that can squeeze text at narrow (phone/kiosk) sizes. */
+        .pos-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .pos-quick-amount-btn { background: var(--shade); border: 1.5px solid var(--shade-border); color: var(--text-primary); font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px; border-radius: var(--radius-sm); font-size: 1.3rem; }
         .pos-quick-amount-btn:active { background: #E7ECF1; }
         .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.32); }
         .pos-quick-amount-btn.custom-amount-btn, .pos-tier-quick-btn.custom-amount-btn {
@@ -203,7 +233,7 @@
            pill that's always active; multiple options behave as an additive multi-select
            "cart", each with its own detail area revealed only while its pill is active. */
         .pos-tier-pills-row { display: flex; flex-wrap: wrap; gap: 10px; }
-        .pos-tier-pill { display: inline-flex; align-items: center; gap: 8px; padding: 0 22px; min-height: 54px; border-radius: 10px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 1.02rem; color: var(--text-primary); cursor: pointer; user-select: none; }
+        .pos-tier-pill { display: inline-flex; align-items: center; gap: 8px; padding: 0 22px; min-height: 54px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 1.02rem; color: var(--text-primary); cursor: pointer; user-select: none; }
         .pos-tier-pill input[type="checkbox"] { display: none; }
         .pos-tier-pill.active { background: var(--gold); border-color: var(--gold); color: #fff; }
 
@@ -211,22 +241,25 @@
         .pos-tier-detail.active { display: block; }
         .pos-tier-fixed-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 4px 0; }
         .pos-tier-fixed-amount { font-weight: 700; font-size: 1.1rem; color: var(--text-primary); }
-        .pos-tier-qty { width: 84px; min-height: 52px; padding: 10px; font-size: 1.1rem; font-weight: 700; border: 2px solid var(--border); border-radius: 10px; text-align: center; }
-        .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; margin-bottom: 12px; }
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary); font-weight: 800; min-height: 72px; border-radius: 12px; font-size: 1.25rem; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
+        .pos-tier-qty { width: 84px; min-height: 52px; padding: 10px; font-size: 1.1rem; font-weight: 700; border: 2px solid var(--border); border-radius: var(--radius-sm); text-align: center; }
+        /* Same auto-fit reflow as .pos-quick-amounts above, and the same reasoning — this is
+           the exact grid that was reported "breaking" at narrow widths under a fixed 3-column
+           track. */
+        .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; width: 100%; margin-bottom: 12px; }
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--shade); border: 1.5px solid var(--shade-border); color: var(--text-primary); font-weight: 800; min-height: 72px; border-radius: var(--radius-sm); font-size: 1.25rem; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
         .pos-tier-total-row { display: none; }
 
         .pos-method-row { display: flex; gap: 12px; flex-wrap: wrap; }
-        .pos-method-btn { flex: 1 1 calc(33.33% - 8px); min-width: 100px; padding: 14px 10px; min-height: 116px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 1rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pos-method-btn { flex: 1 1 calc(33.33% - 8px); min-width: 100px; padding: 14px 10px; min-height: 116px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--shade); font-weight: 700; font-size: 1rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.3); }
-        .pos-method-icon-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--cream); margin-bottom: 8px; }
-        .pos-method-btn.active .pos-method-icon-badge { background: rgba(255,255,255,0.25); }
+        .pos-method-icon-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--white); border: 1.5px solid var(--shade-border); margin-bottom: 8px; }
+        .pos-method-btn.active .pos-method-icon-badge { background: rgba(255,255,255,0.25); border-color: transparent; }
         .pos-method-icon-badge i { font-size: 1.3rem; color: var(--gold-hover); }
         .pos-method-btn.active .pos-method-icon-badge i { color: #fff; }
 
         .pos-save-btn {
-            width: 100%; padding: 18px; border-radius: 12px; border: none;
+            width: 100%; padding: 18px; border-radius: var(--radius-md); border: none;
             background: #6B0F1A; color: white; font-weight: 700; font-size: 1.15rem;
             box-shadow: 0 4px 14px rgba(107,15,26,0.35); min-height: 68px;
         }
@@ -244,7 +277,7 @@
         .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
         .pos-orders-empty { color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 20px 0; }
 
-        .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: 14px; font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
+        .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
 
         /* ---------- EFT terminal status popup — center-screen, mirrors what's on the
@@ -255,7 +288,7 @@
         }
         .eft-modal-overlay.active { display: flex; }
         .eft-modal {
-            background: var(--white); border-radius: 22px; width: 100%; max-width: 380px;
+            background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px;
             box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center;
         }
         .eft-modal-header {
@@ -266,7 +299,7 @@
         .eft-modal-body { padding: 30px 26px 26px; }
         .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
         .eft-modal-status-box {
-            background: var(--cream); border: 2px solid var(--border); border-radius: 14px;
+            background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
             padding: 18px 16px; min-height: 90px; display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 6px; margin-bottom: 22px;
         }
@@ -284,14 +317,14 @@
         .eft-modal-status-box.error .eft-modal-status-line { color: var(--error); }
         @keyframes eftSpin { to { transform: rotate(360deg); } }
         .eft-modal-cancel-btn {
-            width: 100%; padding: 14px; border-radius: 12px; border: 2px solid var(--border);
+            width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border);
             background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
         }
         .eft-modal-cancel-btn:active { background: var(--cream); }
 
         /* This station's EFT terminal picker — same modal box styling as the EFT status
            popup, since it's the same visual family, just listing selectable terminal rows. */
-        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px; border: 2px solid var(--border); background: var(--white); display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
         .terminal-picker-row.selected { border-color: var(--gold); background: var(--cream); }
         .terminal-picker-row .paired-badge-group { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .terminal-picker-row .paired-badge { font-size: 0.75rem; font-weight: 700; }
@@ -312,7 +345,7 @@
         .eft-modal-keys { display: none; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
         .eft-modal-keys.active { display: flex; }
         .eft-modal-key-btn {
-            flex: 1 1 auto; min-width: 90px; padding: 13px 10px; border-radius: 12px; border: 2px solid transparent;
+            flex: 1 1 auto; min-width: 90px; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent;
             font-weight: 700; font-size: 0.95rem; color: #fff;
         }
         .eft-modal-key-btn:active { filter: brightness(0.92); }
@@ -325,10 +358,10 @@
         .sci-af-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
         .sci-af-row:last-child { margin-bottom: 0; }
         .sci-af-text { width: 100%; font-size: 0.92rem; color: var(--text-secondary); text-align: left; }
-        .sci-af-btn { flex: 1 1 auto; min-width: 100px; padding: 13px 10px; border-radius: 12px; border: 2px solid transparent; font-weight: 700; font-size: 0.95rem; color: #fff; background: var(--maroon); }
+        .sci-af-btn { flex: 1 1 auto; min-width: 100px; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.95rem; color: #fff; background: var(--maroon); }
         .sci-af-btn:active { filter: brightness(0.92); }
-        .sci-af-input { flex: 1 1 auto; min-width: 140px; padding: 12px 14px; border-radius: 10px; border: 2px solid var(--border); font-size: 0.95rem; }
-        .sci-af-image { max-width: 100%; border-radius: 10px; }
+        .sci-af-input { flex: 1 1 auto; min-width: 140px; padding: 12px 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.95rem; }
+        .sci-af-image { max-width: 100%; border-radius: var(--radius-sm); }
         .sci-af-details { text-align: left; font-size: 0.82rem; color: var(--text-secondary); }
         #eftModalActionFramework { margin-bottom: 12px; }
 
@@ -337,13 +370,16 @@
            prompt instead of pretending the payment can be stopped mid-flight. */
         .eft-modal-override p { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 14px; }
         .eft-modal-override-actions { display: flex; gap: 10px; margin-bottom: 10px; }
-        .eft-override-btn { flex: 1 1 auto; padding: 13px 10px; border-radius: 12px; border: 2px solid transparent; font-weight: 700; font-size: 0.9rem; color: #fff; }
+        .eft-override-btn { flex: 1 1 auto; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.9rem; color: #fff; }
         .eft-override-btn.eft-override-yes { background: var(--success); }
         .eft-override-btn.eft-override-no { background: var(--error); }
 
         @media (max-width: 600px) {
-            .pos-quick-amount-btn { flex: 1 1 calc(50% - 10px); }
             .pos-method-btn { flex: 1 1 calc(50% - 10px); }
+            /* A touch smaller at phone widths so a 4-digit amount ($1,001) never wraps or
+               crowds its own button — the auto-fit grid above already handles column count,
+               this just keeps the numerals comfortable once columns get narrow. */
+            .pos-quick-amount-btn, .pos-tier-free-quick-amounts .pos-tier-quick-btn { font-size: 1.1rem; min-height: 64px; }
         }
     </style>
 </head>
