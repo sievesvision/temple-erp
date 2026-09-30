@@ -258,14 +258,25 @@
         }
 
         function renderInstructions(posInstructions) {
+            var form = (posInstructions && posInstructions.action_form) || {};
+            var properties = form.properties || {};
+            var layout = form.layout || [];
+            var details = form.details || null;
+            var hasContent = layout.length > 0 || (details && Object.keys(details).length > 0);
+
+            // mx51 doesn't necessarily repeat the full Action Framework form on every single
+            // poll response while the operator is still deciding (e.g. an AWAITING_POS
+            // long-poll return where nothing has changed) — wiping the container on an
+            // empty/missing form would yank the just-rendered Approve/Decline buttons out
+            // from under the operator's cursor. Mirrors lastKnownMessage's rule: only ever
+            // replace what's shown with genuinely new content, never with nothing.
+            if (!hasContent && cfg.el.actionContainer.children.length) {
+                return;
+            }
+
             cfg.el.actionContainer.innerHTML = '';
 
             if (posInstructions) {
-                var form = posInstructions.action_form || {};
-                var properties = form.properties || {};
-                var layout = form.layout || [];
-                var details = form.details || null;
-
                 layout.forEach(function (group) {
                     var row = document.createElement('div');
                     row.className = 'sci-af-row';
