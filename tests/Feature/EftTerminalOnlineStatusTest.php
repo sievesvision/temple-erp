@@ -33,7 +33,7 @@ class EftTerminalOnlineStatusTest extends TestCase
 
     public function test_an_approved_transaction_marks_the_terminal_online(): void
     {
-        $terminal = EftTerminal::factory()->create();
+        $terminal = EftTerminal::factory()->create(['secret_sandbox' => 'test-secret']);
         LinklyTransaction::create([
             'pos_txn_ref' => 'EFTONLINE1', 'txn_type' => 'purchase', 'eft_terminal_id' => $terminal->id,
             'status' => 'approved', 'amount' => 10,
@@ -49,7 +49,7 @@ class EftTerminalOnlineStatusTest extends TestCase
     // timeout/system-error ('failed') means it wasn't.
     public function test_a_declined_transaction_still_marks_the_terminal_online(): void
     {
-        $terminal = EftTerminal::factory()->create();
+        $terminal = EftTerminal::factory()->create(['secret_sandbox' => 'test-secret']);
         LinklyTransaction::create([
             'pos_txn_ref' => 'EFTDECLINE1', 'txn_type' => 'purchase', 'eft_terminal_id' => $terminal->id,
             'status' => 'declined', 'amount' => 10,
@@ -60,7 +60,7 @@ class EftTerminalOnlineStatusTest extends TestCase
 
     public function test_a_failed_transaction_marks_the_terminal_offline(): void
     {
-        $terminal = EftTerminal::factory()->create();
+        $terminal = EftTerminal::factory()->create(['secret_sandbox' => 'test-secret']);
         LinklyTransaction::create([
             'pos_txn_ref' => 'EFTFAIL1', 'txn_type' => 'logon', 'eft_terminal_id' => $terminal->id,
             'status' => 'failed',
@@ -73,7 +73,7 @@ class EftTerminalOnlineStatusTest extends TestCase
     // "Offline" after a later successful transaction.
     public function test_the_most_recent_definitive_result_wins(): void
     {
-        $terminal = EftTerminal::factory()->create();
+        $terminal = EftTerminal::factory()->create(['secret_sandbox' => 'test-secret']);
         LinklyTransaction::create([
             'pos_txn_ref' => 'EFTOLD1', 'txn_type' => 'logon', 'eft_terminal_id' => $terminal->id, 'status' => 'failed',
         ]);
@@ -88,7 +88,7 @@ class EftTerminalOnlineStatusTest extends TestCase
     // be skipped in favour of the last genuinely definitive result.
     public function test_in_flight_statuses_are_skipped(): void
     {
-        $terminal = EftTerminal::factory()->create();
+        $terminal = EftTerminal::factory()->create(['secret_sandbox' => 'test-secret']);
         LinklyTransaction::create([
             'pos_txn_ref' => 'EFTAPPROVED1', 'txn_type' => 'purchase', 'eft_terminal_id' => $terminal->id, 'status' => 'approved', 'amount' => 5,
         ]);
@@ -116,7 +116,7 @@ class EftTerminalOnlineStatusTest extends TestCase
 
     public function test_a_successful_pairing_check_marks_an_sci_terminal_online(): void
     {
-        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_last_checked_at' => now()]);
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_pairing_id' => 'pid_test', 'sci_last_checked_at' => now()]);
 
         $status = $terminal->lastKnownStatus();
 
@@ -127,7 +127,7 @@ class EftTerminalOnlineStatusTest extends TestCase
     public function test_a_newer_sci_transaction_reading_wins_over_an_older_pairing_check(): void
     {
         \Illuminate\Support\Carbon::setTestNow(now()->subHours(2));
-        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_last_checked_at' => now()]);
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_pairing_id' => 'pid_test', 'sci_last_checked_at' => now()]);
         \Illuminate\Support\Carbon::setTestNow();
         SciTransaction::create([
             'client_ref' => 'sci-online-newer', 'eft_terminal_id' => $terminal->id, 'amount' => 10,
@@ -140,7 +140,7 @@ class EftTerminalOnlineStatusTest extends TestCase
     public function test_a_newer_pairing_check_wins_over_an_older_sci_transaction(): void
     {
         \Illuminate\Support\Carbon::setTestNow(now()->subHours(2));
-        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci']);
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_pairing_id' => 'pid_test']);
         SciTransaction::create([
             'client_ref' => 'sci-device-error-older', 'eft_terminal_id' => $terminal->id, 'amount' => 10,
             'status' => 'FINALISED', 'meta' => ['error_code' => 'device_not_connected'],
@@ -156,13 +156,45 @@ class EftTerminalOnlineStatusTest extends TestCase
     // that path, so it can't ever surface as a false "offline" reading here.
     public function test_a_device_not_connected_transaction_still_marks_an_sci_terminal_offline(): void
     {
-        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_last_checked_at' => now()->subMinutes(5)]);
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_pairing_id' => 'pid_test', 'sci_last_checked_at' => now()->subMinutes(5)]);
         SciTransaction::create([
             'client_ref' => 'sci-offline', 'eft_terminal_id' => $terminal->id, 'amount' => 10,
             'status' => 'FAILED', 'meta' => ['error_code' => 'device_not_connected'], 'updated_at' => now(),
         ]);
 
         $this->assertSame('offline', $terminal->lastKnownStatus()['state']);
+    }
+
+    // The actual bug report this pair of tests locks in: an unpaired terminal kept showing
+    // "Online" because the connection reading was inferred purely from past evidence (an old
+    // approved transaction, or an old successful pairing check) without ever checking whether
+    // the terminal is still paired right now. Unpairing must immediately stop it from reading
+    // as online, regardless of how recent or conclusive that old evidence was.
+    public function test_an_unpaired_linkly_terminal_never_shows_online_despite_past_evidence(): void
+    {
+        $terminal = EftTerminal::factory()->create(['secret_sandbox' => 'test-secret']);
+        LinklyTransaction::create([
+            'pos_txn_ref' => 'EFTWASONLINE1', 'txn_type' => 'purchase', 'eft_terminal_id' => $terminal->id,
+            'status' => 'approved', 'amount' => 10,
+        ]);
+        $this->assertSame('online', $terminal->lastKnownStatus()['state']);
+
+        $terminal->clearSecret('sandbox');
+
+        $this->assertSame('unknown', $terminal->fresh()->lastKnownStatus()['state']);
+    }
+
+    public function test_an_unpaired_sci_terminal_never_shows_online_despite_past_evidence(): void
+    {
+        $terminal = EftTerminal::factory()->create(['provider' => 'cba_sci', 'sci_pairing_id' => 'pid_test', 'sci_last_checked_at' => now()]);
+        SciTransaction::create([
+            'client_ref' => 'sci-was-online', 'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'FINALISED',
+        ]);
+        $this->assertSame('online', $terminal->lastKnownStatus()['state']);
+
+        $terminal->update(['sci_pairing_id' => null]);
+
+        $this->assertSame('unknown', $terminal->fresh()->lastKnownStatus()['state']);
     }
 
     public function test_console_renders_online_and_offline_badges(): void
@@ -172,7 +204,7 @@ class EftTerminalOnlineStatusTest extends TestCase
         LinklyTransaction::create([
             'pos_txn_ref' => 'EFTONLINEUI', 'txn_type' => 'purchase', 'eft_terminal_id' => $online->id, 'status' => 'approved', 'amount' => 5,
         ]);
-        $offline = EftTerminal::factory()->create(['key' => 'offline-terminal', 'label' => 'Offline Terminal']);
+        $offline = EftTerminal::factory()->create(['key' => 'offline-terminal', 'label' => 'Offline Terminal', 'secret_sandbox' => 'test-secret']);
         LinklyTransaction::create([
             'pos_txn_ref' => 'EFTOFFLINEUI', 'txn_type' => 'logon', 'eft_terminal_id' => $offline->id, 'status' => 'failed',
         ]);

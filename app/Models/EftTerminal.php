@@ -151,6 +151,14 @@ class EftTerminal extends Model
             return $this->lastKnownSciStatus();
         }
 
+        // An unpaired terminal has no live connection to report on — without this check,
+        // evidence from before it was unpaired (a past approved transaction, say) would keep
+        // making it look reachable indefinitely, even though there is currently nothing to
+        // reach it through.
+        if (!$this->isPaired(\App\Services\LinklyConfigService::mode())) {
+            return ['state' => 'unknown', 'at' => null, 'via' => null];
+        }
+
         // Linkly: 'approved' or 'declined' both mean the terminal was reached and responded
         // (a decline is still a real response, just not a successful one); 'failed' (Linkly's
         // own bucket for a timeout/system error — see LinklyEftService::mapResponseToStatus())
@@ -186,6 +194,14 @@ class EftTerminal extends Model
      */
     private function lastKnownSciStatus(): array
     {
+        // Same reasoning as the Linkly branch above — once unpaired, a past FINALISED
+        // transaction or successful pairing check no longer proves anything about whether
+        // this terminal is reachable right now (a fresh re-pair would need its own fresh
+        // evidence anyway), so it must never be read as still "online".
+        if (!$this->isSciPaired()) {
+            return ['state' => 'unknown', 'at' => null, 'via' => null];
+        }
+
         $txn = $this->sciTransactions()
             ->where(function ($q) {
                 $q->where('status', 'FINALISED')
