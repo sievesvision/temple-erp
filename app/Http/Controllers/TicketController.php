@@ -188,6 +188,7 @@ class TicketController extends Controller
             'linklyMode',
             'cbaSciMode',
             'linklyTransactions',
+            'sciTransactions',
             'eftTransactions',
             'ticketControllers',
             'allUsersForControllers',

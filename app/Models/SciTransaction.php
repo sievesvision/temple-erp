@@ -21,6 +21,7 @@ class SciTransaction extends Model
         'eft_terminal_id',
         'donation_type',
         'donation_id',
+        'original_transaction_id',
         'txn_type',
         'amount',
         'currency_code',
@@ -54,6 +55,16 @@ class SciTransaction extends Model
     public function eftTerminal()
     {
         return $this->belongsTo(EftTerminal::class);
+    }
+
+    public function originalTransaction()
+    {
+        return $this->belongsTo(self::class, 'original_transaction_id');
+    }
+
+    public function refunds()
+    {
+        return $this->hasMany(self::class, 'original_transaction_id');
     }
 
     public function event()

@@ -8,9 +8,11 @@ use App\Models\SciTransaction;
 use App\Services\AuditLogService;
 use App\Services\CbaSciService;
 use App\Services\EftTerminalAccess;
+use App\Services\EventCoordinatorLevel;
 use App\Services\TicketControllerLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pairing actions for CBA Smart Terminal (mx51 Simple Cloud Integration) terminals —
@@ -26,6 +28,37 @@ class CbaSciController extends Controller
         $user = Auth::user();
         $activeRole = $user ? session('active_role', $user->role) : null;
         return EftTerminalAccess::canManageRegistry($user, $activeRole);
+    }
+
+    /**
+     * Same admin-tier gate as DonationController::canManageEftForEvent()/TicketController::
+     * canManageTicketConsole() — Core Payments requires refunds be protected from
+     * unauthorised use, never available at pos-entry/general-entry level even though those
+     * levels CAN start a purchase (see DonationController::canUseEftTerminal()). Unified into
+     * one helper (rather than split event/ticket methods like the two Linkly controllers)
+     * since a single CbaSciController::refund() endpoint serves both contexts: $eventId
+     * present means "this was an event donation, check Event Coordinator admin-level";
+     * null means "this was a ticket sale, check Ticket Controller admin-level" instead.
+     */
+    private function canManageRefund($user, ?string $activeRole, $eventId): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit') || RolePermission::can($activeRole, 'tickets', 'edit')) {
+            return true;
+        }
+
+        if ($eventId && $activeRole === 'Event Coordinator') {
+            return EventCoordinatorLevel::atLeast(EventCoordinatorLevel::of((int) $eventId, $user->id), 'admin');
+        }
+
+        if (!$eventId && $activeRole === 'Ticket Controller') {
+            return TicketControllerLevel::atLeast(TicketControllerLevel::of($user->id), 'admin');
+        }
+
+        return false;
     }
 
     private function redirectAfterAction(Request $request)
@@ -259,7 +292,13 @@ class CbaSciController extends Controller
             'customer_receipt' => $result['customer_receipt'],
         ], fn ($v) => $v !== null));
 
-        $donationId = $this->createRecordIfApprovedAndUnrecorded($txn->fresh());
+        $fresh = $txn->fresh();
+        if ($fresh->txn_type === 'refund') {
+            $this->markDonationCancelledIfRefundJustApproved($fresh);
+            $donationId = $fresh->donation_id;
+        } else {
+            $donationId = $this->createRecordIfApprovedAndUnrecorded($fresh);
+        }
 
         return response()->json([
             'done' => $result['done'],
@@ -292,6 +331,87 @@ class CbaSciController extends Controller
         }
 
         $result = CbaSciService::cancelTransaction($txn->eftTerminal, $transactionId);
+
+        return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    /**
+     * Starts a refund for a completed mx51 purchase — mirrors DonationController::
+     * refundEftCharge()/TicketController::refundEftCharge() exactly (admin-only gate,
+     * duplicate-refund protection, amount capped at the original, forced back through the
+     * SAME terminal that took the original payment), but unified across event/ticket
+     * contexts since CbaSciService::createRefund() is provider-generic. Runs through the
+     * same async start+poll+Action-Framework modal flow as a purchase (see startPurchase()/
+     * poll()), since a refund is a real terminal transaction, not a database edit.
+     */
+    public function refund(Request $request, string $transactionId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $original = SciTransaction::where('sci_transaction_id', $transactionId)
+            ->where('txn_type', 'purchase')
+            ->latest('id')
+            ->first();
+        if (!$original) {
+            return response()->json(['success' => false, 'message' => 'Original transaction not found.'], 404);
+        }
+
+        if (!$this->canManageRefund($user, $activeRole, $original->event_id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        if ($original->status !== 'FINALISED' || $original->result_financial_status !== 'APPROVED') {
+            return response()->json(['success' => false, 'message' => 'Only an approved purchase can be refunded.'], 422);
+        }
+
+        // Duplicate-refund protection: block a second attempt while one is already in
+        // flight (not yet FINALISED) or has already succeeded (FINALISED + APPROVED) for
+        // this same purchase — mirrors the Linkly controllers' own
+        // initiated/in_progress/approved check, translated to mx51's own status vocabulary.
+        $alreadyRefunded = SciTransaction::where('original_transaction_id', $original->id)
+            ->where(function ($q) {
+                $q->whereNotIn('status', SciTransaction::FINAL_STATUSES)
+                    ->orWhere('result_financial_status', 'APPROVED');
+            })
+            ->exists();
+        if ($alreadyRefunded) {
+            return response()->json(['success' => false, 'message' => 'This transaction has already been refunded, or a refund is already in progress.'], 422);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01|max:' . (float) $original->amount,
+            'client_ref' => 'required|string|max:64',
+        ]);
+
+        // A refund must return through the SAME terminal that took the original payment —
+        // never whatever terminal the caller happens to have selected right now.
+        $terminal = $original->eftTerminal;
+        if (!$terminal) {
+            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        }
+
+        $result = CbaSciService::createRefund($terminal, (float) $validated['amount']);
+
+        if ($result['success']) {
+            SciTransaction::create([
+                'client_ref' => $validated['client_ref'],
+                'sci_transaction_id' => $result['transaction_id'],
+                'sci_version' => $result['version'],
+                'event_id' => $original->event_id,
+                'eft_terminal_id' => $terminal->id,
+                'donation_type' => $original->donation_type,
+                'donation_id' => $original->donation_id,
+                'original_transaction_id' => $original->id,
+                'txn_type' => 'refund',
+                'amount' => $validated['amount'],
+                'status' => $result['status'],
+                'pos_instructions' => $result['pos_instructions'],
+                'message' => $result['message'],
+                'initiated_by' => $user->id,
+                'authorised_by' => $user->id,
+            ]);
+        }
 
         return response()->json($result, $result['success'] ? 200 : 422);
     }
@@ -360,7 +480,15 @@ class CbaSciController extends Controller
             ]),
         ]);
 
-        $donationId = $validated['outcome'] === 'approved' ? $this->createRecordIfApprovedAndUnrecorded($txn->fresh()) : null;
+        $fresh = $txn->fresh();
+        if ($validated['outcome'] !== 'approved') {
+            $donationId = null;
+        } elseif ($fresh->txn_type === 'refund') {
+            $this->markDonationCancelledIfRefundJustApproved($fresh);
+            $donationId = $fresh->donation_id;
+        } else {
+            $donationId = $this->createRecordIfApprovedAndUnrecorded($fresh);
+        }
 
         AuditLogService::log(
             "Manually overrode mx51 Cloud transaction {$transactionId} as {$validated['outcome']}",
@@ -369,6 +497,31 @@ class CbaSciController extends Controller
         );
 
         return response()->json(['success' => true, 'message' => 'Recorded.', 'donation_id' => $donationId]);
+    }
+
+    /**
+     * Marks the underlying donation/order row 'Cancelled' once a refund transaction is
+     * confirmed approved — exact mirror of DonationController::
+     * markDonationCancelledIfRefundJustApproved(), including reusing the existing
+     * 'Cancelled' status rather than inventing a new 'Refunded' one (see that method's own
+     * docblock for why). Called from poll() right after the row is updated with mx51's
+     * latest result, so the temple's own totals stop counting it without a separate step.
+     */
+    private function markDonationCancelledIfRefundJustApproved(SciTransaction $txn): void
+    {
+        if ($txn->status !== 'FINALISED' || $txn->result_financial_status !== 'APPROVED') {
+            return;
+        }
+        if (!$txn->donation_type || !$txn->donation_id) {
+            return;
+        }
+
+        $table = match ($txn->donation_type) {
+            'devotee' => 'donations',
+            'ticket_order' => 'ticket_orders',
+            default => 'donations_without_logins',
+        };
+        DB::table($table)->where('id', $txn->donation_id)->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
     }
 
     /**

@@ -1330,6 +1330,8 @@
                                         default => 'cancelled',
                                     };
                                     $sciResultLabel = $txn->result_financial_status ?: $txn->status;
+                                    $canRefundSciRow = $txn->txn_type === 'purchase' && $txn->status === 'FINALISED' && $txn->result_financial_status === 'APPROVED'
+                                        && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $txn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED'));
                                 @endphp
                                 <tr>
                                     <td class="text-capitalize">{{ $txn->txn_type }}</td>
@@ -1348,6 +1350,9 @@
                                     <td><span class="status-pill status-{{ $sciPillClass }}">{{ ucfirst(strtolower($sciResultLabel)) }}</span></td>
                                     <td class="text-end">
                                         <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $txn->sci_transaction_id ?: $txn->client_ref }}')"><i class="bi bi-clipboard"></i></button>
+                                        @if($canRefundSciRow)
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $txn->sci_transaction_id }}', {{ $txn->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endif
@@ -1443,6 +1448,35 @@
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-danger" id="eftRefundConfirmBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Confirm Refund</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- mx51 (CBA SCI) REFUND MODAL — same start+poll shape as the Linkly one above, just
+         against CbaSciController::refund()/poll() and mx51's own status vocabulary. -->
+    <div class="modal fade" id="sciRefundModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-counterclockwise text-danger me-2"></i>Refund Transaction (mx51)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="sciRefundCloseBtn"></button>
+                </div>
+                <div class="modal-body py-3">
+                    <div id="sciRefundFormArea">
+                        <label class="form-label">Refund amount</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control rounded-3" id="sciRefundAmount">
+                        <p class="text-muted small mt-2 mb-0">The customer may be asked to present their card again on the terminal to complete the refund.</p>
+                    </div>
+                    <div id="sciRefundStatusArea" style="display:none;" class="text-center py-3">
+                        <div class="spinner-border text-danger mb-2" role="status"></div>
+                        <div class="fw-bold" id="sciRefundStatusLine1">Starting…</div>
+                        <div class="text-muted small" id="sciRefundStatusLine2"></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger" id="sciRefundConfirmBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Confirm Refund</button>
                 </div>
             </div>
         </div>
@@ -2383,6 +2417,108 @@
         if (eftRefundModalEl) {
             eftRefundModalEl.addEventListener('hidden.bs.modal', function () {
                 eftRefundPollCancelled = true;
+            });
+        }
+
+        // ---------- mx51 (CBA SCI) refund — same start+poll shape as Linkly's above, just
+        // against CbaSciController::refund()/poll() and mx51's own status vocabulary
+        // (done/result_financial_status instead of Linkly's display/payment_status).
+        const SCI_REFUND_URL_BASE = @json(url('/admin/cba-sci/charge/refund'));
+        const CBA_SCI_CHARGE_STATUS_URL_BASE = @json(url('/admin/cba-sci/charge/status'));
+
+        let sciRefundTransactionId = null;
+        let sciRefundPollCancelled = false;
+        const sciRefundModalEl = document.getElementById('sciRefundModal');
+        const sciRefundBsModal = sciRefundModalEl ? new bootstrap.Modal(sciRefundModalEl) : null;
+
+        function openSciRefundModal(transactionId, amount) {
+            sciRefundTransactionId = transactionId;
+            sciRefundPollCancelled = false;
+            document.getElementById('sciRefundAmount').value = Number(amount).toFixed(2);
+            document.getElementById('sciRefundFormArea').style.display = '';
+            document.getElementById('sciRefundStatusArea').style.display = 'none';
+            document.getElementById('sciRefundConfirmBtn').style.display = '';
+            document.getElementById('sciRefundConfirmBtn').disabled = false;
+            if (sciRefundBsModal) { sciRefundBsModal.show(); }
+        }
+
+        function setSciRefundStatus(line1, line2) {
+            document.getElementById('sciRefundStatusLine1').textContent = line1 || '';
+            document.getElementById('sciRefundStatusLine2').textContent = line2 || '';
+        }
+
+        document.getElementById('sciRefundConfirmBtn') && document.getElementById('sciRefundConfirmBtn').addEventListener('click', function () {
+            const amount = parseFloat(document.getElementById('sciRefundAmount').value);
+            if (!amount || amount <= 0) { showToast('Enter a valid refund amount.', true); return; }
+            if (!confirm('Refund ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' on the mx51 terminal now?')) { return; }
+
+            document.getElementById('sciRefundFormArea').style.display = 'none';
+            document.getElementById('sciRefundStatusArea').style.display = '';
+            document.getElementById('sciRefundConfirmBtn').style.display = 'none';
+            setSciRefundStatus('Starting refund…', '');
+            sciRefundPollCancelled = false;
+
+            const clientRef = 'sci-refund-' + sciRefundTransactionId + '-' + Date.now();
+            const body = new URLSearchParams();
+            body.set('amount', amount.toFixed(2));
+            body.set('client_ref', clientRef);
+
+            fetch(SCI_REFUND_URL_BASE + '/' + encodeURIComponent(sciRefundTransactionId), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            })
+                .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+                .then(function (result) {
+                    if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
+                        setSciRefundStatus('Could not start refund', result.data.message || '');
+                        showToast(result.data.message || 'Could not start the refund.', true);
+                        document.getElementById('sciRefundConfirmBtn').style.display = '';
+                        return;
+                    }
+                    pollSciRefund(result.data.transaction_id, Date.now());
+                })
+                .catch(function () {
+                    setSciRefundStatus('Network error', 'Please try again.');
+                    showToast('Could not reach mx51 Cloud — please try again.', true);
+                    document.getElementById('sciRefundConfirmBtn').style.display = '';
+                });
+        });
+
+        function pollSciRefund(transactionId, startedAt) {
+            if (sciRefundPollCancelled) { return; }
+            if (Date.now() - startedAt > 180000) {
+                setSciRefundStatus('Timed out', 'Check the terminal/mx51 dashboard before retrying.');
+                return;
+            }
+
+            fetch(CBA_SCI_CHARGE_STATUS_URL_BASE + '/' + encodeURIComponent(transactionId) + '?event_id=' + encodeURIComponent(EVENT_ID), { headers: { 'Accept': 'application/json' } })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (sciRefundPollCancelled) { return; }
+                    setSciRefundStatus(data.message || 'Please wait…', data.status || '');
+                    if (!data.done) {
+                        setTimeout(function () { pollSciRefund(transactionId, startedAt); }, 800);
+                        return;
+                    }
+                    if (data.success && data.result_financial_status === 'APPROVED') {
+                        setSciRefundStatus('REFUND APPROVED', data.message || '');
+                        showToast('Refund approved.');
+                        setTimeout(function () { location.reload(); }, 1200);
+                    } else {
+                        setSciRefundStatus('REFUND ' + (data.result_financial_status || 'NOT COMPLETED'), data.message || '');
+                        showToast(data.message || 'Refund was not completed.', true);
+                        document.getElementById('sciRefundConfirmBtn').style.display = '';
+                    }
+                })
+                .catch(function () {
+                    setTimeout(function () { pollSciRefund(transactionId, startedAt); }, 1200);
+                });
+        }
+
+        if (sciRefundModalEl) {
+            sciRefundModalEl.addEventListener('hidden.bs.modal', function () {
+                sciRefundPollCancelled = true;
             });
         }
         @endif

@@ -354,4 +354,158 @@ class CbaSciTransactionTest extends TestCase
         $response->assertStatus(422);
         $response->assertJson(['success' => false]);
     }
+
+    private function approvedPurchase(EftTerminal $terminal, float $amount = 40, array $overrides = []): SciTransaction
+    {
+        return SciTransaction::create(array_merge([
+            'client_ref' => 'ref-purchase-' . uniqid(),
+            'sci_transaction_id' => 'txn_purchase_' . uniqid(),
+            'sci_version' => 3,
+            'eft_terminal_id' => $terminal->id,
+            'txn_type' => 'purchase',
+            'amount' => $amount,
+            'status' => 'FINALISED',
+            'result_financial_status' => 'APPROVED',
+        ], $overrides));
+    }
+
+    public function test_refund_starts_and_creates_a_refund_transaction_linked_to_the_original(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $original = $this->approvedPurchase($terminal, 40);
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'id' => 'txn_refund_1', 'version' => 1, 'status' => 'PENDING', 'message' => 'Processing refund',
+        ]], 200)]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-1',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'transaction_id' => 'txn_refund_1']);
+        $this->assertDatabaseHas('sci_transactions', [
+            'client_ref' => 'refund-ref-1', 'sci_transaction_id' => 'txn_refund_1', 'txn_type' => 'refund',
+            'original_transaction_id' => $original->id, 'amount' => 40,
+        ]);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/v1/transactions')
+            && ($request['refund_details']['refund_amount'] ?? null) === 4000);
+    }
+
+    public function test_refund_amount_cannot_exceed_the_original_purchase_amount(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $original = $this->approvedPurchase($terminal, 40);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40.01, 'client_ref' => 'refund-ref-2',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('sci_transactions', ['client_ref' => 'refund-ref-2']);
+    }
+
+    public function test_only_an_approved_purchase_can_be_refunded(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $pending = $this->approvedPurchase($terminal, 40, ['status' => 'PENDING', 'result_financial_status' => null]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $pending->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-3',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('Only an approved purchase', $response->json('message'));
+    }
+
+    public function test_duplicate_refund_is_blocked_once_one_has_already_succeeded(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $original = $this->approvedPurchase($terminal, 40);
+        SciTransaction::create([
+            'client_ref' => 'refund-ref-existing', 'sci_transaction_id' => 'txn_refund_existing', 'sci_version' => 2,
+            'eft_terminal_id' => $terminal->id, 'txn_type' => 'refund', 'amount' => 40,
+            'status' => 'FINALISED', 'result_financial_status' => 'APPROVED', 'original_transaction_id' => $original->id,
+        ]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-4',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('already been refunded', $response->json('message'));
+    }
+
+    public function test_a_refund_still_in_flight_blocks_another_attempt(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $original = $this->approvedPurchase($terminal, 40);
+        SciTransaction::create([
+            'client_ref' => 'refund-ref-inflight', 'sci_transaction_id' => 'txn_refund_inflight', 'sci_version' => 1,
+            'eft_terminal_id' => $terminal->id, 'txn_type' => 'refund', 'amount' => 40,
+            'status' => 'PENDING', 'original_transaction_id' => $original->id,
+        ]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-5',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('already in progress', $response->json('message'));
+    }
+
+    // Refunds are deliberately more tightly restricted than purchases (see
+    // CbaSciController::canManageRefund()'s docblock) — Staff can start a purchase but not
+    // authorise a refund, exactly mirroring the existing Linkly refund gate.
+    public function test_refund_requires_admin_level_permission(): void
+    {
+        $staff = User::factory()->create(['role' => 'Staff', 'mobile' => fake()->unique()->numerify('04########')]);
+        $terminal = $this->pairedTerminal();
+        $original = $this->approvedPurchase($terminal, 40);
+
+        $response = $this->actingAs($staff)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-6',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_polling_a_refund_to_finalised_approved_marks_the_donation_cancelled(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+
+        $donationId = app(\App\Http\Controllers\DonationController::class)->insertGuestDonationRecord([
+            'donor_name' => 'Refund Donor', 'event_id' => null, 'amount' => 40,
+            'purpose' => 'General Donation', 'payment_method' => 'EFT Terminal', 'payment_status' => 'Paid',
+            'transaction_id' => 'txn_purchase_refunded', 'donation_date' => now()->toDateString(),
+        ]);
+
+        $original = $this->approvedPurchase($terminal, 40, [
+            'sci_transaction_id' => 'txn_purchase_refunded',
+            'donation_type' => 'guest', 'donation_id' => $donationId,
+        ]);
+
+        $refund = SciTransaction::create([
+            'client_ref' => 'refund-ref-7', 'sci_transaction_id' => 'txn_refund_poll', 'sci_version' => 1,
+            'eft_terminal_id' => $terminal->id, 'txn_type' => 'refund', 'amount' => 40, 'status' => 'PENDING',
+            'original_transaction_id' => $original->id, 'donation_type' => 'guest', 'donation_id' => $donationId,
+        ]);
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'status' => 'FINALISED', 'version' => 2, 'result_financial_status' => 'APPROVED',
+        ]], 200)]);
+
+        $response = $this->actingAs($admin)->getJson(route('admin.cba-sci.charge.status', $refund->sci_transaction_id));
+
+        $response->assertOk();
+        $response->assertJson(['done' => true, 'success' => true, 'result_financial_status' => 'APPROVED']);
+        $this->assertDatabaseHas('donations_without_logins', ['id' => $donationId, 'payment_status' => 'Cancelled']);
+    }
 }

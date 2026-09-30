@@ -664,6 +664,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
     Route::post('/admin/cba-sci/charge/action/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'submitAction'])->name('admin.cba-sci.charge.action');
     Route::post('/admin/cba-sci/charge/cancel/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'cancel'])->name('admin.cba-sci.charge.cancel');
     Route::post('/admin/cba-sci/charge/override/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'override'])->name('admin.cba-sci.charge.override');
+    Route::post('/admin/cba-sci/charge/refund/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'refund'])->name('admin.cba-sci.charge.refund');
 });
 
 // ============================================

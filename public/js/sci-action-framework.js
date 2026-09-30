@@ -27,6 +27,15 @@
         });
     }
 
+    // Used only by RETRY_TRANSACTION/RETRY_SETTLEMENT (see handleBuiltinAction()) — a retry
+    // must get a brand-new client_ref, or start()'s own "resume existing attempt" check on
+    // the server would just hand back the same already-dead transaction instead of truly
+    // submitting a new one.
+    function newClientRef() {
+        if (global.crypto && typeof global.crypto.randomUUID === 'function') { return global.crypto.randomUUID(); }
+        return 'retry-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    }
+
     function printText(title, text) {
         if (!text) { return; }
         var win = window.open('', '_blank', 'width=380,height=600');
@@ -169,7 +178,20 @@
             if (action === 'PRINT_MERCHANT_RECEIPT') { printText('Merchant Receipt', merchantReceipt); return; }
             if (action === 'PRINT_CUSTOMER_RECEIPT') { printText('Customer Receipt', customerReceipt); return; }
             if (action === 'TRANSACTION_COMPLETE' || action === 'SETTLEMENT_COMPLETE') { hideModal(); return; }
-            if (action === 'RETRY_TRANSACTION' || action === 'RETRY_SETTLEMENT') { poll(); return; }
+            // mx51's own button-action table: "Re-submit the same transaction with identical
+            // parameters" — the transaction this button is attached to is already dead (it's
+            // the reason the button appeared), so merely polling it again (the old behaviour
+            // here) just re-fetches the same final result forever. A real retry has to start
+            // a brand-new transaction with the same amount/details, under a fresh client_ref
+            // so the server's own resume-in-place check doesn't just hand back the dead one.
+            if (action === 'RETRY_TRANSACTION' || action === 'RETRY_SETTLEMENT') {
+                if (!currentAttempt || !activeBtn) { poll(); return; }
+                var retryAttempt = {};
+                for (var k in currentAttempt) { if (Object.prototype.hasOwnProperty.call(currentAttempt, k)) { retryAttempt[k] = currentAttempt[k]; } }
+                retryAttempt.clientRef = newClientRef();
+                start(activeBtn, retryAttempt);
+                return;
+            }
             // TEST_ACTION and anything undocumented: no-op — certification-only / not applicable here.
         }
 

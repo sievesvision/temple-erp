@@ -193,6 +193,7 @@ class EventConsoleController extends Controller
         // per-event), so pairing status/mode/Cloud ID are global; only the recent
         // transactions list is scoped to this event.
         $linklyTransactions = collect();
+        $sciTransactions = collect();
         $eftTransactions = collect();
         if ($canEditEvent) {
             // Purchase/refund only — a Logon proves nothing about money moving and just
@@ -265,6 +266,7 @@ class EventConsoleController extends Controller
             'activeRole',
             'temple',
             'linklyTransactions',
+            'sciTransactions',
             'eftTransactions',
             'eftTerminals',
             'linklyMode',
