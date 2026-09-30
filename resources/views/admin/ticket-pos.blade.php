@@ -347,7 +347,11 @@
     </div>
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('js/sci-action-framework.js') }}"></script>
+    {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
+         otherwise a fix shipped here never reaches an already-open kiosk tab or a browser
+         that cached the old copy days ago, since nothing about the <script> tag itself
+         changes between deploys. --}}
+    <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
     @php
         $pendingEftRecoveryForJs = $pendingEftRecovery ? [
             'sessionId' => $pendingEftRecovery->linkly_session_id,

@@ -3,7 +3,7 @@
 @section('title', 'System Settings')
 
 @section('page-css')
-<link href="{{ asset('css/eft-terminal-registry.css') }}" rel="stylesheet">
+<link href="{{ asset('css/eft-terminal-registry.css') }}?v={{ @filemtime(public_path('css/eft-terminal-registry.css')) }}" rel="stylesheet">
 <style>
     .settings-card {
         background: white;
