@@ -6,6 +6,15 @@
      checklist. --}}
 @php $isPaired = $terminal->isSciPaired(); @endphp
 <div>
+    {{-- SCIPAIRING02 — the pairing screen must clearly show mx51's own SCI branding: the
+         "Simple Cloud Integration" name and the SCI logo they supply, not just our own
+         generic terminal icon above. Shown in both the paired and unpaired states, since this
+         is the pairing section's own identity, not something that should disappear once
+         paired. --}}
+    <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
+        <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:28px; height:28px; border-radius:6px; object-fit:cover;">
+        <strong style="font-size:0.92rem;">Simple Cloud Integration</strong>
+    </div>
     @if($isPaired)
         <div class="alert alert-success py-2 px-3 mb-2" style="font-size:0.88rem;">
             <i class="bi bi-check-circle-fill me-1"></i>Paired successfully.
@@ -64,6 +73,17 @@
             @csrf
             <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
         </form>
-        <p class="text-muted small mt-2 mb-0">On the terminal, open its pairing menu to display a pairing code, then enter it here.</p>
+        {{-- SCIPAIRING09 — the pairing screen should show the same kind of step-by-step
+             instructions as mx51's own Espresso POS reference, not just a one-line hint. --}}
+        <div class="mt-3 p-3 rounded-3" style="background:#F9FAFB; border:1px solid #E5E7EB; font-size:0.84rem;">
+            <div class="fw-bold mb-2">Steps to pair for: Simple Cloud Integration</div>
+            <ol class="mb-0 ps-3" style="line-height:1.6;">
+                <li>On the terminal: Go to &ldquo;Manage POS pairing&rdquo; and create a new POS pairing.</li>
+                <li>On the terminal: Select &ldquo;Simple Cloud Integration&rdquo;.</li>
+                <li>Enter the pairing code provided from the terminal.</li>
+                <li>Create a pairing nickname for the terminal to identify.</li>
+                <li>Tap &ldquo;Pair&rdquo; to initiate the pairing on both devices.</li>
+            </ol>
+        </div>
     @endif
 </div>
