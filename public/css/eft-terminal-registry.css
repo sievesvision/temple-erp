@@ -1,0 +1,102 @@
+/*
+ * The EFT Terminal registry UI (info banner, terminal cards, add-terminal form) — shared by
+ * the standalone EFT Terminal Settings page, both consoles' own EFT Terminal Settings pane,
+ * and Admin Settings' EFT Terminal panel (see admin/partials/eft-terminal-registry.blade.php,
+ * which every one of those @include's verbatim). Every page that includes that partial links
+ * this file once. Deliberately self-contained (its own --eftr-* tokens below, not the
+ * console pages' --maroon/--gold/etc.) since Admin Settings doesn't define that palette at
+ * all — this way the same file renders identically on every host regardless of what tokens
+ * that host's own page happens to declare.
+ */
+:root {
+    --eftr-maroon: #6B0F1A; --eftr-maroon-dark: #4A0A12; --eftr-gold: #C89B3C;
+    --eftr-cream: #F9F3E7; --eftr-white: #FFFFFF; --eftr-border: #E5E7EB;
+    --eftr-text-primary: #1F2A37; --eftr-text-secondary: #6B7280;
+}
+
+/* ---------- Info banner: informational, not dominant ---------- */
+.eft-info-banner { display: flex; gap: 12px; align-items: flex-start; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+.eft-info-banner-icon { width: 26px; height: 26px; border-radius: 50%; background: #1D4ED8; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.85rem; }
+.eft-info-banner-title { font-weight: 700; font-size: 0.92rem; color: var(--eftr-text-primary); margin-bottom: 3px; }
+.eft-info-banner-text { font-size: 0.82rem; color: var(--eftr-text-secondary); line-height: 1.55; }
+.eft-info-banner-help { margin-left: auto; flex-shrink: 0; }
+
+/* ---------- Section headings ---------- */
+.eft-section-heading-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 24px 0 14px; }
+.eft-section-heading-row:first-of-type { margin-top: 0; }
+.eft-section-heading { display: flex; align-items: center; gap: 10px; font-size: 1.1rem; font-weight: 800; color: var(--eftr-text-primary); }
+.eft-section-count { background: var(--eftr-border); color: var(--eftr-text-secondary); font-size: 0.78rem; font-weight: 700; border-radius: 20px; padding: 2px 10px; }
+.eft-section-count.count-ok { background: #D1FAE5; color: #047857; }
+.eft-operational-flag { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #047857; font-weight: 600; }
+.eft-operational-flag .dot { width: 8px; height: 8px; border-radius: 50%; background: #10B981; }
+
+/* ---------- Terminal card ---------- */
+/* A colour-coded left rail (gold = usable, grey = inactive) runs the full height of the
+   card — summary row AND expanded body — so the two visually read as one bounded unit for
+   one terminal, not a summary row that happens to sit above a detail panel. */
+.terminal-card { background: linear-gradient(180deg, #FFFEFB, var(--eftr-white) 140px); border: 1px solid var(--eftr-border); border-left: 4px solid var(--eftr-gold); border-radius: 12px; border-top-left-radius: 0; border-bottom-left-radius: 0; margin-bottom: 14px; overflow: visible; box-shadow: 0 1px 3px rgba(16,24,40,0.06); }
+.terminal-card-inactive { border-left-color: #C7CBD1; }
+.terminal-card-inactive .terminal-summary-row { background: #FAFAFA; }
+.terminal-summary-row { display: flex; align-items: center; gap: 20px; padding: 18px 20px; cursor: pointer; flex-wrap: wrap; border-top-right-radius: 11px; }
+.terminal-summary-row:hover { background: #FBF9F6; }
+.terminal-card-inactive .terminal-summary-row:hover { background: #F3F4F6; }
+.terminal-icon { width: 56px; height: 56px; border-radius: 10px; background: linear-gradient(160deg, #FDF6E8, #F1E1BC); border: 1px solid var(--eftr-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; padding: 5px; }
+.terminal-icon img { width: 100%; height: 100%; object-fit: contain; }
+.terminal-summary-main { flex: 1 1 240px; min-width: 200px; }
+.terminal-summary-name { font-size: 1rem; margin-bottom: 3px; }
+.terminal-summary-meta { font-size: 0.78rem; color: var(--eftr-text-secondary); margin-bottom: 8px; }
+.terminal-summary-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.terminal-summary-status { display: flex; flex-direction: column; gap: 7px; flex: 0 0 210px; }
+.status-row { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+.status-row i { color: var(--eftr-text-secondary); width: 16px; text-align: center; flex-shrink: 0; }
+.status-label { color: var(--eftr-text-secondary); min-width: 82px; }
+.terminal-summary-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+
+/* Squared-off chips with solid, saturated fills read as real status indicators rather than
+   soft decorative tags — deliberately distinct from badge-provider/badge-info, which stay
+   light since they're identity tags, not a state to react to. */
+.badge-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 5px; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+.badge-provider { background: #F3F4F6; color: #4B5563; }
+.badge-info { background: #DBEAFE; color: #1D4ED8; }
+.badge-ok { background: #10B981; color: #fff; }
+.badge-bad { background: #EF4444; color: #fff; }
+.badge-warn { background: #F59E0B; color: #fff; }
+
+.btn-terminal-settings { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--eftr-border); background: #fff; color: var(--eftr-text-primary); font-weight: 700; font-size: 0.82rem; min-height: 40px; }
+.btn-terminal-settings:hover { border-color: var(--eftr-maroon); color: var(--eftr-maroon); }
+.btn-terminal-more { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--eftr-border); background: #fff; display: flex; align-items: center; justify-content: center; color: var(--eftr-text-secondary); }
+.btn-terminal-more:hover { background: #F9FAFB; }
+
+/* The detail title bar repeats which terminal this panel belongs to right at the top of the
+   expanded body — matters once more than one card is open, or the panel is long enough that
+   the summary row above has scrolled out of view. */
+.terminal-detail-title { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 800; color: var(--eftr-maroon); padding: 12px 20px; background: var(--eftr-cream); border-top: 1px solid var(--eftr-border); }
+.terminal-detail-body { padding: 4px 20px 20px; }
+.terminal-detail-section { padding: 16px 0; border-bottom: 1px solid var(--eftr-border); }
+.terminal-detail-section:last-child { border-bottom: none; padding-bottom: 4px; }
+.terminal-detail-heading { font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--eftr-text-secondary); margin-bottom: 10px; }
+.terminal-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; font-size: 0.88rem; }
+.terminal-danger-zone { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 14px 16px !important; margin-top: 4px; }
+
+/* ---------- Add terminal ---------- */
+.add-terminal-card { background: var(--eftr-white); border: 1px solid var(--eftr-border); border-radius: 12px; padding: 22px 24px; margin-top: 28px; }
+.add-terminal-header { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 800; color: var(--eftr-maroon); margin-bottom: 4px; }
+.add-terminal-sub { font-size: 0.84rem; color: var(--eftr-text-secondary); margin-bottom: 18px; }
+.field-hint { font-size: 0.74rem; color: var(--eftr-text-secondary); margin-top: 4px; }
+.btn-add-terminal { padding: 10px 22px; border-radius: 8px; border: none; background: var(--eftr-maroon); color: white; font-weight: 800; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; }
+.btn-add-terminal:hover { background: var(--eftr-maroon-dark); color: #fff; }
+
+/* ---------- Environment (sandbox/live) — Admin Settings only ---------- */
+.eftr-mode-switch-card { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; background: var(--eftr-white); border: 1px solid var(--eftr-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+.eftr-mode-switch-heading { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--eftr-text-secondary); flex-basis: 100%; }
+.eftr-mode-switch-row { display: flex; align-items: center; gap: 10px; }
+.eftr-mode-switch-label { font-weight: 700; font-size: 0.88rem; color: var(--eftr-text-primary); }
+.eftr-mode-switch-form { display: inline-flex; }
+
+@media (max-width: 640px) {
+    .terminal-summary-row { padding: 16px; }
+    .terminal-summary-status { flex-basis: 100%; order: 3; }
+    .terminal-summary-actions { flex-basis: 100%; order: 4; margin-left: 0; justify-content: flex-end; }
+    .eft-info-banner { flex-wrap: wrap; }
+    .eft-info-banner-help { margin-left: 0; }
+}

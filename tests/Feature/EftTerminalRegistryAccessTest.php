@@ -122,25 +122,25 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
     }
 
-    // return_context tells EftTerminalController where the "Add Terminal" form was actually
-    // submitted from (Ticket Console / a specific event's Console / the standalone page) so
-    // the browser lands back there instead of always ending up on the standalone page — see
-    // EftTerminalController::redirectAfterAction(). Which *pane* re-opens on that console is
-    // then handled entirely client-side (the "consoleActivePane" localStorage convention).
-    public function test_return_context_ticket_console_redirects_to_the_ticket_console(): void
+    // The "Add Terminal" form is now @include'd verbatim wherever the terminal registry
+    // appears (the standalone page, both consoles' own EFT Terminal Settings pane, and Admin
+    // Settings) — see admin.partials.eft-terminal-registry — so there's no fixed "home" route
+    // to send the browser back to. store() redirects with plain redirect()->back() instead
+    // (same as every sibling action here), landing wherever the form was actually submitted
+    // from, whichever of those pages that happens to be.
+    public function test_add_terminal_redirects_back_to_the_ticket_console_when_submitted_from_there(): void
     {
         $user = $this->ticketAdminController();
 
-        $response = $this->actingAs($user)->post('/admin/eft-terminals', [
+        $response = $this->actingAs($user)->from(route('admin.tickets.index'))->post('/admin/eft-terminals', [
             'key' => 'from-ticket-console', 'label' => 'From Ticket Console',
-            'return_context' => 'ticket-console',
         ]);
 
         $response->assertRedirect(route('admin.tickets.index'));
         $this->assertDatabaseHas('eft_terminals', ['key' => 'from-ticket-console']);
     }
 
-    public function test_return_context_event_console_redirects_to_that_events_console(): void
+    public function test_add_terminal_redirects_back_to_the_event_console_when_submitted_from_there(): void
     {
         $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
         $eventId = DB::table('events')->insertGetId([
@@ -152,9 +152,8 @@ class EftTerminalRegistryAccessTest extends TestCase
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        $response = $this->actingAs($user)->post('/admin/eft-terminals', [
+        $response = $this->actingAs($user)->from(route('admin.events.console', $eventId))->post('/admin/eft-terminals', [
             'key' => 'from-event-console', 'label' => 'From Event Console',
-            'return_context' => "event-console:{$eventId}",
         ]);
 
         $response->assertRedirect(route('admin.events.console', $eventId));

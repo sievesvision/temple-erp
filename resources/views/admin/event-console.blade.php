@@ -9,6 +9,7 @@
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
+    <link href="{{ asset('css/eft-terminal-registry.css') }}" rel="stylesheet">
     <style>
         :root {
             --maroon: #6B0F1A;
@@ -411,7 +412,6 @@
                     <button type="button" class="sidebar-link" data-pane="pane-coordinators"><i class="bi bi-people-fill"></i><span>Event Coordinators</span></button>
                     @endif
                     @if($canEditEvent)
-                    <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
                     @endif
@@ -1295,66 +1295,14 @@
                 @endif
 
                 @if($canEditEvent)
-                <!-- EFTPOS / LINKLY CORE PAYMENTS -->
-                <div class="console-pane" id="pane-eftpos">
-                    <div class="page-header">
-                        <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
-                        <div>
-                            <h2>EFTPOS</h2>
-                            <p>Terminal pairing status for this event — every transaction (including refunds) is on the All Transactions tab; pairing and adding terminals happens on EFT Terminal Settings.</p>
-                        </div>
-                        <div class="page-header-actions">
-                            <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
-                        </div>
-                    </div>
-
-                    <div class="card-panel mb-3">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                            <div class="text-muted small">Linkly: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; mx51: <strong class="text-uppercase">{{ $cbaSciMode }}</strong> &middot; each terminal is independently paired, so a second station can run its own concurrently.</div>
-                            <div class="d-flex gap-2">
-                                <button type="button" onclick="switchPane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
-                                <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
-                            </div>
-                        </div>
-                        @forelse($eftTerminals as $terminal)
-                        @php $lastKnown = $terminal->lastKnownStatus(); $terminalPaired = $terminal->isPairedFor($linklyMode); @endphp
-                        <div class="row g-3 align-items-center border-top pt-3 mt-2">
-                            <div class="col-md-4">
-                                <strong>{{ $terminal->label }}</strong>
-                                @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
-                                <span class="badge bg-secondary ms-1">{{ $terminal->provider === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud' }}</span>
-                                <div class="text-muted small">{{ $terminal->key }}</div>
-                            </div>
-                            <div class="col-md-3">
-                                <span class="status-pill status-{{ $terminalPaired ? 'paid' : 'cancelled' }}">{{ $terminalPaired ? 'Paired' : 'Not paired' }}</span>
-                            </div>
-                            <div class="col-md-5">
-                                @if($lastKnown['state'] === 'online')
-                                <span class="status-pill status-paid" title="Last confirmed via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Online</span>
-                                @elseif($lastKnown['state'] === 'offline')
-                                <span class="status-pill status-cancelled" title="Last attempt via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Offline</span>
-                                @else
-                                <span class="status-pill status-pending">Not checked</span>
-                                @endif
-                                @if($lastKnown['at'])
-                                <span class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</span>
-                                @endif
-                            </div>
-                        </div>
-                        @empty
-                        <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); switchPane('pane-eft-settings');">add one on EFT Terminal Settings</a>.</p>
-                        @endforelse
-                    </div>
-                </div>
-                @endif
-
-                @if($canEditEvent)
-                <!-- EFT TERMINAL SETTINGS — the shared (cross-event) pairing/registry page,
-                     embedded here as its own console pane rather than a popup modal, per the
-                     same one-click-away pattern every other sidebar item already uses. Reuses
-                     the existing EftTerminalController page wholesale (via ?embedded=1, which
-                     strips its own topbar) instead of re-implementing pairing/registry UI a
-                     second time here. -->
+                {{-- EFT TERMINAL SETTINGS — the exact same registry partial the standalone
+                     settings page and Admin Settings both include (see admin.partials.
+                     eft-terminal-registry), rather than an iframe pointed at that other page:
+                     a real include shares one template with no cross-origin/URL quirks and
+                     no second HTTP round-trip. Pairing status used to also get its own
+                     separate "EFTPOS" pane — dropped as pure duplication, since every terminal
+                     card below already shows Paired/Online status, and every transaction
+                     (including refunds) now lives on the All Transactions tab. --}}
                 <div class="console-pane" id="pane-eft-settings">
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-sliders"></i></div>
@@ -1362,10 +1310,16 @@
                             <h2>EFT Terminal Settings</h2>
                             <p>Pair, unpair, and register terminals — shared across every event and Ticket Sales.</p>
                         </div>
+                        <div class="page-header-actions">
+                            <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
+                        </div>
                     </div>
-                    <div class="card-panel" style="padding:0; overflow:hidden;">
-                        <iframe id="eftSettingsPaneFrame" src="about:blank" data-src="{{ route('admin.eft-terminals.index') }}?embedded=1" style="width:100%; border:0; min-height: calc(100vh - 210px);"></iframe>
-                    </div>
+                    @include('admin.partials.eft-terminal-registry', [
+                        'activeTerminals' => $activeTerminals, 'inactiveTerminals' => $inactiveTerminals,
+                        'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode,
+                        'canManageRegistryLevel' => $canManageRegistryLevel, 'isSystemAdmin' => $isSystemAdmin,
+                        'allOperational' => $allOperational,
+                    ])
                 </div>
                 @endif
 
@@ -1707,28 +1661,8 @@
             });
             document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
             closeSidebarDrawer();
-            if (paneId === 'pane-eft-settings') { loadEftSettingsFrame(); }
         }
 
-        // EFT Terminal Settings pane — lazy-loads its iframe only once (never on a page that
-        // never opens this pane), then reloads the WHOLE console page once the frame ever
-        // navigates again afterward (a pairing/unpairing form inside it redirected) so this
-        // page's own terminal cards/All Transactions rows reflect it immediately, same as the
-        // old popup modal did on close.
-        var eftSettingsFrameLoaded = false;
-        var eftSettingsFrameLoadCount = 0;
-        function loadEftSettingsFrame() {
-            var frame = document.getElementById('eftSettingsPaneFrame');
-            if (!frame || eftSettingsFrameLoaded) { return; }
-            eftSettingsFrameLoaded = true;
-            frame.addEventListener('load', function () {
-                eftSettingsFrameLoadCount++;
-                // The first load is this initial assignment below, not a real navigation —
-                // only a SECOND load means a form inside the frame actually submitted.
-                if (eftSettingsFrameLoadCount > 1) { location.reload(); }
-            });
-            frame.src = frame.dataset.src;
-        }
         document.querySelectorAll('[data-pane]').forEach(function (el) {
             el.addEventListener('click', function (e) {
                 if (this.tagName === 'A') { return; }
@@ -1764,9 +1698,9 @@
                 try { localStorage.setItem('consoleActivePane', 'pane-coordinators'); } catch (e) {}
             });
         });
-        document.querySelectorAll('#pane-eftpos form').forEach(function (form) {
+        document.querySelectorAll('#pane-eft-settings form').forEach(function (form) {
             form.addEventListener('submit', function () {
-                try { localStorage.setItem('consoleActivePane', 'pane-eftpos'); } catch (e) {}
+                try { localStorage.setItem('consoleActivePane', 'pane-eft-settings'); } catch (e) {}
             });
         });
         document.querySelectorAll('#pane-cash-banking form').forEach(function (form) {
@@ -2330,26 +2264,7 @@
         @endif
 
         @if($canEditEvent)
-        // ---------- EFTPOS / Linkly accreditation pane ----------
-        function copyEftRef(txnId) {
-            const ref = document.getElementById('txnref-' + txnId).textContent;
-            const time = document.getElementById('txntime-' + txnId).textContent;
-            const text = ref + '\t' + time;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(function () { showToast('Copied: ' + text); }, function () { showToast('Could not copy.', true); });
-            } else {
-                showToast('Copy not supported in this browser.', true);
-            }
-        }
-
-        function checkEftStatus(sessionId) {
-            showToast('Checking status…');
-            fetch(EFT_CHARGE_STATUS_URL_BASE + '/' + encodeURIComponent(sessionId) + '?event_id=' + encodeURIComponent(EVENT_ID), { headers: { 'Accept': 'application/json' } })
-                .then(function (res) { return res.json(); })
-                .then(function () { location.reload(); })
-                .catch(function () { showToast('Could not check status — network error.', true); });
-        }
-
+        // ---------- All Transactions pane: EFT refund modals ----------
         let eftRefundTransactionId = null;
         let eftRefundPollCancelled = false;
         const eftRefundModalEl = document.getElementById('eftRefundModal');
@@ -2547,7 +2462,5 @@
         }
         @endif
     </script>
-
-    @include('admin.partials.eft-terminal-settings-modal')
 </body>
 </html>

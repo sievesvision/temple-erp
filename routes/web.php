@@ -285,6 +285,22 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $recaptchaEnabled = (bool) \App\Models\Setting::get('recaptcha_enabled', false);
         $recaptchaConfigured = (bool) \App\Services\RecaptchaService::siteKey();
 
+        // EFT Terminal panel — the same registry data every console's own EFT Terminal
+        // Settings pane computes (see EventConsoleController::show()'s identical call),
+        // rendered here via the same shared partial. No mx51 self-heal pass here — see
+        // EftTerminalRegistryView::data()'s own docblock for why that stays a one-page-only
+        // side effect (EftTerminalController::index()) rather than something every hosting
+        // page repeats on load.
+        $eftRegistryData = \App\Services\EftTerminalRegistryView::data();
+        $eftTerminals = $eftRegistryData['eftTerminals'];
+        $linklyMode = $eftRegistryData['linklyMode'];
+        $cbaSciMode = $eftRegistryData['cbaSciMode'];
+        $activeTerminals = $eftRegistryData['activeTerminals'];
+        $inactiveTerminals = $eftRegistryData['inactiveTerminals'];
+        $allOperational = $eftRegistryData['allOperational'];
+        $canManageRegistryLevel = \App\Services\EftTerminalAccess::canManageRegistry($currentUser, session('active_role', $currentUser->role));
+        $isSystemAdmin = $currentUser->role === 'Admin';
+
         return view('admin.settings', compact(
             'systemMode', 
             'emailHandling',
@@ -333,7 +349,15 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'maxAdvanceBookingDays',
             'onlinePoojaShippingCharge',
             'recaptchaEnabled',
-            'recaptchaConfigured'
+            'recaptchaConfigured',
+            'eftTerminals',
+            'linklyMode',
+            'cbaSciMode',
+            'activeTerminals',
+            'inactiveTerminals',
+            'allOperational',
+            'canManageRegistryLevel',
+            'isSystemAdmin'
         ));
     })->name('admin.settings');
 

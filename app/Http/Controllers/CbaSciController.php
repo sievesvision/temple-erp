@@ -17,9 +17,12 @@ use Illuminate\Support\Facades\DB;
 /**
  * Pairing actions for CBA Smart Terminal (mx51 Simple Cloud Integration) terminals —
  * mirrors EftTerminalController's own access gate exactly (same "who can manage the
- * registry" question, provider-agnostic), and redirects back the same "return_context"
- * way, since this pairing block sits on the very same pages EftTerminalController's own
- * Linkly pairing form does.
+ * registry" question, provider-agnostic). Every action redirects back to wherever the
+ * form was actually submitted from (plain redirect()->back(), same as LinklyController::
+ * pair() and EftTerminalController's own setDefault()/checkConnection()/destroy()) — this
+ * pairing block is @include'd verbatim wherever the terminal registry appears (the
+ * standalone EFT Terminal Settings page, both consoles, and Admin Settings), so there's no
+ * fixed "home" route to send the browser back to.
  */
 class CbaSciController extends Controller
 {
@@ -61,31 +64,10 @@ class CbaSciController extends Controller
         return false;
     }
 
-    private function redirectAfterAction(Request $request)
-    {
-        $context = $request->input('return_context');
-
-        if ($context === 'ticket-console') {
-            return redirect()->route('admin.tickets.index');
-        }
-
-        if (is_string($context) && str_starts_with($context, 'event-console:')) {
-            $eventId = substr($context, strlen('event-console:'));
-            if (ctype_digit($eventId)) {
-                return redirect()->route('admin.events.console', ['event' => $eventId]);
-            }
-        }
-
-        // Embedded (opened as an iframe popup — see eft-terminal-settings-modal.blade.php)
-        // must stay embedded across a redirect, or the next render shows the full topbar
-        // (Back/Logout pointed nowhere useful) squeezed into the small modal frame.
-        return redirect()->route('admin.eft-terminals.index', $request->boolean('embedded') ? ['embedded' => 1] : []);
-    }
-
     public function pair(Request $request)
     {
         if (!$this->canManageRegistry()) {
-            return $this->redirectAfterAction($request)->with('error', 'Unauthorized access.');
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $validated = $request->validate([
@@ -101,13 +83,13 @@ class CbaSciController extends Controller
             AuditLogService::log("Paired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
 
-        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
     public function testPairing(Request $request)
     {
         if (!$this->canManageRegistry()) {
-            return $this->redirectAfterAction($request)->with('error', 'Unauthorized access.');
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $validated = $request->validate(['terminal_id' => 'required|exists:eft_terminals,id']);
@@ -120,7 +102,7 @@ class CbaSciController extends Controller
             CbaSciService::unpair($terminal);
         }
 
-        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
     /**
@@ -135,7 +117,7 @@ class CbaSciController extends Controller
     public function unpair(Request $request)
     {
         if (!$this->canManageRegistry()) {
-            return $this->redirectAfterAction($request)->with('error', 'Unauthorized access.');
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $validated = $request->validate(['terminal_id' => 'required|exists:eft_terminals,id']);
@@ -149,7 +131,7 @@ class CbaSciController extends Controller
 
         $message = $result['success'] && !$wasPaired ? 'Pairing cancelled.' : $result['message'];
 
-        return $this->redirectAfterAction($request)->with($result['success'] ? 'success' : 'error', $message)->with('expandTerminalId', $terminal->id);
+        return redirect()->back()->with($result['success'] ? 'success' : 'error', $message)->with('expandTerminalId', $terminal->id);
     }
 
     /**

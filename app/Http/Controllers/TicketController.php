@@ -92,12 +92,19 @@ class TicketController extends Controller
             ->sum('total_amount');
 
         // Terminals are a shared, independently-pairable registry (see App\Models\
-        // EftTerminal), not one-per-module — the console lists every registered terminal's
-        // own status so an operator can pair/logon whichever one a ticket kiosk station is
-        // meant to use, or a second station on a different terminal without conflict.
-        $eftTerminals = EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
-        $linklyMode = \App\Services\LinklyConfigService::mode();
-        $cbaSciMode = \App\Services\CbaSciConfigService::mode();
+        // EftTerminal), not one-per-module — the console's own "EFT Terminal Settings" pane
+        // @include's the exact same registry partial the standalone settings page and Admin
+        // Settings do (see admin.partials.eft-terminal-registry), so pairing/adding a
+        // terminal is implemented exactly once regardless of where it's reached from.
+        $eftRegistryData = \App\Services\EftTerminalRegistryView::data();
+        $eftTerminals = $eftRegistryData['eftTerminals'];
+        $linklyMode = $eftRegistryData['linklyMode'];
+        $cbaSciMode = $eftRegistryData['cbaSciMode'];
+        $activeTerminals = $eftRegistryData['activeTerminals'];
+        $inactiveTerminals = $eftRegistryData['inactiveTerminals'];
+        $allOperational = $eftRegistryData['allOperational'];
+        $canManageRegistryLevel = \App\Services\EftTerminalAccess::canManageRegistry($user, $activeRole);
+        $isSystemAdmin = $activeRole === 'Admin';
 
         // Ticket-related Linkly transactions only — this is the shared terminal, but the
         // console should only ever show what's relevant to ticket sales (event_id is
@@ -192,6 +199,11 @@ class TicketController extends Controller
             'totalSold',
             'todayTotal',
             'eftTerminals',
+            'activeTerminals',
+            'inactiveTerminals',
+            'allOperational',
+            'canManageRegistryLevel',
+            'isSystemAdmin',
             'linklyMode',
             'cbaSciMode',
             'linklyTransactions',

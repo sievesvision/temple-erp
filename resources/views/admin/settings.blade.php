@@ -3,6 +3,7 @@
 @section('title', 'System Settings')
 
 @section('page-css')
+<link href="{{ asset('css/eft-terminal-registry.css') }}" rel="stylesheet">
 <style>
     .settings-card {
         background: white;
@@ -509,16 +510,26 @@
                     </div>
                     </form>
 
-                    <!-- EFT TERMINALS now lives on its own page (see admin.eft-terminal-
-                         settings) rather than a panel here — an event-admin coordinator or
-                         ticket-admin controller needs to reach it too, but this Settings
-                         page's own 'settings' permission wouldn't let them in at all. -->
+                    <!-- EFT TERMINALS — the same registry every console's own "EFT Terminal
+                         Settings" pane shows (see admin.partials.eft-terminal-registry), so
+                         pairing/adding a terminal is implemented exactly once regardless of
+                         where it's reached from. An event-admin coordinator or ticket-admin
+                         controller can't get here at all (this page needs the 'settings'
+                         RolePermission), which is exactly why the registry itself also stays
+                         reachable from their own console — see EftTerminalAccess. Only the
+                         Sandbox/Live switch below is exclusive to this page. -->
                     <div class="settings-panel" data-panel-content="eft-terminal">
                         <div class="settings-section">
                             <h5><i class="bi bi-credit-card-2-front-fill me-2"></i>EFT Terminals</h5>
-                            <p class="text-muted small mb-3">Terminal registration, pairing and defaults now live on their own page — reachable by an event-admin coordinator or ticket-admin controller too, not just Admin/Committee.</p>
-                            <a href="{{ route('admin.eft-terminals.index') }}" class="btn btn-submit"><i class="bi bi-box-arrow-up-right me-1"></i>Open EFT Terminal Settings</a>
-                            <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary ms-2"><i class="bi bi-question-circle me-1"></i>Help</a>
+                            @if($isSystemAdmin)
+                            @include('admin.partials.eft-terminal-mode-switch', ['linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode])
+                            @endif
+                            @include('admin.partials.eft-terminal-registry', [
+                                'activeTerminals' => $activeTerminals, 'inactiveTerminals' => $inactiveTerminals,
+                                'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode,
+                                'canManageRegistryLevel' => $canManageRegistryLevel, 'isSystemAdmin' => $isSystemAdmin,
+                                'allOperational' => $allOperational,
+                            ])
                         </div>
                     </div>
                 </div>
@@ -574,14 +585,40 @@
         // Settings category navigation
         const navLinks = document.querySelectorAll('.settings-nav-link');
         const panels = document.querySelectorAll('.settings-panel');
+        function activatePanel(panelId) {
+            const link = document.querySelector('.settings-nav-link[data-panel="' + panelId + '"]');
+            const panel = document.querySelector('[data-panel-content="' + panelId + '"]');
+            if (!link || !panel) { return false; }
+            navLinks.forEach(function (l) { l.classList.remove('active'); });
+            panels.forEach(function (p) { p.classList.remove('active'); });
+            link.classList.add('active');
+            panel.classList.add('active');
+            return true;
+        }
         navLinks.forEach(function (link) {
-            link.addEventListener('click', function () {
-                navLinks.forEach(function (l) { l.classList.remove('active'); });
-                panels.forEach(function (p) { p.classList.remove('active'); });
-                this.classList.add('active');
-                document.querySelector('[data-panel-content="' + this.dataset.panel + '"]').classList.add('active');
-            });
+            link.addEventListener('click', function () { activatePanel(this.dataset.panel); });
         });
+
+        // The EFT Terminal panel's forms (pairing, add terminal, sandbox/live) are plain
+        // full-page POST/redirects, not AJAX — without this, submitting one would land back
+        // on the General tab, hiding the very panel the result actually belongs to. Same
+        // "remember the active pane across one redirect" convention as event-console.blade.
+        // php/ticket-console.blade.php's own "consoleActivePane" localStorage key.
+        const eftPanel = document.querySelector('[data-panel-content="eft-terminal"]');
+        if (eftPanel) {
+            eftPanel.querySelectorAll('form').forEach(function (form) {
+                form.addEventListener('submit', function () {
+                    try { localStorage.setItem('settingsActivePanel', 'eft-terminal'); } catch (e) {}
+                });
+            });
+        }
+        (function restoreActivePanel() {
+            let savedPanel = null;
+            try { savedPanel = localStorage.getItem('settingsActivePanel'); } catch (e) {}
+            if (savedPanel && activatePanel(savedPanel)) {
+                try { localStorage.removeItem('settingsActivePanel'); } catch (e) {}
+            }
+        })();
     });
 </script>
 @endsection

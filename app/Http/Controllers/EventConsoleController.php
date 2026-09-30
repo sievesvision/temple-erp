@@ -232,13 +232,23 @@ class EventConsoleController extends Controller
         $linklyPurchaseByDonation = $linklyTransactions->where('txn_type', 'purchase')->keyBy(fn ($t) => $t->donation_type . ':' . $t->donation_id);
         $sciPurchaseByDonation = $sciTransactions->where('txn_type', 'purchase')->keyBy(fn ($t) => $t->donation_type . ':' . $t->donation_id);
         $eftOrphanRows = $eftTransactions->filter(fn ($row) => $row->txn->txn_type === 'refund' || !$row->txn->donation_id)->values();
+
         // Terminals are a shared, independently-pairable registry, not one-per-event (see
-        // App\Models\EftTerminal) — the console shows every registered terminal's own status
-        // so an operator can pair/logon whichever one this event's POS station is meant to
-        // use, or a second station on a different terminal without conflict.
-        $eftTerminals = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
-        $linklyMode = LinklyConfigService::mode();
-        $cbaSciMode = \App\Services\CbaSciConfigService::mode();
+        // App\Models\EftTerminal) — the console's own "EFT Terminal Settings" pane
+        // @include's the exact same registry partial the standalone settings page and Admin
+        // Settings do (see admin.partials.eft-terminal-registry), so pairing/adding a
+        // terminal is implemented exactly once regardless of where it's reached from.
+        $eftRegistryData = \App\Services\EftTerminalRegistryView::data();
+        $eftTerminals = $eftRegistryData['eftTerminals'];
+        $linklyMode = $eftRegistryData['linklyMode'];
+        $cbaSciMode = $eftRegistryData['cbaSciMode'];
+        $activeTerminals = $eftRegistryData['activeTerminals'];
+        $inactiveTerminals = $eftRegistryData['inactiveTerminals'];
+        $allOperational = $eftRegistryData['allOperational'];
+        // Same admin tier as $canEditEvent — the registry partial's own Set Default/Remove
+        // actions must stay literal-Admin-only regardless of who can reach this pane.
+        $canManageRegistryLevel = \App\Services\EftTerminalAccess::canManageRegistry($user, $activeRole);
+        $isSystemAdmin = $activeRole === 'Admin';
 
         // Cash Banking pane — same admin tier as Settings/Coordinators/EFTPOS/Logs above.
         $cashPreview = null;
@@ -287,6 +297,11 @@ class EventConsoleController extends Controller
             'sciPurchaseByDonation',
             'eftOrphanRows',
             'eftTerminals',
+            'activeTerminals',
+            'inactiveTerminals',
+            'allOperational',
+            'canManageRegistryLevel',
+            'isSystemAdmin',
             'linklyMode',
             'cbaSciMode'
         ));

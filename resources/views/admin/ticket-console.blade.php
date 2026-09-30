@@ -9,6 +9,7 @@
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
+    <link href="{{ asset('css/eft-terminal-registry.css') }}" rel="stylesheet">
     <style>
         :root {
             --maroon: #6B0F1A; --maroon-dark: #4A0A12; --gold: #C89B3C; --gold-hover: #A67C2B;
@@ -147,7 +148,6 @@
                     <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>All Transactions</span></button>
                     @if($canManageConsole)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
-                    <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-controllers"><i class="bi bi-people-fill"></i><span>Ticket Controllers</span></button>
@@ -453,61 +453,24 @@
                         </div>
                     </div>
 
-                    <!-- EFTPOS -->
-                    <div class="console-pane" id="pane-eftpos">
-                        <div class="page-header">
-                            <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
-                            <div><h2>EFTPOS</h2><p>Terminal pairing status for ticket sales — every transaction (including refunds) is on the All Transactions tab; pairing and adding terminals happens on EFT Terminal Settings.</p></div>
-                            <div class="page-header-actions">
-                                <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
-                                <button type="button" onclick="activatePane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
-                            </div>
-                        </div>
-                        <div class="card-panel mb-3">
-                            <div class="text-muted small mb-2">Linkly: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; mx51: <strong class="text-uppercase">{{ $cbaSciMode }}</strong> &middot; each terminal is independently paired, so a second ticket counter can run its own concurrently.</div>
-                            @forelse($eftTerminals as $terminal)
-                            @php $lastKnown = $terminal->lastKnownStatus(); $terminalPaired = $terminal->isPairedFor($linklyMode); @endphp
-                            <div class="row g-3 align-items-center border-top pt-3 mt-2">
-                                <div class="col-md-4">
-                                    <strong>{{ $terminal->label }}</strong>
-                                    @if($terminal->is_default)<span class="badge bg-primary ms-1">Default</span>@endif
-                                    <span class="badge bg-secondary ms-1">{{ $terminal->provider === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud' }}</span>
-                                    <div class="text-muted small">{{ $terminal->key }}</div>
-                                </div>
-                                <div class="col-md-3">
-                                    <span class="status-pill status-{{ $terminalPaired ? 'paid' : 'cancelled' }}">{{ $terminalPaired ? 'Paired' : 'Not paired' }}</span>
-                                </div>
-                                <div class="col-md-5">
-                                    @if($lastKnown['state'] === 'online')
-                                    <span class="status-pill status-paid" title="Last confirmed via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Online</span>
-                                    @elseif($lastKnown['state'] === 'offline')
-                                    <span class="status-pill status-cancelled" title="Last attempt via a {{ $lastKnown['via'] }} at {{ $lastKnown['at']->format('d M Y H:i') }}"><i class="bi bi-circle-fill" style="font-size:0.5rem;"></i> Offline</span>
-                                    @else
-                                    <span class="status-pill status-pending">Not checked</span>
-                                    @endif
-                                    @if($lastKnown['at'])
-                                    <span class="text-muted" style="font-size:0.68rem;">{{ $lastKnown['at']->diffForHumans() }}</span>
-                                    @endif
-                                </div>
-                            </div>
-                            @empty
-                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); activatePane('pane-eft-settings');">add one on EFT Terminal Settings</a>.</p>
-                            @endforelse
-                        </div>
-                    </div>
-
-                    <!-- EFT TERMINAL SETTINGS — see EventConsoleController::show()'s identical
-                         pane/reasoning: reuses the existing EftTerminalController page wholesale
-                         (via ?embedded=1) instead of a popup modal or a second copy of the
-                         pairing/registry UI. -->
+                    {{-- EFT TERMINAL SETTINGS — the exact same registry partial the standalone
+                         settings page and Admin Settings both include (see admin.partials.
+                         eft-terminal-registry), rather than an iframe pointed at that other
+                         page or a second "EFTPOS" pairing-status pane — dropped as pure
+                         duplication, since every terminal card below already shows Paired/
+                         Online status, and every transaction (including refunds) now lives on
+                         the All Transactions tab. --}}
                     <div class="console-pane" id="pane-eft-settings">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-sliders"></i></div>
                             <div><h2>EFT Terminal Settings</h2><p>Pair, unpair, and register terminals — shared across every event and Ticket Sales.</p></div>
                         </div>
-                        <div class="card-panel" style="padding:0; overflow:hidden;">
-                            <iframe id="eftSettingsPaneFrame" src="about:blank" data-src="{{ route('admin.eft-terminals.index') }}?embedded=1" style="width:100%; border:0; min-height: calc(100vh - 210px);"></iframe>
-                        </div>
+                        @include('admin.partials.eft-terminal-registry', [
+                            'activeTerminals' => $activeTerminals, 'inactiveTerminals' => $inactiveTerminals,
+                            'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode,
+                            'canManageRegistryLevel' => $canManageRegistryLevel, 'isSystemAdmin' => $isSystemAdmin,
+                            'allOperational' => $allOperational,
+                        ])
                     </div>
 
                     <!-- CASH BANKING -->
@@ -829,35 +792,18 @@
             document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
             document.getElementById('appSidebar').classList.remove('open');
             document.getElementById('sidebarBackdrop').classList.remove('show');
-            if (paneId === 'pane-eft-settings') { loadEftSettingsFrame(); }
             return true;
         }
 
-        // EFT Terminal Settings pane — see event-console.blade.php's identical
-        // loadEftSettingsFrame() for the reasoning: lazy-load the iframe once, then reload the
-        // whole console once it navigates again afterward (a pairing/unpairing form inside it
-        // redirected) so this page's own terminal cards/All Transactions rows reflect it.
-        var eftSettingsFrameLoaded = false;
-        var eftSettingsFrameLoadCount = 0;
-        function loadEftSettingsFrame() {
-            const frame = document.getElementById('eftSettingsPaneFrame');
-            if (!frame || eftSettingsFrameLoaded) { return; }
-            eftSettingsFrameLoaded = true;
-            frame.addEventListener('load', function () {
-                eftSettingsFrameLoadCount++;
-                if (eftSettingsFrameLoadCount > 1) { location.reload(); }
-            });
-            frame.src = frame.dataset.src;
-        }
         document.querySelectorAll('[data-pane]').forEach(function (el) {
             el.addEventListener('click', function () { activatePane(this.dataset.pane); });
         });
-        // The Settings/EFTPOS/Ticket Controllers forms are plain full-page POST/redirects
-        // (not AJAX), so the client-side "which pane is active" state would otherwise reset
-        // back to Dashboard after saving — same "consoleActivePane" localStorage convention
-        // as event-console.blade.php, so a form submission anywhere in one of these panes
-        // reopens that exact pane once the page reloads.
-        ['pane-settings', 'pane-eftpos', 'pane-cash-banking', 'pane-controllers'].forEach(function (paneId) {
+        // The Settings/EFT Terminal Settings/Ticket Controllers forms are plain full-page
+        // POST/redirects (not AJAX), so the client-side "which pane is active" state would
+        // otherwise reset back to Dashboard after saving — same "consoleActivePane"
+        // localStorage convention as event-console.blade.php, so a form submission anywhere
+        // in one of these panes reopens that exact pane once the page reloads.
+        ['pane-settings', 'pane-eft-settings', 'pane-cash-banking', 'pane-controllers'].forEach(function (paneId) {
             const pane = document.getElementById(paneId);
             if (!pane) { return; }
             pane.querySelectorAll('form').forEach(function (form) {
@@ -1056,7 +1002,5 @@
         }
         @endif
     </script>
-
-    @include('admin.partials.eft-terminal-settings-modal')
 </body>
 </html>

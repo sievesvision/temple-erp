@@ -14,8 +14,10 @@ use Tests\TestCase;
 /**
  * The event and ticket consoles' EFTPOS panes used to duplicate the Linkly-only pairing UI
  * already on the standalone EFT Terminal Settings page, and never showed mx51 transactions
- * at all. Both panes now link out to the real settings page instead of re-implementing
- * pairing, and their transaction history combines Linkly + mx51 into one list.
+ * at all. The separate EFTPOS pane is gone entirely now — every transaction (Linkly + mx51
+ * combined) lives on the All Transactions tab, and pairing/adding a terminal is the exact
+ * same admin.partials.eft-terminal-registry partial the standalone settings page and Admin
+ * Settings also @include, embedded directly (no iframe, no second copy of the form).
  */
 class EftConsoleTransactionHistoryTest extends TestCase
 {
@@ -64,10 +66,10 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response->assertSee('mx51 Console Terminal');
     }
 
-    // The old per-terminal Pair/Check Status forms and the "Add Terminal" form are gone —
-    // replaced by its own console-body pane (like every other sidebar item) embedding the
-    // real settings page, rather than either a duplicated form or a popup modal.
-    public function test_event_console_eftpos_pane_links_out_instead_of_duplicating_pairing_ui(): void
+    // The separate "EFTPOS" pane (pairing status only) is gone — its own "EFT Terminal
+    // Settings" pane now embeds the real pairing/add-terminal UI directly (no iframe), and
+    // there's exactly one such pane, not a second copy of the form.
+    public function test_event_console_eft_settings_pane_embeds_the_real_registry_directly(): void
     {
         Setting::set('linkly_mode', 'sandbox');
         $this->defaultEftTerminal();
@@ -77,13 +79,10 @@ class EftConsoleTransactionHistoryTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('data-pane="pane-eft-settings"', false);
-        $response->assertSee('id="eftSettingsPaneFrame"', false);
-        $response->assertSee(route('admin.eft-terminals.index') . '?embedded=1', false);
-        $response->assertDontSee('name="pair_code"', false);
-        // "name=\"key\"" is the Add-Terminal form's own field — distinct from the store()
-        // route's URL, which is identical to index()'s (same path, different verb) and so
-        // can't be used to tell "a link to the settings page" apart from "a duplicated form".
-        $response->assertDontSee('name="key"', false);
+        $response->assertDontSee('data-pane="pane-eftpos"', false);
+        $response->assertDontSee('eftSettingsPaneFrame', false);
+        $response->assertSee('name="pair_code"', false);
+        $response->assertSee('name="key"', false);
     }
 
     public function test_ticket_console_eftpos_pane_shows_both_linkly_and_mx51_transactions(): void
@@ -109,7 +108,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response->assertSee('mx51 Console Terminal');
     }
 
-    public function test_ticket_console_eftpos_pane_links_out_instead_of_duplicating_pairing_ui(): void
+    public function test_ticket_console_eft_settings_pane_embeds_the_real_registry_directly(): void
     {
         Setting::set('linkly_mode', 'sandbox');
         $this->defaultEftTerminal();
@@ -118,10 +117,10 @@ class EftConsoleTransactionHistoryTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('data-pane="pane-eft-settings"', false);
-        $response->assertSee('id="eftSettingsPaneFrame"', false);
-        $response->assertSee(route('admin.eft-terminals.index') . '?embedded=1', false);
-        $response->assertDontSee('name="pair_code"', false);
-        $response->assertDontSee('name="key"', false);
+        $response->assertDontSee('data-pane="pane-eftpos"', false);
+        $response->assertDontSee('eftSettingsPaneFrame', false);
+        $response->assertSee('name="pair_code"', false);
+        $response->assertSee('name="key"', false);
     }
 
     // Both consoles' terminal-picker modals (on the actual purchase screens, not the consoles)

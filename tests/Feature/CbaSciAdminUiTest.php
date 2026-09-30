@@ -110,12 +110,16 @@ class CbaSciAdminUiTest extends TestCase
             ]], 200),
         ]);
 
-        $response = $this->actingAs($admin)->post(route('admin.cba-sci.pair'), [
+        $response = $this->actingAs($admin)->from(route('admin.eft-terminals.index'))->post(route('admin.cba-sci.pair'), [
             'terminal_id' => $terminal->id,
             'pairing_code' => '654321',
             'pairing_nickname' => 'Kiosk 2',
         ]);
 
+        // Every pairing action redirects back to wherever the form was actually submitted
+        // from (plain redirect()->back()) rather than a fixed route — see CbaSciController's
+        // own class docblock — since this pairing form is now @include'd verbatim on the
+        // standalone settings page, both consoles, and Admin Settings.
         $response->assertRedirect(route('admin.eft-terminals.index'));
         $response->assertSessionHas('success');
         $terminal->refresh();
@@ -132,7 +136,7 @@ class CbaSciAdminUiTest extends TestCase
         $admin = $this->adminUser();
         $terminal = EftTerminal::create(['key' => 'sci-cancel', 'label' => 'SCI Cancel', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid()]);
 
-        $response = $this->actingAs($admin)->post(route('admin.cba-sci.unpair'), ['terminal_id' => $terminal->id]);
+        $response = $this->actingAs($admin)->from(route('admin.eft-terminals.index'))->post(route('admin.cba-sci.unpair'), ['terminal_id' => $terminal->id]);
 
         $response->assertRedirect(route('admin.eft-terminals.index'));
         $response->assertSessionHas('success', 'Pairing cancelled.');
