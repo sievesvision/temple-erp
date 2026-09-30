@@ -552,6 +552,12 @@
         <div class="eft-modal">
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
             <div class="eft-modal-body">
+                {{-- mx51 branding — shown only while this modal is driving an mx51 (SCI)
+                     payment, not a Linkly one; sci-action-framework.js toggles it via the
+                     `hidden` attribute (not inline style, which would fight it). --}}
+                <div style="text-align:center;">
+                    <img src="{{ asset('images/mx51-logo.svg') }}" alt="mx51" id="sciMx51LogoImg" hidden style="height:26px; margin-bottom:14px;">
+                </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
                     <div class="eft-modal-spinner"></div>
@@ -1062,6 +1068,7 @@
                 overrideYesBtn: document.getElementById('eftModalOverrideYes'),
                 overrideNoBtn: document.getElementById('eftModalOverrideNo'),
                 overrideKeepWaitingBtn: document.getElementById('eftModalOverrideKeepWaiting'),
+                mx51Logo: document.getElementById('sciMx51LogoImg'),
             },
             buildStartBody: function (attempt) {
                 return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };

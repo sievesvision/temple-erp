@@ -64,6 +64,11 @@
         var lastStatusSignature = null;
         var merchantReceipt = null;
         var customerReceipt = null;
+        // The most recent REAL message mx51 actually sent (e.g. "Waiting for card") — a poll
+        // with no message field must never blank this out or fall back to a generic word, or
+        // a specific in-progress message gets replaced by nothing every time an intermediate
+        // poll happens not to repeat it.
+        var lastKnownMessage = null;
         var overrideOfferedAt = null;
         var startedAt = null;
         // mx51's own reference timeout is measured "since the last successful response", not
@@ -126,16 +131,22 @@
         function showModal(amount) {
             cfg.el.amount.textContent = cfg.currencyCode + ' ' + Number(amount).toFixed(2);
             lastStatusSignature = null;
+            lastKnownMessage = null;
             setStatus(['Starting…'], 'pending');
             cfg.el.actionContainer.innerHTML = '';
             cfg.el.actionContainer.hidden = true;
             hideOverride();
+            cfg.el.cancelBtn.hidden = false;
             cfg.el.cancelBtn.textContent = 'Cancel';
+            // The shared modal also serves Linkly payments, which have no mx51 branding — the
+            // logo only ever shows for this (SCI) flow, and only for as long as it's active.
+            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = false; }
             cfg.el.overlay.classList.add('active');
         }
 
         function hideModal() {
             flowStarted = false;
+            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = true; }
             cfg.el.overlay.classList.remove('active');
             cfg.el.actionContainer.innerHTML = '';
             hideOverride();
@@ -226,36 +237,44 @@
 
         function renderInstructions(posInstructions) {
             cfg.el.actionContainer.innerHTML = '';
-            if (!posInstructions) { cfg.el.actionContainer.hidden = true; return; }
 
-            var form = posInstructions.action_form || {};
-            var properties = form.properties || {};
-            var layout = form.layout || [];
-            var details = form.details || null;
+            if (posInstructions) {
+                var form = posInstructions.action_form || {};
+                var properties = form.properties || {};
+                var layout = form.layout || [];
+                var details = form.details || null;
 
-            layout.forEach(function (group) {
-                var row = document.createElement('div');
-                row.className = 'sci-af-row';
-                (group.elements || []).forEach(function (ref) {
-                    var prop = properties[ref.key] || {};
-                    var node = buildElementNode(ref.key, ref.label, prop);
-                    if (node) { row.appendChild(node); }
+                layout.forEach(function (group) {
+                    var row = document.createElement('div');
+                    row.className = 'sci-af-row';
+                    (group.elements || []).forEach(function (ref) {
+                        var prop = properties[ref.key] || {};
+                        var node = buildElementNode(ref.key, ref.label, prop);
+                        if (node) { row.appendChild(node); }
+                    });
+                    if (row.children.length) { cfg.el.actionContainer.appendChild(row); }
                 });
-                if (row.children.length) { cfg.el.actionContainer.appendChild(row); }
-            });
 
-            if (!layout.length && details && Object.keys(details).length) {
-                var box = document.createElement('div');
-                box.className = 'sci-af-details';
-                Object.keys(details).forEach(function (k) {
-                    var line = document.createElement('div');
-                    line.textContent = k + ': ' + details[k];
-                    box.appendChild(line);
-                });
-                cfg.el.actionContainer.appendChild(box);
+                if (!layout.length && details && Object.keys(details).length) {
+                    var box = document.createElement('div');
+                    box.className = 'sci-af-details';
+                    Object.keys(details).forEach(function (k) {
+                        var line = document.createElement('div');
+                        line.textContent = k + ': ' + details[k];
+                        box.appendChild(line);
+                    });
+                    cfg.el.actionContainer.appendChild(box);
+                }
             }
 
             cfg.el.actionContainer.hidden = cfg.el.actionContainer.children.length === 0;
+            // Avoid two "cancel"-ish affordances competing for attention at once — once mx51's
+            // own Action Framework is presenting real buttons/inputs for the operator to use,
+            // the generic Cancel Payment button steps aside. The override dialog (once shown)
+            // owns cancelBtn's spot instead — never fight it back into view over that.
+            if (!overrideOfferedAt) {
+                cfg.el.cancelBtn.hidden = !cfg.el.actionContainer.hidden;
+            }
         }
 
         // mx51's certification requirements are explicit: "Approved/Declined message and
@@ -263,12 +282,18 @@
         // mx51's own data.message (their reference shows it as e.g. "(000) APPROVED"), not a
         // generic string this app makes up. It's shown as the primary line; the generic label
         // is only a fallback for the rare case mx51 didn't send one.
+        // mx51's certification checklist requires the Print Merchant/Customer Receipt and
+        // Done buttons to actually appear and be usable after a finalised result — closing
+        // the modal on a fixed timer regardless would yank them away before the operator
+        // could ever click Print. renderInstructions() already ran for this same response by
+        // the time these are called, so actionContainer's hidden state tells us whether mx51
+        // sent anything to wait for; only auto-close when it didn't.
         function finishSuccess(donationId, resultAmounts, resultMessage) {
             clearAttempt();
             setStatus([resultMessage || 'PAYMENT APPROVED', 'Saving…'], 'success');
-            setTimeout(hideModal, 1200);
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onApproved(donationId, resultAmounts, currentAttempt);
+            if (cfg.el.actionContainer.hidden) { setTimeout(hideModal, 1200); }
         }
 
         function finishDeclined(message, resultStatus) {
@@ -276,9 +301,9 @@
             var fallback = resultStatus === 'CANCELLED' ? 'PAYMENT CANCELLED' : 'PAYMENT DECLINED';
             var subline = resultStatus === 'CANCELLED' ? 'Transaction cancelled' : 'Transaction declined';
             setStatus([message || fallback, subline], 'error');
-            setTimeout(hideModal, 1800);
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onDeclined(message);
+            if (cfg.el.actionContainer.hidden) { setTimeout(hideModal, 1800); }
         }
 
         function finishUnresolved(message) {
@@ -330,12 +355,14 @@
                         return;
                     }
 
-                    // Gating this on data.message being truthy left the status frozen on the
-                    // initial "Starting…" placeholder forever whenever a PENDING poll came
-                    // back without one (mx51 doesn't guarantee a message on every response,
-                    // only on real transitions) — the poll loop was working the whole time,
-                    // it just never looked like it. Always show something real.
-                    setStatus([data.status || 'Processing', data.message || 'Please wait…'], 'pending');
+                    // mx51's own reference UI leads with the specific message ("Waiting for
+                    // customer to present card"), not the raw status word — and a poll that
+                    // doesn't repeat the message (mx51 doesn't guarantee one on every single
+                    // response, only on real transitions) must never blank out the last real
+                    // one or fall back to a generic placeholder while nothing has actually
+                    // changed. Only ever replace it with a genuinely new message.
+                    if (data.message) { lastKnownMessage = data.message; }
+                    setStatus([lastKnownMessage || 'Please wait…', data.status || ''], 'pending');
                     renderInstructions(pos);
 
                     if (!data.done) {
@@ -427,7 +454,8 @@
                     // example: "Waiting for terminal to accept transaction") — show it now
                     // rather than leaving the generic "Starting…" placeholder up until the
                     // first poll response comes back.
-                    setStatus([result.data.status || 'Processing', result.data.message || 'Please wait…'], 'pending');
+                    if (result.data.message) { lastKnownMessage = result.data.message; }
+                    setStatus([lastKnownMessage || 'Please wait…', result.data.status || ''], 'pending');
                     renderInstructions(result.data.pos_instructions || null);
                     poll();
                 })
