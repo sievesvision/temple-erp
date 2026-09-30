@@ -301,6 +301,35 @@ class CbaSciTransactionTest extends TestCase
         $this->assertSame('DECLINED', $txn->result_financial_status);
     }
 
+    // A stray/late poll on an already-finalised transaction (a manual override, or a normal
+    // poll that already reached FINALISED) must never re-query mx51 at all — a late response
+    // like DEVICE_NOT_CONNECTED could otherwise silently un-finalise an already-correct result
+    // and reopen the exact stuck-popup/resume-loop class of bug this guards against.
+    public function test_poll_never_re_queries_mx51_for_an_already_finalised_transaction(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $txn = SciTransaction::create([
+            'client_ref' => 'ref-finalised-poll', 'sci_transaction_id' => 'txn_finalised_poll', 'sci_version' => 5,
+            'eft_terminal_id' => $terminal->id, 'amount' => 60, 'status' => 'FINALISED',
+            'result_financial_status' => 'UNKNOWN',
+            'meta' => ['record_type' => 'donation', 'donor_name' => 'Manually Overridden Donor'],
+            'initiated_by' => $admin->id,
+        ]);
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => []], 424)]);
+
+        $response = $this->actingAs($admin)->getJson(route('admin.cba-sci.charge.status', $txn->sci_transaction_id));
+
+        $response->assertOk();
+        $response->assertJson(['done' => true, 'status' => 'FINALISED', 'result_financial_status' => 'UNKNOWN']);
+        Http::assertNothingSent();
+
+        $txn->refresh();
+        $this->assertSame('FINALISED', $txn->status);
+        $this->assertSame('UNKNOWN', $txn->result_financial_status);
+    }
+
     // mx51's own Postman collection documents POST /v1/transactions/{id}/cancel — an earlier
     // version of this codebase incorrectly believed no such endpoint existed, so the Cancel
     // button never actually told the terminal anything.

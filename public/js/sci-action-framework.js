@@ -92,6 +92,16 @@
         // reset it either.
         var lastProgressAt = null;
         var lastProgressSignature = null;
+        // mx51's own literal wording for "the terminal hasn't even acknowledged the request
+        // yet" — verified against real production traffic, not guessed. Unlike a mid-
+        // transaction stall (e.g. "Waiting for customer to present card", which means the
+        // terminal DID accept it and a card could genuinely already be mid-swipe), this
+        // specific message means no card has been touched at all, so there's no ambiguous
+        // outcome to resolve. mx51's API has no separate machine-readable status for this —
+        // both cases are just PENDING with a different message — so matching the literal text
+        // is the only signal available; if mx51 ever rewords it, this simply stops firing
+        // rather than misfiring on a message it doesn't recognise.
+        var NEVER_ACCEPTED_MESSAGE = 'Waiting for terminal to accept transaction';
         // Set the moment a real Cancel Transaction call is made — per mx51's own transaction-
         // recovery guidance, a cancel gets its own (shorter) no-response deadline before
         // falling back to the manual override dialog, distinct from an ordinary transaction's.
@@ -381,6 +391,20 @@
                 showOverride();
             }
 
+            // If the terminal has never even acknowledged this transaction, there's nothing
+            // ambiguous to resolve — no card was ever touched, so unlike a mid-transaction
+            // stall this can fail fast and clean (like a real network failure) instead of
+            // making the operator wait through the slower "did it go through?" override flow.
+            if (lastKnownMessage === NEVER_ACCEPTED_MESSAGE
+                && !cancelRequestedAt && Date.now() - startedAt > 20000) {
+                clearAttempt();
+                setStatus(['TERMINAL NOT REACHABLE', 'Check the network/terminal connection and try again'], 'error');
+                setTimeout(hideModal, 2200);
+                if (activeBtn) { activeBtn.disabled = false; }
+                cfg.onDeclined('Terminal did not respond — check network and terminal connections.');
+                return;
+            }
+
             fetch(cfg.statusUrlBase + '/' + encodeURIComponent(transactionId) + qs(), { headers: { 'Accept': 'application/json' } })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
@@ -508,6 +532,7 @@
                     transactionId = result.data.transaction_id;
                     startedAt = Date.now();
                     lastProgressAt = startedAt;
+                    lastProgressSignature = (result.data.status || '') + '|' + (result.data.message || '');
                     // mx51's own create response carries a real message too (their docs'
                     // example: "Waiting for terminal to accept transaction") — show it now
                     // rather than leaving the generic "Starting…" placeholder up until the
@@ -590,6 +615,25 @@
                         showToastFallback(data.message || 'Could not record the outcome — please try again.');
                         return;
                     }
+                    // The override is a final, local decision — but poll() was still running
+                    // on its own independent setTimeout chain, and mx51 itself may genuinely
+                    // never resolve this transaction. Left running, the very next poll would
+                    // fetch mx51's still-unresolved answer, overwrite this outcome (both the
+                    // display AND — server-side, since poll() re-queries mx51 unconditionally
+                    // — the just-finalised database row), and pop the "Approved" message right
+                    // back to the ambiguous waiting state. This must stop it for good.
+                    cancelled = true;
+                    // The override endpoint returns a decision, not a fresh Action Framework
+                    // payload — whatever buttons happened to still be in actionContainer from
+                    // before (often stale, sometimes nothing at all) has no bearing on this
+                    // outcome. finishSuccess()/finishDeclined()/finishUnresolved() only
+                    // auto-close the modal when actionContainer is empty, so leaving old
+                    // content sitting there was blocking the close indefinitely — "Approved /
+                    // Saving…" would show, then just sit there forever. renderInstructions()
+                    // itself now deliberately refuses to clear real content with nothing (see
+                    // its own guard), so that's the wrong tool here — this has to force it.
+                    cfg.el.actionContainer.innerHTML = '';
+                    cfg.el.actionContainer.hidden = true;
                     if (data.donation_id) { finishSuccess(data.donation_id, null); return; }
                     if (data.result_financial_status === 'APPROVED') { finishSuccess(data.donation_id, null); return; }
                     if (data.result_financial_status && data.result_financial_status !== 'UNKNOWN') { finishDeclined(data.message, data.result_financial_status); return; }

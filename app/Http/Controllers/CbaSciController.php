@@ -255,6 +255,27 @@ class CbaSciController extends Controller
             return response()->json(['success' => false, 'message' => 'Transaction not found.'], 404);
         }
 
+        // Never re-query mx51 for a transaction already finalised locally (a normal poll
+        // reaching FINALISED, or a manual override) — mirrors override()'s own "never let a
+        // later call contradict an existing result" guard. Without this, a stray poll (a
+        // request already in flight when the client stopped polling, another open tab, a
+        // resumed session) could get back something like DEVICE_NOT_CONNECTED for a
+        // transaction mx51 itself has already forgotten about, and silently un-finalise a
+        // transaction that was correctly resolved — reopening exactly the stuck-popup/
+        // resume-loop class of bug this is meant to prevent.
+        if (in_array($txn->status, SciTransaction::FINAL_STATUSES, true)) {
+            return response()->json([
+                'done' => true,
+                'success' => $txn->result_financial_status === 'APPROVED',
+                'status' => $txn->status,
+                'message' => $txn->message,
+                'pos_instructions' => $txn->pos_instructions,
+                'result_financial_status' => $txn->result_financial_status,
+                'transient_error' => false,
+                'donation_id' => $txn->donation_id,
+            ]);
+        }
+
         // mx51's own documented rule: min_version is always the last CONFIRMED version + 1
         // (never self-incremented from a previous request value) — sci_version stores the
         // actual last-known version, not a pre-computed min_version, so that +1 happens here
