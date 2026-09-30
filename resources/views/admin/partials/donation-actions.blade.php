@@ -26,12 +26,16 @@
         </button>
     </form>
     @endif
-    @if($canEditDonation)
+    {{-- An EFT Terminal donation IS the terminal transaction record — editing/deleting it
+         here would desync it from what the gateway actually charged. Refund (on the All
+         Transactions list) is the only correct way to change one of these; Resend/View stay
+         available above/below since they're read-only. --}}
+    @if($canEditDonation && $row->payment_method !== 'EFT Terminal')
     <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editDevoteeDonationModal{{ $row->id }}">
         <i class="bi bi-pencil-square"></i> Edit
     </button>
     @endif
-    @if($canDeleteDonation)
+    @if($canDeleteDonation && $row->payment_method !== 'EFT Terminal')
     <form action="{{ route('admin.donations.deleteDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
         @csrf
         @method('DELETE')
@@ -65,12 +69,12 @@
         </button>
     </form>
     @endif
-    @if($canEditDonation)
+    @if($canEditDonation && $row->payment_method !== 'EFT Terminal')
     <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editGuestDonationModal{{ $row->id }}">
         <i class="bi bi-pencil-square"></i> Edit
     </button>
     @endif
-    @if($canDeleteDonation)
+    @if($canDeleteDonation && $row->payment_method !== 'EFT Terminal')
     <form action="{{ route('admin.donations.deleteGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
         @csrf
         @method('DELETE')

@@ -408,6 +408,10 @@
 
             @if($canEditDonation)
             @foreach($devoteeDonations as $d)
+            {{-- An EFT Terminal donation can't be edited (see donation-actions.blade.php's
+                 own docblock) — no point rendering a form for it that the server would just
+                 reject anyway. --}}
+            @continue($d->payment_method === 'EFT Terminal')
             <div class="modal fade" id="editDevoteeDonationModal{{ $d->id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content border-0 shadow-lg rounded-4">
@@ -487,6 +491,7 @@
             </div>
             @endforeach
             @foreach($guestDonations as $g)
+            @continue($g->payment_method === 'EFT Terminal')
             <div class="modal fade" id="editGuestDonationModal{{ $g->id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content border-0 shadow-lg rounded-4">

@@ -1443,6 +1443,9 @@
     <!-- EDIT MODALS (devotee + guest) — same fields as the main Manage Donations page -->
     @if($canEditDonation)
         @foreach($rows->where('donation_type', 'devotee') as $row)
+        {{-- An EFT Terminal donation can't be edited (see donation-actions.blade.php's own
+             docblock) — no point rendering a form for it that the server would just reject. --}}
+        @continue($row->payment_method === 'EFT Terminal')
         <div class="modal fade" id="editDevoteeDonationModal{{ $row->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">
@@ -1515,6 +1518,7 @@
         @endforeach
 
         @foreach($rows->where('donation_type', 'guest') as $row)
+        @continue($row->payment_method === 'EFT Terminal')
         <div class="modal fade" id="editGuestDonationModal{{ $row->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">

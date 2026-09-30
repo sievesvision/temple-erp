@@ -1743,6 +1743,15 @@ class DonationController extends Controller
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
+        // An EFT Terminal donation IS the terminal transaction record (see SciTransaction/
+        // LinklyTransaction's own donation_id link) — editing it here would desync it from
+        // what the gateway actually charged, with no way to reflect that edit back on the
+        // real transaction. A refund (from the All Transactions list) is the only correct way
+        // to change the outcome of one of these.
+        if ($donation->payment_method === 'EFT Terminal') {
+            return redirect()->back()->with('error', 'EFT Terminal transactions cannot be edited — use Refund instead.');
+        }
+
         $validated = $request->validate([
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
@@ -1784,6 +1793,10 @@ class DonationController extends Controller
             return redirect()->back()->with('error', 'Donation not found.');
         }
 
+        if ($donation->payment_method === 'EFT Terminal') {
+            return redirect()->back()->with('error', 'EFT Terminal transactions cannot be deleted — the terminal transaction record must stay intact.');
+        }
+
         DB::table('donations')->where('id', $id)->delete();
 
         return redirect()->back()->with('success', 'Devotee donation deleted successfully.');
@@ -1804,6 +1817,10 @@ class DonationController extends Controller
 
         if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        if ($donation->payment_method === 'EFT Terminal') {
+            return redirect()->back()->with('error', 'EFT Terminal transactions cannot be edited — use Refund instead.');
         }
 
         $validated = $request->validate([
@@ -1851,6 +1868,10 @@ class DonationController extends Controller
         $donation = DB::table('donations_without_logins')->where('id', $id)->first();
         if (!$donation) {
             return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if ($donation->payment_method === 'EFT Terminal') {
+            return redirect()->back()->with('error', 'EFT Terminal transactions cannot be deleted — the terminal transaction record must stay intact.');
         }
 
         DB::table('donations_without_logins')->where('id', $id)->delete();
