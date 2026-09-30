@@ -83,10 +83,15 @@
         // mx51's own reference timeout is measured "since the last successful response", not
         // since the transaction started — a long but healthy run (steady PENDING updates)
         // must not trip the override just because it's been going a while; only actual
-        // silence should. Set whenever the fetch itself succeeds (any HTTP response at all,
-        // including an error status mx51 sent us) — a genuine network-level failure (the
-        // .catch() branch below) is real silence and must NOT reset it.
-        var lastResponseAt = null;
+        // silence should. But "successful response" has to mean genuinely new content, not
+        // merely an HTTP 200 — a terminal-side network failure often looks, from mx51 cloud's
+        // side, like an ordinary healthy long-poll: it keeps returning 200 OK with the SAME
+        // "still PENDING" message/status forever because it's also still waiting to hear from
+        // the terminal. Only moves when the message or status actually changes; a genuine
+        // network-level failure (the .catch() branch below) is real silence and must NOT
+        // reset it either.
+        var lastProgressAt = null;
+        var lastProgressSignature = null;
         // Set the moment a real Cancel Transaction call is made — per mx51's own transaction-
         // recovery guidance, a cancel gets its own (shorter) no-response deadline before
         // falling back to the manual override dialog, distinct from an ordinary transaction's.
@@ -356,9 +361,11 @@
             // value, which is what these mirror.
             // Cancellation uses a fixed deadline from the moment cancel was requested (mx51's
             // wording: "no FINALISED response... within a defined period", not reset by
-            // interim chatter); the ordinary case resets on every response, per "no response
-            // for a defined period" — an actively-updating PENDING transaction never trips it.
-            var overrideBaseline = cancelRequestedAt || lastResponseAt || startedAt;
+            // interim chatter); the ordinary case resets whenever the terminal actually reports
+            // something new, per "no response for a defined period" — a genuinely progressing
+            // PENDING transaction never trips it, but one stuck repeating the same message
+            // forever (e.g. the terminal itself has gone offline) now correctly does.
+            var overrideBaseline = cancelRequestedAt || lastProgressAt || startedAt;
             var overrideDeadline = cancelRequestedAt ? 20000 : 60000;
             if (overrideBaseline && Date.now() - overrideBaseline > overrideDeadline && !overrideOfferedAt) {
                 overrideOfferedAt = Date.now();
@@ -370,7 +377,15 @@
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (cancelled) { return; }
-                    lastResponseAt = Date.now();
+
+                    // Real progress only — a poll that repeats the exact same status/message
+                    // the terminal already reported isn't evidence anything is still moving,
+                    // even though the HTTP call itself succeeded.
+                    var progressSignature = (data.status || '') + '|' + (data.message || '');
+                    if (progressSignature !== lastProgressSignature) {
+                        lastProgressSignature = progressSignature;
+                        lastProgressAt = Date.now();
+                    }
 
                     merchantReceipt = data.merchant_receipt || merchantReceipt;
                     customerReceipt = data.customer_receipt || customerReceipt;
@@ -447,7 +462,8 @@
             transactionId = null;
             consecutiveTransientErrors = 0;
             overrideOfferedAt = null;
-            lastResponseAt = null;
+            lastProgressAt = null;
+            lastProgressSignature = null;
             cancelRequestedAt = null;
             formValues = {};
             cfg.el.cancelBtn.disabled = false;
@@ -483,6 +499,7 @@
                     }
                     transactionId = result.data.transaction_id;
                     startedAt = Date.now();
+                    lastProgressAt = startedAt;
                     // mx51's own create response carries a real message too (their docs'
                     // example: "Waiting for terminal to accept transaction") — show it now
                     // rather than leaving the generic "Starting…" placeholder up until the
@@ -537,6 +554,16 @@
         cfg.el.overrideKeepWaitingBtn.addEventListener('click', function () {
             if (!flowStarted) { return; }
             hideOverride();
+            cfg.el.cancelBtn.disabled = false;
+            // Re-arm the safety net for another full interval rather than leaving it
+            // permanently spent — without this, choosing "keep waiting" once meant the
+            // override could never reappear again for the rest of this transaction, no matter
+            // how much longer the terminal stayed unresponsive or whether Cancel was pressed
+            // afterward. "Keep waiting" should mean exactly that: wait one more interval, then
+            // ask again if there's still nothing.
+            overrideOfferedAt = null;
+            lastProgressAt = Date.now();
+            if (cancelRequestedAt) { cancelRequestedAt = Date.now(); }
         });
 
         function submitOverride(outcome) {
