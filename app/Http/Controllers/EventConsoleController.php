@@ -198,7 +198,7 @@ class EventConsoleController extends Controller
         if ($canEditEvent) {
             // Purchase/refund only — a Logon proves nothing about money moving and just
             // clutters a list that's meant to be this event's actual payment history.
-            $linklyTransactions = LinklyTransaction::where('event_id', $event->event_id)
+            $linklyTransactions = LinklyTransaction::with('eftTerminal')->where('event_id', $event->event_id)
                 ->whereIn('txn_type', ['purchase', 'refund'])
                 ->orderBy('created_at', 'desc')
                 ->limit(50)
@@ -217,6 +217,21 @@ class EventConsoleController extends Controller
                 ->take(50)
                 ->values();
         }
+        // "All Donations" (below) folds the EFT purchase/refund history in directly instead
+        // of keeping a second, overlapping transactions table on the EFTPOS pane — an
+        // approved purchase's own donation row already IS that transaction, so it's looked
+        // up here (by donation_id) purely to show its provider/terminal/reference and offer
+        // Refund inline, never duplicated as a second row. A refund itself has no donation
+        // row of its own (see CbaSciController::refund()/DonationController::refundEftCharge()
+        // — it just flips the original donation to 'Cancelled'), and a purchase that never
+        // became a donation (declined/cancelled/abandoned) has no row anywhere else — both
+        // are shown as their own "orphan" rows so that history isn't lost from the merge.
+        // Keyed by "donation_type:donation_id" rather than the bare id — devotee and guest
+        // donations are separate tables that both restart their auto-increment from 1, so a
+        // bare id would risk matching one type's row against the other type's transaction.
+        $linklyPurchaseByDonation = $linklyTransactions->where('txn_type', 'purchase')->keyBy(fn ($t) => $t->donation_type . ':' . $t->donation_id);
+        $sciPurchaseByDonation = $sciTransactions->where('txn_type', 'purchase')->keyBy(fn ($t) => $t->donation_type . ':' . $t->donation_id);
+        $eftOrphanRows = $eftTransactions->filter(fn ($row) => $row->txn->txn_type === 'refund' || !$row->txn->donation_id)->values();
         // Terminals are a shared, independently-pairable registry, not one-per-event (see
         // App\Models\EftTerminal) — the console shows every registered terminal's own status
         // so an operator can pair/logon whichever one this event's POS station is meant to
@@ -268,6 +283,9 @@ class EventConsoleController extends Controller
             'linklyTransactions',
             'sciTransactions',
             'eftTransactions',
+            'linklyPurchaseByDonation',
+            'sciPurchaseByDonation',
+            'eftOrphanRows',
             'eftTerminals',
             'linklyMode',
             'cbaSciMode'

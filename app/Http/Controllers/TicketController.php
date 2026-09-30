@@ -103,7 +103,7 @@ class TicketController extends Controller
         // console should only ever show what's relevant to ticket sales (event_id is
         // always null for these, since Tickets isn't event-scoped). Purchase/refund only —
         // a Logon proves nothing about money moving and just clutters a payment history.
-        $linklyTransactions = LinklyTransaction::whereNull('event_id')
+        $linklyTransactions = LinklyTransaction::with('eftTerminal')->whereNull('event_id')
             ->where('donation_type', 'ticket_order')
             ->whereIn('txn_type', ['purchase', 'refund'])
             ->orderByDesc('created_at')
@@ -124,6 +124,13 @@ class TicketController extends Controller
             ->sortByDesc('created_at')
             ->take(200)
             ->values();
+
+        // "All Orders" (below) folds the EFT purchase/refund history in directly instead of
+        // keeping a second, overlapping transactions table on the EFTPOS pane — see
+        // EventConsoleController::show()'s identical pattern/reasoning.
+        $linklyPurchaseByDonation = $linklyTransactions->where('txn_type', 'purchase')->keyBy('donation_id');
+        $sciPurchaseByDonation = $sciTransactions->where('txn_type', 'purchase')->keyBy('donation_id');
+        $eftOrphanRows = $eftTransactions->filter(fn ($row) => $row->txn->txn_type === 'refund' || !$row->txn->donation_id)->values();
 
         $ticketControllers = DB::table('ticket_controllers')
             ->join('users', 'ticket_controllers.user_id', '=', 'users.id')
@@ -190,6 +197,9 @@ class TicketController extends Controller
             'linklyTransactions',
             'sciTransactions',
             'eftTransactions',
+            'linklyPurchaseByDonation',
+            'sciPurchaseByDonation',
+            'eftOrphanRows',
             'ticketControllers',
             'allUsersForControllers',
             'ticketLogs',

@@ -65,7 +65,8 @@ class EftConsoleTransactionHistoryTest extends TestCase
     }
 
     // The old per-terminal Pair/Check Status forms and the "Add Terminal" form are gone —
-    // replaced by a single link to the real settings page (see admin.eft-terminals.index).
+    // replaced by its own console-body pane (like every other sidebar item) embedding the
+    // real settings page, rather than either a duplicated form or a popup modal.
     public function test_event_console_eftpos_pane_links_out_instead_of_duplicating_pairing_ui(): void
     {
         Setting::set('linkly_mode', 'sandbox');
@@ -75,7 +76,9 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
 
         $response->assertOk();
-        $response->assertSee('openEftTerminalSettingsModal()', false);
+        $response->assertSee('data-pane="pane-eft-settings"', false);
+        $response->assertSee('id="eftSettingsPaneFrame"', false);
+        $response->assertSee(route('admin.eft-terminals.index') . '?embedded=1', false);
         $response->assertDontSee('name="pair_code"', false);
         // "name=\"key\"" is the Add-Terminal form's own field — distinct from the store()
         // route's URL, which is identical to index()'s (same path, different verb) and so
@@ -114,7 +117,9 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
 
         $response->assertOk();
-        $response->assertSee('openEftTerminalSettingsModal()', false);
+        $response->assertSee('data-pane="pane-eft-settings"', false);
+        $response->assertSee('id="eftSettingsPaneFrame"', false);
+        $response->assertSee(route('admin.eft-terminals.index') . '?embedded=1', false);
         $response->assertDontSee('name="pair_code"', false);
         $response->assertDontSee('name="key"', false);
     }

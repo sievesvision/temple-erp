@@ -144,10 +144,11 @@
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link active" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-types"><i class="bi bi-ticket-perforated-fill"></i><span>Ticket Types</span></button>
-                    <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>Ticket Sales</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>All Transactions</span></button>
                     @if($canManageConsole)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-controllers"><i class="bi bi-people-fill"></i><span>Ticket Controllers</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
@@ -248,11 +249,14 @@
                         </div>
                     </div>
 
-                    <!-- TICKET SALES -->
+                    <!-- ALL TRANSACTIONS — every ticket order, plus any EFT purchase/refund
+                         history that isn't already represented by one (see
+                         TicketController::manageTickets()'s $eftOrphanRows docblock). Folds in
+                         what used to be a second, overlapping table on the EFTPOS pane. -->
                     <div class="console-pane" id="pane-sales">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-receipt"></i></div>
-                            <div><h2>Ticket Sales</h2><p>Every order sold from the Ticket Kiosk.</p></div>
+                            <div><h2>All Transactions</h2><p>Every order and EFT terminal transaction from the Ticket Kiosk.</p></div>
                         </div>
                         <div class="card-panel" style="padding:0;">
                             <div class="table-scroll-wrap" style="max-height: calc(100vh - 300px);">
@@ -262,6 +266,16 @@
                                     </thead>
                                     <tbody>
                                         @forelse($orders as $order)
+                                        @php
+                                            $orderLinklyTxn = $order->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$order->id] ?? null) : null;
+                                            $orderSciTxn = $order->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$order->id] ?? null) : null;
+                                            $orderEftProvider = $orderLinklyTxn ? 'Linkly' : ($orderSciTxn ? 'mx51' : null);
+                                            $orderEftTerminalLabel = $orderLinklyTxn->eftTerminal->label ?? ($orderSciTxn->eftTerminal->label ?? null);
+                                            $orderCanRefund = $canManageConsole && (
+                                                ($orderLinklyTxn && $orderLinklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $orderLinklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
+                                                || ($orderSciTxn && $orderSciTxn->status === 'FINALISED' && $orderSciTxn->result_financial_status === 'APPROVED' && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $orderSciTxn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED')))
+                                            );
+                                        @endphp
                                         <tr>
                                             <td>#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</td>
                                             <td>{{ $order->customer_name ?: '—' }}</td>
@@ -269,16 +283,62 @@
                                                 @foreach($order->items as $item){{ $item->quantity }}x {{ $item->ticket_name }}@if(!$loop->last), @endif @endforeach
                                             </td>
                                             <td class="col-amount">{{ number_format($order->total_amount, 2) }}</td>
-                                            <td>{{ $order->payment_method }}</td>
+                                            <td>
+                                                {{ $order->payment_method }}
+                                                @if($orderEftProvider)
+                                                <div class="text-muted small">{{ $orderEftProvider }}@if($orderEftTerminalLabel) · {{ $orderEftTerminalLabel }}@endif</div>
+                                                @endif
+                                            </td>
                                             <td class="col-txn">{{ $order->transaction_id ?: '—' }}</td>
                                             <td class="small">{{ $order->seller->name ?? '—' }}</td>
                                             <td>{{ $order->order_date->format('d M Y') }}</td>
                                             <td><span class="status-pill status-{{ strtolower($order->payment_status) }}">{{ $order->payment_status }}</span></td>
-                                            <td class="text-end"><a href="{{ route('admin.tickets.print', $order->id) }}" target="_blank" class="btn-action-checkstatus" title="Reprint stubs"><i class="bi bi-printer-fill"></i></a></td>
+                                            <td class="text-end">
+                                                <a href="{{ route('admin.tickets.print', $order->id) }}" target="_blank" class="btn-action-checkstatus" title="Reprint stubs"><i class="bi bi-printer-fill"></i></a>
+                                                @if($orderCanRefund && $orderLinklyTxn)
+                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openTicketRefundModal({{ $orderLinklyTxn->id }}, {{ $order->total_amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                                @elseif($orderCanRefund && $orderSciTxn)
+                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $orderSciTxn->sci_transaction_id }}', {{ $order->total_amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                                @endif
+                                            </td>
                                         </tr>
                                         @empty
+                                        @if(($eftOrphanRows ?? collect())->isEmpty())
                                         <tr><td colspan="10" class="text-center text-muted py-4">No ticket orders yet.</td></tr>
+                                        @endif
                                         @endforelse
+                                        @if($canManageConsole)
+                                        @foreach($eftOrphanRows as $orow)
+                                        @php
+                                            $ot = $orow->txn;
+                                            $oIsRefund = $ot->txn_type === 'refund';
+                                            $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'mx51';
+                                            $oRef = $orow->provider === 'linkly' ? $ot->pos_txn_ref : ($ot->sci_transaction_id ?: $ot->client_ref);
+                                            $oTerminalLabel = $ot->eftTerminal->label ?? null;
+                                            $oStatusWord = $orow->provider === 'linkly' ? $ot->status : (($ot->result_financial_status ?: $ot->status) ?? '');
+                                            $oPillClass = $orow->provider === 'linkly'
+                                                ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
+                                                : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
+                                        @endphp
+                                        <tr>
+                                            <td>—</td>
+                                            <td>{{ $ot->meta['customer_name'] ?? '—' }}</td>
+                                            <td class="small text-muted">{{ $oIsRefund ? 'Refund' : 'Failed/abandoned attempt' }}</td>
+                                            <td class="col-amount">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
+                                            <td>
+                                                EFT Terminal
+                                                <div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div>
+                                            </td>
+                                            <td class="col-txn">{{ $oRef ?: '—' }}</td>
+                                            <td class="small">—</td>
+                                            <td>{{ $ot->created_at->format('d M Y') }}</td>
+                                            <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i></button>
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                        @endif
                                     </tbody>
                                 </table>
                             </div>
@@ -365,7 +425,7 @@
                         <div class="card-panel mt-3">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <div class="fw-bold">Registered EFT Terminals</div>
-                                <button type="button" onclick="openEftTerminalSettingsModal()" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
+                                <button type="button" onclick="activatePane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
                             </div>
                             <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Adding, pairing and unpairing terminals (Linkly or mx51) all happen on the EFT Terminal Settings page.</p>
                             @forelse($eftTerminals as $terminal)
@@ -388,7 +448,7 @@
                                 @endif
                             </div>
                             @empty
-                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();">add one on the EFT Terminal Settings page</a>.</p>
+                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); activatePane('pane-eft-settings');">add one on the EFT Terminal Settings page</a>.</p>
                             @endforelse
                         </div>
                     </div>
@@ -397,10 +457,10 @@
                     <div class="console-pane" id="pane-eftpos">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
-                            <div><h2>EFTPOS</h2><p>Terminal status and refunds for ticket sales — pairing and adding terminals happens on the EFT Terminal Settings page.</p></div>
+                            <div><h2>EFTPOS</h2><p>Terminal pairing status for ticket sales — every transaction (including refunds) is on the All Transactions tab; pairing and adding terminals happens on EFT Terminal Settings.</p></div>
                             <div class="page-header-actions">
                                 <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
-                                <button type="button" onclick="openEftTerminalSettingsModal()" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
+                                <button type="button" onclick="activatePane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
                             </div>
                         </div>
                         <div class="card-panel mb-3">
@@ -431,75 +491,22 @@
                                 </div>
                             </div>
                             @empty
-                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();">add one on the EFT Terminal Settings page</a>.</p>
+                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); activatePane('pane-eft-settings');">add one on EFT Terminal Settings</a>.</p>
                             @endforelse
                         </div>
-                        <div class="card-panel" style="padding:0;">
-                            <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Transactions <span class="text-muted small fw-normal">(Linkly + mx51)</span></h5></div>
-                            <div class="table-scroll-wrap" style="max-height: calc(100vh - 460px);">
-                                <table class="console-table">
-                                    <thead><tr><th>Type</th><th class="col-amount">Amount</th><th>Reference</th><th>Provider</th><th>Terminal</th><th>Date/Time</th><th>Result</th><th class="text-end">Actions</th></tr></thead>
-                                    <tbody>
-                                        @forelse($eftTransactions as $row)
-                                        @php $txn = $row->txn; @endphp
-                                        @if($row->provider === 'linkly')
-                                        @php
-                                            $pillClass = match($txn->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' };
-                                            $canRefundRow = $txn->txn_type === 'purchase' && $txn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $txn->id && in_array($t->status, ['initiated', 'in_progress', 'approved']));
-                                        @endphp
-                                        <tr>
-                                            <td class="text-capitalize">{{ $txn->txn_type }}</td>
-                                            <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
-                                            <td class="col-txn">{{ $txn->pos_txn_ref }}</td>
-                                            <td class="small text-muted">Linkly</td>
-                                            <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
-                                            <td>{{ $txn->created_at->format('d M Y H:i:s') }}</td>
-                                            <td><span class="status-pill status-{{ $pillClass }}">{{ ucfirst($txn->status) }}</span></td>
-                                            <td class="text-end">
-                                                @if($txn->linkly_session_id)
-                                                <form action="{{ route('admin.tickets.eft.reprint', $txn->linkly_session_id) }}" method="POST" class="d-inline">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Reprint receipt"><i class="bi bi-receipt"></i></button>
-                                                </form>
-                                                @endif
-                                                @if($canRefundRow)
-                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openTicketRefundModal({{ $txn->id }}, {{ $txn->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                        @else
-                                        @php
-                                            $sciPillClass = match(true) {
-                                                $txn->result_financial_status === 'APPROVED' => 'paid',
-                                                in_array($txn->status, ['PENDING', 'AWAITING_POS']) => 'pending',
-                                                default => 'cancelled',
-                                            };
-                                            $sciResultLabel = $txn->result_financial_status ?: $txn->status;
-                                            $canRefundSciRow = $txn->txn_type === 'purchase' && $txn->status === 'FINALISED' && $txn->result_financial_status === 'APPROVED'
-                                                && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $txn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED'));
-                                        @endphp
-                                        <tr>
-                                            <td class="text-capitalize">{{ $txn->txn_type }}</td>
-                                            <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
-                                            <td class="col-txn">{{ $txn->sci_transaction_id ?: $txn->client_ref }}</td>
-                                            <td class="small text-muted">mx51</td>
-                                            <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
-                                            <td>{{ $txn->created_at->format('d M Y H:i:s') }}</td>
-                                            <td><span class="status-pill status-{{ $sciPillClass }}">{{ ucfirst(strtolower($sciResultLabel)) }}</span></td>
-                                            <td class="text-end">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $txn->sci_transaction_id ?: $txn->client_ref }}')"><i class="bi bi-clipboard"></i></button>
-                                                @if($canRefundSciRow)
-                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $txn->sci_transaction_id }}', {{ $txn->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                        @endif
-                                        @empty
-                                        <tr><td colspan="8" class="text-center text-muted py-4">No ticket-related EFTPOS transactions yet.</td></tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
+                    </div>
+
+                    <!-- EFT TERMINAL SETTINGS — see EventConsoleController::show()'s identical
+                         pane/reasoning: reuses the existing EftTerminalController page wholesale
+                         (via ?embedded=1) instead of a popup modal or a second copy of the
+                         pairing/registry UI. -->
+                    <div class="console-pane" id="pane-eft-settings">
+                        <div class="page-header">
+                            <div class="page-header-icon"><i class="bi bi-sliders"></i></div>
+                            <div><h2>EFT Terminal Settings</h2><p>Pair, unpair, and register terminals — shared across every event and Ticket Sales.</p></div>
+                        </div>
+                        <div class="card-panel" style="padding:0; overflow:hidden;">
+                            <iframe id="eftSettingsPaneFrame" src="about:blank" data-src="{{ route('admin.eft-terminals.index') }}?embedded=1" style="width:100%; border:0; min-height: calc(100vh - 210px);"></iframe>
                         </div>
                     </div>
 
@@ -822,7 +829,25 @@
             document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
             document.getElementById('appSidebar').classList.remove('open');
             document.getElementById('sidebarBackdrop').classList.remove('show');
+            if (paneId === 'pane-eft-settings') { loadEftSettingsFrame(); }
             return true;
+        }
+
+        // EFT Terminal Settings pane — see event-console.blade.php's identical
+        // loadEftSettingsFrame() for the reasoning: lazy-load the iframe once, then reload the
+        // whole console once it navigates again afterward (a pairing/unpairing form inside it
+        // redirected) so this page's own terminal cards/All Transactions rows reflect it.
+        var eftSettingsFrameLoaded = false;
+        var eftSettingsFrameLoadCount = 0;
+        function loadEftSettingsFrame() {
+            const frame = document.getElementById('eftSettingsPaneFrame');
+            if (!frame || eftSettingsFrameLoaded) { return; }
+            eftSettingsFrameLoaded = true;
+            frame.addEventListener('load', function () {
+                eftSettingsFrameLoadCount++;
+                if (eftSettingsFrameLoadCount > 1) { location.reload(); }
+            });
+            frame.src = frame.dataset.src;
         }
         document.querySelectorAll('[data-pane]').forEach(function (el) {
             el.addEventListener('click', function () { activatePane(this.dataset.pane); });

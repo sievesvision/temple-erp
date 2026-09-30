@@ -403,7 +403,7 @@
                     <button type="button" class="sidebar-link active" data-pane="pane-entry"><i class="bi bi-heart-fill"></i><span>New Donation</span></button>
                     <a href="{{ route('admin.events.pos', $event->event_id) }}" class="sidebar-link"><i class="bi bi-lightning-charge-fill"></i><span>POS Mode</span></a>
                     @endif
-                    <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Donations</span></button>
+                    <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Transactions</span></button>
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     @endif
@@ -412,6 +412,7 @@
                     @endif
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-eftpos"><i class="bi bi-credit-card-2-front-fill"></i><span>EFTPOS</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
                     @endif
                     @if($canViewEventLogs)
@@ -537,13 +538,16 @@
                     </div>
                 </div>
 
-                <!-- ALL DONATIONS (full detailed table) -->
+                <!-- ALL TRANSACTIONS (every donation, plus any EFT purchase/refund history that
+                     isn't already represented by one — see EventConsoleController::show()'s
+                     $eftOrphanRows docblock. Folds in what used to be a second, overlapping
+                     table on the EFTPOS pane. -->
                 <div class="console-pane {{ $canAddDonation ? '' : 'active' }}" id="pane-table">
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-card-list"></i></div>
                         <div>
-                            <h2>All Donations</h2>
-                            <p>Every donation recorded for {{ $event->event_name }}</p>
+                            <h2>All Transactions</h2>
+                            <p>Every donation and EFT terminal transaction recorded for {{ $event->event_name }}</p>
                         </div>
                         <div class="page-header-actions d-flex gap-2">
                             <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
@@ -610,6 +614,20 @@
                             </thead>
                             <tbody>
                                 @forelse($rows as $row)
+                                @php
+                                    // An EFT Terminal donation IS a purchase transaction — looked up here
+                                    // (never duplicated as a second row) purely to show which provider/
+                                    // terminal took it and to offer Refund inline. See
+                                    // EventConsoleController::show()'s $linklyPurchaseByDonation docblock.
+                                    $rowLinklyTxn = $row->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
+                                    $rowSciTxn = $row->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
+                                    $rowEftProvider = $rowLinklyTxn ? 'Linkly' : ($rowSciTxn ? 'mx51' : null);
+                                    $rowEftTerminalLabel = $rowLinklyTxn->eftTerminal->label ?? ($rowSciTxn->eftTerminal->label ?? null);
+                                    $rowCanRefund = $canEditEvent && (
+                                        ($rowLinklyTxn && $rowLinklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $rowLinklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
+                                        || ($rowSciTxn && $rowSciTxn->status === 'FINALISED' && $rowSciTxn->result_financial_status === 'APPROVED' && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $rowSciTxn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED')))
+                                    );
+                                @endphp
                                 <tr data-donation-date="{{ date('Y-m-d', strtotime($row->donation_date)) }}"
                                     data-search="{{ strtolower($row->display_name.' '.($row->email ?? '').' '.($row->mobile ?? '')) }}"
                                     data-type="{{ $row->donation_type }}"
@@ -631,7 +649,12 @@
                                     @endforeach
                                     <td class="col-amount">@if($row->other_amount > 0){{ number_format($row->other_amount, 2) }}@else — @endif</td>
                                     <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
-                                    <td>{{ $row->payment_method }}</td>
+                                    <td>
+                                        {{ $row->payment_method }}
+                                        @if($rowEftProvider)
+                                        <div class="text-muted small">{{ $rowEftProvider }}@if($rowEftTerminalLabel) · {{ $rowEftTerminalLabel }}@endif</div>
+                                        @endif
+                                    </td>
                                     <td class="col-txn" title="{{ $row->transaction_id }}">
                                         {{ $row->transaction_id ?: '—' }}
                                         @if(!empty($row->linkly_txn_ref))
@@ -642,12 +665,65 @@
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
                                     <td class="text-end">
                                         @include('admin.partials.donation-actions', ['row' => $row])
+                                        @if($rowCanRefund && $rowLinklyTxn)
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openEftRefundModal({{ $rowLinklyTxn->id }}, {{ $row->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                        @elseif($rowCanRefund && $rowSciTxn)
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $rowSciTxn->sci_transaction_id }}', {{ $row->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                        @endif
                                     </td>
                                 </tr>
                                 @empty
-                                <tr><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No donations recorded for this event yet.</td></tr>
+                                @if(($eftOrphanRows ?? collect())->isEmpty())
+                                <tr><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
+                                @endif
                                 @endforelse
-                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No donations match your search/filter.</td></tr>
+                                @if($canEditEvent)
+                                @foreach($eftOrphanRows as $orow)
+                                @php
+                                    $ot = $orow->txn;
+                                    $oIsRefund = $ot->txn_type === 'refund';
+                                    $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'mx51';
+                                    $oRef = $orow->provider === 'linkly' ? $ot->pos_txn_ref : ($ot->sci_transaction_id ?: $ot->client_ref);
+                                    $oTerminalLabel = $ot->eftTerminal->label ?? null;
+                                    $oStatusWord = $orow->provider === 'linkly' ? $ot->status : (($ot->result_financial_status ?: $ot->status) ?? '');
+                                    $oPillClass = $orow->provider === 'linkly'
+                                        ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
+                                        : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
+                                    $oDonorName = $ot->meta['donor_name'] ?? null;
+                                @endphp
+                                <tr data-donation-date="{{ $ot->created_at->format('Y-m-d') }}"
+                                    data-search="{{ strtolower($oDonorName ?? '') }}"
+                                    data-type="eft"
+                                    data-donation-id=""
+                                    data-name="{{ strtolower($oDonorName ?? '') }}"
+                                    {{-- data-amount stays 0 (unlike the visible Total cell below) — a refund's
+                                         amount is already counted once by its original purchase's own donation
+                                         row, and a failed/abandoned attempt was never real money, so neither
+                                         should add into the "Filtered Total" the search/filter JS sums up. --}}
+                                    data-amount="0"
+                                    data-payment="eft terminal"
+                                    data-status="{{ strtolower($oStatusWord) }}">
+                                    <td class="text-capitalize">{{ $oIsRefund ? 'Refund' : 'Attempt' }}</td>
+                                    <td>—</td>
+                                    <td class="col-name">{{ $oDonorName ?: '—' }}</td>
+                                    <td class="col-contact">—</td>
+                                    @foreach($options as $opt)<td class="col-amount">—</td>@endforeach
+                                    <td class="col-amount">—</td>
+                                    <td class="col-amount total">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
+                                    <td>
+                                        EFT Terminal
+                                        <div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div>
+                                    </td>
+                                    <td class="col-txn" title="{{ $oRef }}">{{ $oRef ?: '—' }}</td>
+                                    <td>{{ $ot->created_at->format('d M Y') }}</td>
+                                    <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i></button>
+                                    </td>
+                                </tr>
+                                @endforeach
+                                @endif
+                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
                             </tbody>
                         </table>
                         </div>
@@ -1225,7 +1301,7 @@
                         <div class="page-header-icon"><i class="bi bi-credit-card-2-front-fill"></i></div>
                         <div>
                             <h2>EFTPOS</h2>
-                            <p>Terminal status and per-transaction refunds for this event — pairing and adding terminals happens on the EFT Terminal Settings page.</p>
+                            <p>Terminal pairing status for this event — every transaction (including refunds) is on the All Transactions tab; pairing and adding terminals happens on EFT Terminal Settings.</p>
                         </div>
                         <div class="page-header-actions">
                             <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-question-circle me-1"></i>Help</a>
@@ -1236,7 +1312,7 @@
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                             <div class="text-muted small">Linkly: <strong class="text-uppercase">{{ $linklyMode }}</strong> &middot; mx51: <strong class="text-uppercase">{{ $cbaSciMode }}</strong> &middot; each terminal is independently paired, so a second station can run its own concurrently.</div>
                             <div class="d-flex gap-2">
-                                <button type="button" onclick="openEftTerminalSettingsModal()" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
+                                <button type="button" onclick="switchPane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
                                 <a href="{{ route('admin.events.pos', $event->event_id) }}" target="_blank" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Open POS Terminal Screen (Purchase)</a>
                             </div>
                         </div>
@@ -1266,102 +1342,29 @@
                             </div>
                         </div>
                         @empty
-                        <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();">add one on the EFT Terminal Settings page</a>.</p>
+                        <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); switchPane('pane-eft-settings');">add one on EFT Terminal Settings</a>.</p>
                         @endforelse
                     </div>
+                </div>
+                @endif
 
-                    <div class="card-panel" style="padding:0;">
-                        <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent EFTPOS Transactions <span class="text-muted small fw-normal">(Linkly + mx51)</span></h5></div>
-                        <div class="table-scroll-wrap" style="max-height: calc(100vh - 420px);">
-                        <table class="console-table">
-                            <thead>
-                                <tr>
-                                    <th>Type</th><th class="col-amount">Amount</th><th>Reference</th><th>Provider</th><th>Terminal</th><th>Donation</th><th>Date/Time</th><th>Result</th><th class="text-end">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($eftTransactions as $row)
-                                @php $txn = $row->txn; @endphp
-                                @if($row->provider === 'linkly')
-                                @php
-                                    $pillClass = match($txn->status) {
-                                        'approved' => 'paid',
-                                        'initiated', 'in_progress' => 'pending',
-                                        default => 'cancelled',
-                                    };
-                                    $canRefundRow = $txn->txn_type === 'purchase' && $txn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $txn->id && in_array($t->status, ['initiated', 'in_progress', 'approved']));
-                                @endphp
-                                <tr>
-                                    <td class="text-capitalize">{{ $txn->txn_type }}</td>
-                                    <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
-                                    <td class="col-txn"><span id="txnref-{{ $txn->id }}">{{ $txn->pos_txn_ref }}</span></td>
-                                    <td class="small text-muted">Linkly</td>
-                                    <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
-                                    <td>
-                                        @if($txn->donation_id)
-                                        {{-- Same 'DN'/'GD' + zero-padded id format used everywhere else a donation is
-                                             identified (see EventDonationBreakdown::forEvent()'s display_id). --}}
-                                        {{ ($txn->donation_type === 'devotee' ? 'DN' : 'GD') . str_pad($txn->donation_id, 5, '0', STR_PAD_LEFT) }}
-                                        @else
-                                        <span class="text-muted">—</span>
-                                        @endif
-                                    </td>
-                                    <td><span id="txntime-{{ $txn->id }}">{{ $txn->created_at->format('d M Y H:i:s') }}</span></td>
-                                    <td><span class="status-pill status-{{ $pillClass }}">{{ ucfirst($txn->status) }}</span></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference + timestamp" onclick="copyEftRef('{{ $txn->id }}')"><i class="bi bi-clipboard"></i></button>
-                                        @if($txn->linkly_session_id)
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Check transaction status" onclick="checkEftStatus('{{ $txn->linkly_session_id }}')"><i class="bi bi-arrow-clockwise"></i></button>
-                                        <form action="{{ route('admin.events.eft.reprint', [$event->event_id, $txn->linkly_session_id]) }}" method="POST" class="d-inline">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Reprint receipt"><i class="bi bi-receipt"></i></button>
-                                        </form>
-                                        @endif
-                                        @if($canRefundRow)
-                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openEftRefundModal({{ $txn->id }}, {{ $txn->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                        @endif
-                                    </td>
-                                </tr>
-                                @else
-                                @php
-                                    $sciPillClass = match(true) {
-                                        $txn->result_financial_status === 'APPROVED' => 'paid',
-                                        in_array($txn->status, ['PENDING', 'AWAITING_POS']) => 'pending',
-                                        default => 'cancelled',
-                                    };
-                                    $sciResultLabel = $txn->result_financial_status ?: $txn->status;
-                                    $canRefundSciRow = $txn->txn_type === 'purchase' && $txn->status === 'FINALISED' && $txn->result_financial_status === 'APPROVED'
-                                        && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $txn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED'));
-                                @endphp
-                                <tr>
-                                    <td class="text-capitalize">{{ $txn->txn_type }}</td>
-                                    <td class="col-amount">{{ $txn->amount !== null ? number_format($txn->amount, 2) : '—' }}</td>
-                                    <td class="col-txn">{{ $txn->sci_transaction_id ?: $txn->client_ref }}</td>
-                                    <td class="small text-muted">mx51</td>
-                                    <td class="small text-muted">{{ $txn->eftTerminal->label ?? '—' }}</td>
-                                    <td>
-                                        @if($txn->donation_id)
-                                        {{ ($txn->donation_type === 'devotee' ? 'DN' : 'GD') . str_pad($txn->donation_id, 5, '0', STR_PAD_LEFT) }}
-                                        @else
-                                        <span class="text-muted">—</span>
-                                        @endif
-                                    </td>
-                                    <td>{{ $txn->created_at->format('d M Y H:i:s') }}</td>
-                                    <td><span class="status-pill status-{{ $sciPillClass }}">{{ ucfirst(strtolower($sciResultLabel)) }}</span></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $txn->sci_transaction_id ?: $txn->client_ref }}')"><i class="bi bi-clipboard"></i></button>
-                                        @if($canRefundSciRow)
-                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $txn->sci_transaction_id }}', {{ $txn->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                        @endif
-                                    </td>
-                                </tr>
-                                @endif
-                                @empty
-                                <tr><td colspan="9" class="text-center text-muted py-4">No EFTPOS transactions recorded for this event yet.</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                @if($canEditEvent)
+                <!-- EFT TERMINAL SETTINGS — the shared (cross-event) pairing/registry page,
+                     embedded here as its own console pane rather than a popup modal, per the
+                     same one-click-away pattern every other sidebar item already uses. Reuses
+                     the existing EftTerminalController page wholesale (via ?embedded=1, which
+                     strips its own topbar) instead of re-implementing pairing/registry UI a
+                     second time here. -->
+                <div class="console-pane" id="pane-eft-settings">
+                    <div class="page-header">
+                        <div class="page-header-icon"><i class="bi bi-sliders"></i></div>
+                        <div>
+                            <h2>EFT Terminal Settings</h2>
+                            <p>Pair, unpair, and register terminals — shared across every event and Ticket Sales.</p>
                         </div>
+                    </div>
+                    <div class="card-panel" style="padding:0; overflow:hidden;">
+                        <iframe id="eftSettingsPaneFrame" src="about:blank" data-src="{{ route('admin.eft-terminals.index') }}?embedded=1" style="width:100%; border:0; min-height: calc(100vh - 210px);"></iframe>
                     </div>
                 </div>
                 @endif
@@ -1704,6 +1707,27 @@
             });
             document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
             closeSidebarDrawer();
+            if (paneId === 'pane-eft-settings') { loadEftSettingsFrame(); }
+        }
+
+        // EFT Terminal Settings pane — lazy-loads its iframe only once (never on a page that
+        // never opens this pane), then reloads the WHOLE console page once the frame ever
+        // navigates again afterward (a pairing/unpairing form inside it redirected) so this
+        // page's own terminal cards/All Transactions rows reflect it immediately, same as the
+        // old popup modal did on close.
+        var eftSettingsFrameLoaded = false;
+        var eftSettingsFrameLoadCount = 0;
+        function loadEftSettingsFrame() {
+            var frame = document.getElementById('eftSettingsPaneFrame');
+            if (!frame || eftSettingsFrameLoaded) { return; }
+            eftSettingsFrameLoaded = true;
+            frame.addEventListener('load', function () {
+                eftSettingsFrameLoadCount++;
+                // The first load is this initial assignment below, not a real navigation —
+                // only a SECOND load means a form inside the frame actually submitted.
+                if (eftSettingsFrameLoadCount > 1) { location.reload(); }
+            });
+            frame.src = frame.dataset.src;
         }
         document.querySelectorAll('[data-pane]').forEach(function (el) {
             el.addEventListener('click', function (e) {
