@@ -44,8 +44,11 @@ class CbaSciTransactionTest extends TestCase
         $admin = $this->adminUser();
         $terminal = $this->pairedTerminal();
 
+        // mx51's real field is 'id', not 'transaction_id' (see CbaSciService::createTransaction()'s
+        // docblock) — this mock previously used the wrong key, matching the bug it should
+        // have caught rather than mx51's actual response shape.
         Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
-            'transaction_id' => 'txn_123', 'version' => 1, 'status' => 'PENDING', 'message' => 'Processing',
+            'id' => 'txn_123', 'version' => 1, 'status' => 'PENDING', 'message' => 'Processing',
         ]], 200)]);
 
         $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.start'), [

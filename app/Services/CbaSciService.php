@@ -259,7 +259,15 @@ class CbaSciService
         return [
             'success' => true,
             'message' => $data['message'] ?? 'Transaction started.',
-            'transaction_id' => $data['transaction_id'] ?? null,
+            // mx51's actual response field is `id`, not `transaction_id` (confirmed against
+            // both their docs' worked example and their own Postman collection's own
+            // pre/post-request scripts, which read res.data.id and only THEN rename it to
+            // their own local "transaction_id" environment variable — that renaming is
+            // Postman-side convenience, not the API's real field name). Reading the wrong
+            // key here meant this was always null against the real API, so the frontend's
+            // poll() could never even start (it bails immediately with no transaction id),
+            // which is why nothing ever appeared to happen after the initial create.
+            'transaction_id' => $data['id'] ?? null,
             'version' => $data['version'] ?? 1,
             'status' => $data['status'] ?? 'PENDING',
             'pos_instructions' => $data['pos_instructions'] ?? null,
