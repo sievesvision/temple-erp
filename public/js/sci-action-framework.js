@@ -345,6 +345,14 @@
         }
 
         function finishUnresolved(message) {
+            // Unlike finishSuccess()/finishDeclined(), this was never clearing the saved
+            // attempt — so once a transaction ended up here (including via the override
+            // dialog's own "No / Unresolved" outcome), the SAME stale clientRef stayed in
+            // sessionStorage and resumeFromStorage() kept resuming it on every future page
+            // load, indefinitely, regardless of login/logout. The server itself now correctly
+            // treats this outcome as final (see CbaSciController::override()), but the client
+            // has to stop trying to resume the same dead attempt too.
+            clearAttempt();
             setStatus(['RESULT UNKNOWN', message || 'Check the terminal before retrying'], 'error');
             setTimeout(hideModal, 2200);
             if (activeBtn) { activeBtn.disabled = false; }
