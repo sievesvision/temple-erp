@@ -150,7 +150,9 @@ class CbaSciController extends Controller
         }
 
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:1',
+            // Admin-configurable (EFT Terminal Settings) rather than a hardcoded 1 — see
+            // App\Services\EftTransactionLimits.
+            'amount' => 'required|numeric|min:' . \App\Services\EftTransactionLimits::minimumAmount(),
             'client_ref' => 'required|string|max:64',
             'event_id' => 'nullable|exists:events,event_id',
             'donor_name' => 'nullable|string|max:255',

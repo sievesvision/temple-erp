@@ -124,6 +124,29 @@ class EftTerminalController extends Controller
         return redirect()->back()->with('success', 'Receipt printing settings saved.');
     }
 
+    /**
+     * The minimum amount an operator can start an EFT Terminal purchase for (see
+     * App\Services\EftTransactionLimits) — was a hardcoded "must be at least 1" on both
+     * providers' own start-purchase validation. System-Admin-only, same tier as the other
+     * settings cards here.
+     */
+    public function updateTransactionLimits(Request $request)
+    {
+        if (!$this->isAdmin()) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'minimum_transaction_amount' => 'required|numeric|min:0',
+        ]);
+
+        Setting::set('eft_minimum_transaction_amount', (string) $validated['minimum_transaction_amount']);
+
+        AuditLogService::log('Updated the minimum EFT Terminal transaction amount to ' . $validated['minimum_transaction_amount']);
+
+        return redirect()->back()->with('success', 'Transaction limits saved.');
+    }
+
     public function store(Request $request)
     {
         if (!$this->canManageRegistry()) {

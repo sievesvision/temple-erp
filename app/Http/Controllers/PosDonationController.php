@@ -129,6 +129,8 @@ class PosDonationController extends Controller
             })
             ->values();
 
+        $eftMinimumAmount = \App\Services\EftTransactionLimits::minimumAmount();
+
         return view('admin.event-pos-donation', compact(
             'event',
             'eventOptionsForJs',
@@ -138,7 +140,8 @@ class PosDonationController extends Controller
             'temple',
             'pendingEftRecovery',
             'eftTerminalsForJs',
-            'canManageKioskPin'
+            'canManageKioskPin',
+            'eftMinimumAmount'
         ));
     }
 }

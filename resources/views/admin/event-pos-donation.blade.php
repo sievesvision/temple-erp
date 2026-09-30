@@ -654,6 +654,9 @@
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
         const REQUIRE_MOBILE = @json((bool) $event->require_donor_mobile);
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
+        // Admin-configurable (EFT Terminal Settings) — see App\Services\EftTransactionLimits.
+        // Only applies to the EFT Terminal method; cash/bank/etc. still just need > 0.
+        const EFT_MINIMUM_AMOUNT = @json($eftMinimumAmount);
         // Server-authoritative Power Fail recovery data (see PosDonationController::show())
         // — survives the browser tab itself being gone, unlike sessionStorage below.
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
@@ -1308,6 +1311,10 @@
             // (not one blocking call) so the terminal's live prompts ("ENTER PIN", etc.,
             // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
+                if (amount < EFT_MINIMUM_AMOUNT) {
+                    showToast('Minimum EFT Terminal amount is ' + CURRENCY_CODE + ' ' + EFT_MINIMUM_AMOUNT.toFixed(2) + '.', true);
+                    return;
+                }
                 const selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
                 if (!selectedTerminal || !selectedTerminal.paired) {
                     showToast('This station\'s EFT terminal (' + currentTerminalLabel() + ') is not paired yet — check the terminal picker.', true);

@@ -117,6 +117,26 @@ class LinklyCorePaymentsTest extends TestCase
         ]);
     }
 
+    // The minimum transaction amount used to be a hardcoded "must be at least 1" — now
+    // admin-configurable (see App\Services\EftTransactionLimits) and shared with mx51's own
+    // startPurchase(), same default as before so nothing changes unless configured.
+    public function test_starting_a_charge_below_the_configured_minimum_is_rejected(): void
+    {
+        $eventId = $this->createEvent();
+        $this->fakeLinklyToken();
+
+        $this->actingAs($this->adminUser())->post(route('admin.eft-terminals.updateTransactionLimits'), [
+            'minimum_transaction_amount' => '5',
+        ])->assertSessionHas('success');
+
+        $response = $this->actingAs($this->adminUser())->postJson('/admin/eft/charge/start', [
+            'amount' => '2.00', 'client_ref' => 'below-configured-min', 'event_id' => $eventId,
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('linkly_transactions', ['client_ref' => 'below-configured-min']);
+    }
+
     // 8. Two different checkout attempts (different client_ref) get two different, unique
     // POS transaction references — once the first has actually finished on the terminal
     // (the terminal-busy guard below deliberately refuses to let a second, different

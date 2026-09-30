@@ -24,6 +24,7 @@
 </div>
 
 @if($isSystemAdmin)
+@include('admin.partials.eft-terminal-transaction-limits')
 @include('admin.partials.eft-terminal-receipt-settings')
 @endif
 

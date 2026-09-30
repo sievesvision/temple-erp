@@ -910,7 +910,10 @@ class DonationController extends Controller
         }
 
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:1',
+            // Admin-configurable (EFT Terminal Settings) rather than a hardcoded 1 — see
+            // App\Services\EftTransactionLimits. Shared by both the Donation POS and Ticket
+            // Kiosk, since both start an EFT charge through this same method.
+            'amount' => 'required|numeric|min:' . \App\Services\EftTransactionLimits::minimumAmount(),
             // A per-attempt idempotency key the browser generates once and reuses for every
             // retry of the *same* checkout attempt (double-clicking Pay, or resuming after a
             // refresh/network drop) — see the lookup below. A brand new donation attempt

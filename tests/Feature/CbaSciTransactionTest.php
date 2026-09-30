@@ -586,4 +586,58 @@ class CbaSciTransactionTest extends TestCase
             return array_key_exists('print_merchant_receipt', $body) && array_key_exists('pos_auto_print_signature_receipt', $body);
         });
     }
+
+    // The minimum transaction amount used to be a hardcoded "must be at least 1" — now
+    // admin-configurable (see App\Services\EftTransactionLimits), same default as before so
+    // nothing changes unless it's explicitly configured.
+    public function test_starting_a_purchase_below_the_default_minimum_is_rejected(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.start'), [
+            'amount' => 0.50, 'client_ref' => 'ref-below-min', 'terminal_id' => $terminal->id,
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('sci_transactions', ['client_ref' => 'ref-below-min']);
+    }
+
+    public function test_lowering_the_minimum_transaction_amount_allows_a_smaller_purchase(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+
+        $this->actingAs($admin)->post(route('admin.eft-terminals.updateTransactionLimits'), [
+            'minimum_transaction_amount' => '0.20',
+        ])->assertSessionHas('success');
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'id' => 'txn_below_old_min', 'version' => 1, 'status' => 'PENDING',
+        ]], 200)]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.start'), [
+            'amount' => 0.50, 'client_ref' => 'ref-lowered-min', 'terminal_id' => $terminal->id,
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('sci_transactions', ['client_ref' => 'ref-lowered-min']);
+    }
+
+    public function test_raising_the_minimum_transaction_amount_rejects_a_previously_valid_purchase(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+
+        $this->actingAs($admin)->post(route('admin.eft-terminals.updateTransactionLimits'), [
+            'minimum_transaction_amount' => '5',
+        ])->assertSessionHas('success');
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.start'), [
+            'amount' => 2, 'client_ref' => 'ref-raised-min', 'terminal_id' => $terminal->id,
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('sci_transactions', ['client_ref' => 'ref-raised-min']);
+    }
 }
