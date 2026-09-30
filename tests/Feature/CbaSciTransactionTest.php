@@ -508,4 +508,82 @@ class CbaSciTransactionTest extends TestCase
         $response->assertJson(['done' => true, 'success' => true, 'result_financial_status' => 'APPROVED']);
         $this->assertDatabaseHas('donations_without_logins', ['id' => $donationId, 'payment_status' => 'Cancelled']);
     }
+
+    // mx51's own documented "supported on all transaction requests" receipt/signature fields
+    // (see App\Services\EftReceiptSettings) — mx51's own recommended defaults are all off
+    // except pos_auto_print_signature_receipt, which defaults on, so a merchant receipt for a
+    // signature transaction is never silently skipped just because this was never configured.
+    public function test_a_new_purchase_sends_mx51s_recommended_default_receipt_settings(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'id' => 'txn_receipt_defaults', 'version' => 1, 'status' => 'PENDING',
+        ]], 200)]);
+
+        $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.start'), [
+            'amount' => 10, 'client_ref' => 'ref-receipt-defaults', 'terminal_id' => $terminal->id,
+        ])->assertOk();
+
+        Http::assertSent(function ($request) {
+            if ($request->method() !== 'POST' || !str_contains($request->url(), '/v1/transactions')) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+            return $body['print_merchant_receipt'] === false
+                && $body['prompt_customer_receipt'] === false
+                && $body['verify_signature_on_terminal'] === false
+                && $body['pos_auto_print_signature_receipt'] === true;
+        });
+    }
+
+    public function test_receipt_settings_changes_are_reflected_on_the_next_purchase(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+
+        $this->actingAs($admin)->post(route('admin.eft-terminals.updateReceiptSettings'), [
+            'print_merchant_receipt_on_terminal' => '1',
+            'pos_auto_print_signature_receipt' => '0',
+        ])->assertSessionHas('success');
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'id' => 'txn_receipt_custom', 'version' => 1, 'status' => 'PENDING',
+        ]], 200)]);
+
+        $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.start'), [
+            'amount' => 10, 'client_ref' => 'ref-receipt-custom', 'terminal_id' => $terminal->id,
+        ])->assertOk();
+
+        Http::assertSent(function ($request) {
+            if ($request->method() !== 'POST' || !str_contains($request->url(), '/v1/transactions')) {
+                return false;
+            }
+            $body = json_decode($request->body(), true);
+            return $body['print_merchant_receipt'] === true && $body['pos_auto_print_signature_receipt'] === false;
+        });
+    }
+
+    // A refund is a transaction request too, per mx51's own "supported on all transaction
+    // requests" wording — must carry the same fields, not just purchases.
+    public function test_a_refund_also_sends_the_receipt_settings(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $original = $this->approvedPurchase($terminal, 40);
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'id' => 'txn_refund_receipt', 'version' => 1, 'status' => 'PENDING',
+        ]], 200)]);
+
+        $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-receipt',
+        ])->assertOk();
+
+        Http::assertSent(function ($request) {
+            $body = json_decode($request->body(), true);
+            return array_key_exists('print_merchant_receipt', $body) && array_key_exists('pos_auto_print_signature_receipt', $body);
+        });
+    }
 }

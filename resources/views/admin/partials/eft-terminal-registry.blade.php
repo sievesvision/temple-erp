@@ -23,6 +23,10 @@
     <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm eft-info-banner-help"><i class="bi bi-question-circle me-1"></i>Pairing Guide</a>
 </div>
 
+@if($isSystemAdmin)
+@include('admin.partials.eft-terminal-receipt-settings')
+@endif
+
 @if($activeTerminals->isEmpty() && $inactiveTerminals->isEmpty())
 <p class="text-muted">No terminals registered yet — add one below.</p>
 @endif

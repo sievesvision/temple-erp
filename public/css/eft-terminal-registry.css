@@ -87,8 +87,8 @@
 .btn-add-terminal:hover { background: var(--eftr-maroon-dark); color: #fff; }
 
 /* ---------- Environment (sandbox/live) — Admin Settings only ---------- */
-.eftr-mode-switch-card { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; background: var(--eftr-white); border: 1px solid var(--eftr-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
-.eftr-mode-switch-heading { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--eftr-text-secondary); flex-basis: 100%; }
+.eftr-settings-card { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; background: var(--eftr-white); border: 1px solid var(--eftr-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+.eftr-settings-heading { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--eftr-text-secondary); flex-basis: 100%; }
 .eftr-mode-switch-row { display: flex; align-items: center; gap: 10px; }
 .eftr-mode-switch-label { font-weight: 700; font-size: 0.88rem; color: var(--eftr-text-primary); }
 .eftr-mode-switch-form { display: inline-flex; }

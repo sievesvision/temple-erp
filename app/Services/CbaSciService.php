@@ -238,8 +238,22 @@ class CbaSciService
         ]);
     }
 
+    /**
+     * "Supported on all transaction requests" per mx51's own docs — merged in here rather
+     * than in createPurchase()/createRefund() individually, so a receipt/signature preference
+     * change takes effect on every kind of transaction this method backs without needing to
+     * be threaded through each caller separately. $details' own keys (purchase_details/
+     * refund_details) never collide with these, so plain array_merge order doesn't matter.
+     */
     private static function createTransaction(EftTerminal $terminal, array $details): array
     {
+        $details = array_merge([
+            'print_merchant_receipt' => EftReceiptSettings::printMerchantReceiptOnTerminal(),
+            'prompt_customer_receipt' => EftReceiptSettings::promptCustomerReceiptOnTerminal(),
+            'verify_signature_on_terminal' => EftReceiptSettings::verifySignatureOnTerminal(),
+            'pos_auto_print_signature_receipt' => EftReceiptSettings::posAutoPrintSignatureReceipt(),
+        ], $details);
+
         try {
             $response = self::signedRequest('POST', $terminal->sci_api_base_url . '/v1/transactions', $details, $terminal);
         } catch (ConnectionException $e) {

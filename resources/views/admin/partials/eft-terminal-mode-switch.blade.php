@@ -5,8 +5,8 @@
      stays a genuine System-Admin-only decision). Expects $linklyMode, $cbaSciMode; posts to
      EftTerminalController::updateMode(), which redirects back here via plain
      redirect()->back(). --}}
-<div class="eftr-mode-switch-card">
-    <div class="eftr-mode-switch-heading"><i class="bi bi-toggles me-1"></i>Environment — each provider switches independently</div>
+<div class="eftr-settings-card">
+    <div class="eftr-settings-heading"><i class="bi bi-toggles me-1"></i>Environment — each provider switches independently</div>
     <div class="eftr-mode-switch-row">
         <span class="eftr-mode-switch-label">Linkly Cloud</span>
         <form action="{{ route('admin.eft-terminals.updateMode') }}" method="POST" class="eftr-mode-switch-form">

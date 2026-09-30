@@ -100,6 +100,30 @@ class EftTerminalController extends Controller
         return redirect()->back()->with('success', "{$providerLabel} is now in " . strtoupper($validated['mode']) . ' mode.');
     }
 
+    /**
+     * Receipt printing / signature-verification preferences — common storage across every EFT
+     * provider (see App\Services\EftReceiptSettings), sent to mx51 on every transaction it
+     * creates (CbaSciService::createTransaction()). Linkly doesn't take these yet. System-
+     * Admin-only, same tier as the sandbox/live switch above — this changes how every
+     * station's receipts and signature verification behave, not a single terminal's own
+     * setup.
+     */
+    public function updateReceiptSettings(Request $request)
+    {
+        if (!$this->isAdmin()) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        Setting::set('eft_print_merchant_receipt_on_terminal', $request->boolean('print_merchant_receipt_on_terminal') ? '1' : '0');
+        Setting::set('eft_prompt_customer_receipt_on_terminal', $request->boolean('prompt_customer_receipt_on_terminal') ? '1' : '0');
+        Setting::set('eft_verify_signature_on_terminal', $request->boolean('verify_signature_on_terminal') ? '1' : '0');
+        Setting::set('eft_pos_auto_print_signature_receipt', $request->boolean('pos_auto_print_signature_receipt') ? '1' : '0');
+
+        AuditLogService::log('Updated EFT receipt printing / signature verification settings');
+
+        return redirect()->back()->with('success', 'Receipt printing settings saved.');
+    }
+
     public function store(Request $request)
     {
         if (!$this->canManageRegistry()) {
