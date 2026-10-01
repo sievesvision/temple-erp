@@ -160,10 +160,10 @@
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
         .pos-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
         .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
-        .pos-summary-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+        .pos-summary-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
         .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
         .pos-summary-total-row .pos-summary-row-label { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); }
-        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 700; color: #A56B13; }
+        .pos-summary-total-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 700; color: #A56B13; }
         .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
@@ -215,7 +215,7 @@
         .pos-amount-input-wrap { display: flex; align-items: stretch; border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--white); }
         .pos-amount-input-wrap:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
         .pos-amount-prefix { display: flex; align-items: center; justify-content: center; padding: 0 14px; background: var(--cream); color: var(--text-secondary); font-weight: 800; font-size: 1.02rem; border-right: 1.5px solid var(--border); flex-shrink: 0; }
-        .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 52px; padding: 12px 14px; font-size: 1.15rem; font-weight: 600; color: var(--text-primary); background: transparent; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 52px; padding: 12px 14px; font-size: 1.15rem; font-weight: 600; color: var(--text-primary); background: transparent; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         .pos-amount-input-wrap input:focus { outline: none; box-shadow: none; }
         .pos-amount-input-stack { display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0; }
         .pos-amount-input-stack input { padding: 10px 14px 0; min-height: auto; }
@@ -231,28 +231,18 @@
         /* auto-fit rather than a fixed 3 columns — reflows gracefully at any width instead of
            forcing three equal columns that can squeeze text at narrow (phone/kiosk) sizes. */
         .pos-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin-bottom: 14px; }
-        {{-- A flower icon + a richer gradient on the selected state — plain bordered boxes of
-             numbers read as a generic form field; real POS terminals (and the temple's own
-             printed donation tiers) lean on devotional iconography to make each amount feel
-             like a distinct, tappable offering rather than a row in a spreadsheet. Sized to a
-             real touch-target minimum (~48px), not a hero tile — this is a dense grid of many
-             options tapped in quick succession, not a single emphasised choice. Amount itself
-             is set in the app's monospaced figure face (matches the Ticket POS cart/total and
-             Event Console amount columns) so digits line up cleanly at any size. --}}
         .pos-quick-amount-btn, .pos-tier-quick-btn {
-            display: flex; align-items: center; justify-content: center; gap: 7px;
+            display: flex; align-items: center; justify-content: center;
             background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary);
-            font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace;
+            font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             font-variant-numeric: tabular-nums; padding: 8px 6px; min-height: 48px;
             border-radius: var(--radius-sm); font-size: 1rem;
         }
-        .pos-quick-amount-icon { font-size: 0.92rem; color: var(--gold-hover); flex-shrink: 0; }
         .pos-quick-amount-btn:active, .pos-tier-quick-btn:active { background: #E7ECF1; }
         .pos-quick-amount-btn.active, .pos-tier-quick-btn.active {
             background: linear-gradient(135deg, var(--gold) 0%, var(--gold-hover) 100%);
             border-color: var(--gold); color: white; box-shadow: 0 3px 8px rgba(201,149,46,0.35);
         }
-        .pos-quick-amount-btn.active .pos-quick-amount-icon, .pos-tier-quick-btn.active .pos-quick-amount-icon { color: white; }
 
         /* Donation-type pills — sit in the card's header row (top-right), each toggling its
            own detail block below. A single-option event (the common case today) shows one
@@ -266,8 +256,8 @@
         .pos-tier-detail { display: none; }
         .pos-tier-detail.active { display: block; }
         .pos-tier-fixed-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 4px 0; }
-        .pos-tier-fixed-amount { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.05rem; color: var(--text-primary); }
-        .pos-tier-qty { width: 76px; min-height: 48px; padding: 8px; font-family: 'IBM Plex Mono', 'Inter', monospace; font-size: 1.05rem; font-weight: 700; border: 1.5px solid var(--border); border-radius: var(--radius-sm); text-align: center; }
+        .pos-tier-fixed-amount { font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 1.05rem; color: var(--text-primary); }
+        .pos-tier-qty { width: 76px; min-height: 48px; padding: 8px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 1.05rem; font-weight: 700; border: 1.5px solid var(--border); border-radius: var(--radius-sm); text-align: center; }
         /* Same auto-fit reflow as .pos-quick-amounts above, and the same reasoning — this is
            the exact grid that was reported "breaking" at narrow widths under a fixed 3-column
            track. Size/look otherwise comes entirely from the shared .pos-quick-amount-btn,
@@ -298,12 +288,12 @@
 
         /* ---------- Recent Orders popup (opened from the Donation Summary link) ---------- */
         .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
-        .pos-orders-modal-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: #A56B13; }
+        .pos-orders-modal-total-row span:last-child { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: #A56B13; }
         .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
         .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--cream); font-size: 0.92rem; }
         .pos-order-item:last-child { border-bottom: none; }
         .pos-order-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-        .pos-order-amount { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
+        .pos-order-amount { font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
         .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
         .pos-orders-empty { color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 20px 0; }
 
@@ -340,7 +330,7 @@
             font-size: 0.95rem; text-transform: uppercase;
         }
         .eft-modal-body { padding: 30px 26px 26px; }
-        .eft-modal-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
+        .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
             padding: 18px 16px; min-height: 90px; display: flex; flex-direction: column;
@@ -991,7 +981,7 @@
                     const b = document.createElement('button');
                     b.type = 'button';
                     b.className = 'pos-tier-quick-btn';
-                    b.innerHTML = '<i class="bi bi-flower1 pos-quick-amount-icon"></i><span>$' + amt.toLocaleString() + '</span>';
+                    b.textContent = '$' + amt.toLocaleString();
                     b.addEventListener('click', function () {
                         cb.checked = true;
                         freeInput.value = amt.toFixed(2);
@@ -1055,7 +1045,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'pos-quick-amount-btn';
-                btn.innerHTML = '<i class="bi bi-flower1 pos-quick-amount-icon"></i><span>$' + amt.toLocaleString() + '</span>';
+                btn.textContent = '$' + amt.toLocaleString();
                 btn.addEventListener('click', function () {
                     amountInput.value = amt.toFixed(2);
                     quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
