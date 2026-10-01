@@ -53,7 +53,10 @@ class CbaSciAdminUiTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.eft-terminals.index'));
 
         $response->assertOk();
-        $response->assertSee('name="pairing_code"', false);
+        // The mx51 unpaired-state form is AJAX-driven (see js/eft-terminal-registry.js's
+        // initSciRepairWidgets()) rather than named form fields — it has no native <form> submit
+        // at all, so it's identified by its widget wrapper instead of an input name.
+        $response->assertSee('sci-repair-widget', false);
         $response->assertSee('Pairing Code', false);
         $response->assertSee('name="pair_code"', false);
     }
@@ -125,6 +128,71 @@ class CbaSciAdminUiTest extends TestCase
         $terminal->refresh();
         $this->assertTrue($terminal->isSciPaired());
         $this->assertSame('Kiosk 2', $terminal->sci_pairing_nickname);
+    }
+
+    // The re-pair widget calls this over fetch() to get the confirmation code it needs for its
+    // own interactive Step 2 screen, rather than relying on a page reload to show it.
+    public function test_pairing_via_json_returns_the_confirmation_code(): void
+    {
+        config(['services.cba_sci.test_pairing_api_key' => 'test-pairing-key']);
+        $admin = $this->adminUser();
+        $terminal = EftTerminal::create(['key' => 'sci-json', 'label' => 'SCI JSON', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid()]);
+
+        Http::fake([
+            'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
+                'pairing_id' => 'pid_json', 'key_id' => 'kid_json', 'signing_secret_part_b' => 'secret-json',
+                'sci_api_base_url' => 'https://sci-api.tenant.example', 'confirmation_code' => '7788',
+            ]], 200),
+        ]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.pair'), [
+            'terminal_id' => $terminal->id,
+            'pairing_code' => '112233',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'confirmation_code' => '7788']);
+    }
+
+    // The actual bug this covers: clicking "Test" right after pairing — exactly what the new
+    // interactive confirmation screen asks the admin to do — used to immediately wipe the
+    // pairing, because mx51 returns the same no_active_pairings_found response both for a
+    // pairing that's genuinely gone and one still awaiting confirmation on the physical
+    // terminal. The manual Test button must never destroy a pairing on its own; only the
+    // passive self-heal (refreshPairingStatus(), covered separately in CbaSciPairingTest) does.
+    public function test_clicking_test_before_confirming_on_the_terminal_does_not_unpair(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = EftTerminal::create([
+            'key' => 'sci-awaiting', 'label' => 'SCI Awaiting', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid(),
+            'sci_pairing_id' => 'pid_awaiting', 'sci_key_id' => 'kid_awaiting', 'sci_signing_secret_part_b' => 'secret',
+            'sci_api_base_url' => 'https://sci-api.tenant.example', 'sci_paired_at' => now(),
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.test'), ['terminal_id' => $terminal->id]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => false]);
+        $this->assertStringContainsString('confirmed on the terminal', $response->json('message'));
+        $this->assertTrue($terminal->fresh()->isSciPaired());
+    }
+
+    public function test_unpairing_via_json_reports_success(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = EftTerminal::create([
+            'key' => 'sci-json-unpair', 'label' => 'SCI JSON Unpair', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid(),
+            'sci_pairing_id' => 'pid_ju', 'sci_key_id' => 'kid_ju', 'sci_signing_secret_part_b' => 'secret',
+            'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.unpair'), ['terminal_id' => $terminal->id]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'message' => 'Terminal unpaired.']);
+        $this->assertFalse($terminal->fresh()->isSciPaired());
     }
 
     // SCIPAIRING07 — cancelling a pairing attempt must call the Unpair endpoint too, even

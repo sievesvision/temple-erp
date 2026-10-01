@@ -83,6 +83,17 @@ class CbaSciController extends Controller
             AuditLogService::log("Paired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
 
+        // The re-pair widget on an already-registered terminal's own card (see
+        // cba-sci-pairing.blade.php) calls this over fetch() so it can show the same
+        // interactive confirmation-code step the Add Terminal wizard has, instead of landing
+        // straight on the static "Paired successfully" view — CbaSciService::pair() itself is
+        // unchanged, only the response format branches.
+        if ($request->wantsJson()) {
+            return response()->json(array_merge($result, [
+                'confirmation_code' => $terminal->sci_confirmation_code,
+            ]));
+        }
+
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 
@@ -96,11 +107,16 @@ class CbaSciController extends Controller
         $terminal = EftTerminal::findOrFail($validated['terminal_id']);
         $result = CbaSciService::testPairing($terminal);
 
-        // mx51 says this pairing is gone on its side — reflect that locally right away
-        // instead of leaving the terminal shown as "Paired" until someone notices it's dead.
-        if (!$result['still_paired']) {
-            CbaSciService::unpair($terminal);
-        }
+        // Deliberately does NOT auto-unpair on `still_paired === false` here, unlike
+        // refreshPairingStatus() — mx51 returns the exact same no_active_pairings_found
+        // response both for a pairing that's genuinely gone AND for one that's still waiting
+        // on the admin to confirm the code on the physical terminal (no separate error code
+        // exists to tell the two apart). Since Test is a manually-pressed, human-present
+        // action — often pressed deliberately seconds after pairing, before the terminal has
+        // even been touched — auto-unpairing here could destroy a pairing that's still mid
+        // confirmation. The passive self-heal (refreshPairingStatus(), run on page load and
+        // before a transaction, per SCIPAIRING10/SCIMULTI03) still clears a genuinely dead
+        // pairing on its own; this button is purely informational.
 
         // The new Add Terminal wizard's confirmation screen calls this same endpoint over
         // fetch() rather than a form POST — the underlying CbaSciService::testPairing() call
@@ -137,6 +153,12 @@ class CbaSciController extends Controller
         }
 
         $message = $result['success'] && !$wasPaired ? 'Pairing cancelled.' : $result['message'];
+
+        // The re-pair widget's own Cancel button calls this over fetch() too (same mx51
+        // certification requirement, SCIPAIRING07, as the Add Terminal wizard's Cancel).
+        if ($request->wantsJson()) {
+            return response()->json(['success' => $result['success'], 'message' => $message]);
+        }
 
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $message)->with('expandTerminalId', $terminal->id);
     }

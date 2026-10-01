@@ -210,6 +210,46 @@ class CbaSciPairingTest extends TestCase
         $this->assertStringContainsString('no longer active', $result['message']);
     }
 
+    // mx51 returns the exact same no_active_pairings_found response both for a pairing that's
+    // genuinely gone and one that's still waiting on the admin to confirm the code on the
+    // physical terminal — recency of sci_paired_at is the only signal available to tell them
+    // apart. still_paired stays false either way (refreshPairingStatus()'s self-heal still
+    // needs that), only the message differs, so the manual Test button (which never
+    // auto-unpairs, see CbaSciController::testPairing()) can say something accurate instead of
+    // "it has been cleared" when nothing was actually cleared.
+    public function test_test_pairing_reports_awaiting_confirmation_for_a_just_paired_terminal(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+            'sci_paired_at' => now(),
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $result = CbaSciService::testPairing($terminal);
+
+        $this->assertFalse($result['success']);
+        $this->assertFalse($result['still_paired']);
+        $this->assertStringContainsString('confirmed on the terminal', $result['message']);
+    }
+
+    public function test_test_pairing_reports_genuinely_stale_once_well_past_pairing(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_key_id' => 'kid_123',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+            'sci_paired_at' => now()->subMinutes(10),
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $result = CbaSciService::testPairing($terminal);
+
+        $this->assertFalse($result['still_paired']);
+        $this->assertStringContainsString('no longer active', $result['message']);
+    }
+
     // mx51's own certification checklist (SCIPAIRING10/SCIMULTI03) requires the POS to
     // proactively confirm a pairing is still active — refreshPairingStatus() is what both
     // EftTerminalController::index() (viewing the pairing section) and

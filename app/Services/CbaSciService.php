@@ -130,7 +130,18 @@ class CbaSciService
         }
 
         if ($response->status() === 401 && ($response->json('error.code') ?? $response->json('code')) === 'no_active_pairings_found') {
-            return ['success' => false, 'message' => 'This pairing is no longer active on the terminal — it has been cleared here too. Pair again when ready.', 'still_paired' => false];
+            // mx51 returns this exact response both for a pairing that's genuinely gone and for
+            // one that's still waiting on the admin to confirm the code on the physical
+            // terminal — there's no separate error code for the two. Recency of sci_paired_at
+            // is the only signal available to tell them apart, so a just-paired terminal gets a
+            // non-alarming "still confirming" message instead of being told it's been cleared —
+            // `still_paired` itself stays false either way, since refreshPairingStatus()'s own
+            // passive self-heal still needs that to eventually clear a truly dead pairing.
+            $awaitingConfirmation = $terminal->sci_paired_at && $terminal->sci_paired_at->gt(now()->subMinutes(5));
+            $message = $awaitingConfirmation
+                ? 'Still waiting for the pairing to be confirmed on the terminal — confirm it there, then try Test again.'
+                : 'This pairing is no longer active on the terminal. Pair again when ready.';
+            return ['success' => false, 'message' => $message, 'still_paired' => false];
         }
 
         return ['success' => false, 'message' => self::pairingErrorMessage($response), 'still_paired' => true];
