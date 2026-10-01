@@ -2,11 +2,13 @@ name: Deploy to Hostinger
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch: {}
 
 concurrency:
-  group: deploy-production
+  # One concurrency group per branch — a dev deploy must never block, or be blocked by, a
+  # production one (they target completely separate apps/databases on the same server).
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -33,7 +35,7 @@ jobs:
       - name: Run test suite
         run: php artisan test --exclude-group=requires-mysql
 
-  deploy:
+  deploy-production:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -49,6 +51,32 @@ jobs:
             set -e
             cd "${{ secrets.HOSTINGER_APP_PATH }}"
             git pull origin main
+            composer install --no-dev --optimize-autoloader --no-interaction
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+  deploy-test:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
+    steps:
+      # Same Hostinger account/server as production — only the checkout path and branch
+      # differ, so this reuses the same SSH secrets rather than needing its own set.
+      # test.hasq.org's own .env (separate database, SHOW_TEST_BANNER=true, no live Stripe
+      # keys) is what actually keeps it isolated from production, not the deploy path.
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          port: ${{ secrets.HOSTINGER_SSH_PORT }}
+          username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/ssvk-test
+            git pull origin dev
             composer install --no-dev --optimize-autoloader --no-interaction
             php artisan migrate --force
             php artisan config:cache
