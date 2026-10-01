@@ -68,6 +68,33 @@ class EftTerminalRegistryAccessTest extends TestCase
         return $user;
     }
 
+    // Lands only on the kiosk-style Donation POS page (never the full console) — see
+    // AuthController::login()'s level==='pos' branch and EventCoordinatorLevel's docblock.
+    private function posLevelCoordinator(): User
+    {
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Access Test Event (pos)', 'event_date' => now()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'pos',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return $user;
+    }
+
+    // 'view' lands on the Ticket POS kiosk exactly like 'entry' does — only 'admin' reaches the
+    // full Ticket Console — see TicketControllerLevel's docblock.
+    private function ticketViewController(): User
+    {
+        $user = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
+        DB::table('ticket_controllers')->insert([
+            'user_id' => $user->id, 'level' => 'view', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return $user;
+    }
+
     public function test_event_admin_coordinator_can_view_and_add_a_terminal(): void
     {
         $user = $this->eventAdminCoordinator();
@@ -106,6 +133,41 @@ class EftTerminalRegistryAccessTest extends TestCase
             'key' => 'should-not-exist', 'label' => 'Should Not Exist',
         ]);
         $this->assertDatabaseMissing('eft_terminals', ['key' => 'should-not-exist']);
+    }
+
+    // A pos-level coordinator only ever reaches the kiosk-style Donation POS page, which shows
+    // an "Open EFT Terminal Settings" link unconditionally — if their own station's terminal
+    // ever goes unpaired, they need to be able to re-pair it without an Admin on hand, since
+    // there's no other page they can even get to.
+    public function test_pos_level_coordinator_can_view_and_add_a_terminal(): void
+    {
+        $user = $this->posLevelCoordinator();
+
+        $this->actingAs($user)->get('/admin/eft-terminals')->assertOk();
+
+        $response = $this->actingAs($user)->post('/admin/eft-terminals', [
+            'key' => 'pos-level-added', 'label' => 'Added by POS Level',
+        ]);
+
+        $response->assertRedirect(route('admin.eft-terminals.index'));
+        $this->assertDatabaseHas('eft_terminals', ['key' => 'pos-level-added']);
+    }
+
+    // view/entry Ticket Controllers both land on the Ticket POS kiosk the same way (only
+    // 'admin' reaches the full Ticket Console) — same reasoning as the pos-level coordinator
+    // case above.
+    public function test_ticket_view_controller_can_view_and_add_a_terminal(): void
+    {
+        $user = $this->ticketViewController();
+
+        $this->actingAs($user)->get('/admin/eft-terminals')->assertOk();
+
+        $response = $this->actingAs($user)->post('/admin/eft-terminals', [
+            'key' => 'ticket-view-added', 'label' => 'Added by Ticket View',
+        ]);
+
+        $response->assertRedirect(route('admin.eft-terminals.index'));
+        $this->assertDatabaseHas('eft_terminals', ['key' => 'ticket-view-added']);
     }
 
     // Set-default and remove stay System-Admin-only even for an event-admin coordinator who
