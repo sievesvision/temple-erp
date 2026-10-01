@@ -716,7 +716,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4">
                 <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-counterclockwise text-danger me-2"></i>Refund Transaction (mx51)</h5>
+                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-counterclockwise text-danger me-2"></i>Refund Transaction</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" id="sciRefundCloseBtn"></button>
                 </div>
                 <div class="modal-body py-3">
@@ -941,7 +941,7 @@
         document.getElementById('sciRefundConfirmBtn') && document.getElementById('sciRefundConfirmBtn').addEventListener('click', function () {
             const amount = parseFloat(document.getElementById('sciRefundAmount').value);
             if (!amount || amount <= 0) { return; }
-            if (!confirm('Refund ' + amount.toFixed(2) + ' on the mx51 terminal now?')) { return; }
+            if (!confirm('Refund ' + amount.toFixed(2) + ' on the terminal now?')) { return; }
 
             document.getElementById('sciRefundFormArea').style.display = 'none';
             document.getElementById('sciRefundStatusArea').style.display = '';
@@ -972,7 +972,7 @@
         function pollSciRefund(transactionId, startedAt) {
             if (sciRefundPollCancelled) { return; }
             if (Date.now() - startedAt > 180000) {
-                setSciRefundStatus('Timed out', 'Check the terminal/mx51 dashboard before retrying.');
+                setSciRefundStatus('Timed out', 'Check the terminal before retrying.');
                 return;
             }
             fetch(CBA_SCI_CHARGE_STATUS_URL_BASE + '/' + encodeURIComponent(transactionId), { headers: { 'Accept': 'application/json' } })

@@ -280,6 +280,19 @@
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
 
+        /* A bottom-corner toast is easy to miss mid-transaction, with both the operator and
+           donor's attention on the center of the screen — warnings/errors now interrupt with
+           a real popup instead; a plain confirmation (e.g. "Clipboard copied") still just
+           uses the quieter corner toast above. */
+        .pos-warning-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .pos-warning-overlay.active { display: flex; }
+        .pos-warning-popup { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; }
+        .pos-warning-icon { background: var(--error); color: #fff; font-size: 1.8rem; padding: 20px; }
+        .pos-warning-body { padding: 22px 24px 26px; }
+        .pos-warning-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
+        .pos-warning-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; }
+        .pos-warning-ok-btn:active { filter: brightness(0.92); }
+
         /* ---------- EFT terminal status popup — center-screen, mirrors what's on the
            physical/virtual PIN pad while a card payment is in progress ---------- */
         .eft-modal-overlay {
@@ -288,7 +301,7 @@
         }
         .eft-modal-overlay.active { display: flex; }
         .eft-modal {
-            background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px;
+            background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px;
             box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center;
         }
         .eft-modal-header {
@@ -355,14 +368,21 @@
         /* CBA Smart Terminal (mx51 SCI) — dynamic Action Framework elements, rendered from
            whatever pos_instructions the terminal sends for this step (text/button/input/
            image), never a fixed set like the Linkly soft-keys above. */
-        .sci-af-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .sci-af-row { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
         .sci-af-row:last-child { margin-bottom: 0; }
-        .sci-af-text { width: 100%; font-size: 0.92rem; color: var(--text-secondary); text-align: left; }
+        {{-- No forced width:100% — mx51 groups related text elements into the same
+             horizontal_layout row expecting them to sit side by side (e.g. "Label 1: Value 1"
+             next to "Label 2: Value 2"); forcing each onto its own line defeated that grouping
+             entirely. A text element alone in its own row still reads fine at its natural
+             width. --}}
+        .sci-af-text { font-size: 0.92rem; color: var(--text-secondary); text-align: left; }
         .sci-af-btn { flex: 1 1 auto; min-width: 100px; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.95rem; color: #fff; background: var(--maroon); }
         .sci-af-btn:active { filter: brightness(0.92); }
-        .sci-af-input { flex: 1 1 auto; min-width: 140px; padding: 12px 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.95rem; }
+        .sci-af-input-wrap { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; }
+        .sci-af-input-label { font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; flex-shrink: 0; }
+        .sci-af-input { flex: 1 1 auto; min-width: 100px; padding: 12px 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.95rem; }
         .sci-af-image { max-width: 100%; border-radius: var(--radius-sm); }
-        .sci-af-details { text-align: left; font-size: 0.82rem; color: var(--text-secondary); }
+        .sci-af-details { text-align: left; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
         #eftModalActionFramework { margin-bottom: 12px; }
 
         /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
@@ -576,6 +596,16 @@
 
     <div class="pos-toast" id="posToast"></div>
 
+    <div class="pos-warning-overlay" id="posWarningOverlay">
+        <div class="pos-warning-popup">
+            <div class="pos-warning-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+            <div class="pos-warning-body">
+                <div class="pos-warning-message" id="posWarningMessage"></div>
+                <button type="button" class="pos-warning-ok-btn" id="posWarningOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Shown only if a previous EFT Terminal attempt was left unresolved by a refresh/
          crash — see the DOMContentLoaded handler and startOrResumeEftPurchase() below.
          Hidden by default; never auto-triggers a new charge on its own. -->
@@ -589,10 +619,11 @@
         <div class="eft-modal">
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
             <div class="eft-modal-body">
-                {{-- mx51 branding — shown only while this modal is driving an mx51 (SCI)
-                     payment, not a Linkly one; sci-action-framework.js toggles it via the
-                     `hidden` attribute (not inline style, which would fight it). --}}
-                <div style="text-align:center;">
+                {{-- mx51 branding — shown only for the one Action Framework step that actually
+                     calls for it (a signature), moved there dynamically by
+                     renderInstructions(); this is just its resting home the rest of the time,
+                     never shown here directly. --}}
+                <div style="text-align:center;" id="sciMx51LogoHome">
                     <img src="{{ asset('images/mx51-logo.svg') }}" alt="mx51" id="sciMx51LogoImg" hidden style="height:26px; margin-bottom:14px;">
                 </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
@@ -1040,13 +1071,25 @@
 
         let toastHideTimer = null;
         function showToast(message, isError) {
+            // A warning/error interrupts with a real popup — easy to miss as a bottom-corner
+            // toast when both the operator and donor's attention is on the center of the
+            // screen during a transaction. A plain success confirmation stays as the quieter
+            // corner toast, since it's not something that needs to block anything.
+            if (isError) {
+                document.getElementById('posWarningMessage').textContent = message;
+                document.getElementById('posWarningOverlay').classList.add('active');
+                return;
+            }
             if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
             const toast = document.getElementById('posToast');
             toast.textContent = message;
-            toast.classList.toggle('error', !!isError);
+            toast.classList.remove('error');
             toast.style.display = 'block';
             toastHideTimer = setTimeout(function () { toast.style.display = 'none'; }, 2200);
         }
+        document.getElementById('posWarningOkBtn').addEventListener('click', function () {
+            document.getElementById('posWarningOverlay').classList.remove('active');
+        });
         // Center-screen popup mirroring the PIN pad's own display while a card payment is
         // in progress — a corner toast isn't prominent enough for something the operator
         // and donor both need to watch together.
@@ -1113,6 +1156,7 @@
                 overrideNoBtn: document.getElementById('eftModalOverrideNo'),
                 overrideKeepWaitingBtn: document.getElementById('eftModalOverrideKeepWaiting'),
                 mx51Logo: document.getElementById('sciMx51LogoImg'),
+                mx51LogoHome: document.getElementById('sciMx51LogoHome'),
             },
             buildStartBody: function (attempt) {
                 return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };

@@ -44,6 +44,18 @@
     .thankyou-sub { text-align: center; font-size: 13pt; color: #111111; line-height: 19pt; margin-bottom: 36pt; }
 
     .footer-note { font-size: 10pt; color: #333333; font-style: italic; line-height: 15pt; }
+
+    {{-- test.hasq.org's database is a clone of real production donations — this PDF is
+         generated from that data exactly like a real receipt would be, so without a loud,
+         unmistakable mark it's indistinguishable from one. Drawn last (after the real
+         content) so it sits on top, semi-transparent so the receipt underneath stays
+         legible. --}}
+    .test-watermark {
+      position: absolute; top: 560pt; left: -180pt; width: 1460pt;
+      text-align: center; font-family: 'DejaVu Sans', sans-serif; font-weight: bold;
+      font-size: 150pt; letter-spacing: 10pt; color: rgba(185, 28, 28, 0.32);
+      transform: rotate(-35deg);
+    }
   </style>
 </head>
 <body>
@@ -107,5 +119,9 @@
       Please retain it for your records.
     </div>
   </div>
+
+  @if(config('app.show_test_banner'))
+  <div class="test-watermark">TEST ONLY</div>
+  @endif
 </body>
 </html>

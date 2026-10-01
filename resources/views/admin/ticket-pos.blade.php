@@ -162,6 +162,19 @@
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
 
+        /* A bottom-corner toast is easy to miss mid-transaction, with both the operator and
+           customer's attention on the center of the screen — warnings/errors now interrupt
+           with a real popup instead; a plain confirmation still just uses the quieter corner
+           toast above. */
+        .pos-warning-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .pos-warning-overlay.active { display: flex; }
+        .pos-warning-popup { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; }
+        .pos-warning-icon { background: var(--error); color: #fff; font-size: 1.8rem; padding: 20px; }
+        .pos-warning-body { padding: 22px 24px 26px; }
+        .pos-warning-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
+        .pos-warning-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; }
+        .pos-warning-ok-btn:active { filter: brightness(0.92); }
+
         /* ---------- Quantity picker modal (opened by tapping an item tile) ---------- */
         .qty-modal-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 900; display: none; align-items: center; justify-content: center; padding: 20px; }
         .qty-modal-overlay.active { display: flex; }
@@ -178,7 +191,7 @@
 
         .eft-modal-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .eft-modal-overlay.active { display: flex; }
-        .eft-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; }
+        .eft-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; }
         .eft-modal-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em; font-size: 0.95rem; text-transform: uppercase; }
         .eft-modal-body { padding: 30px 26px 26px; }
         .eft-modal-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
@@ -204,14 +217,16 @@
         /* CBA Smart Terminal (mx51 SCI) — dynamic Action Framework elements, rendered from
            whatever pos_instructions the terminal sends for this step (text/button/input/
            image), never a fixed set like the Linkly soft-keys above. */
-        .sci-af-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .sci-af-row { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
         .sci-af-row:last-child { margin-bottom: 0; }
-        .sci-af-text { width: 100%; font-size: 0.92rem; color: var(--text-secondary); text-align: left; }
+        .sci-af-text { font-size: 0.92rem; color: var(--text-secondary); text-align: left; }
         .sci-af-btn { flex: 1 1 auto; min-width: 100px; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.95rem; color: #fff; background: var(--maroon); }
         .sci-af-btn:active { filter: brightness(0.92); }
-        .sci-af-input { flex: 1 1 auto; min-width: 140px; padding: 12px 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.95rem; }
+        .sci-af-input-wrap { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; }
+        .sci-af-input-label { font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; flex-shrink: 0; }
+        .sci-af-input { flex: 1 1 auto; min-width: 100px; padding: 12px 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.95rem; }
         .sci-af-image { max-width: 100%; border-radius: var(--radius-sm); }
-        .sci-af-details { text-align: left; font-size: 0.82rem; color: var(--text-secondary); }
+        .sci-af-details { text-align: left; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
         #eftModalActionFramework { margin-bottom: 12px; }
 
         /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
@@ -319,6 +334,16 @@
 
     <div class="pos-toast" id="posToast"></div>
 
+    <div class="pos-warning-overlay" id="posWarningOverlay">
+        <div class="pos-warning-popup">
+            <div class="pos-warning-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+            <div class="pos-warning-body">
+                <div class="pos-warning-message" id="posWarningMessage"></div>
+                <button type="button" class="pos-warning-ok-btn" id="posWarningOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
     <div id="eftResumeBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:2000; background:#7a1f1f; color:#fff; padding:12px 18px; align-items:center; gap:14px; flex-wrap:wrap; justify-content:center;">
         <span id="eftResumeBannerText"></span>
         <button type="button" id="eftResumeBannerDismissBtn" style="background:transparent; color:#fff; border:1px solid #fff; border-radius:8px; padding:6px 16px;">Dismiss</button>
@@ -362,10 +387,11 @@
         <div class="eft-modal">
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
             <div class="eft-modal-body">
-                {{-- mx51 branding — shown only while this modal is driving an mx51 (SCI)
-                     payment, not a Linkly one; sci-action-framework.js toggles it via the
-                     `hidden` attribute (not inline style, which would fight it). --}}
-                <div style="text-align:center;">
+                {{-- mx51 branding — shown only for the one Action Framework step that actually
+                     calls for it (a signature), moved there dynamically by
+                     renderInstructions(); this is just its resting home the rest of the time,
+                     never shown here directly. --}}
+                <div style="text-align:center;" id="sciMx51LogoHome">
                     <img src="{{ asset('images/mx51-logo.svg') }}" alt="mx51" id="sciMx51LogoImg" hidden style="height:26px; margin-bottom:14px;">
                 </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
@@ -685,13 +711,24 @@
 
         let toastHideTimer = null;
         function showToast(message, isError) {
+            // A warning/error interrupts with a real popup — easy to miss as a bottom-corner
+            // toast when attention is on the center of the screen during a sale. A plain
+            // success confirmation stays as the quieter corner toast.
+            if (isError) {
+                document.getElementById('posWarningMessage').textContent = message;
+                document.getElementById('posWarningOverlay').classList.add('active');
+                return;
+            }
             if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
             const toast = document.getElementById('posToast');
             toast.textContent = message;
-            toast.classList.toggle('error', !!isError);
+            toast.classList.remove('error');
             toast.style.display = 'block';
             toastHideTimer = setTimeout(function () { toast.style.display = 'none'; }, 2200);
         }
+        document.getElementById('posWarningOkBtn').addEventListener('click', function () {
+            document.getElementById('posWarningOverlay').classList.remove('active');
+        });
 
         const eftModalOverlay = document.getElementById('eftModalOverlay');
         const eftModalAmount = document.getElementById('eftModalAmount');
@@ -812,6 +849,7 @@
                 overrideNoBtn: document.getElementById('eftModalOverrideNo'),
                 overrideKeepWaitingBtn: document.getElementById('eftModalOverrideKeepWaiting'),
                 mx51Logo: document.getElementById('sciMx51LogoImg'),
+                mx51LogoHome: document.getElementById('sciMx51LogoHome'),
             },
             buildStartBody: function (attempt) {
                 return { record_type: 'ticket_order', cart_json: JSON.stringify(attempt.cart || []) };

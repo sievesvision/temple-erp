@@ -157,19 +157,29 @@
             lastStatusSignature = null;
             lastKnownMessage = null;
             setStatus(['Starting…'], 'pending');
+            // The logo may have been moved into actionContainer by a previous transaction's
+            // renderInstructions() — rescue the real DOM node back to its static home before
+            // wiping the container, same as renderInstructions() itself does.
+            if (cfg.el.mx51Logo && cfg.el.mx51LogoHome && cfg.el.mx51Logo.parentNode !== cfg.el.mx51LogoHome) {
+                cfg.el.mx51LogoHome.appendChild(cfg.el.mx51Logo);
+            }
             cfg.el.actionContainer.innerHTML = '';
             cfg.el.actionContainer.hidden = true;
             hideOverride();
             cfg.el.cancelBtn.hidden = false;
             cfg.el.cancelBtn.textContent = 'Cancel';
-            // The shared modal also serves Linkly payments, which have no mx51 branding — the
-            // logo only ever shows for this (SCI) flow, and only for as long as it's active.
-            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = false; }
+            // No longer shown for the whole SCI flow's duration — only the specific step that
+            // actually requires it (a signature) does that, via renderInstructions(). Starts
+            // hidden here so an ordinary purchase/refund never shows it at all.
+            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = true; }
             cfg.el.overlay.classList.add('active');
         }
 
         function hideModal() {
             flowStarted = false;
+            if (cfg.el.mx51Logo && cfg.el.mx51LogoHome && cfg.el.mx51Logo.parentNode !== cfg.el.mx51LogoHome) {
+                cfg.el.mx51LogoHome.appendChild(cfg.el.mx51Logo);
+            }
             if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = true; }
             cfg.el.overlay.classList.remove('active');
             cfg.el.actionContainer.innerHTML = '';
@@ -254,14 +264,25 @@
                 return btn;
             }
             if (type === 'input') {
+                // A fading placeholder isn't good enough here — mx51's certification payload
+                // uses the label to identify what each field actually is (its own test fields
+                // are literally named "Input 1"/"Input 2"), and that identity disappearing the
+                // moment the operator starts typing makes the form ambiguous. The label now
+                // sits beside the input permanently instead.
+                var wrap = document.createElement('div');
+                wrap.className = 'sci-af-input-wrap';
+                var name = prop.name || key;
+                var labelSpan = document.createElement('span');
+                labelSpan.className = 'sci-af-input-label';
+                labelSpan.textContent = label ? (label + (prop.name ? ' (' + prop.name + ')' : '')) : (prop.name || '');
                 var input = document.createElement('input');
                 input.type = 'text';
                 input.className = 'sci-af-input';
-                input.placeholder = label || '';
-                var name = prop.name || key;
                 if (Object.prototype.hasOwnProperty.call(formValues, name)) { input.value = formValues[name]; }
                 input.addEventListener('input', function () { formValues[name] = input.value; });
-                return input;
+                wrap.appendChild(labelSpan);
+                wrap.appendChild(input);
+                return wrap;
             }
             if (type === 'image' && prop.data) {
                 var img = document.createElement('img');
@@ -289,34 +310,50 @@
                 return;
             }
 
+            // The mx51 logo is a real shared DOM node (not something innerHTML='' should be
+            // allowed to destroy) — rescue it back to its static home first, every time,
+            // before wiping the container it may have been moved into on a previous render.
+            if (cfg.el.mx51Logo && cfg.el.mx51LogoHome && cfg.el.mx51Logo.parentNode !== cfg.el.mx51LogoHome) {
+                cfg.el.mx51LogoHome.appendChild(cfg.el.mx51Logo);
+            }
+            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = true; }
+
             cfg.el.actionContainer.innerHTML = '';
 
             if (posInstructions) {
+                var sawSignatureText = false;
                 layout.forEach(function (group) {
                     var row = document.createElement('div');
                     row.className = 'sci-af-row';
                     (group.elements || []).forEach(function (ref) {
                         var prop = properties[ref.key] || {};
+                        if (prop.type === 'text' && /signature/i.test(prop.text || '')) { sawSignatureText = true; }
                         var node = buildElementNode(ref.key, ref.label, prop);
                         if (node) { row.appendChild(node); }
                     });
                     if (row.children.length) { cfg.el.actionContainer.appendChild(row); }
                 });
 
+                // The mx51 logo only shows for the one step it actually certifies — a
+                // signature required — not on every ordinary purchase/refund step, where it
+                // was previously always visible regardless. Placed after the buttons/inputs
+                // and before the transaction details, matching mx51's own reference layout.
+                if (sawSignatureText && cfg.el.mx51Logo) {
+                    cfg.el.mx51Logo.hidden = false;
+                    cfg.el.actionContainer.appendChild(cfg.el.mx51Logo);
+                }
+
                 // mx51's certification review (SCIREC03-adjacent feedback) was explicit: the
                 // transaction details (Pairing ID, Transaction ID, TID, Transaction Version)
                 // must stay visible both while a transaction is in progress AND once it's
                 // finalised — previously this only rendered when there were NO buttons at all,
                 // which in practice meant it almost never showed, since a real response nearly
-                // always carries at least one button alongside the details.
+                // always carries at least one button alongside the details. Rendered as one
+                // flowing, comma-joined line (mx51's own reference layout), not stacked rows.
                 if (details && Object.keys(details).length) {
                     var box = document.createElement('div');
                     box.className = 'sci-af-details';
-                    Object.keys(details).forEach(function (k) {
-                        var line = document.createElement('div');
-                        line.textContent = k + ': ' + details[k];
-                        box.appendChild(line);
-                    });
+                    box.textContent = Object.keys(details).map(function (k) { return k + ': ' + details[k]; }).join(', ');
                     cfg.el.actionContainer.appendChild(box);
                 }
             }
