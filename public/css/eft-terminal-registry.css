@@ -80,11 +80,46 @@
 
 /* ---------- Add terminal ---------- */
 .add-terminal-card { background: var(--eftr-white); border: 1px solid var(--eftr-border); border-radius: 12px; padding: 22px 24px; margin-top: 28px; }
-.add-terminal-header { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 800; color: var(--eftr-maroon); margin-bottom: 4px; }
-.add-terminal-sub { font-size: 0.84rem; color: var(--eftr-text-secondary); margin-bottom: 18px; }
 .field-hint { font-size: 0.74rem; color: var(--eftr-text-secondary); margin-top: 4px; }
 .btn-add-terminal { padding: 10px 22px; border-radius: 8px; border: none; background: var(--eftr-maroon); color: white; font-weight: 800; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; }
 .btn-add-terminal:hover { background: var(--eftr-maroon-dark); color: #fff; }
+.btn-add-terminal:disabled { opacity: 0.6; }
+
+/* ---------- Add Terminal wizard ---------- */
+#addTerminalWizard { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--eftr-border); }
+.wizard-heading { font-weight: 800; font-size: 0.95rem; color: var(--eftr-text-primary); margin-bottom: 10px; }
+
+.integration-type-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+.integration-type-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--eftr-border); border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 0.92rem; color: var(--eftr-text-primary); }
+.integration-type-card input[type="radio"] { width: 18px; height: 18px; accent-color: var(--eftr-maroon); flex-shrink: 0; margin: 0; }
+.integration-type-card.active { border-color: var(--eftr-maroon); background: var(--eftr-cream); }
+.integration-type-icon-img { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.integration-type-icon-badge { width: 26px; height: 26px; border-radius: 50%; background: #0E9488; color: #fff; font-size: 0.62rem; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+.wizard-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 760px) { .wizard-columns { grid-template-columns: minmax(0, 1fr); } }
+
+.wizard-field { margin-bottom: 14px; }
+.wizard-actions { display: flex; gap: 10px; margin-top: 18px; }
+
+.wizard-alert { border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; margin-bottom: 14px; }
+.wizard-alert-error { background: #FEF2F2; color: #B91C1C; border: 1px solid #FCA5A5; }
+
+.wizard-steps-col { background: #F9FAFB; border: 1px solid var(--eftr-border); border-radius: 10px; padding: 16px 18px; font-size: 0.84rem; }
+.wizard-steps-heading { font-weight: 800; color: var(--eftr-text-primary); margin-bottom: 10px; }
+.wizard-steps-list { margin: 0; padding-left: 18px; line-height: 1.65; color: var(--eftr-text-primary); }
+
+/* ---------- Step 2: mx51 confirmation-code screen ---------- */
+.wizard-confirm-box { display: flex; align-items: center; gap: 14px; background: #F9FAFB; border: 1px solid var(--eftr-border); border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
+.wizard-confirm-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--eftr-gold); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wizard-confirm-title { font-weight: 800; font-size: 0.98rem; color: var(--eftr-text-primary); }
+.wizard-confirm-sub { font-size: 0.82rem; color: var(--eftr-text-secondary); }
+.wizard-code-label { font-size: 0.82rem; color: var(--eftr-text-secondary); margin-bottom: 4px; }
+.wizard-code { font-family: 'Courier New', monospace; font-size: 2.6rem; font-weight: 800; color: var(--eftr-text-primary); letter-spacing: 0.04em; margin-bottom: 18px; }
+
+/* ---------- Success panel ---------- */
+.wizard-success-box { display: flex; align-items: center; gap: 10px; background: #D1FAE5; color: #047857; border-radius: 10px; padding: 16px 18px; font-weight: 700; font-size: 0.98rem; margin-bottom: 18px; }
+.wizard-success-box i { font-size: 1.3rem; }
 
 /* ---------- Environment (sandbox/live) — Admin Settings only ---------- */
 .eftr-settings-card { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; background: var(--eftr-white); border: 1px solid var(--eftr-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }

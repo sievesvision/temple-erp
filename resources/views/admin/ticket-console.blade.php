@@ -10,6 +10,7 @@
     <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
     <link href="{{ asset('css/eft-terminal-registry.css') }}?v={{ @filemtime(public_path('css/eft-terminal-registry.css')) }}" rel="stylesheet">
+    <script src="{{ asset('js/eft-terminal-registry.js') }}?v={{ @filemtime(public_path('js/eft-terminal-registry.js')) }}" defer></script>
     <style>
         :root {
             --maroon: #6B0F1A; --maroon-dark: #4A0A12; --gold: #C89B3C; --gold-hover: #A67C2B;

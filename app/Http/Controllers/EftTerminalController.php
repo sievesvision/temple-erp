@@ -70,6 +70,15 @@ class EftTerminalController extends Controller
         ['activeTerminals' => $activeTerminals, 'inactiveTerminals' => $inactiveTerminals, 'allOperational' => $allOperational]
             = \App\Services\EftTerminalRegistryView::groups($eftTerminals, $linklyMode);
 
+        // The Add Terminal wizard re-fetches just the registry list (not a full page
+        // navigation) once it's done — same data this method already builds above, just
+        // rendered as the bare partial instead of the full page shell.
+        if ($request->wantsJson()) {
+            return response()->json([
+                'html' => view('admin.partials.eft-terminal-registry', compact('activeTerminals', 'inactiveTerminals', 'linklyMode', 'cbaSciMode', 'canManageRegistryLevel', 'isSystemAdmin', 'allOperational'))->render(),
+            ]);
+        }
+
         return view('admin.eft-terminal-settings', compact('activeTerminals', 'inactiveTerminals', 'linklyMode', 'cbaSciMode', 'canManageRegistryLevel', 'isSystemAdmin', 'allOperational', 'embedded'));
     }
 
@@ -175,6 +184,95 @@ class EftTerminalController extends Controller
         return redirect()->back()
             ->with('success', "Terminal \"{$terminal->label}\" added — pair it below.")
             ->with('expandTerminalId', $terminal->id);
+    }
+
+    /**
+     * One-step "Add Terminal" — combines terminal creation with an immediate pairing attempt,
+     * mirroring mx51's own merchant-portal UX (choose an integration type, enter pairing
+     * details, press Pair once) rather than the older two-step create-then-separately-pair
+     * flow store() above still backs for any other caller. Always responds JSON — this is a
+     * new endpoint with no legacy form-POST caller to stay compatible with. On any failure the
+     * just-created row is deleted, so a failed pairing attempt never leaves a dangling
+     * "key already taken" terminal behind for the next retry.
+     */
+    public function addAndPair(Request $request)
+    {
+        if (!$this->canManageRegistry()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $validated = $request->validate([
+            'key' => 'required|string|max:40|alpha_dash|unique:eft_terminals,key',
+            'pairing_nickname' => 'nullable|string|max:255',
+            'provider' => 'required|in:linkly,cba_sci',
+            'pairing_code' => 'required|string|max:20',
+        ]);
+
+        $pairingNickname = $validated['pairing_nickname'] ?? null;
+
+        $terminal = EftTerminal::create([
+            'key' => $validated['key'],
+            'label' => $pairingNickname !== null && $pairingNickname !== '' ? $pairingNickname : $validated['key'],
+            'provider' => $validated['provider'],
+            'pos_id' => EftTerminal::generatePosId(),
+            'is_default' => !EftTerminal::query()->exists(),
+        ]);
+
+        $result = $validated['provider'] === 'cba_sci'
+            ? \App\Services\CbaSciService::pair($validated['pairing_code'], $pairingNickname, $terminal)
+            : LinklyEftService::pair($validated['pairing_code'], $terminal);
+
+        if (!$result['success']) {
+            $terminal->delete();
+            return response()->json(['success' => false, 'message' => $result['message']]);
+        }
+
+        AuditLogService::log("Added and paired EFT terminal '{$terminal->label}' ({$terminal->key})");
+
+        $terminal->refresh();
+
+        return response()->json([
+            'success' => true,
+            'terminal_id' => $terminal->id,
+            'label' => $terminal->label,
+            // mx51 pairing isn't considered confirmed until the admin visually cross-checks
+            // the confirmation code against the terminal and presses Test — Linkly's pairing
+            // API has no such concept and is already fully live at this point.
+            'requires_confirmation' => $validated['provider'] === 'cba_sci',
+            'confirmation_code' => $terminal->sci_confirmation_code,
+            'tid' => $terminal->sci_tid,
+        ]);
+    }
+
+    /**
+     * Cancel button on the new Add Terminal wizard's mx51 confirmation screen — calls Unpair
+     * (per mx51's own certification checklist, SCIPAIRING07, cancelling a pairing attempt must
+     * call Unpair too) then deletes the terminal entirely, since this row only exists as part
+     * of this one still-unconfirmed wizard run. Uses the broader canManageRegistry() tier
+     * rather than destroy()'s System-Admin-only gate, since anyone who could start this wizard
+     * should be able to back out of it — safe because it only ever removes a terminal with
+     * zero recorded transactions, true by construction for a brand new row.
+     */
+    public function cancelNewTerminal(Request $request, EftTerminal $terminal)
+    {
+        if (!$this->canManageRegistry()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        if ($terminal->linklyTransactions()->exists() || $terminal->sciTransactions()->exists()) {
+            return response()->json(['success' => false, 'message' => 'This terminal already has recorded activity and cannot be cancelled this way.'], 422);
+        }
+
+        if ($terminal->isSciPaired()) {
+            \App\Services\CbaSciService::unpair($terminal);
+        }
+
+        $label = $terminal->label;
+        $terminal->delete();
+
+        AuditLogService::log("Cancelled pairing and removed EFT terminal '{$label}'");
+
+        return response()->json(['success' => true]);
     }
 
     /**

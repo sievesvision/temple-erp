@@ -99,7 +99,7 @@
                         <br><strong>{{ $terminal->label }}</strong>
                         @endif
                     </div>
-                    <div><span class="text-muted small">Terminal Key</span><br><strong>{{ $terminal->key }}</strong></div>
+                    <div><span class="text-muted small">Unique Terminal Code</span><br><strong>{{ $terminal->key }}</strong></div>
                     <div><span class="text-muted small">Provider</span><br><strong>{{ $isMx51 ? 'mx51 Cloud' : 'Linkly Cloud' }}</strong></div>
                 </div>
             </div>

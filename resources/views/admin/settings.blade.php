@@ -4,6 +4,7 @@
 
 @section('page-css')
 <link href="{{ asset('css/eft-terminal-registry.css') }}?v={{ @filemtime(public_path('css/eft-terminal-registry.css')) }}" rel="stylesheet">
+<script src="{{ asset('js/eft-terminal-registry.js') }}?v={{ @filemtime(public_path('js/eft-terminal-registry.js')) }}" defer></script>
 <style>
     .settings-card {
         background: white;

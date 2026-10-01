@@ -82,7 +82,12 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response->assertDontSee('data-pane="pane-eftpos"', false);
         $response->assertDontSee('eftSettingsPaneFrame', false);
         $response->assertSee('name="pair_code"', false);
-        $response->assertSee('name="key"', false);
+        // The old always-visible "key"-named add-terminal form was replaced by the one-step
+        // Add Terminal wizard (see eft-terminal-add-wizard.blade.php), which posts its fields
+        // via fetch() rather than named form inputs — assert the wizard's own entry point and
+        // field instead.
+        $response->assertSee('id="addTerminalToggleBtn"', false);
+        $response->assertSee('id="wizardTerminalKey"', false);
     }
 
     public function test_ticket_console_eftpos_pane_shows_both_linkly_and_mx51_transactions(): void
@@ -120,7 +125,8 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response->assertDontSee('data-pane="pane-eftpos"', false);
         $response->assertDontSee('eftSettingsPaneFrame', false);
         $response->assertSee('name="pair_code"', false);
-        $response->assertSee('name="key"', false);
+        $response->assertSee('id="addTerminalToggleBtn"', false);
+        $response->assertSee('id="wizardTerminalKey"', false);
     }
 
     // Both consoles' terminal-picker modals (on the actual purchase screens, not the consoles)

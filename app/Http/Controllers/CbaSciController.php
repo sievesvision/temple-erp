@@ -102,6 +102,13 @@ class CbaSciController extends Controller
             CbaSciService::unpair($terminal);
         }
 
+        // The new Add Terminal wizard's confirmation screen calls this same endpoint over
+        // fetch() rather than a form POST — the underlying CbaSciService::testPairing() call
+        // above is unchanged either way, only the response format branches.
+        if ($request->wantsJson()) {
+            return response()->json($result);
+        }
+
         return redirect()->back()->with($result['success'] ? 'success' : 'error', $result['message'])->with('expandTerminalId', $terminal->id);
     }
 

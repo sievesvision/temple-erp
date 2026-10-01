@@ -8,10 +8,14 @@
      same way eft-terminal-card.blade.php always has. The host page must link
      css/eft-terminal-registry.css once and already define the --maroon/--gold/--cream/
      --white/--border/--text-primary/--text-secondary/--serif tokens this relies on (every
-     current host already does, as they all share the same temple-branding palette).
-     Every form redirects with plain redirect()->back(), so it always lands back on whichever
-     of those pages it was actually submitted from — nothing here needs to know which one
-     that is. --}}
+     current host already does, as they all share the same temple-branding palette) and
+     js/eft-terminal-registry.js once (drives the Add Terminal wizard — see
+     eft-terminal-add-wizard.blade.php).
+     Every per-terminal card action (pair/test/unpair/rename/etc.) still redirects with plain
+     redirect()->back(), so it always lands back on whichever of those pages it was actually
+     submitted from — nothing here needs to know which one that is. The Add Terminal wizard is
+     the one exception: it's AJAX-driven end to end (see js/eft-terminal-registry.js) and never
+     navigates away, refreshing only the #eftTerminalsList container above on success. --}}
 <div class="eft-info-banner">
     <span class="eft-info-banner-icon"><i class="bi bi-info-lg"></i></span>
     <div>
@@ -28,6 +32,7 @@
 @include('admin.partials.eft-terminal-receipt-settings')
 @endif
 
+<div id="eftTerminalsList">
 @if($activeTerminals->isEmpty() && $inactiveTerminals->isEmpty())
 <p class="text-muted">No terminals registered yet — add one below.</p>
 @endif
@@ -52,33 +57,8 @@
     @include('admin.partials.eft-terminal-card', ['terminal' => $terminal, 'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode, 'isSystemAdmin' => $isSystemAdmin, 'canManageRegistryLevel' => $canManageRegistryLevel])
 @endforeach
 @endif
+</div>
 
 @if($canManageRegistryLevel)
-<div class="add-terminal-card">
-    <div class="add-terminal-header"><i class="bi bi-plus-circle-fill"></i> Add New Terminal</div>
-    <div class="add-terminal-sub">Add and configure a new EFT terminal. Each terminal requires a unique key and a label for easy identification.</div>
-    <form action="{{ route('admin.eft-terminals.store') }}" method="POST" class="row g-3 align-items-start">
-        @csrf
-        <div class="col-md-3">
-            <label class="form-label small fw-semibold">Terminal Key</label>
-            <input type="text" name="key" class="form-control rounded-3" placeholder="e.g. ticket-counter-2" maxlength="40" required>
-            <div class="field-hint">Unique identifier. No spaces.</div>
-        </div>
-        <div class="col-md-4">
-            <label class="form-label small fw-semibold">Label</label>
-            <input type="text" name="label" class="form-control rounded-3" placeholder="e.g. Ticket Counter 2" required>
-        </div>
-        <div class="col-md-3">
-            <label class="form-label small fw-semibold">Provider</label>
-            <select name="provider" class="form-select rounded-3">
-                <option value="linkly">Linkly Cloud (PIN pad)</option>
-                <option value="cba_sci">mx51 Cloud</option>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label class="form-label small fw-semibold d-none d-md-block">&nbsp;</label>
-            <button type="submit" class="btn-add-terminal w-100 justify-content-center"><i class="bi bi-plus-lg"></i> Add Terminal</button>
-        </div>
-    </form>
-</div>
+@include('admin.partials.eft-terminal-add-wizard')
 @endif

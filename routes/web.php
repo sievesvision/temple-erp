@@ -751,12 +751,16 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
 Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Ticket Controller'])->group(function () {
     Route::get('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'index'])->name('admin.eft-terminals.index');
     Route::post('/admin/eft-terminals', [\App\Http\Controllers\EftTerminalController::class, 'store'])->name('admin.eft-terminals.store');
+    // Static-path routes registered before the {terminal} wildcard POST routes below, so
+    // "add-and-pair" is never swallowed as a {terminal} route-model-binding lookup.
+    Route::post('/admin/eft-terminals/add-and-pair', [\App\Http\Controllers\EftTerminalController::class, 'addAndPair'])->name('admin.eft-terminals.addAndPair');
     Route::post('/admin/eft-terminals/mode', [\App\Http\Controllers\EftTerminalController::class, 'updateMode'])->name('admin.eft-terminals.updateMode');
     Route::post('/admin/eft-terminals/receipt-settings', [\App\Http\Controllers\EftTerminalController::class, 'updateReceiptSettings'])->name('admin.eft-terminals.updateReceiptSettings');
     Route::post('/admin/eft-terminals/transaction-limits', [\App\Http\Controllers\EftTerminalController::class, 'updateTransactionLimits'])->name('admin.eft-terminals.updateTransactionLimits');
     Route::post('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'update'])->name('admin.eft-terminals.update');
     Route::post('/admin/eft-terminals/{terminal}/default', [\App\Http\Controllers\EftTerminalController::class, 'setDefault'])->name('admin.eft-terminals.setDefault');
     Route::post('/admin/eft-terminals/{terminal}/check-connection', [\App\Http\Controllers\EftTerminalController::class, 'checkConnection'])->name('admin.eft-terminals.checkConnection');
+    Route::post('/admin/eft-terminals/{terminal}/cancel-new', [\App\Http\Controllers\EftTerminalController::class, 'cancelNewTerminal'])->name('admin.eft-terminals.cancelNew');
     Route::delete('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'destroy'])->name('admin.eft-terminals.destroy');
     Route::post('/admin/eft/pair', [\App\Http\Controllers\LinklyController::class, 'pair'])->name('admin.eft.pair');
     Route::post('/admin/cba-sci/pair', [\App\Http\Controllers\CbaSciController::class, 'pair'])->name('admin.cba-sci.pair');
