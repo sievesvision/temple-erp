@@ -125,12 +125,12 @@
         .pos-grid { max-width: 1600px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
         @media (min-width: 900px) { .pos-grid { grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); } }
 
-        .pos-col-left { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .pos-col-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
         .pos-card {
-            background: var(--white); border-radius: var(--radius-md); border: 1.5px solid var(--border);
-            box-shadow: 0 2px 8px rgba(15,23,42,0.08); padding: 20px 22px;
+            background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(15,23,42,0.06); padding: 18px 20px;
         }
-        .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; font-size: 1.1rem; color: var(--text-primary); margin: 0; }
+        .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; font-size: 1.08rem; color: var(--text-primary); margin: 0; }
         .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
         .pos-card-subtitle { margin: 4px 0 16px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
         {{-- Numbered steps instead of generic icons for the three cards that make up the
@@ -144,15 +144,15 @@
             font-size: 1rem;
         }
 
-        .pos-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .pos-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
         @media (min-width: 900px) { .pos-side { position: sticky; top: 96px; } }
 
         /* Donation Summary — deliberately NOT another plain white card, so the running total
            reads at a glance as the "money" panel rather than just more form. */
         .pos-summary-card {
             background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%);
-            border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 20px 22px;
-            box-shadow: 0 2px 8px rgba(15,23,42,0.08);
+            border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 18px 20px;
+            box-shadow: 0 1px 4px rgba(15,23,42,0.07);
         }
         .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
         .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 0; }
@@ -160,10 +160,10 @@
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
         .pos-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
         .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
-        .pos-summary-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
+        .pos-summary-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
         .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
-        .pos-summary-total-row .pos-summary-row-label { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); }
-        .pos-summary-total-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 5.5vw, 2.8rem); font-weight: 800; color: #A56B13; }
+        .pos-summary-total-row .pos-summary-row-label { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); }
+        .pos-summary-total-row .pos-summary-row-value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 700; color: #A56B13; }
         .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
@@ -186,38 +186,39 @@
         .pos-footer-time { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); }
         @media (max-width: 700px) { .pos-footer-tagline, .pos-footer-text span { display: none; } }
 
-        .pos-field-label { display: block; font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+        .pos-field-label { display: block; font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
         .pos-input {
-            width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm); font-size: 1.1rem; font-weight: 600;
-            color: var(--text-primary); background: var(--white); min-height: 56px;
+            width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 1.02rem; font-weight: 600;
+            color: var(--text-primary); background: var(--white); min-height: 50px;
         }
         .pos-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
         .pos-input::placeholder, .pos-amount-input-wrap input::placeholder, .pos-field-inline-input::placeholder { color: #9AA7B4; font-weight: 400; opacity: 1; }
-        .pos-textarea { min-height: 78px; font-weight: 500; font-size: 1rem; resize: vertical; }
-        .pos-row { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+        .pos-textarea { min-height: 72px; font-weight: 500; font-size: 0.98rem; resize: vertical; }
+        .pos-row { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 12px; }
         .pos-row:last-child { margin-bottom: 0; }
         .pos-row.two-col { grid-template-columns: 1fr; }
         @media (min-width: 560px) { .pos-row.two-col { grid-template-columns: 1fr 1fr; } }
 
         /* Donor fields — a leading icon plus a stacked label/placeholder inside one bordered
-           box, all touch targets at least 60px tall. */
-        .pos-field-box { display: flex; align-items: center; gap: 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 8px 16px; min-height: 62px; background: var(--white); }
+           box; touch targets stay at/above the ~48px minimum without ballooning past it. */
+        .pos-field-box { display: flex; align-items: center; gap: 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 6px 14px; min-height: 54px; background: var(--white); }
         .pos-field-box:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
-        .pos-field-icon { font-size: 1.2rem; color: var(--text-secondary); flex-shrink: 0; }
+        .pos-field-icon { font-size: 1.1rem; color: var(--text-secondary); flex-shrink: 0; }
         .pos-field-stack { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-        .pos-field-inline-label { font-size: 0.76rem; color: var(--text-secondary); font-weight: 700; }
-        .pos-field-inline-input { border: none; outline: none; background: transparent; font-size: 1.08rem; font-weight: 600; color: var(--text-primary); padding: 0; width: 100%; }
+        .pos-field-inline-label { font-size: 0.74rem; color: var(--text-secondary); font-weight: 700; }
+        .pos-field-inline-input { border: none; outline: none; background: transparent; font-size: 1.02rem; font-weight: 600; color: var(--text-primary); padding: 0; width: 100%; }
 
         /* Shared "currency-prefixed" amount field — used for both the plain free-amount
            input and any per-tier free-amount input, so a donor/operator always sees the
-           currency right next to what they're typing. */
-        .pos-amount-input-wrap { display: flex; align-items: stretch; border: 2px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--white); }
+           currency right next to what they're typing. Mono figure face so the typed amount
+           matches the preset tiles and summary total it feeds into. */
+        .pos-amount-input-wrap { display: flex; align-items: stretch; border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--white); }
         .pos-amount-input-wrap:focus-within { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
-        .pos-amount-prefix { display: flex; align-items: center; justify-content: center; padding: 0 16px; background: var(--cream); color: var(--text-secondary); font-weight: 800; font-size: 1.1rem; border-right: 2px solid var(--border); flex-shrink: 0; }
-        .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 64px; padding: 14px 16px; font-size: 1.3rem; font-weight: 600; color: var(--text-primary); background: transparent; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
+        .pos-amount-prefix { display: flex; align-items: center; justify-content: center; padding: 0 14px; background: var(--cream); color: var(--text-secondary); font-weight: 800; font-size: 1.02rem; border-right: 1.5px solid var(--border); flex-shrink: 0; }
+        .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 52px; padding: 12px 14px; font-size: 1.15rem; font-weight: 600; color: var(--text-primary); background: transparent; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
         .pos-amount-input-wrap input:focus { outline: none; box-shadow: none; }
         .pos-amount-input-stack { display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0; }
-        .pos-amount-input-stack input { padding: 12px 16px 0; min-height: auto; }
+        .pos-amount-input-stack input { padding: 10px 14px 0; min-height: auto; }
         .pos-amount-hint { padding: 0 16px 10px; font-size: 0.8rem; color: var(--text-secondary); }
 
         .pos-section-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); margin: 20px 0 10px; }
@@ -229,66 +230,62 @@
 
         /* auto-fit rather than a fixed 3 columns — reflows gracefully at any width instead of
            forcing three equal columns that can squeeze text at narrow (phone/kiosk) sizes. */
-        .pos-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .pos-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin-bottom: 14px; }
         {{-- A flower icon + a richer gradient on the selected state — plain bordered boxes of
              numbers read as a generic form field; real POS terminals (and the temple's own
              printed donation tiers) lean on devotional iconography to make each amount feel
-             like a distinct, tappable offering rather than a row in a spreadsheet. --}}
+             like a distinct, tappable offering rather than a row in a spreadsheet. Sized to a
+             real touch-target minimum (~48px), not a hero tile — this is a dense grid of many
+             options tapped in quick succession, not a single emphasised choice. Amount itself
+             is set in the app's monospaced figure face (matches the Ticket POS cart/total and
+             Event Console amount columns) so digits line up cleanly at any size. --}}
         .pos-quick-amount-btn, .pos-tier-quick-btn {
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            background: var(--shade); border: 1.5px solid var(--shade-border); color: var(--text-primary);
-            font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px;
-            border-radius: var(--radius-sm); font-size: 1.3rem;
+            display: flex; align-items: center; justify-content: center; gap: 7px;
+            background: var(--shade); border: 1px solid var(--shade-border); color: var(--text-primary);
+            font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace;
+            font-variant-numeric: tabular-nums; padding: 8px 6px; min-height: 48px;
+            border-radius: var(--radius-sm); font-size: 1rem;
         }
-        .pos-quick-amount-icon { font-size: 1.15rem; color: var(--gold-hover); flex-shrink: 0; }
+        .pos-quick-amount-icon { font-size: 0.92rem; color: var(--gold-hover); flex-shrink: 0; }
         .pos-quick-amount-btn:active, .pos-tier-quick-btn:active { background: #E7ECF1; }
-        .pos-quick-amount-btn.active {
+        .pos-quick-amount-btn.active, .pos-tier-quick-btn.active {
             background: linear-gradient(135deg, var(--gold) 0%, var(--gold-hover) 100%);
-            border-color: var(--gold); color: white; box-shadow: 0 8px 18px rgba(201,149,46,0.38);
+            border-color: var(--gold); color: white; box-shadow: 0 3px 8px rgba(201,149,46,0.35);
         }
-        .pos-quick-amount-btn.active .pos-quick-amount-icon { color: white; }
-        .pos-quick-amount-btn.custom-amount-btn, .pos-tier-quick-btn.custom-amount-btn {
-            flex-direction: column; gap: 4px;
-            background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%); border-color: var(--gold);
-            color: var(--text-primary); font-size: 1rem; font-weight: 700; line-height: 1.3;
-        }
+        .pos-quick-amount-btn.active .pos-quick-amount-icon, .pos-tier-quick-btn.active .pos-quick-amount-icon { color: white; }
 
         /* Donation-type pills — sit in the card's header row (top-right), each toggling its
            own detail block below. A single-option event (the common case today) shows one
            pill that's always active; multiple options behave as an additive multi-select
            "cart", each with its own detail area revealed only while its pill is active. */
-        .pos-tier-pills-row { display: flex; flex-wrap: wrap; gap: 10px; }
-        .pos-tier-pill { display: inline-flex; align-items: center; gap: 8px; padding: 0 22px; min-height: 54px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); font-weight: 700; font-size: 1.02rem; color: var(--text-primary); cursor: pointer; user-select: none; }
+        .pos-tier-pills-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        .pos-tier-pill { display: inline-flex; align-items: center; gap: 8px; padding: 0 18px; min-height: 48px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.95rem; color: var(--text-primary); cursor: pointer; user-select: none; }
         .pos-tier-pill input[type="checkbox"] { display: none; }
         .pos-tier-pill.active { background: var(--gold); border-color: var(--gold); color: #fff; }
 
         .pos-tier-detail { display: none; }
         .pos-tier-detail.active { display: block; }
         .pos-tier-fixed-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 4px 0; }
-        .pos-tier-fixed-amount { font-weight: 700; font-size: 1.1rem; color: var(--text-primary); }
-        .pos-tier-qty { width: 84px; min-height: 52px; padding: 10px; font-size: 1.1rem; font-weight: 700; border: 2px solid var(--border); border-radius: var(--radius-sm); text-align: center; }
+        .pos-tier-fixed-amount { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.05rem; color: var(--text-primary); }
+        .pos-tier-qty { width: 76px; min-height: 48px; padding: 8px; font-family: 'IBM Plex Mono', 'Inter', monospace; font-size: 1.05rem; font-weight: 700; border: 1.5px solid var(--border); border-radius: var(--radius-sm); text-align: center; }
         /* Same auto-fit reflow as .pos-quick-amounts above, and the same reasoning — this is
            the exact grid that was reported "breaking" at narrow widths under a fixed 3-column
-           track. */
-        .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; width: 100%; margin-bottom: 12px; }
-        {{-- Base look/flex layout already comes from the shared .pos-quick-amount-btn,
-             .pos-tier-quick-btn rule above — only the slightly smaller size is specific here. --}}
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn { font-size: 1.25rem; }
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
+           track. Size/look otherwise comes entirely from the shared .pos-quick-amount-btn,
+           .pos-tier-quick-btn rule above. */
+        .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; width: 100%; margin-bottom: 12px; }
         .pos-tier-total-row { display: none; }
 
-        .pos-method-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-        .pos-method-btn { position: relative; flex: 1 1 calc(33.33% - 8px); min-width: 100px; padding: 14px 10px; min-height: 116px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--shade); font-weight: 700; font-size: 1rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.3); }
+        .pos-method-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .pos-method-btn { position: relative; flex: 1 1 calc(33.33% - 7px); min-width: 96px; padding: 12px 8px; min-height: 92px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--shade); font-weight: 700; font-size: 0.92rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 4px 10px rgba(201,149,46,0.3); }
         .pos-method-btn.active::after {
-            content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
-            width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
-            border-top: 9px solid var(--gold);
+            content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent;
+            border-top: 8px solid var(--gold);
         }
-        .pos-method-icon-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--white); border: 1.5px solid var(--shade-border); margin-bottom: 8px; }
+        .pos-method-icon-badge { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--white); border: 1.5px solid var(--shade-border); margin-bottom: 6px; }
         .pos-method-btn.active .pos-method-icon-badge { background: rgba(255,255,255,0.25); border-color: transparent; }
-        .pos-method-icon-badge i { font-size: 1.3rem; color: var(--gold-hover); }
+        .pos-method-icon-badge i { font-size: 1.1rem; color: var(--gold-hover); }
         .pos-method-btn.active .pos-method-icon-badge i { color: #fff; }
 
         .pos-save-btn {
@@ -301,12 +298,12 @@
 
         /* ---------- Recent Orders popup (opened from the Donation Summary link) ---------- */
         .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
-        .pos-orders-modal-total-row span:last-child { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: #A56B13; }
+        .pos-orders-modal-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: #A56B13; }
         .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
         .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--cream); font-size: 0.92rem; }
         .pos-order-item:last-child { border-bottom: none; }
         .pos-order-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-        .pos-order-amount { font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
+        .pos-order-amount { font-weight: 700; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
         .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
         .pos-orders-empty { color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 20px 0; }
 
@@ -343,7 +340,7 @@
             font-size: 0.95rem; text-transform: uppercase;
         }
         .eft-modal-body { padding: 30px 26px 26px; }
-        .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
+        .eft-modal-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
             padding: 18px 16px; min-height: 90px; display: flex; flex-direction: column;
@@ -428,11 +425,7 @@
         .eft-override-btn.eft-override-no { background: var(--error); }
 
         @media (max-width: 600px) {
-            .pos-method-btn { flex: 1 1 calc(50% - 10px); }
-            /* A touch smaller at phone widths so a 4-digit amount ($1,001) never wraps or
-               crowds its own button — the auto-fit grid above already handles column count,
-               this just keeps the numerals comfortable once columns get narrow. */
-            .pos-quick-amount-btn, .pos-tier-free-quick-amounts .pos-tier-quick-btn { font-size: 1.1rem; min-height: 64px; }
+            .pos-method-btn { flex: 1 1 calc(50% - 5px); }
         }
     </style>
 </head>
@@ -880,21 +873,6 @@
             el.addEventListener('input', function () { sanitizeDecimalInput(el); });
         }
 
-        // Purely a touch affordance alongside the preset amount tiles — focuses the actual
-        // free-amount field rather than setting a value, so it never affects the real
-        // amount/total calculation (that logic lives entirely in the input's own listeners).
-        function appendCustomAmountButton(container, inputEl) {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = container.id === 'posQuickAmounts' ? 'pos-quick-amount-btn custom-amount-btn' : 'pos-tier-quick-btn custom-amount-btn';
-            b.innerHTML = '<i class="bi bi-pencil-fill"></i><span>Custom Amount</span>';
-            b.addEventListener('click', function () {
-                inputEl.focus();
-                inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
-            container.appendChild(b);
-        }
-
         // Payment method — big buttons instead of a dropdown.
         const methodRow = document.getElementById('posMethodRow');
         let selectedMethod = null;
@@ -1021,7 +999,6 @@
                     });
                     quickWrap.appendChild(b);
                 });
-                appendCustomAmountButton(quickWrap, freeInput);
             });
 
             function recalcTiers() {
@@ -1087,7 +1064,6 @@
                 });
                 quickAmountsRow.appendChild(btn);
             });
-            appendCustomAmountButton(quickAmountsRow, amountInput);
             bindDecimalSanitizer(amountInput);
             amountInput.addEventListener('input', function () {
                 quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) {
