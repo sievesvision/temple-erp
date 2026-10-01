@@ -71,6 +71,14 @@
      * @param {function(string):void} cfg.onDeclined
      * @param {function(string):void} cfg.onUnresolved
      * @param {function():void} cfg.onLocalCancel  called when the operator cancels before anything started
+     * @param {function():void} [cfg.onModalClosed]  called whenever hideModal() actually runs —
+     *        after a finalised result with nothing left to show, after the operator uses a
+     *        Print/Done Action Framework button to finish up, or after an explicit Cancel.
+     *        A caller that needs to refresh its own page once the operator is truly done
+     *        (e.g. a refund updating a transactions table) should do that here, never on a
+     *        fixed timer from onApproved/onDeclined — those fire the moment a result is known,
+     *        which can be well before mx51's own certification-required Print Merchant/
+     *        Customer Receipt buttons have actually been shown or used.
      */
     function createFlow(cfg) {
         var cancelled = false;
@@ -177,6 +185,7 @@
             cfg.el.overlay.classList.remove('active');
             cfg.el.actionContainer.innerHTML = '';
             hideOverride();
+            if (typeof cfg.onModalClosed === 'function') { cfg.onModalClosed(); }
         }
 
         // mx51's own docs are explicit that both the ordinary PENDING case ("immediately poll

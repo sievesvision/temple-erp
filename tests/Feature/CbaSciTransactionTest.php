@@ -424,6 +424,74 @@ class CbaSciTransactionTest extends TestCase
             && ($request['refund_details']['refund_amount'] ?? null) === 4000);
     }
 
+    // mx51's own reference POS lets the operator pick which paired terminal a refund runs
+    // through — it's not forced back through whatever terminal took the original payment.
+    public function test_refund_can_be_processed_through_a_different_terminal_than_the_original(): void
+    {
+        $admin = $this->adminUser();
+        $originalTerminal = $this->pairedTerminal();
+        $otherTerminal = EftTerminal::create([
+            'key' => 'sci-txn-other-' . uniqid(), 'label' => 'SCI Other Terminal', 'provider' => 'cba_sci',
+            'pos_id' => (string) Str::uuid(), 'sci_pairing_id' => 'pid_other', 'sci_key_id' => 'kid_other',
+            'sci_signing_secret_part_b' => 'secret-other', 'sci_api_base_url' => 'https://sci-api-other.tenant.example',
+        ]);
+        $original = $this->approvedPurchase($originalTerminal, 40);
+
+        Http::fake(['sci-api-other.tenant.example/*' => Http::response(['data' => [
+            'id' => 'txn_refund_other', 'version' => 1, 'status' => 'PENDING', 'message' => 'Processing refund',
+        ]], 200)]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-other', 'terminal_id' => $otherTerminal->id,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
+        $this->assertDatabaseHas('sci_transactions', [
+            'sci_transaction_id' => 'txn_refund_other', 'txn_type' => 'refund', 'eft_terminal_id' => $otherTerminal->id,
+        ]);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sci-api-other.tenant.example'));
+    }
+
+    public function test_refund_rejects_an_unpaired_terminal(): void
+    {
+        $admin = $this->adminUser();
+        $originalTerminal = $this->pairedTerminal();
+        $unpairedTerminal = EftTerminal::create([
+            'key' => 'sci-unpaired-' . uniqid(), 'label' => 'SCI Unpaired', 'provider' => 'cba_sci', 'pos_id' => (string) Str::uuid(),
+        ]);
+        $original = $this->approvedPurchase($originalTerminal, 40);
+        Http::fake();
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-unpaired', 'terminal_id' => $unpairedTerminal->id,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson(['success' => false, 'message' => 'That terminal is not currently paired.']);
+        Http::assertNothingSent();
+        $this->assertDatabaseMissing('sci_transactions', ['client_ref' => 'refund-ref-unpaired']);
+    }
+
+    public function test_refund_rejects_a_non_mx51_terminal(): void
+    {
+        $admin = $this->adminUser();
+        $originalTerminal = $this->pairedTerminal();
+        $linklyTerminal = EftTerminal::create([
+            'key' => 'linkly-' . uniqid(), 'label' => 'Linkly Terminal', 'provider' => 'linkly', 'pos_id' => (string) Str::uuid(),
+        ]);
+        $original = $this->approvedPurchase($originalTerminal, 40);
+        Http::fake();
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-linkly', 'terminal_id' => $linklyTerminal->id,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson(['success' => false, 'message' => 'Select a valid mx51 terminal for this refund.']);
+        Http::assertNothingSent();
+    }
+
     public function test_refund_amount_cannot_exceed_the_original_purchase_amount(): void
     {
         $admin = $this->adminUser();

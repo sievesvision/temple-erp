@@ -388,7 +388,7 @@
                                                 @if($orderCanRefund && $orderLinklyTxn)
                                                 <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openTicketRefundModal({{ $orderLinklyTxn->id }}, {{ $order->total_amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
                                                 @elseif($orderCanRefund && $orderSciTxn)
-                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $orderSciTxn->sci_transaction_id }}', {{ $order->total_amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $orderSciTxn->sci_transaction_id }}', {{ $order->total_amount }}, {{ $orderSciTxn->eft_terminal_id }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
                                                 @endif
                                             </td>
                                         </tr>
@@ -811,6 +811,17 @@
             <div class="eft-modal-header"><i class="bi bi-arrow-counterclockwise me-2"></i>Refund Transaction</div>
             <div class="eft-modal-body">
                 <div id="sciRefundAmountStep">
+                    {{-- The operator picks which paired mx51 terminal the refund runs through
+                         (mx51's own reference POS allows this) — it defaults to whichever
+                         terminal took the original payment, but isn't forced to it. --}}
+                    <label class="form-label small text-start d-block">Terminal</label>
+                    <select class="form-select rounded-3 mb-2" id="sciRefundTerminalSelect">
+                        @foreach($eftTerminals as $t)
+                            @if($t->provider === 'cba_sci' && $t->isSciPaired())
+                                <option value="{{ $t->id }}">{{ $t->label }}{{ $t->is_default ? ' (default)' : '' }}</option>
+                            @endif
+                        @endforeach
+                    </select>
                     <label class="form-label small text-start d-block">Refund amount</label>
                     <input type="number" step="0.01" min="0.01" class="form-control rounded-3 mb-2" id="sciRefundAmount">
                     <p class="text-muted small mb-3">The customer may be asked to present their card again on the terminal to complete the refund.</p>
@@ -1056,6 +1067,9 @@
         const sciRefundAmountStep = document.getElementById('sciRefundAmountStep');
         const sciRefundFlowArea = document.getElementById('sciRefundFlowArea');
         let sciRefundOriginalTransactionId = null;
+        // Set by onApproved/onDeclined/onUnresolved, read by onModalClosed — see that
+        // callback's own comment for why the reload is deferred to there.
+        let sciRefundNeedsReload = false;
 
         const sciRefundFlowCfg = {
             startUrl: null,
@@ -1083,25 +1097,38 @@
             },
             onToast: function (message) { showToast(message, true); },
             onApproved: function () {
+                sciRefundNeedsReload = true;
                 showToast('Refund approved.');
-                setTimeout(function () { window.location.reload(); }, 1200);
             },
             onDeclined: function (message) {
+                sciRefundNeedsReload = true;
                 showToast(message || 'Refund was not completed.', true);
             },
             onUnresolved: function (message) {
+                sciRefundNeedsReload = true;
                 showToast(message || 'No final result was received — check before retrying.', true);
             },
             onLocalCancel: function () {
                 sciRefundFlowArea.hidden = true;
                 sciRefundAmountStep.hidden = false;
             },
+            // Reloading here (rather than on a fixed timer from onApproved/onDeclined) means
+            // the page only refreshes once the operator is actually done with the modal —
+            // mx51's certification-required Print Merchant/Customer Receipt buttons stay
+            // usable for as long as the Action Framework response keeps showing them. A plain
+            // Cancel before anything started never reloads, since nothing changed.
+            onModalClosed: function () {
+                if (sciRefundNeedsReload) { window.location.reload(); }
+            },
         };
         const sciRefundFlow = SciActionFramework.createFlow(sciRefundFlowCfg);
 
-        function openSciRefundModal(transactionId, amount) {
+        function openSciRefundModal(transactionId, amount, originalTerminalId) {
             sciRefundOriginalTransactionId = transactionId;
+            sciRefundNeedsReload = false;
             document.getElementById('sciRefundAmount').value = Number(amount).toFixed(2);
+            const terminalSelect = document.getElementById('sciRefundTerminalSelect');
+            if (terminalSelect && originalTerminalId) { terminalSelect.value = String(originalTerminalId); }
             sciRefundAmountStep.hidden = false;
             sciRefundFlowArea.hidden = true;
             sciRefundModalOverlay.classList.add('active');
@@ -1114,6 +1141,8 @@
         document.getElementById('sciRefundConfirmBtn').addEventListener('click', function (e) {
             const amount = parseFloat(document.getElementById('sciRefundAmount').value);
             if (!amount || amount <= 0) { showToast('Enter a valid refund amount.', true); return; }
+            const terminalId = document.getElementById('sciRefundTerminalSelect').value;
+            if (!terminalId) { showToast('Select a terminal for this refund.', true); return; }
             if (!confirm('Refund ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' on the terminal now?')) { return; }
 
             sciRefundFlowCfg.startUrl = SCI_REFUND_URL_BASE + '/' + encodeURIComponent(sciRefundOriginalTransactionId);
@@ -1121,13 +1150,8 @@
             sciRefundFlowArea.hidden = false;
 
             const clientRef = 'sci-refund-' + sciRefundOriginalTransactionId + '-' + Date.now();
-            sciRefundFlow.start(e.currentTarget, { amount: amount, clientRef: clientRef, name: '', email: '', mobile: '' });
+            sciRefundFlow.start(e.currentTarget, { amount: amount, clientRef: clientRef, name: '', email: '', mobile: '', terminalId: terminalId });
         });
-        if (sciRefundModalEl) {
-            sciRefundModalEl.addEventListener('hidden.bs.modal', function () {
-                sciRefundPollCancelled = true;
-            });
-        }
         @endif
     </script>
 </body>

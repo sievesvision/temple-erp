@@ -375,12 +375,15 @@ class CbaSciController extends Controller
 
     /**
      * Starts a refund for a completed mx51 purchase — mirrors DonationController::
-     * refundEftCharge()/TicketController::refundEftCharge() exactly (admin-only gate,
-     * duplicate-refund protection, amount capped at the original, forced back through the
-     * SAME terminal that took the original payment), but unified across event/ticket
-     * contexts since CbaSciService::createRefund() is provider-generic. Runs through the
-     * same async start+poll+Action-Framework modal flow as a purchase (see startPurchase()/
-     * poll()), since a refund is a real terminal transaction, not a database edit.
+     * refundEftCharge()/TicketController::refundEftCharge() (admin-only gate, duplicate-refund
+     * protection, amount capped at the original), but unified across event/ticket contexts
+     * since CbaSciService::createRefund() is provider-generic. Runs through the same async
+     * start+poll+Action-Framework modal flow as a purchase (see startPurchase()/poll()), since
+     * a refund is a real terminal transaction, not a database edit.
+     *
+     * The operator picks which paired mx51 terminal to run the refund through (mx51's own
+     * reference POS allows this); it defaults to whichever terminal took the original payment
+     * only when the caller doesn't specify one, it's never forced.
      */
     public function refund(Request $request, string $transactionId)
     {
@@ -420,13 +423,20 @@ class CbaSciController extends Controller
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01|max:' . (float) $original->amount,
             'client_ref' => 'required|string|max:64',
+            'terminal_id' => 'nullable|integer|exists:eft_terminals,id',
         ]);
 
-        // A refund must return through the SAME terminal that took the original payment —
-        // never whatever terminal the caller happens to have selected right now.
-        $terminal = $original->eftTerminal;
-        if (!$terminal) {
-            return response()->json(['success' => false, 'message' => 'No EFT terminal is configured yet.'], 422);
+        // Defaults to the terminal that took the original payment when the caller doesn't
+        // pick one, but the operator can choose any other paired mx51 terminal instead.
+        $terminal = isset($validated['terminal_id'])
+            ? EftTerminal::find($validated['terminal_id'])
+            : $original->eftTerminal;
+
+        if (!$terminal || $terminal->provider !== 'cba_sci') {
+            return response()->json(['success' => false, 'message' => 'Select a valid mx51 terminal for this refund.'], 422);
+        }
+        if (!$terminal->isSciPaired()) {
+            return response()->json(['success' => false, 'message' => 'That terminal is not currently paired.'], 422);
         }
 
         $result = CbaSciService::createRefund($terminal, (float) $validated['amount']);
