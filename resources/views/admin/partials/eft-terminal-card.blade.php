@@ -84,7 +84,21 @@
             <div class="terminal-detail-section">
                 <div class="terminal-detail-heading">Terminal Details</div>
                 <div class="terminal-detail-grid">
-                    <div><span class="text-muted small">Label</span><br><strong>{{ $terminal->label }}</strong></div>
+                    <div>
+                        <span class="text-muted small">Label</span>
+                        @if($canManageRegistryLevel ?? false)
+                        {{-- Renamable — a terminal's label had no way to be changed before this,
+                             which mattered in practice: "mx51 Certification Terminal" leaked
+                             mx51's own name into a customer-facing error that embedded it. --}}
+                        <form action="{{ route('admin.eft-terminals.update', $terminal) }}" method="POST" class="d-flex align-items-center gap-2 mt-1">
+                            @csrf
+                            <input type="text" name="label" value="{{ $terminal->label }}" class="form-control form-control-sm rounded-3" style="max-width: 220px;" maxlength="255" required>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-3">Save</button>
+                        </form>
+                        @else
+                        <br><strong>{{ $terminal->label }}</strong>
+                        @endif
+                    </div>
                     <div><span class="text-muted small">Terminal Key</span><br><strong>{{ $terminal->key }}</strong></div>
                     <div><span class="text-muted small">Provider</span><br><strong>{{ $isMx51 ? 'mx51 Cloud' : 'Linkly Cloud' }}</strong></div>
                 </div>

@@ -177,6 +177,34 @@ class EftTerminalController extends Controller
             ->with('expandTerminalId', $terminal->id);
     }
 
+    /**
+     * Renames a terminal's display label — added after mx51's certification review flagged
+     * that a terminal's own label (e.g. "mx51 Certification Terminal") had no way to be
+     * changed, and was leaking into customer-facing error messages that embedded it (see
+     * startPurchase()'s "No active pairings found" fix). The terminal Key stays immutable —
+     * it's a stable identifier referenced elsewhere, unlike the Label, which is purely a
+     * display name.
+     */
+    public function update(Request $request, EftTerminal $terminal)
+    {
+        if (!$this->canManageRegistry()) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'label' => 'required|string|max:255',
+        ]);
+
+        $oldLabel = $terminal->label;
+        $terminal->update(['label' => $validated['label']]);
+
+        AuditLogService::log("Renamed EFT terminal '{$oldLabel}' to '{$terminal->label}' ({$terminal->key})");
+
+        return redirect()->back()
+            ->with('success', "Terminal renamed to \"{$terminal->label}\".")
+            ->with('expandTerminalId', $terminal->id);
+    }
+
     public function setDefault(Request $request, EftTerminal $terminal)
     {
         if (!$this->isAdmin()) {

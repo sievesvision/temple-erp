@@ -303,7 +303,13 @@
                     if (row.children.length) { cfg.el.actionContainer.appendChild(row); }
                 });
 
-                if (!layout.length && details && Object.keys(details).length) {
+                // mx51's certification review (SCIREC03-adjacent feedback) was explicit: the
+                // transaction details (Pairing ID, Transaction ID, TID, Transaction Version)
+                // must stay visible both while a transaction is in progress AND once it's
+                // finalised — previously this only rendered when there were NO buttons at all,
+                // which in practice meant it almost never showed, since a real response nearly
+                // always carries at least one button alongside the details.
+                if (details && Object.keys(details).length) {
                     var box = document.createElement('div');
                     box.className = 'sci-af-details';
                     Object.keys(details).forEach(function (k) {

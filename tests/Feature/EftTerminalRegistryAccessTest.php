@@ -122,6 +122,33 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
     }
 
+    // Renaming a terminal's label was added after mx51's certification review flagged that
+    // "mx51 Certification Terminal" had no way to be changed, and leaked into a customer-
+    // facing error message that embedded it (see CbaSciController::startPurchase()'s fix).
+    // Same permission tier as adding a terminal (canManageRegistry()), not Admin-only like
+    // set-default/remove — an event-admin coordinator already fully manages their own
+    // terminals' pairing, so fixing a typo'd label is no more sensitive than that.
+    public function test_event_admin_coordinator_can_rename_a_terminal(): void
+    {
+        $user = $this->eventAdminCoordinator();
+        $terminal = EftTerminal::factory()->create(['key' => 'renamable-terminal', 'label' => 'Old Label']);
+
+        $this->actingAs($user)->post("/admin/eft-terminals/{$terminal->id}", ['label' => 'New Label'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id, 'label' => 'New Label']);
+    }
+
+    public function test_entry_level_coordinator_cannot_rename_a_terminal(): void
+    {
+        $user = $this->entryLevelCoordinator();
+        $terminal = EftTerminal::factory()->create(['key' => 'protected-label-terminal', 'label' => 'Original Label']);
+
+        $this->actingAs($user)->post("/admin/eft-terminals/{$terminal->id}", ['label' => 'Hijacked Label']);
+
+        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id, 'label' => 'Original Label']);
+    }
+
     // The "Add Terminal" form is now @include'd verbatim wherever the terminal registry
     // appears (the standalone page, both consoles' own EFT Terminal Settings pane, and Admin
     // Settings) — see admin.partials.eft-terminal-registry — so there's no fixed "home" route

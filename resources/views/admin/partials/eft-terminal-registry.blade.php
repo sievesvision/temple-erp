@@ -40,7 +40,7 @@
     @endif
 </div>
 @foreach($activeTerminals as $terminal)
-    @include('admin.partials.eft-terminal-card', ['terminal' => $terminal, 'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode, 'isSystemAdmin' => $isSystemAdmin])
+    @include('admin.partials.eft-terminal-card', ['terminal' => $terminal, 'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode, 'isSystemAdmin' => $isSystemAdmin, 'canManageRegistryLevel' => $canManageRegistryLevel])
 @endforeach
 @endif
 
@@ -49,7 +49,7 @@
     <div class="eft-section-heading">Inactive Terminals <span class="eft-section-count">{{ $inactiveTerminals->count() }}</span></div>
 </div>
 @foreach($inactiveTerminals as $terminal)
-    @include('admin.partials.eft-terminal-card', ['terminal' => $terminal, 'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode, 'isSystemAdmin' => $isSystemAdmin])
+    @include('admin.partials.eft-terminal-card', ['terminal' => $terminal, 'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode, 'isSystemAdmin' => $isSystemAdmin, 'canManageRegistryLevel' => $canManageRegistryLevel])
 @endforeach
 @endif
 

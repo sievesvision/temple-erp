@@ -123,8 +123,10 @@ class CbaSciTransactionTest extends TestCase
     // startPurchase() now proactively re-checks pairing-info before starting (mx51's own
     // certification checklist, SCIPAIRING10) — a terminal mx51 already considers unpaired is
     // now caught and self-healed by that pre-check, before ever reaching the transactions
-    // endpoint at all, so the surfaced message is the ordinary "not paired yet" one rather
-    // than a transaction-specific error.
+    // endpoint at all. The surfaced message is mx51's own certification-required exact text
+    // (SCITX01) — never a paraphrase, and never the terminal's own label, which could itself
+    // carry mx51's name (as "mx51 Certification Terminal" did in this exact scenario) and leak
+    // it into a customer-facing error.
     public function test_no_active_pairings_found_is_surfaced_when_starting_a_purchase(): void
     {
         $admin = $this->adminUser();
@@ -137,8 +139,7 @@ class CbaSciTransactionTest extends TestCase
         ]);
 
         $response->assertStatus(422);
-        $response->assertJson(['success' => false]);
-        $this->assertStringContainsString('not paired yet', $response->json('message'));
+        $response->assertJson(['success' => false, 'message' => 'No active pairings found']);
         $this->assertFalse($terminal->fresh()->isSciPaired());
     }
 

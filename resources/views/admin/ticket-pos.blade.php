@@ -856,7 +856,12 @@
                 if (selectedMethod === 'EFT Terminal') {
                     selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
                     if (!selectedTerminal || !selectedTerminal.paired) {
-                        showToast('This station\'s EFT terminal (' + currentTerminalLabel() + ') is not paired yet — check the terminal picker.', true);
+                        // Deliberately not embedding currentTerminalLabel() here — a terminal's
+                        // own label can carry a provider's brand name (as "mx51 Certification
+                        // Terminal" did), which has no place leaking into a customer-facing
+                        // error. Matches the server's own certification-required wording
+                        // (SCITX01).
+                        showToast('No active pairings found — check the terminal picker.', true);
                         return;
                     }
                 }

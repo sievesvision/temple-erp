@@ -175,7 +175,11 @@ class CbaSciController extends Controller
             \App\Services\CbaSciService::refreshPairingStatus($terminal);
         }
         if (!$terminal->isSciPaired()) {
-            return response()->json(['success' => false, 'message' => "\"{$terminal->label}\" is not paired yet."], 422);
+            // mx51's own certification checklist (SCITX01) requires exactly this text — not a
+            // paraphrase, and never the terminal's own label (which could itself carry mx51's
+            // name, as "mx51 Certification Terminal" did here, leaking it into a customer-
+            // facing error).
+            return response()->json(['success' => false, 'message' => 'No active pairings found'], 422);
         }
 
         // Resume-in-place: an existing non-final attempt for this exact client_ref (a
