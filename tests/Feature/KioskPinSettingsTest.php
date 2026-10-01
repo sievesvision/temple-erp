@@ -121,6 +121,46 @@ class KioskPinSettingsTest extends TestCase
         $this->assertSame(1, KioskPin::where('user_id', $user->id)->count());
     }
 
+    private function adminLevelCoordinator(?string $username = 'sieves'): array
+    {
+        $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'), 'username' => $username]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Pin Settings Event', 'event_date' => now()->addMonth()->toDateString(),
+            'slug' => 'pin-settings-event-' . uniqid(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'admin',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return [$user, $eventId];
+    }
+
+    /**
+     * Event admin users should be able to use a PIN to sign in too, not just pos-level
+     * coordinators — the settings page must offer them a PIN slot, and it must point at their
+     * console (not the kiosk-style POS page a pos-level coordinator would get).
+     */
+    public function test_an_admin_level_coordinator_can_reach_the_pin_settings_page_and_set_a_pin(): void
+    {
+        [$user, $eventId] = $this->adminLevelCoordinator();
+
+        $getResponse = $this->actingAs($user)->get(route('kiosk.pin.edit'));
+        $getResponse->assertOk();
+        $getResponse->assertSee(route('admin.events.console', $eventId), false);
+
+        $postResponse = $this->actingAs($user)->post(route('kiosk.pin.update'), [
+            'current_password' => 'password',
+            'destination_type' => 'event', 'destination_id' => $eventId,
+            'new_pin' => '111222', 'new_pin_confirmation' => '111222',
+        ]);
+
+        $postResponse->assertSessionHasNoErrors();
+        $pin = KioskPin::where('user_id', $user->id)->first();
+        $this->assertNotNull($pin);
+        $this->assertTrue(Hash::check('111222', $pin->pin));
+    }
+
     public function test_a_non_kiosk_eligible_account_gets_403_on_both_routes(): void
     {
         $user = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);

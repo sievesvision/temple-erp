@@ -554,15 +554,31 @@ class AuthController extends Controller
      * role is primary — reused by completeLogin() (decide where to land) and
      * showKioskSelect() (render the picker, recomputed fresh rather than trusting anything
      * stashed at login time). Returns [] the instant EITHER side of the account isn't purely
-     * kiosk-only — a coordinator managing even one event's console, or a ticket controller at
-     * 'admin' level — rather than a partial list, since a non-kiosk capability anywhere means
-     * this account already has real navigation elsewhere and should keep using today's
-     * existing (unmodified) redirect for that side, not be funnelled into this picker.
+     * kiosk-only — a coordinator holding an 'entry' or 'view' assignment anywhere, or a ticket
+     * controller at 'admin' level — rather than a partial list, since a non-kiosk capability
+     * anywhere means this account already has real navigation elsewhere and should keep using
+     * today's existing (unmodified) redirect for that side, not be funnelled into this picker.
      *
-     * @return array<int, array{type: 'event', event_id: int, slug: string, label: string, date: string}|array{type: 'tickets', label: string}>
+     * 'pos' and 'admin'-level Event Coordinator assignments both qualify (an admin-level
+     * coordinator can sign in with a PIN too, same as a pos-level one) — each destination
+     * carries its own `level` so posDestinationUrl() can send a pos-level one to the kiosk POS
+     * page and an admin-level one to the full console, exactly as an email+password login
+     * already would for that same assignment.
+     *
+     * $includeAdminLevel defaults to true for every PIN-related caller. completeLogin() alone
+     * passes false for its OWN "more than one kiosk-only destination → make them pick" check —
+     * that check exists only because the kiosk POS/ticket pages have no navigation between
+     * destinations, which isn't true of an admin-level coordinator (the console already has its
+     * own "Switch Event" menu), so an admin-level assignment must never cause that email+
+     * password login path to divert to the kiosk picker grid instead of its own existing
+     * earliest-event-first console logic further down completeLogin().
+     *
+     * @return array<int, array{type: 'event', event_id: int, slug: string, label: string, date: string, level: string}|array{type: 'tickets', label: string}>
      */
-    public function possibleKioskPosDestinations(User $user): array
+    public function possibleKioskPosDestinations(User $user, bool $includeAdminLevel = true): array
     {
+        $allowedCoordinatorLevels = $includeAdminLevel ? ['pos', 'admin'] : ['pos'];
+
         $coordinatorRows = \Illuminate\Support\Facades\DB::table('event_coordinators')
             ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
             ->where('event_coordinators.user_id', $user->id)
@@ -570,7 +586,7 @@ class AuthController extends Controller
             ->select('events.event_id', 'events.event_name', 'events.event_date', 'events.slug', 'event_coordinators.level')
             ->get();
 
-        if ($coordinatorRows->isNotEmpty() && !$coordinatorRows->every(fn ($row) => $row->level === 'pos')) {
+        if ($coordinatorRows->isNotEmpty() && !$coordinatorRows->every(fn ($row) => in_array($row->level, $allowedCoordinatorLevels, true))) {
             return [];
         }
 
@@ -581,7 +597,7 @@ class AuthController extends Controller
 
         $destinations = [];
         foreach ($coordinatorRows as $row) {
-            $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'slug' => $row->slug, 'label' => $row->event_name, 'date' => $row->event_date];
+            $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'slug' => $row->slug, 'label' => $row->event_name, 'date' => $row->event_date, 'level' => $row->level];
         }
         if ($ticketRow) {
             $destinations[] = ['type' => 'tickets', 'label' => 'Ticket Sales'];
@@ -609,9 +625,13 @@ class AuthController extends Controller
 
     private function posDestinationUrl(array $destination): string
     {
-        return $destination['type'] === 'event'
-            ? route('admin.events.pos', $destination['event_id'])
-            : route('admin.tickets.pos');
+        if ($destination['type'] === 'event') {
+            return ($destination['level'] ?? 'pos') === 'admin'
+                ? route('admin.events.console', $destination['event_id'])
+                : route('admin.events.pos', $destination['event_id']);
+        }
+
+        return route('admin.tickets.pos');
     }
 
     /**
@@ -762,9 +782,12 @@ class AuthController extends Controller
      * The self-service "set/change my kiosk PIN" screen — reached from a topbar icon on the
      * kiosk pages themselves (there is no dashboard for a pos-level Event Coordinator or a
      * view/entry Ticket Controller to embed this in, per ProfileController's own role
-     * branches). Locked to accounts that currently resolve at least one kiosk destination —
-     * "PIN logins are for pos role only." Shows every reachable destination separately, each
-     * with its own PIN status — the username itself is admin-assigned, shown read-only here.
+     * branches; an admin-level Event Coordinator does have a console dashboard, but this same
+     * screen still covers their PIN setup too, reached the same way). Locked to accounts that
+     * currently resolve at least one kiosk destination via possibleKioskPosDestinations() —
+     * pos or admin level for an Event Coordinator, view/entry for a Ticket Controller. Shows
+     * every reachable destination separately, each with its own PIN status — the username
+     * itself is admin-assigned, shown read-only here.
      */
     public function showKioskPinSettings()
     {
@@ -927,7 +950,7 @@ class AuthController extends Controller
         // secondary role keeps using the topbar's "Switch Role" as today, since it already
         // has full navigation available.
         if (in_array($role, ['Event Coordinator', 'Ticket Controller'], true)) {
-            $destinations = $this->possibleKioskPosDestinations($user);
+            $destinations = $this->possibleKioskPosDestinations($user, includeAdminLevel: false);
             if (count($destinations) > 1) {
                 return redirect()->route('kiosk.select');
             }

@@ -38,6 +38,63 @@ class KioskPinLoginTest extends TestCase
         return [$user, $eventId];
     }
 
+    private function adminLevelCoordinatorWithPin(string $username = 'sieves', string $pin = '123456'): array
+    {
+        $user = User::factory()->create([
+            'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
+            'username' => $username,
+        ]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Pin Test Event', 'event_date' => now()->addMonth()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'admin',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        KioskPin::create([
+            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
+            'pin' => Hash::make($pin), 'pin_set_at' => now(),
+        ]);
+        return [$user, $eventId];
+    }
+
+    public function test_an_admin_level_coordinator_can_log_in_with_a_pin_and_lands_on_the_console(): void
+    {
+        [$user, $eventId] = $this->adminLevelCoordinatorWithPin();
+
+        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+
+        $response->assertRedirect(route('admin.events.console', $eventId));
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame('Event Coordinator', session('active_role'));
+    }
+
+    public function test_an_entry_level_coordinator_cannot_set_up_or_use_a_kiosk_pin(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
+            'username' => 'sieves',
+        ]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Pin Test Event', 'event_date' => now()->addMonth()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'entry',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        KioskPin::create([
+            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
+            'pin' => Hash::make('123456'), 'pin_set_at' => now(),
+        ]);
+
+        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+
+        $response->assertSessionHasErrors('pin');
+        $this->assertGuest();
+    }
+
     public function test_correct_username_and_pin_logs_in_and_lands_on_that_exact_event(): void
     {
         [$user, $eventId] = $this->posLevelCoordinatorWithPin();
