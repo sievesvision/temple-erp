@@ -1,12 +1,12 @@
 /*
- * The EFT Terminal registry UI (info banner, terminal cards, add-terminal form) — shared by
- * the standalone EFT Terminal Settings page, both consoles' own EFT Terminal Settings pane,
- * and Admin Settings' EFT Terminal panel (see admin/partials/eft-terminal-registry.blade.php,
- * which every one of those @include's verbatim). Every page that includes that partial links
- * this file once. Deliberately self-contained (its own --eftr-* tokens below, not the
- * console pages' --maroon/--gold/etc.) since Admin Settings doesn't define that palette at
- * all — this way the same file renders identically on every host regardless of what tokens
- * that host's own page happens to declare.
+ * The EFT Terminal registry UI (top "Add New Terminal" row, terminal cards, Add Terminal
+ * wizard) — shared by the standalone EFT Terminal Settings page, both consoles' own EFT
+ * Terminal Settings pane, and Admin Settings' EFT Terminal panel (see
+ * admin/partials/eft-terminal-registry.blade.php, which every one of those @include's
+ * verbatim). Every page that includes that partial links this file once. Deliberately
+ * self-contained (its own --eftr-* tokens below, not the console pages' --maroon/--gold/etc.)
+ * since Admin Settings doesn't define that palette at all — this way the same file renders
+ * identically on every host regardless of what tokens that host's own page happens to declare.
  */
 :root {
     --eftr-maroon: #6B0F1A; --eftr-maroon-dark: #4A0A12; --eftr-gold: #C89B3C;
@@ -14,12 +14,10 @@
     --eftr-text-primary: #1F2A37; --eftr-text-secondary: #6B7280;
 }
 
-/* ---------- Info banner: informational, not dominant ---------- */
-.eft-info-banner { display: flex; gap: 12px; align-items: flex-start; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
-.eft-info-banner-icon { width: 26px; height: 26px; border-radius: 50%; background: #1D4ED8; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.85rem; }
-.eft-info-banner-title { font-weight: 700; font-size: 0.92rem; color: var(--eftr-text-primary); margin-bottom: 3px; }
-.eft-info-banner-text { font-size: 0.82rem; color: var(--eftr-text-secondary); line-height: 1.55; }
-.eft-info-banner-help { margin-left: auto; flex-shrink: 0; }
+/* ---------- Top row: Pairing Guide link + "+ Add New Terminal" ---------- */
+.eft-terminals-top-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.eft-pairing-guide-link { font-size: 0.86rem; font-weight: 600; color: var(--eftr-text-secondary); }
+.eft-pairing-guide-link:hover { color: var(--eftr-maroon); }
 
 /* ---------- Section headings ---------- */
 .eft-section-heading-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 24px 0 14px; }

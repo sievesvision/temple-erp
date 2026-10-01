@@ -10,31 +10,38 @@
      --white/--border/--text-primary/--text-secondary/--serif tokens this relies on (every
      current host already does, as they all share the same temple-branding palette) and
      js/eft-terminal-registry.js once (drives the Add Terminal wizard — see
-     eft-terminal-add-wizard.blade.php).
+     eft-terminal-add-wizard.blade.php). The top-right "+ Add New Terminal" button and its
+     data-*-url attributes live here, not in that partial — the JS hides #eftTerminalsList and
+     reveals the wizard body in its place while the button itself hides, so there's never both
+     a full terminal list and an open wizard cluttering the page at once.
      Every per-terminal card action (pair/test/unpair/rename/etc.) still redirects with plain
      redirect()->back(), so it always lands back on whichever of those pages it was actually
      submitted from — nothing here needs to know which one that is. The Add Terminal wizard is
      the one exception: it's AJAX-driven end to end (see js/eft-terminal-registry.js) and never
-     navigates away, refreshing only the #eftTerminalsList container above on success. --}}
-<div class="eft-info-banner">
-    <span class="eft-info-banner-icon"><i class="bi bi-info-lg"></i></span>
-    <div>
-        <div class="eft-info-banner-title">Multiple EFT terminals can be used at the same time</div>
-        <div class="eft-info-banner-text">
-            Each terminal is independently paired via Linkly Cloud or mx51 Cloud, allowing multiple physical or virtual PIN pads to operate simultaneously — for example, one for the Ticket Kiosk and another for the Donation POS.
-        </div>
-    </div>
-    <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="btn btn-outline-secondary btn-sm eft-info-banner-help"><i class="bi bi-question-circle me-1"></i>Pairing Guide</a>
+     navigates away, refreshing only the #eftTerminalsList container above on success.
+     "Transaction Limits" and "Receipt Printing & Signature" (System-Admin-only) render last,
+     below the terminal list — they're account-wide defaults an admin sets up once, not
+     something that needs top billing over the terminals themselves. --}}
+<div class="eft-terminals-top-row">
+    {{-- Required on every EFTPOS-related settings surface (Linkly accreditation requirement
+         1.4) — kept even though the old explanatory banner it used to sit inside was removed
+         as developer-only noise. --}}
+    <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="eft-pairing-guide-link"><i class="bi bi-question-circle me-1"></i>Pairing Guide</a>
+    @if($canManageRegistryLevel)
+    <button type="button" class="btn-add-terminal" id="addTerminalToggleBtn"
+            data-add-url="{{ route('admin.eft-terminals.addAndPair') }}"
+            data-test-url="{{ route('admin.cba-sci.test') }}"
+            data-cancel-new-url-base="{{ url('/admin/eft-terminals') }}"
+            data-refresh-url="{{ route('admin.eft-terminals.index') }}"
+            data-csrf="{{ csrf_token() }}">
+        <i class="bi bi-plus-lg"></i> Add New Terminal
+    </button>
+    @endif
 </div>
-
-@if($isSystemAdmin)
-@include('admin.partials.eft-terminal-transaction-limits')
-@include('admin.partials.eft-terminal-receipt-settings')
-@endif
 
 <div id="eftTerminalsList">
 @if($activeTerminals->isEmpty() && $inactiveTerminals->isEmpty())
-<p class="text-muted">No terminals registered yet — add one below.</p>
+<p class="text-muted">No terminals registered yet — add one above.</p>
 @endif
 
 @if($activeTerminals->isNotEmpty())
@@ -61,4 +68,9 @@
 
 @if($canManageRegistryLevel)
 @include('admin.partials.eft-terminal-add-wizard')
+@endif
+
+@if($isSystemAdmin)
+@include('admin.partials.eft-terminal-transaction-limits')
+@include('admin.partials.eft-terminal-receipt-settings')
 @endif

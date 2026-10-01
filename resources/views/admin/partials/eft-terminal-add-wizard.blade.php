@@ -6,17 +6,14 @@
      page that @include's eft-terminal-registry.blade.php picks it up the same way. Server
      endpoints: admin.eft-terminals.addAndPair (create + pair in one call), admin.cba-sci.test
      (mx51-only confirmation step), admin.eft-terminals.cancelNew (discards an unconfirmed
-     mx51 pairing), and admin.eft-terminals.index (JSON mode, to refresh #eftTerminalsList). --}}
-<div class="add-terminal-card" id="addTerminalCard"
-     data-add-url="{{ route('admin.eft-terminals.addAndPair') }}"
-     data-test-url="{{ route('admin.cba-sci.test') }}"
-     data-cancel-new-url-base="{{ url('/admin/eft-terminals') }}"
-     data-refresh-url="{{ route('admin.eft-terminals.index') }}"
-     data-csrf="{{ csrf_token() }}">
-
-    <button type="button" class="btn-add-terminal" id="addTerminalToggleBtn"><i class="bi bi-plus-lg"></i> Add New Terminal</button>
-
-    <div id="addTerminalWizard" hidden>
+     mx51 pairing), and admin.eft-terminals.index (JSON mode, to refresh #eftTerminalsList).
+     The toggle button itself (with the data-*-url attributes the JS reads) lives in the top
+     row of eft-terminal-registry.blade.php, not here — this file is just the wizard body it
+     reveals, which takes over the same boxed "card" look the old always-visible form used.
+     `hidden` sits on this same element (not a separate wrapper around it) so the card's own
+     border/padding disappears along with its content — a wrapper left visible around nothing
+     would otherwise leave an empty bordered box sitting on the page while collapsed. --}}
+<div class="add-terminal-card" id="addTerminalWizard" hidden>
 
         {{-- Step 1: integration type + pairing configuration --}}
         <div id="wizardStep1">
@@ -119,5 +116,4 @@
             <button type="button" class="btn btn-outline-secondary rounded-3" id="wizardBackToTerminalsBtn"><i class="bi bi-arrow-left me-1"></i>Back to Terminals</button>
         </div>
 
-    </div>
 </div>

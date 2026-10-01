@@ -7,16 +7,19 @@
 (function () {
     'use strict';
 
-    const card = document.getElementById('addTerminalCard');
-    if (!card) { return; }
-
-    const ADD_URL = card.dataset.addUrl;
-    const TEST_URL = card.dataset.testUrl;
-    const CANCEL_NEW_URL_BASE = card.dataset.cancelNewUrlBase;
-    const REFRESH_URL = card.dataset.refreshUrl;
-    const CSRF = card.dataset.csrf;
-
     const toggleBtn = document.getElementById('addTerminalToggleBtn');
+    if (!toggleBtn) { return; }
+
+    // The top-right "+ Add New Terminal" button itself carries the data-*-url attributes (see
+    // eft-terminal-registry.blade.php) — it's the one element guaranteed to exist everywhere
+    // this wizard appears, unlike a wrapping card that used to sit right next to it.
+    const ADD_URL = toggleBtn.dataset.addUrl;
+    const TEST_URL = toggleBtn.dataset.testUrl;
+    const CANCEL_NEW_URL_BASE = toggleBtn.dataset.cancelNewUrlBase;
+    const REFRESH_URL = toggleBtn.dataset.refreshUrl;
+    const CSRF = toggleBtn.dataset.csrf;
+
+    const terminalsList = document.getElementById('eftTerminalsList');
     const wizard = document.getElementById('addTerminalWizard');
     const step1 = document.getElementById('wizardStep1');
     const step2 = document.getElementById('wizardStep2');
@@ -91,16 +94,21 @@
     cardSci.addEventListener('click', function () { providerSci.checked = true; syncIntegrationType(); });
     cardLinkly.addEventListener('click', function () { providerLinkly.checked = true; syncIntegrationType(); });
 
+    // The existing terminal cards step out of the way while the wizard is open — adding a
+    // terminal used to just pile a form on top of the full list, which got cluttered fast once
+    // there were more than a couple of terminals already registered.
     toggleBtn.addEventListener('click', function () {
         const opening = wizard.hidden;
         wizard.hidden = !wizard.hidden;
         toggleBtn.hidden = !wizard.hidden ? false : true;
+        if (terminalsList) { terminalsList.hidden = opening; }
         if (opening) { resetWizard(); }
     });
 
     function closeWizard() {
         wizard.hidden = true;
         toggleBtn.hidden = false;
+        if (terminalsList) { terminalsList.hidden = false; }
     }
 
     cancelStep1Btn.addEventListener('click', closeWizard);
