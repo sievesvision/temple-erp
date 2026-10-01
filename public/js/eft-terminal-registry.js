@@ -20,6 +20,7 @@
     const CSRF = toggleBtn.dataset.csrf;
 
     const terminalsList = document.getElementById('eftTerminalsList');
+    const bottomSettings = document.getElementById('eftRegistryBottomSettings');
     const wizard = document.getElementById('addTerminalWizard');
     const step1 = document.getElementById('wizardStep1');
     const step2 = document.getElementById('wizardStep2');
@@ -94,22 +95,40 @@
     cardSci.addEventListener('click', function () { providerSci.checked = true; syncIntegrationType(); });
     cardLinkly.addEventListener('click', function () { providerLinkly.checked = true; syncIntegrationType(); });
 
-    // The existing terminal cards step out of the way while the wizard is open — adding a
-    // terminal used to just pile a form on top of the full list, which got cluttered fast once
-    // there were more than a couple of terminals already registered.
-    toggleBtn.addEventListener('click', function () {
-        const opening = wizard.hidden;
-        wizard.hidden = !wizard.hidden;
-        toggleBtn.hidden = !wizard.hidden ? false : true;
-        if (terminalsList) { terminalsList.hidden = opening; }
-        if (opening) { resetWizard(); }
-    });
+    const ADD_LABEL = toggleBtn.innerHTML;
+    const BACK_LABEL = '<i class="bi bi-arrow-left"></i> Back to Terminals';
+
+    // The existing terminal cards (and the Transaction Limits / Receipt Printing settings
+    // below them) step out of the way while the wizard is open — adding a terminal used to
+    // just pile a form on top of everything else on the page, which got cluttered fast. The
+    // button itself never disappears — it just relabels to "Back to Terminals" so there's
+    // always exactly one obvious way back, matching whatever the wizard's current step needs
+    // (nothing to undo in step 1, cancel an unconfirmed mx51 pairing in step 2, or just return
+    // to a now-current list after a completed pairing).
+    function openWizard() {
+        wizard.hidden = false;
+        if (terminalsList) { terminalsList.hidden = true; }
+        if (bottomSettings) { bottomSettings.hidden = true; }
+        toggleBtn.innerHTML = BACK_LABEL;
+        resetWizard();
+    }
 
     function closeWizard() {
         wizard.hidden = true;
-        toggleBtn.hidden = false;
         if (terminalsList) { terminalsList.hidden = false; }
+        if (bottomSettings) { bottomSettings.hidden = false; }
+        toggleBtn.innerHTML = ADD_LABEL;
     }
+
+    function backToTerminals() {
+        if (!step2.hidden) { cancelPendingPairing(); return; }
+        if (!success.hidden) { closeWizard(); refreshTerminalsList(); return; }
+        closeWizard();
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        if (wizard.hidden) { openWizard(); } else { backToTerminals(); }
+    });
 
     cancelStep1Btn.addEventListener('click', closeWizard);
 
@@ -182,7 +201,11 @@
             });
     });
 
-    cancelStep2Btn.addEventListener('click', function () {
+    // Shared by the Step 2 Cancel button and the top "Back to Terminals" button when Step 2 is
+    // the one currently showing — both mean the same thing: abandon this still-unconfirmed
+    // mx51 pairing (per mx51's own certification checklist, SCIPAIRING07, cancelling must call
+    // Unpair too — see EftTerminalController::cancelNewTerminal()) and return to the list.
+    function cancelPendingPairing() {
         if (!pendingTerminalId) { closeWizard(); return; }
         setBusy(cancelStep2Btn, true, 'Cancelling…');
 
@@ -196,7 +219,9 @@
                 setBusy(cancelStep2Btn, false);
                 closeWizard();
             });
-    });
+    }
+
+    cancelStep2Btn.addEventListener('click', cancelPendingPairing);
 
     backToTerminalsBtn.addEventListener('click', function () {
         closeWizard();

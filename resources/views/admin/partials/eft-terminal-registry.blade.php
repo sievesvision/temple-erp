@@ -10,18 +10,20 @@
      --white/--border/--text-primary/--text-secondary/--serif tokens this relies on (every
      current host already does, as they all share the same temple-branding palette) and
      js/eft-terminal-registry.js once (drives the Add Terminal wizard — see
-     eft-terminal-add-wizard.blade.php). The top-right "+ Add New Terminal" button and its
-     data-*-url attributes live here, not in that partial — the JS hides #eftTerminalsList and
-     reveals the wizard body in its place while the button itself hides, so there's never both
-     a full terminal list and an open wizard cluttering the page at once.
+     eft-terminal-add-wizard.blade.php). The top-right button and its data-*-url attributes
+     live here, not in that partial — opening the wizard hides both #eftTerminalsList and
+     #eftRegistryBottomSettings and relabels the button itself "Back to Terminals" (same
+     element throughout, never removed — only its label/icon and click behaviour flip), so the
+     page shows either the full registry or the wizard, never a mix of the two.
      Every per-terminal card action (pair/test/unpair/rename/etc.) still redirects with plain
      redirect()->back(), so it always lands back on whichever of those pages it was actually
      submitted from — nothing here needs to know which one that is. The Add Terminal wizard is
      the one exception: it's AJAX-driven end to end (see js/eft-terminal-registry.js) and never
      navigates away, refreshing only the #eftTerminalsList container above on success.
-     "Transaction Limits" and "Receipt Printing & Signature" (System-Admin-only) render last,
-     below the terminal list — they're account-wide defaults an admin sets up once, not
-     something that needs top billing over the terminals themselves. --}}
+     "Transaction Limits" and "Receipt Printing & Signature" (System-Admin-only, wrapped in
+     #eftRegistryBottomSettings) render last, below the terminal list — they're account-wide
+     defaults an admin sets up once, not something that needs top billing over the terminals
+     themselves, and not part of adding a terminal either. --}}
 <div class="eft-terminals-top-row">
     {{-- Required on every EFTPOS-related settings surface (Linkly accreditation requirement
          1.4) — kept even though the old explanatory banner it used to sit inside was removed
@@ -71,6 +73,8 @@
 @endif
 
 @if($isSystemAdmin)
+<div id="eftRegistryBottomSettings">
 @include('admin.partials.eft-terminal-transaction-limits')
 @include('admin.partials.eft-terminal-receipt-settings')
+</div>
 @endif
