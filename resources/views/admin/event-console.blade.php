@@ -352,6 +352,7 @@
         $backLabel = $backRoute === 'event-coordinator.my-events' ? 'My Events' : 'Events';
     @endphp
     <div class="app-shell-wrap">
+        @include('partials.test-banner')
         <header class="console-topbar">
             <button type="button" class="sidebar-toggle" id="sidebarToggle"><i class="bi bi-list"></i></button>
             <div class="topbar-brand">

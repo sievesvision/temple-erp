@@ -1,4 +1,5 @@
 <!-- TOPBAR -->
+@include('partials.test-banner')
 <header class="topbar">
   <div class="d-flex align-items-center gap-3">
     <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">

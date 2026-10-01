@@ -363,6 +363,7 @@
   </style>
 </head>
 <body>
+  @include('partials.test-banner')
   @include('layouts.partials.notifications')
 
   <!--  NAVBAR (matches the public site navbar)               -->

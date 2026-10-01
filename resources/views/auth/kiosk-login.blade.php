@@ -259,6 +259,7 @@
   </style>
 </head>
 <body>
+  @include('partials.test-banner')
   <div class="kiosk-blob b1"></div>
   <div class="kiosk-blob b2"></div>
   <div class="kiosk-blob b3"></div>

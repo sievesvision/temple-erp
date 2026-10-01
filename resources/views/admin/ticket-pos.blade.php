@@ -225,6 +225,7 @@
     </style>
 </head>
 <body>
+    @include('partials.test-banner')
     <header class="pos-topbar">
         <div class="pos-topbar-title">
             <h1>Ticket Kiosk</h1>

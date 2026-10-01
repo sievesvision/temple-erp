@@ -93,6 +93,7 @@
   </style>
 </head>
 <body>
+  @include('partials.test-banner')
   <div class="select-header">
     @if($temple['logo'])
       <img src="{{ $temple['logo'] }}" alt="{{ $temple['name'] }} logo">

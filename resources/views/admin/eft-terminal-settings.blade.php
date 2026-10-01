@@ -29,6 +29,7 @@
     </style>
 </head>
 <body>
+    @include('partials.test-banner')
     {{-- Only a genuine standalone visit (not the POS-page popup, see EftTerminalController::
          index()'s own docblock on $embedded) gets this page's own topbar — showing it inside
          that small popup duplicated the popup's own title bar above it for no reason. --}}

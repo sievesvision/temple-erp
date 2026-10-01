@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Test Environment Banner
+    |--------------------------------------------------------------------------
+    |
+    | Drives the fixed "TEST ENVIRONMENT" ribbon (resources/views/partials/
+    | test-banner.blade.php) and the [TEST] email subject prefix (see
+    | AppServiceProvider::boot()). True only on test.hasq.org's own .env —
+    | never set on production.
+    |
+    */
+
+    'show_test_banner' => (bool) env('SHOW_TEST_BANNER', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

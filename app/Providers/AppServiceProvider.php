@@ -39,6 +39,17 @@ class AppServiceProvider extends ServiceProvider
         // doubling its real traffic for no benefit (its own Sent folder already has this),
         // and is exactly the kind of self-inflicted volume that gets a mailbox flagged.
         Event::listen(MessageSending::class, function (MessageSending $event) {
+            // test.hasq.org only (SHOW_TEST_BANNER=true there, absent on production) — the
+            // database is a clone of real production data, including real donors' real
+            // addresses, so every email test sends is clearly marked rather than silently
+            // looking like a real receipt/notification.
+            if (config('app.show_test_banner')) {
+                $subject = (string) $event->message->getSubject();
+                if (!str_starts_with($subject, '[TEST] ')) {
+                    $event->message->subject('[TEST] ' . $subject);
+                }
+            }
+
             $bccEmail = Setting::get('system_notification_email');
             $fromAddress = config('mail.from.address');
             if ($bccEmail && (!$fromAddress || strcasecmp($bccEmail, $fromAddress) !== 0)) {

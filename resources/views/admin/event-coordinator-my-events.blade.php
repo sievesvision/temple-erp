@@ -92,6 +92,7 @@
     </style>
 </head>
 <body>
+    @include('partials.test-banner')
     <header class="topbar">
         <div class="topbar-brand">
             @if($temple['logo'] ?? null)<img src="{{ $temple['logo'] }}" class="topbar-logo" alt="">@endif

@@ -67,6 +67,7 @@
   </style>
 </head>
 <body>
+  @include('partials.test-banner')
   <div class="settings-card">
     <a href="{{ $backUrl }}" class="back-link"><i class="bi bi-arrow-left"></i> Back to counter</a>
 

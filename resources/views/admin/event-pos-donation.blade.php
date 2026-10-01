@@ -384,6 +384,7 @@
     </style>
 </head>
 <body>
+    @include('partials.test-banner')
     <header class="pos-topbar">
         <div class="pos-topbar-brand">
             <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-topbar-logo">
