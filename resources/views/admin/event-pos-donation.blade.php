@@ -322,19 +322,24 @@
         .eft-modal-overlay.active { display: flex; }
         .eft-modal {
             background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px;
-            box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center;
+            max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+            overflow: hidden; text-align: center; display: flex; flex-direction: column;
         }
         .eft-modal-header {
             background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
             color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
-            font-size: 0.95rem; text-transform: uppercase;
+            font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0;
         }
-        .eft-modal-body { padding: 30px 26px 26px; }
-        .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 18px; }
+        {{-- min-height:0 is the flexbox gotcha fix — without it a flex child never actually
+             shrinks to scroll, it just overflows its parent instead, which is exactly how a
+             long Action Framework response (mx51's "13.37" full-element test case among them)
+             used to push the whole modal past the viewport instead of scrolling internally. --}}
+        .eft-modal-body { padding: 22px 22px 20px; overflow-y: auto; min-height: 0; }
+        .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
-            padding: 18px 16px; min-height: 90px; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 6px; margin-bottom: 22px;
+            padding: 14px 16px; min-height: 72px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px;
         }
         .eft-modal-spinner {
             width: 26px; height: 26px; border-radius: 50%;
@@ -388,22 +393,30 @@
         /* CBA Smart Terminal (mx51 SCI) — dynamic Action Framework elements, rendered from
            whatever pos_instructions the terminal sends for this step (text/button/input/
            image), never a fixed set like the Linkly soft-keys above. */
-        .sci-af-row { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+        .sci-af-row { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
         .sci-af-row:last-child { margin-bottom: 0; }
         {{-- No forced width:100% — mx51 groups related text elements into the same
              horizontal_layout row expecting them to sit side by side (e.g. "Label 1: Value 1"
              next to "Label 2: Value 2"); forcing each onto its own line defeated that grouping
              entirely. A text element alone in its own row still reads fine at its natural
              width. --}}
-        .sci-af-text { font-size: 0.92rem; color: var(--text-secondary); text-align: left; }
-        .sci-af-btn { flex: 1 1 auto; min-width: 100px; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.95rem; color: #fff; background: var(--maroon); }
+        .sci-af-text { font-size: 0.88rem; color: var(--text-secondary); text-align: left; }
+        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.88rem; color: #fff; background: var(--maroon); }
         .sci-af-btn:active { filter: brightness(0.92); }
-        .sci-af-input-wrap { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; }
-        .sci-af-input-label { font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; flex-shrink: 0; }
-        .sci-af-input { flex: 1 1 auto; min-width: 100px; padding: 12px 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.95rem; }
-        .sci-af-image { max-width: 100%; border-radius: var(--radius-sm); }
-        .sci-af-details { text-align: left; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
-        #eftModalActionFramework { margin-bottom: 12px; }
+        {{-- flex-wrap lets a long label (mx51's own test fields can be verbose, e.g.
+             "Input 1 (input_name_1_...)") drop to its own line above the input instead of
+             forcing the row wider than the modal — that horizontal overflow was the other
+             half of the "doesn't fit" complaint, alongside the vertical one above. --}}
+        .sci-af-input-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; flex: 1 1 100%; }
+        .sci-af-input-label { font-size: 0.8rem; color: var(--text-secondary); }
+        .sci-af-input { flex: 1 1 160px; min-width: 120px; padding: 9px 12px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.88rem; }
+        {{-- Capped height — mx51's own supplied branding image (SCITX06's signature step
+             among others) is a real `type: 'image'` element rendered like any other, not a
+             locally bundled logo; without a height cap it could render at an arbitrarily large
+             natural size and dominate the whole modal. --}}
+        .sci-af-image { max-width: 100%; max-height: 64px; display: block; margin: 6px auto; border-radius: var(--radius-sm); }
+        .sci-af-details { text-align: left; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.45; }
+        #eftModalActionFramework { margin-bottom: 10px; }
 
         /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
            actually started, "Cancel" is replaced by an honest "confirm the real outcome"
@@ -635,13 +648,6 @@
         <div class="eft-modal">
             <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
             <div class="eft-modal-body">
-                {{-- mx51 branding — shown only for the one Action Framework step that actually
-                     calls for it (a signature), moved there dynamically by
-                     renderInstructions(); this is just its resting home the rest of the time,
-                     never shown here directly. --}}
-                <div style="text-align:center;" id="sciMx51LogoHome">
-                    <img src="{{ asset('images/mx51-logo.svg') }}" alt="mx51" id="sciMx51LogoImg" hidden style="height:26px; margin-bottom:14px;">
-                </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
                     <div class="eft-modal-spinner"></div>
@@ -1154,8 +1160,6 @@
                 overrideYesBtn: document.getElementById('eftModalOverrideYes'),
                 overrideNoBtn: document.getElementById('eftModalOverrideNo'),
                 overrideKeepWaitingBtn: document.getElementById('eftModalOverrideKeepWaiting'),
-                mx51Logo: document.getElementById('sciMx51LogoImg'),
-                mx51LogoHome: document.getElementById('sciMx51LogoHome'),
             },
             buildStartBody: function (attempt) {
                 return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };

@@ -17,6 +17,13 @@
  *   Documented button actions: PRINT_MERCHANT_RECEIPT, PRINT_CUSTOMER_RECEIPT,
  *   TRANSACTION_COMPLETE, RETRY_TRANSACTION, SETTLEMENT_COMPLETE, RETRY_SETTLEMENT,
  *   TEST_ACTION.
+ *
+ * mx51's own branding (e.g. during a signature step) is never injected locally — it arrives
+ * as an ordinary `type: 'image'` element in the layout mx51 itself sends, rendered exactly
+ * like any other image. An earlier version of this renderer guessed at showing a locally
+ * bundled logo whenever a text element's content mentioned "signature", which duplicated
+ * mx51's own supplied image and cluttered the modal; there is no special-cased logo handling
+ * here anymore.
  */
 (function (global) {
     'use strict';
@@ -157,30 +164,16 @@
             lastStatusSignature = null;
             lastKnownMessage = null;
             setStatus(['Starting…'], 'pending');
-            // The logo may have been moved into actionContainer by a previous transaction's
-            // renderInstructions() — rescue the real DOM node back to its static home before
-            // wiping the container, same as renderInstructions() itself does.
-            if (cfg.el.mx51Logo && cfg.el.mx51LogoHome && cfg.el.mx51Logo.parentNode !== cfg.el.mx51LogoHome) {
-                cfg.el.mx51LogoHome.appendChild(cfg.el.mx51Logo);
-            }
             cfg.el.actionContainer.innerHTML = '';
             cfg.el.actionContainer.hidden = true;
             hideOverride();
             cfg.el.cancelBtn.hidden = false;
             cfg.el.cancelBtn.textContent = 'Cancel';
-            // No longer shown for the whole SCI flow's duration — only the specific step that
-            // actually requires it (a signature) does that, via renderInstructions(). Starts
-            // hidden here so an ordinary purchase/refund never shows it at all.
-            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = true; }
             cfg.el.overlay.classList.add('active');
         }
 
         function hideModal() {
             flowStarted = false;
-            if (cfg.el.mx51Logo && cfg.el.mx51LogoHome && cfg.el.mx51Logo.parentNode !== cfg.el.mx51LogoHome) {
-                cfg.el.mx51LogoHome.appendChild(cfg.el.mx51Logo);
-            }
-            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = true; }
             cfg.el.overlay.classList.remove('active');
             cfg.el.actionContainer.innerHTML = '';
             hideOverride();
@@ -249,7 +242,11 @@
             if (type === 'text') {
                 var div = document.createElement('div');
                 div.className = 'sci-af-text';
-                div.textContent = prop.text || label || '';
+                var textValue = prop.text || '';
+                // mx51's own reference rendering prefixes a labelled text element with its
+                // label ("Text Label 1: Text 1") — a bare label with no text (or vice versa)
+                // still reads fine shown alone.
+                div.textContent = (label && textValue) ? (label + ': ' + textValue) : (textValue || label || '');
                 return div;
             }
             if (type === 'button') {
@@ -265,16 +262,18 @@
             }
             if (type === 'input') {
                 // A fading placeholder isn't good enough here — mx51's certification payload
-                // uses the label to identify what each field actually is (its own test fields
-                // are literally named "Input 1"/"Input 2"), and that identity disappearing the
-                // moment the operator starts typing makes the form ambiguous. The label now
-                // sits beside the input permanently instead.
+                // uses the label to identify what each field actually is, and that identity
+                // disappearing the moment the operator starts typing makes the form ambiguous.
+                // The label now sits beside the input permanently instead. mx51's own live test
+                // data already includes the technical field name inside the label text itself
+                // (e.g. "Input 1 (input_name_1_...)") — rendering `label` as-is rather than
+                // re-appending prop.name avoids showing that name twice.
                 var wrap = document.createElement('div');
                 wrap.className = 'sci-af-input-wrap';
                 var name = prop.name || key;
                 var labelSpan = document.createElement('span');
                 labelSpan.className = 'sci-af-input-label';
-                labelSpan.textContent = label ? (label + (prop.name ? ' (' + prop.name + ')' : '')) : (prop.name || '');
+                labelSpan.textContent = label || prop.name || '';
                 var input = document.createElement('input');
                 input.type = 'text';
                 input.className = 'sci-af-input';
@@ -310,38 +309,19 @@
                 return;
             }
 
-            // The mx51 logo is a real shared DOM node (not something innerHTML='' should be
-            // allowed to destroy) — rescue it back to its static home first, every time,
-            // before wiping the container it may have been moved into on a previous render.
-            if (cfg.el.mx51Logo && cfg.el.mx51LogoHome && cfg.el.mx51Logo.parentNode !== cfg.el.mx51LogoHome) {
-                cfg.el.mx51LogoHome.appendChild(cfg.el.mx51Logo);
-            }
-            if (cfg.el.mx51Logo) { cfg.el.mx51Logo.hidden = true; }
-
             cfg.el.actionContainer.innerHTML = '';
 
             if (posInstructions) {
-                var sawSignatureText = false;
                 layout.forEach(function (group) {
                     var row = document.createElement('div');
                     row.className = 'sci-af-row';
                     (group.elements || []).forEach(function (ref) {
                         var prop = properties[ref.key] || {};
-                        if (prop.type === 'text' && /signature/i.test(prop.text || '')) { sawSignatureText = true; }
                         var node = buildElementNode(ref.key, ref.label, prop);
                         if (node) { row.appendChild(node); }
                     });
                     if (row.children.length) { cfg.el.actionContainer.appendChild(row); }
                 });
-
-                // The mx51 logo only shows for the one step it actually certifies — a
-                // signature required — not on every ordinary purchase/refund step, where it
-                // was previously always visible regardless. Placed after the buttons/inputs
-                // and before the transaction details, matching mx51's own reference layout.
-                if (sawSignatureText && cfg.el.mx51Logo) {
-                    cfg.el.mx51Logo.hidden = false;
-                    cfg.el.actionContainer.appendChild(cfg.el.mx51Logo);
-                }
 
                 // mx51's certification review (SCIREC03-adjacent feedback) was explicit: the
                 // transaction details (Pairing ID, Transaction ID, TID, Transaction Version)

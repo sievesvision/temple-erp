@@ -11,6 +11,7 @@
     <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
     <link href="{{ asset('css/eft-terminal-registry.css') }}?v={{ @filemtime(public_path('css/eft-terminal-registry.css')) }}" rel="stylesheet">
     <script src="{{ asset('js/eft-terminal-registry.js') }}?v={{ @filemtime(public_path('js/eft-terminal-registry.js')) }}" defer></script>
+    <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
     <style>
         :root {
             --maroon: #6B0F1A; --maroon-dark: #4A0A12; --gold: #C89B3C; --gold-hover: #A67C2B;
@@ -18,6 +19,10 @@
             --text-secondary: #6B7280; --success: #10B981; --warning: #F59E0B; --error: #EF4444;
             --success-bg: #ECFDF5; --pending-bg: #FFF7ED; --error-bg: #FEF2F2;
             --serif: 'Playfair Display', Georgia, serif;
+            /* Shared with the POS kiosk pages' own eft-modal/.sci-af-* CSS below, copied
+               verbatim from event-pos-donation.blade.php so the mx51 refund modal matches the
+               purchase modal's look exactly. */
+            --radius-sm: 8px; --radius-md: 10px; --radius-lg: 14px;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow-x: hidden; }
@@ -110,6 +115,89 @@
             .sidebar-backdrop { display: none; position: fixed; left: 0; right: 0; top: 70px; bottom: 0; background: rgba(31,42,55,0.4); z-index: 45; }
             .sidebar-backdrop.show { display: block; }
         }
+
+        /* ---------- mx51 (CBA SCI) refund modal — same Action Framework UI as the Ticket POS
+           purchase modal, copied verbatim from ticket-pos.blade.php so a refund shows the
+           identical buttons/Pairing ID/TID/Transaction ID/Version/signature experience mx51's
+           own certification material expects. Duplicated here rather than extracted into a
+           shared file to keep the already-certified POS pages untouched. ---------- */
+        .eft-modal-overlay {
+            position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .eft-modal-overlay.active { display: flex; }
+        .eft-modal {
+            background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px;
+            max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+            overflow: hidden; text-align: center; display: flex; flex-direction: column;
+        }
+        .eft-modal-header {
+            background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+            color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
+            font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0;
+        }
+        {{-- min-height:0 is the flexbox gotcha fix — without it a flex child never actually
+             shrinks to scroll, it just overflows its parent instead. --}}
+        .eft-modal-body { padding: 22px 22px 20px; overflow-y: auto; min-height: 0; }
+        .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
+        .eft-modal-status-box {
+            background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
+            padding: 14px 16px; min-height: 72px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px;
+        }
+        .eft-modal-spinner {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 3px solid rgba(200,155,60,0.25); border-top-color: var(--gold);
+            animation: eftSpin 0.8s linear infinite; margin-bottom: 4px; display: none;
+        }
+        .eft-modal-status-box.pending .eft-modal-spinner { display: block; }
+        .eft-modal-status-icon { font-size: 1.6rem; margin-bottom: 2px; display: none; }
+        .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
+        .eft-modal-status-box.error .eft-modal-status-icon.icon-error { display: block; color: var(--error); }
+        .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
+        .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
+        .eft-modal-status-box.error .eft-modal-status-line { color: var(--error); }
+        @keyframes eftSpin { to { transform: rotate(360deg); } }
+        .eft-modal-cancel-btn {
+            width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border);
+            background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
+        }
+        .eft-modal-cancel-btn:active { background: var(--cream); }
+
+        /* CBA Smart Terminal (mx51 SCI) — dynamic Action Framework elements, rendered from
+           whatever pos_instructions the terminal sends for this step (text/button/input/
+           image). */
+        .sci-af-row { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+        .sci-af-row:last-child { margin-bottom: 0; }
+        .sci-af-text { font-size: 0.88rem; color: var(--text-secondary); text-align: left; }
+        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.88rem; color: #fff; background: var(--maroon); }
+        .sci-af-btn:active { filter: brightness(0.92); }
+        {{-- flex-wrap lets a long label (mx51's own test fields can be verbose, e.g.
+             "Input 1 (input_name_1_...)") drop to its own line above the input instead of
+             forcing the row wider than the modal. --}}
+        .sci-af-input-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; flex: 1 1 100%; }
+        .sci-af-input-label { font-size: 0.8rem; color: var(--text-secondary); }
+        .sci-af-input { flex: 1 1 160px; min-width: 120px; padding: 9px 12px; border-radius: var(--radius-sm); border: 2px solid var(--border); font-size: 0.88rem; }
+        {{-- Capped height — mx51's own supplied branding image is a real `type: 'image'`
+             element rendered like any other, not a locally bundled logo; without a height cap
+             it could render at an arbitrarily large natural size. --}}
+        .sci-af-image { max-width: 100%; max-height: 64px; display: block; margin: 6px auto; border-radius: var(--radius-sm); }
+        .sci-af-details { text-align: left; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.45; }
+        #eftModalActionFramework { margin-bottom: 10px; }
+
+        /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
+           actually started, "Cancel" is replaced by an honest "confirm the real outcome"
+           prompt instead of pretending the payment can be stopped mid-flight. */
+        .eft-modal-override p { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 14px; }
+        .eft-modal-override-actions { display: flex; gap: 10px; margin-bottom: 10px; }
+        .eft-override-btn { flex: 1 1 auto; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.9rem; color: #fff; }
+        .eft-override-btn.eft-override-yes { background: var(--success); }
+        .eft-override-btn.eft-override-no { background: var(--error); }
+
+        /* This page had no toast mechanism before the refund flow needed one — see
+           showToast() below, matching ticket-pos.blade.php's own .pos-toast look. */
+        .sci-refund-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.05rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 1100; display: none; }
+        .sci-refund-toast.error { background: var(--error); }
     </style>
 </head>
 <body>
@@ -711,38 +799,70 @@
         </div>
     </div>
 
-    <!-- mx51 (CBA SCI) REFUND MODAL — same start+poll shape as the Linkly one above, just
-         against CbaSciController::refund()/poll() and mx51's own status vocabulary. -->
-    <div class="modal fade" id="sciRefundModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-counterclockwise text-danger me-2"></i>Refund Transaction</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="sciRefundCloseBtn"></button>
+    <!-- mx51 (CBA SCI) REFUND MODAL — same custom .eft-modal-overlay structure and
+         SciActionFramework-driven Action Framework UI as the Ticket POS purchase modal
+         (ticket-pos.blade.php), against CbaSciController::refund()/poll()/submitAction()/
+         cancel()/override() — all already transaction-id-generic, so they work unmodified
+         against a refund's transaction id exactly as they do for a purchase. The only thing a
+         refund needs that a purchase doesn't is an initial "enter/confirm amount" step, since a
+         refund doesn't already know its amount the way an in-progress sale does. -->
+    <div class="eft-modal-overlay" id="sciRefundModalOverlay">
+        <div class="eft-modal">
+            <div class="eft-modal-header"><i class="bi bi-arrow-counterclockwise me-2"></i>Refund Transaction</div>
+            <div class="eft-modal-body">
+                <div id="sciRefundAmountStep">
+                    <label class="form-label small text-start d-block">Refund amount</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control rounded-3 mb-2" id="sciRefundAmount">
+                    <p class="text-muted small mb-3">The customer may be asked to present their card again on the terminal to complete the refund.</p>
+                    <button type="button" class="eft-modal-cancel-btn mb-2" style="background: var(--maroon); color: #fff; border-color: var(--maroon);" id="sciRefundConfirmBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Confirm Refund</button>
+                    <button type="button" class="eft-modal-cancel-btn" id="sciRefundCloseBtn">Close</button>
                 </div>
-                <div class="modal-body py-3">
-                    <div id="sciRefundFormArea">
-                        <label class="form-label">Refund amount</label>
-                        <input type="number" step="0.01" min="0.01" class="form-control rounded-3" id="sciRefundAmount">
-                        <p class="text-muted small mt-2 mb-0">The customer may be asked to present their card again on the terminal to complete the refund.</p>
+                <div id="sciRefundFlowArea" hidden>
+                    <div class="eft-modal-amount" id="sciRefundModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
+                    <div class="eft-modal-status-box pending" id="sciRefundModalStatusBox">
+                        <div class="eft-modal-spinner"></div>
+                        <i class="bi bi-check-circle-fill eft-modal-status-icon icon-success"></i>
+                        <i class="bi bi-x-circle-fill eft-modal-status-icon icon-error"></i>
+                        <span class="eft-modal-status-line" id="sciRefundModalStatusLine1">Starting…</span>
+                        <span class="eft-modal-status-line" id="sciRefundModalStatusLine2"></span>
                     </div>
-                    <div id="sciRefundStatusArea" style="display:none;" class="text-center py-3">
-                        <div class="spinner-border text-danger mb-2" role="status"></div>
-                        <div class="fw-bold" id="sciRefundStatusLine1">Starting…</div>
-                        <div class="text-muted small" id="sciRefundStatusLine2"></div>
+                    <div id="sciRefundModalActionFramework" hidden></div>
+                    <div class="eft-modal-override" id="sciRefundModalOverride" hidden>
+                        <p>We couldn't get a final answer from the terminal. Did the refund go through?</p>
+                        <div class="eft-modal-override-actions">
+                            <button type="button" class="eft-override-btn eft-override-yes" id="sciRefundModalOverrideYes">Yes, it went through</button>
+                            <button type="button" class="eft-override-btn eft-override-no" id="sciRefundModalOverrideNo">No / not sure</button>
+                        </div>
+                        <button type="button" class="eft-modal-cancel-btn" id="sciRefundModalOverrideKeepWaiting">Keep Waiting</button>
                     </div>
-                </div>
-                <div class="modal-footer border-0 pt-0">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-danger" id="sciRefundConfirmBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Confirm Refund</button>
+                    <button type="button" class="eft-modal-cancel-btn" id="sciRefundModalCancelBtn">Cancel Refund</button>
                 </div>
             </div>
         </div>
     </div>
+    <div class="sci-refund-toast" id="sciRefundToast"></div>
     @endif
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script>
+        const CSRF_TOKEN = @json(csrf_token());
+        const CURRENCY_CODE = @json($temple['currency'] ?? '');
+
+        // This page previously had no shared feedback mechanism at all (the old mx51 refund
+        // flow only ever updated its own two status lines) — a small bottom-corner toast,
+        // matching ticket-pos.blade.php's own .pos-toast look, so the new SciActionFramework-
+        // driven refund flow below has somewhere to surface mid-flow blips the modal's own
+        // status box doesn't (e.g. "could not reach the terminal to cancel").
+        function showToast(message, isError) {
+            const toast = document.getElementById('sciRefundToast');
+            if (!toast) { return; }
+            toast.textContent = message;
+            toast.classList.toggle('error', !!isError);
+            toast.style.display = 'block';
+            clearTimeout(showToast._hideTimer);
+            showToast._hideTimer = setTimeout(function () { toast.style.display = 'none'; }, 2400);
+        }
+
         const useGlobalPaymentMethods = document.getElementById('useGlobalPaymentMethods');
         if (useGlobalPaymentMethods) {
             useGlobalPaymentMethods.addEventListener('change', function () {
@@ -915,88 +1035,92 @@
                 });
         }
 
-        // ---------- mx51 (CBA SCI) refund — same start+poll shape as the Linkly one above,
-        // just against CbaSciController::refund()/poll() and mx51's own status vocabulary
-        // (done/result_financial_status instead of Linkly's display/payment_status).
-        let sciRefundTransactionId = null;
-        let sciRefundPollCancelled = true;
+        // ---------- mx51 (CBA SCI) refund — now the same SciActionFramework-driven Action
+        // Framework UI as the Ticket POS purchase modal, against CbaSciController::
+        // refund()/poll()/submitAction()/cancel()/override() (all already transaction-id-
+        // generic, so they work unmodified against a refund's transaction id). One createFlow()
+        // instance is built once here (one set of event listeners); `sciRefundFlowCfg.startUrl`
+        // is reassigned on the same object right before each `.start()` call, since a refund's
+        // start URL needs the ORIGINAL transaction's id baked into its path and start() reads
+        // cfg.startUrl fresh on every call — creating a fresh flow per click would instead pile
+        // up duplicate listeners on these same static modal elements.
         const SCI_REFUND_URL_BASE = @json(url('/admin/cba-sci/charge/refund'));
         const CBA_SCI_CHARGE_STATUS_URL_BASE = @json(url('/admin/cba-sci/charge/status'));
-        const sciRefundModalEl = document.getElementById('sciRefundModal');
-        const sciRefundModal = sciRefundModalEl ? new bootstrap.Modal(sciRefundModalEl) : null;
+        const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
+        const CBA_SCI_CHARGE_CANCEL_URL_BASE = @json(url('/admin/cba-sci/charge/cancel'));
+        const CBA_SCI_CHARGE_OVERRIDE_URL_BASE = @json(url('/admin/cba-sci/charge/override'));
+
+        const sciRefundModalOverlay = document.getElementById('sciRefundModalOverlay');
+        const sciRefundAmountStep = document.getElementById('sciRefundAmountStep');
+        const sciRefundFlowArea = document.getElementById('sciRefundFlowArea');
+        let sciRefundOriginalTransactionId = null;
+
+        const sciRefundFlowCfg = {
+            startUrl: null,
+            statusUrlBase: CBA_SCI_CHARGE_STATUS_URL_BASE,
+            actionUrlBase: CBA_SCI_CHARGE_ACTION_URL_BASE,
+            cancelUrlBase: CBA_SCI_CHARGE_CANCEL_URL_BASE,
+            overrideUrlBase: CBA_SCI_CHARGE_OVERRIDE_URL_BASE,
+            csrfToken: CSRF_TOKEN,
+            // Ticket Kiosk/Console is a non-event-scoped module — no eventId, same convention
+            // ticket-pos.blade.php's own purchase flow already uses.
+            currencyCode: CURRENCY_CODE,
+            attemptStorageKey: 'sciRefundAttempt',
+            el: {
+                overlay: sciRefundModalOverlay,
+                amount: document.getElementById('sciRefundModalAmount'),
+                statusBox: document.getElementById('sciRefundModalStatusBox'),
+                statusLine1: document.getElementById('sciRefundModalStatusLine1'),
+                statusLine2: document.getElementById('sciRefundModalStatusLine2'),
+                actionContainer: document.getElementById('sciRefundModalActionFramework'),
+                cancelBtn: document.getElementById('sciRefundModalCancelBtn'),
+                overrideBox: document.getElementById('sciRefundModalOverride'),
+                overrideYesBtn: document.getElementById('sciRefundModalOverrideYes'),
+                overrideNoBtn: document.getElementById('sciRefundModalOverrideNo'),
+                overrideKeepWaitingBtn: document.getElementById('sciRefundModalOverrideKeepWaiting'),
+            },
+            onToast: function (message) { showToast(message, true); },
+            onApproved: function () {
+                showToast('Refund approved.');
+                setTimeout(function () { window.location.reload(); }, 1200);
+            },
+            onDeclined: function (message) {
+                showToast(message || 'Refund was not completed.', true);
+            },
+            onUnresolved: function (message) {
+                showToast(message || 'No final result was received — check before retrying.', true);
+            },
+            onLocalCancel: function () {
+                sciRefundFlowArea.hidden = true;
+                sciRefundAmountStep.hidden = false;
+            },
+        };
+        const sciRefundFlow = SciActionFramework.createFlow(sciRefundFlowCfg);
 
         function openSciRefundModal(transactionId, amount) {
-            sciRefundTransactionId = transactionId;
-            sciRefundPollCancelled = true;
+            sciRefundOriginalTransactionId = transactionId;
             document.getElementById('sciRefundAmount').value = Number(amount).toFixed(2);
-            document.getElementById('sciRefundFormArea').style.display = '';
-            document.getElementById('sciRefundStatusArea').style.display = 'none';
-            document.getElementById('sciRefundConfirmBtn').style.display = '';
-            document.getElementById('sciRefundConfirmBtn').disabled = false;
-            if (sciRefundModal) { sciRefundModal.show(); }
+            sciRefundAmountStep.hidden = false;
+            sciRefundFlowArea.hidden = true;
+            sciRefundModalOverlay.classList.add('active');
         }
-        function setSciRefundStatus(line1, line2) {
-            document.getElementById('sciRefundStatusLine1').textContent = line1 || '';
-            document.getElementById('sciRefundStatusLine2').textContent = line2 || '';
-        }
-        document.getElementById('sciRefundConfirmBtn') && document.getElementById('sciRefundConfirmBtn').addEventListener('click', function () {
-            const amount = parseFloat(document.getElementById('sciRefundAmount').value);
-            if (!amount || amount <= 0) { return; }
-            if (!confirm('Refund ' + amount.toFixed(2) + ' on the terminal now?')) { return; }
 
-            document.getElementById('sciRefundFormArea').style.display = 'none';
-            document.getElementById('sciRefundStatusArea').style.display = '';
-            document.getElementById('sciRefundConfirmBtn').style.display = 'none';
-            setSciRefundStatus('Starting refund…', '');
-            sciRefundPollCancelled = false;
-
-            const clientRef = 'sci-refund-' + sciRefundTransactionId + '-' + Date.now();
-            fetch(SCI_REFUND_URL_BASE + '/' + encodeURIComponent(sciRefundTransactionId), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': @json(csrf_token()), 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'amount=' + encodeURIComponent(amount.toFixed(2)) + '&client_ref=' + encodeURIComponent(clientRef),
-            })
-                .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
-                .then(function (result) {
-                    if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
-                        setSciRefundStatus('Could not start refund', result.data.message || '');
-                        document.getElementById('sciRefundConfirmBtn').style.display = '';
-                        return;
-                    }
-                    pollSciRefund(result.data.transaction_id, Date.now());
-                })
-                .catch(function () {
-                    setSciRefundStatus('Network error', 'Please try again.');
-                    document.getElementById('sciRefundConfirmBtn').style.display = '';
-                });
+        document.getElementById('sciRefundCloseBtn').addEventListener('click', function () {
+            sciRefundModalOverlay.classList.remove('active');
         });
-        function pollSciRefund(transactionId, startedAt) {
-            if (sciRefundPollCancelled) { return; }
-            if (Date.now() - startedAt > 180000) {
-                setSciRefundStatus('Timed out', 'Check the terminal before retrying.');
-                return;
-            }
-            fetch(CBA_SCI_CHARGE_STATUS_URL_BASE + '/' + encodeURIComponent(transactionId), { headers: { 'Accept': 'application/json' } })
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    if (sciRefundPollCancelled) { return; }
-                    setSciRefundStatus(data.message || 'Please wait…', data.status || '');
-                    if (!data.done) {
-                        setTimeout(function () { pollSciRefund(transactionId, startedAt); }, 800);
-                        return;
-                    }
-                    if (data.success && data.result_financial_status === 'APPROVED') {
-                        setSciRefundStatus('REFUND APPROVED', data.message || '');
-                        setTimeout(function () { window.location.reload(); }, 1200);
-                    } else {
-                        setSciRefundStatus('REFUND ' + (data.result_financial_status || 'NOT COMPLETED'), data.message || '');
-                        document.getElementById('sciRefundConfirmBtn').style.display = '';
-                    }
-                })
-                .catch(function () {
-                    setTimeout(function () { pollSciRefund(transactionId, startedAt); }, 1200);
-                });
-        }
+
+        document.getElementById('sciRefundConfirmBtn').addEventListener('click', function (e) {
+            const amount = parseFloat(document.getElementById('sciRefundAmount').value);
+            if (!amount || amount <= 0) { showToast('Enter a valid refund amount.', true); return; }
+            if (!confirm('Refund ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' on the terminal now?')) { return; }
+
+            sciRefundFlowCfg.startUrl = SCI_REFUND_URL_BASE + '/' + encodeURIComponent(sciRefundOriginalTransactionId);
+            sciRefundAmountStep.hidden = true;
+            sciRefundFlowArea.hidden = false;
+
+            const clientRef = 'sci-refund-' + sciRefundOriginalTransactionId + '-' + Date.now();
+            sciRefundFlow.start(e.currentTarget, { amount: amount, clientRef: clientRef, name: '', email: '', mobile: '' });
+        });
         if (sciRefundModalEl) {
             sciRefundModalEl.addEventListener('hidden.bs.modal', function () {
                 sciRefundPollCancelled = true;
