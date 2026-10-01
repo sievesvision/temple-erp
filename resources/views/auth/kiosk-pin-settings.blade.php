@@ -103,7 +103,7 @@
     @if($user->username)
       @foreach($destinations as $destination)
         <div class="destination-card">
-          <div class="destination-name">{{ $destination['label'] }}{{ ($destination['level'] ?? 'pos') === 'admin' ? ' · Console' : '' }}</div>
+          <div class="destination-name">{{ $destination['label'] }}</div>
           <div class="destination-pin-status {{ $destination['pin_set_at'] ? 'set' : '' }}">
             @if($destination['pin_set_at'])
               <i class="bi bi-check-circle-fill"></i> PIN set on {{ $destination['pin_set_at']->format('d M Y') }}

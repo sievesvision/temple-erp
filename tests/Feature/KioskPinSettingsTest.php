@@ -138,8 +138,11 @@ class KioskPinSettingsTest extends TestCase
 
     /**
      * Event admin users should be able to use a PIN to sign in too, not just pos-level
-     * coordinators — the settings page must offer them a PIN slot, and it must point at their
-     * console (not the kiosk-style POS page a pos-level coordinator would get).
+     * coordinators — the settings page must offer them a PIN slot. Its "Back to counter" link
+     * still points at the kiosk-style POS page, same as a pos-level coordinator would get:
+     * PIN login always opens POS mode (see AuthController::posDestinationUrl()'s own docblock)
+     * — an admin-level coordinator reaches the full console from there instead, via that
+     * page's own "Back to console" button.
      */
     public function test_an_admin_level_coordinator_can_reach_the_pin_settings_page_and_set_a_pin(): void
     {
@@ -147,7 +150,7 @@ class KioskPinSettingsTest extends TestCase
 
         $getResponse = $this->actingAs($user)->get(route('kiosk.pin.edit'));
         $getResponse->assertOk();
-        $getResponse->assertSee(route('admin.events.console', $eventId), false);
+        $getResponse->assertSee(route('admin.events.pos', $eventId), false);
 
         $postResponse = $this->actingAs($user)->post(route('kiosk.pin.update'), [
             'current_password' => 'password',

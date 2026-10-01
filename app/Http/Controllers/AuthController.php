@@ -560,10 +560,11 @@ class AuthController extends Controller
      * today's existing (unmodified) redirect for that side, not be funnelled into this picker.
      *
      * 'pos' and 'admin'-level Event Coordinator assignments both qualify (an admin-level
-     * coordinator can sign in with a PIN too, same as a pos-level one) — each destination
-     * carries its own `level` so posDestinationUrl() can send a pos-level one to the kiosk POS
-     * page and an admin-level one to the full console, exactly as an email+password login
-     * already would for that same assignment.
+     * coordinator can sign in with a PIN too, same as a pos-level one) — posDestinationUrl()
+     * always sends every one of these to the kiosk POS page regardless of level, since the
+     * whole point of PIN login is the fastest possible counter entry; an admin-level
+     * coordinator still reaches the full console from there via that page's own "Back to
+     * console" button (PosDonationController's $canReturnToConsole).
      *
      * $includeAdminLevel defaults to true for every PIN-related caller. completeLogin() alone
      * passes false for its OWN "more than one kiosk-only destination → make them pick" check —
@@ -573,7 +574,7 @@ class AuthController extends Controller
      * password login path to divert to the kiosk picker grid instead of its own existing
      * earliest-event-first console logic further down completeLogin().
      *
-     * @return array<int, array{type: 'event', event_id: int, slug: string, label: string, date: string, level: string}|array{type: 'tickets', label: string}>
+     * @return array<int, array{type: 'event', event_id: int, slug: string, label: string, date: string}|array{type: 'tickets', label: string}>
      */
     public function possibleKioskPosDestinations(User $user, bool $includeAdminLevel = true): array
     {
@@ -597,7 +598,7 @@ class AuthController extends Controller
 
         $destinations = [];
         foreach ($coordinatorRows as $row) {
-            $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'slug' => $row->slug, 'label' => $row->event_name, 'date' => $row->event_date, 'level' => $row->level];
+            $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'slug' => $row->slug, 'label' => $row->event_name, 'date' => $row->event_date];
         }
         if ($ticketRow) {
             $destinations[] = ['type' => 'tickets', 'label' => 'Ticket Sales'];
@@ -623,15 +624,21 @@ class AuthController extends Controller
         return redirect($this->posDestinationUrl($destination));
     }
 
+    /**
+     * Every kiosk/PIN login destination always opens in POS mode, even for an admin-level
+     * coordinator — the whole point of PIN login is the fastest possible counter entry, and
+     * the full console's multi-pane UI defeats that. An admin-level coordinator isn't stuck
+     * there: the POS page's own "Back to console" button (PosDonationController's
+     * $canReturnToConsole, already true for anyone above pos level) reaches the full console
+     * from there whenever they actually need it. completeLogin()'s own direct email+password
+     * landing logic (further down, unrelated to this helper) is what still sends an
+     * admin-level coordinator straight to the console on a normal login.
+     */
     private function posDestinationUrl(array $destination): string
     {
-        if ($destination['type'] === 'event') {
-            return ($destination['level'] ?? 'pos') === 'admin'
-                ? route('admin.events.console', $destination['event_id'])
-                : route('admin.events.pos', $destination['event_id']);
-        }
-
-        return route('admin.tickets.pos');
+        return $destination['type'] === 'event'
+            ? route('admin.events.pos', $destination['event_id'])
+            : route('admin.tickets.pos');
     }
 
     /**

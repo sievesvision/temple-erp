@@ -59,13 +59,19 @@ class KioskPinLoginTest extends TestCase
         return [$user, $eventId];
     }
 
-    public function test_an_admin_level_coordinator_can_log_in_with_a_pin_and_lands_on_the_console(): void
+    /**
+     * PIN login always opens POS mode, even for an admin-level coordinator — the whole point
+     * of PIN login is the fastest possible counter entry, not the full console. They aren't
+     * stuck there: the POS page's own "Back to console" button reaches the full console
+     * whenever they actually need it (see PosDonationController's $canReturnToConsole).
+     */
+    public function test_an_admin_level_coordinator_can_log_in_with_a_pin_and_lands_on_pos_mode(): void
     {
         [$user, $eventId] = $this->adminLevelCoordinatorWithPin();
 
         $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
-        $response->assertRedirect(route('admin.events.console', $eventId));
+        $response->assertRedirect(route('admin.events.pos', $eventId));
         $this->assertAuthenticatedAs($user);
         $this->assertSame('Event Coordinator', session('active_role'));
     }

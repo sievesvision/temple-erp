@@ -118,7 +118,7 @@
           <button type="submit" class="pos-tile">
             <span class="pos-tile-icon"><i class="bi bi-calendar-heart-fill"></i></span>
             <span class="pos-tile-label">{{ $destination['label'] }}</span>
-            <span class="pos-tile-sub">{{ \Carbon\Carbon::parse($destination['date'])->format('d M Y') }}{{ ($destination['level'] ?? 'pos') === 'admin' ? ' · Console' : '' }}</span>
+            <span class="pos-tile-sub">{{ \Carbon\Carbon::parse($destination['date'])->format('d M Y') }}</span>
           </button>
         @else
           <button type="submit" class="pos-tile">
