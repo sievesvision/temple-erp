@@ -130,9 +130,19 @@
             background: var(--white); border-radius: var(--radius-md); border: 1.5px solid var(--border);
             box-shadow: 0 2px 8px rgba(15,23,42,0.08); padding: 20px 22px;
         }
-        .pos-card-title { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-weight: 700; font-size: 1.1rem; color: var(--text-primary); margin: 0; }
+        .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; font-size: 1.1rem; color: var(--text-primary); margin: 0; }
         .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
         .pos-card-subtitle { margin: 4px 0 16px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+        {{-- Numbered steps instead of generic icons for the three cards that make up the
+             actual donor->amount->details sequence — a plain icon doesn't communicate "do
+             this first", a number does, and it's the single biggest thing that makes a page
+             read as a guided flow rather than a form with sections. --}}
+        .pos-step-badge {
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+            width: 32px; height: 32px; border-radius: 50%; background: var(--maroon); color: #fff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 800;
+            font-size: 1rem;
+        }
 
         .pos-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
         @media (min-width: 900px) { .pos-side { position: sticky; top: 96px; } }
@@ -220,12 +230,28 @@
         /* auto-fit rather than a fixed 3 columns — reflows gracefully at any width instead of
            forcing three equal columns that can squeeze text at narrow (phone/kiosk) sizes. */
         .pos-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; margin-bottom: 14px; }
-        .pos-quick-amount-btn { background: var(--shade); border: 1.5px solid var(--shade-border); color: var(--text-primary); font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px; border-radius: var(--radius-sm); font-size: 1.3rem; }
-        .pos-quick-amount-btn:active { background: #E7ECF1; }
-        .pos-quick-amount-btn.active { background: var(--gold); border-color: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.32); }
+        {{-- A flower icon + a richer gradient on the selected state — plain bordered boxes of
+             numbers read as a generic form field; real POS terminals (and the temple's own
+             printed donation tiers) lean on devotional iconography to make each amount feel
+             like a distinct, tappable offering rather than a row in a spreadsheet. --}}
+        .pos-quick-amount-btn, .pos-tier-quick-btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            background: var(--shade); border: 1.5px solid var(--shade-border); color: var(--text-primary);
+            font-weight: 800; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-variant-numeric: tabular-nums; padding: 10px 8px; min-height: 72px;
+            border-radius: var(--radius-sm); font-size: 1.3rem;
+        }
+        .pos-quick-amount-icon { font-size: 1.15rem; color: var(--gold-hover); flex-shrink: 0; }
+        .pos-quick-amount-btn:active, .pos-tier-quick-btn:active { background: #E7ECF1; }
+        .pos-quick-amount-btn.active {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-hover) 100%);
+            border-color: var(--gold); color: white; box-shadow: 0 8px 18px rgba(201,149,46,0.38);
+        }
+        .pos-quick-amount-btn.active .pos-quick-amount-icon { color: white; }
         .pos-quick-amount-btn.custom-amount-btn, .pos-tier-quick-btn.custom-amount-btn {
+            flex-direction: column; gap: 4px;
             background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%); border-color: var(--gold);
-            color: var(--text-primary); font-size: 1rem; font-weight: 700; line-height: 1.5;
+            color: var(--text-primary); font-size: 1rem; font-weight: 700; line-height: 1.3;
         }
 
         /* Donation-type pills — sit in the card's header row (top-right), each toggling its
@@ -246,13 +272,20 @@
            the exact grid that was reported "breaking" at narrow widths under a fixed 3-column
            track. */
         .pos-tier-free-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; width: 100%; margin-bottom: 12px; }
-        .pos-tier-free-quick-amounts .pos-tier-quick-btn { background: var(--shade); border: 1.5px solid var(--shade-border); color: var(--text-primary); font-weight: 800; min-height: 72px; border-radius: var(--radius-sm); font-size: 1.25rem; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
+        {{-- Base look/flex layout already comes from the shared .pos-quick-amount-btn,
+             .pos-tier-quick-btn rule above — only the slightly smaller size is specific here. --}}
+        .pos-tier-free-quick-amounts .pos-tier-quick-btn { font-size: 1.25rem; }
         .pos-tier-free-quick-amounts .pos-tier-quick-btn:active { background: var(--gold); border-color: var(--gold); color: white; }
         .pos-tier-total-row { display: none; }
 
-        .pos-method-row { display: flex; gap: 12px; flex-wrap: wrap; }
-        .pos-method-btn { flex: 1 1 calc(33.33% - 8px); min-width: 100px; padding: 14px 10px; min-height: 116px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--shade); font-weight: 700; font-size: 1rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pos-method-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .pos-method-btn { position: relative; flex: 1 1 calc(33.33% - 8px); min-width: 100px; padding: 14px 10px; min-height: 116px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--shade); font-weight: 700; font-size: 1rem; color: var(--text-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(201,149,46,0.3); }
+        .pos-method-btn.active::after {
+            content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent;
+            border-top: 9px solid var(--gold);
+        }
         .pos-method-icon-badge { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--white); border: 1.5px solid var(--shade-border); margin-bottom: 8px; }
         .pos-method-btn.active .pos-method-icon-badge { background: rgba(255,255,255,0.25); border-color: transparent; }
         .pos-method-icon-badge i { font-size: 1.3rem; color: var(--gold-hover); }
@@ -465,7 +498,7 @@
         <div class="pos-grid">
             <div class="pos-col-left">
                 <div class="pos-card">
-                    <div class="pos-card-title"><i class="bi bi-person-fill"></i>Donor Details</div>
+                    <div class="pos-card-title"><span class="pos-step-badge">1</span>Donor Details</div>
                     <div class="pos-card-subtitle">Who this donation is being recorded for</div>
                     <div class="pos-row">
                         <div class="pos-field-box">
@@ -497,7 +530,7 @@
                 <div class="pos-card">
                     <div class="pos-card-header-row">
                         <div>
-                            <div class="pos-card-title"><i class="bi bi-heart-fill"></i>Donation Amount</div>
+                            <div class="pos-card-title"><span class="pos-step-badge">2</span>Donation Amount</div>
                             <div class="pos-card-subtitle">Select an amount or enter a custom amount</div>
                         </div>
                         <div class="pos-tier-pills-row" id="posTierPills"></div>
@@ -519,7 +552,7 @@
                 </div>
 
                 <div class="pos-card">
-                    <div class="pos-card-title"><i class="bi bi-card-text"></i>Details (optional)</div>
+                    <div class="pos-card-title"><span class="pos-step-badge">3</span>Details (optional)</div>
                     <textarea class="pos-input pos-textarea" id="posDetails" rows="2" placeholder="e.g. In memory of..., family name, special request..."></textarea>
                 </div>
             </div>
@@ -546,7 +579,7 @@
                 </div>
 
                 <div class="pos-card">
-                    <div class="pos-card-title"><i class="bi bi-credit-card"></i>Payment Method</div>
+                    <div class="pos-card-title"><span class="pos-step-badge">4</span>Payment Method</div>
                     <div class="pos-card-subtitle">Select how the donor would like to pay</div>
                     <div class="pos-method-row" id="posMethodRow"></div>
                 </div>
@@ -854,7 +887,7 @@
             const b = document.createElement('button');
             b.type = 'button';
             b.className = container.id === 'posQuickAmounts' ? 'pos-quick-amount-btn custom-amount-btn' : 'pos-tier-quick-btn custom-amount-btn';
-            b.innerHTML = '<i class="bi bi-pencil-fill"></i><br>Custom Amount';
+            b.innerHTML = '<i class="bi bi-pencil-fill"></i><span>Custom Amount</span>';
             b.addEventListener('click', function () {
                 inputEl.focus();
                 inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -980,7 +1013,7 @@
                     const b = document.createElement('button');
                     b.type = 'button';
                     b.className = 'pos-tier-quick-btn';
-                    b.textContent = '$' + amt.toLocaleString();
+                    b.innerHTML = '<i class="bi bi-flower1 pos-quick-amount-icon"></i><span>$' + amt.toLocaleString() + '</span>';
                     b.addEventListener('click', function () {
                         cb.checked = true;
                         freeInput.value = amt.toFixed(2);
@@ -1045,7 +1078,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'pos-quick-amount-btn';
-                btn.textContent = '$' + amt.toLocaleString();
+                btn.innerHTML = '<i class="bi bi-flower1 pos-quick-amount-icon"></i><span>$' + amt.toLocaleString() + '</span>';
                 btn.addEventListener('click', function () {
                     amountInput.value = amt.toFixed(2);
                     quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
