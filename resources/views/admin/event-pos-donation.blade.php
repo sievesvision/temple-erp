@@ -1569,13 +1569,16 @@
         function pollEftTransaction(sessionId, btn, amount, name, emailValue, mobileValue, startedAt) {
             if (eftPollCancelled) { return; }
 
-            // This local ~3-minute guard just stops the browser polling forever — it does
+            // This local ~60-second guard just stops the browser polling forever — it does
             // NOT clear the saved attempt, and startOrResumeEftPurchase() always resumes an
             // existing attempt rather than starting a new one, so clicking Pay again here is
             // safe (it re-attaches to this same Linkly session instead of double-charging).
-            // The server independently reaches the same "unknown" conclusion around 200s in
-            // pollEftCharge() if this client-side guard is somehow bypassed.
-            if (Date.now() - startedAt > 180000) {
+            // Matches mx51's own 60-second recommendation (SCIREC03) for how long a POS should
+            // wait before surfacing a recovery prompt, applied here too for consistency across
+            // both providers — three minutes was too long to leave an operator waiting on a
+            // busy day. The server independently reaches the same "unknown" conclusion around
+            // 200s in pollEftCharge() if this client-side guard is somehow bypassed.
+            if (Date.now() - startedAt > 60000) {
                 btn.disabled = false;
                 setEftModalStatus(['No response from the terminal yet', 'Press Pay to keep checking — this will not charge twice'], 'error');
                 setTimeout(hideEftModal, 2200);

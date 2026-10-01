@@ -1054,7 +1054,12 @@
         function pollEftTransaction(sessionId, btn, amount, startedAt) {
             if (eftPollCancelled) { return; }
 
-            if (Date.now() - startedAt > 180000) {
+            // Matches mx51's own 60-second recommendation (SCIREC03) for how long a POS should
+            // wait before surfacing a recovery prompt, applied here too for consistency across
+            // both providers — see event-pos-donation.blade.php's own pollEftTransaction() for
+            // the full reasoning (this guard only stops local polling, it's always safe to
+            // resume).
+            if (Date.now() - startedAt > 60000) {
                 btn.disabled = false;
                 setEftModalStatus(['No response from the terminal yet', 'Press the button to keep checking — this will not charge twice'], 'error');
                 setTimeout(hideEftModal, 2200);

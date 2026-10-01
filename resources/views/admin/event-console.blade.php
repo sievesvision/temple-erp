@@ -2428,7 +2428,9 @@
 
         function pollEftRefund(sessionId, startedAt) {
             if (eftRefundPollCancelled) { return; }
-            if (Date.now() - startedAt > 180000) {
+            // Matches mx51's own 60-second recommendation (SCIREC03) for how long a POS should
+            // wait before surfacing a recovery prompt, applied here too for consistency.
+            if (Date.now() - startedAt > 60000) {
                 setEftRefundStatus('Timed out', 'Check Transaction Status before retrying.');
                 return;
             }
