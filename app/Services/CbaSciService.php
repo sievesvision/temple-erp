@@ -416,7 +416,18 @@ class CbaSciService
     /**
      * Sends a button/input Action Framework element's interaction back to mx51 — `$submitUrl`
      * is already a complete URL (mx51 returns it fully-qualified in pos_instructions), so
-     * this only needs to sign and POST it, optionally with input element values as the body.
+     * this only needs to sign and POST it, with each input element's current value keyed by
+     * its own `name` as the JSON body (mx51's own documented contract for a "Submit to API"
+     * button — "construct a JSON payload using each input's name property as the key").
+     *
+     * mx51's response to this call carries its own fresh `pos_instructions` (same `{data:
+     * {...}}` envelope as Create/Get Transaction — see createTransaction()'s own note on
+     * that), which the docs are explicit must replace whatever Action Framework UI is
+     * currently shown. Previously this discarded the entire response body and returned a
+     * bare success flag, so the caller had nothing to re-render with and the only way a new
+     * form ever appeared was if an unrelated, later transaction-status poll happened to
+     * repeat it — unreliable, since submitting a form value isn't necessarily something the
+     * transaction-level status endpoint reflects at all.
      */
     public static function submitAction(EftTerminal $terminal, string $submitUrl, array $formValues = []): array
     {
@@ -424,14 +435,22 @@ class CbaSciService
             $response = self::signedRequest('POST', $submitUrl, $formValues ?: null, $terminal);
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI action submission could not reach mx51', ['terminal' => $terminal->key, 'url' => $submitUrl, 'error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'Could not reach mx51 Cloud — check network and terminal connections and try again.'];
+            return ['success' => false, 'message' => 'Could not reach mx51 Cloud — check network and terminal connections and try again.', 'pos_instructions' => null];
         }
 
         if (!$response->successful()) {
-            return ['success' => false, 'message' => self::transactionErrorMessage($response)];
+            return ['success' => false, 'message' => self::transactionErrorMessage($response), 'pos_instructions' => null];
         }
 
-        return ['success' => true, 'message' => 'OK'];
+        $data = $response->json('data') ?? [];
+
+        return [
+            'success' => true,
+            'message' => $data['message'] ?? 'OK',
+            'status' => $data['status'] ?? null,
+            'version' => $data['version'] ?? null,
+            'pos_instructions' => $data['pos_instructions'] ?? null,
+        ];
     }
 
     private static function toCents(float $amount): int

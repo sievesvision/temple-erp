@@ -16,7 +16,12 @@
  *     { type: 'image', mime, encoding, data }
  *   Documented button actions: PRINT_MERCHANT_RECEIPT, PRINT_CUSTOMER_RECEIPT,
  *   TRANSACTION_COMPLETE, RETRY_TRANSACTION, SETTLEMENT_COMPLETE, RETRY_SETTLEMENT,
- *   TEST_ACTION.
+ *   TEST_ACTION. A button carrying `submit_url` instead of `action` POSTs a JSON payload
+ *   (every input's current value, keyed by its own `name`) to that URL and re-renders the
+ *   action_form the response carries back — see submitElementAction(). TEST_ACTION has no
+ *   submit_url; per mx51's own certification guidance it should "call an internal function",
+ *   for which displaying the same JSON payload a Submit to API button would have sent is an
+ *   acceptable stand-in — see handleBuiltinAction()'s TEST_ACTION branch.
  *
  * mx51's own branding (e.g. during a signature step) is never injected locally — it arrives
  * as an ordinary `type: 'image'` element in the layout mx51 itself sends, rendered exactly
@@ -219,9 +224,31 @@
                 start(activeBtn, retryAttempt);
                 return;
             }
-            // TEST_ACTION and anything undocumented: no-op — certification-only / not applicable here.
+            // TEST_ACTION has no submit_url — mx51's own cert guidance is that clicking it
+            // should "call an internal function", and that displaying the JSON payload a real
+            // Submit to API button would have sent (same input values, keyed by name) is an
+            // acceptable stand-in for that function during certification. Appended rather than
+            // replacing the current form, since the operator may still need those same inputs
+            // visible/editable afterward.
+            if (action === 'TEST_ACTION') {
+                var pre = document.createElement('pre');
+                pre.className = 'sci-af-test-payload';
+                pre.textContent = JSON.stringify(formValues, null, 2);
+                cfg.el.actionContainer.appendChild(pre);
+                cfg.el.actionContainer.hidden = false;
+                return;
+            }
         }
 
+        // mx51's own documented contract for a "Submit to API" button: collect every input's
+        // current value keyed by its own `name`, POST that JSON payload to the button's
+        // submit_url, and use the API's response — which carries a fresh action_form — to
+        // replace whatever's currently shown. The signed request itself has to happen server-
+        // side (mx51's SCI auth needs the terminal's private signing secret, never exposed to
+        // the browser), so this hands submit_url + formValues to our own backend and renders
+        // whatever pos_instructions it hands back, rather than waiting on the next incidental
+        // transaction-status poll — which has no guaranteed connection to this submission and,
+        // for some dynamic submit_urls, may not reflect it at all.
         function submitElementAction(submitUrl) {
             Array.prototype.forEach.call(cfg.el.actionContainer.querySelectorAll('button'), function (b) { b.disabled = true; });
             fetch(cfg.actionUrlBase + '/' + encodeURIComponent(transactionId) + qs(), {
@@ -233,7 +260,17 @@
                 .then(function (data) {
                     if (!data.success) {
                         showToastFallback(data.message || 'The terminal did not accept that.');
+                        setTimeout(poll, 300);
+                        return;
                     }
+                    if (data.message) { lastKnownMessage = data.message; }
+                    if (data.pos_instructions) {
+                        setStatus([lastKnownMessage || 'Please wait…', data.status || ''], 'pending');
+                        renderInstructions(data.pos_instructions);
+                    }
+                    // This response alone never carries a final result_financial_status/
+                    // donation_id, only an interim action_form — the existing poll() loop is
+                    // still what actually resolves the transaction once mx51 finalises it.
                     setTimeout(poll, 300);
                 })
                 .catch(function () {
@@ -286,7 +323,11 @@
                 var input = document.createElement('input');
                 input.type = 'text';
                 input.className = 'sci-af-input';
-                if (Object.prototype.hasOwnProperty.call(formValues, name)) { input.value = formValues[name]; }
+                // mx51's own documented contract is "a JSON payload using each input's name
+                // property as the key" — every rendered input must appear in formValues even
+                // if the operator never touches it, not just whichever ones got typed into.
+                if (!Object.prototype.hasOwnProperty.call(formValues, name)) { formValues[name] = ''; }
+                input.value = formValues[name];
                 input.addEventListener('input', function () { formValues[name] = input.value; });
                 wrap.appendChild(labelSpan);
                 wrap.appendChild(input);

@@ -484,6 +484,18 @@ class CbaSciController extends Controller
 
         $result = CbaSciService::submitAction($txn->eftTerminal, $validated['submit_url'], $validated['form_values'] ?? []);
 
+        // Keep the stored row in sync with whatever mx51 just returned, same as poll() does —
+        // without this, the client's own follow-up poll() call would still send the OLD
+        // min_version (one past the last-stored value), asking mx51 to repeat a version it
+        // already delivered right here instead of moving forward.
+        if ($result['success'] && ($result['pos_instructions'] !== null || $result['status'] !== null)) {
+            $txn->update(array_filter([
+                'sci_version' => $result['version'] ?? null,
+                'status' => $result['status'] ?? null,
+                'pos_instructions' => $result['pos_instructions'] ?? null,
+            ], fn ($v) => $v !== null));
+        }
+
         return response()->json($result, $result['success'] ? 200 : 422);
     }
 

@@ -416,6 +416,7 @@
              natural size and dominate the whole modal. --}}
         .sci-af-image { max-width: 100%; max-height: 64px; display: block; margin: 6px auto; border-radius: var(--radius-sm); }
         .sci-af-details { text-align: left; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.45; }
+        .sci-af-test-payload { text-align: left; font-family: 'Courier New', ui-monospace, monospace; font-size: 0.74rem; line-height: 1.4; white-space: pre-wrap; word-break: break-word; background: var(--cream); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; }
         #eftModalActionFramework { margin-bottom: 10px; }
 
         /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
