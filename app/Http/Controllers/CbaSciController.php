@@ -168,6 +168,51 @@ class CbaSciController extends Controller
      * authorization/record_type shape closely so a future frontend can treat "which EFT
      * provider" as an implementation detail behind one consistent request/response contract.
      */
+    /**
+     * The POS terminal picker's own live check — mx51's certification checklist calls for a
+     * GET /pairing-info both when the pairing screen is viewed (EftTerminalController::
+     * index() already covers that for the admin registry page) AND just before a transaction
+     * starts (startPurchase() above) — but the POS's OWN "which terminal is this station
+     * using" picker is effectively a third such screen, and previously never checked at all:
+     * its list was built once at page load from the cached sci_pairing_id flag, which only
+     * ever changes when someone explicitly presses Unpair, so a pairing silently revoked on
+     * mx51's own side (re-paired elsewhere, cancelled from the terminal, etc.) kept showing
+     * "Paired" indefinitely. Every paired mx51 terminal gets refreshed (self-healing via
+     * CbaSciService::refreshPairingStatus() exactly as the registry page does) before the
+     * fresh paired/unpaired state for every terminal (not just mx51 ones) is returned, so the
+     * picker can show the real picture and grey out anything not actually usable.
+     */
+    public function refreshPickerStatus(Request $request)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        if (!$user || !app(DonationController::class)->canUseEftTerminal($user, $activeRole, $request->input('event_id'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $linklyMode = \App\Services\LinklyConfigService::mode();
+        $terminals = EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
+
+        foreach ($terminals as $terminal) {
+            if ($terminal->provider === 'cba_sci' && $terminal->isSciPaired()) {
+                CbaSciService::refreshPairingStatus($terminal);
+            }
+        }
+
+        $result = $terminals->map(function ($t) use ($linklyMode) {
+            $t->refresh();
+            return [
+                'id' => $t->id,
+                'label' => $t->label,
+                'provider' => $t->provider,
+                'is_default' => (bool) $t->is_default,
+                'paired' => $t->isPairedFor($linklyMode),
+            ];
+        })->values();
+
+        return response()->json(['success' => true, 'terminals' => $result]);
+    }
+
     public function startPurchase(Request $request)
     {
         $user = Auth::user();

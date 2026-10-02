@@ -364,14 +364,20 @@
            popup, since it's the same visual family, just listing selectable terminal rows. */
         .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
         .terminal-picker-row.selected { border-color: var(--gold); background: var(--cream); }
+        /* A terminal mx51's own live pairing-info check just reported as not paired — a real
+           disabled <button> (see renderTerminalModalList()), dimmed here so that's visible at
+           a glance rather than only discoverable by trying to click it. */
+        .terminal-picker-row.disabled, .terminal-picker-row:disabled { opacity: 0.5; cursor: not-allowed; }
         .terminal-picker-row .paired-badge-group { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .terminal-picker-row .paired-badge { font-size: 0.75rem; font-weight: 700; }
         .terminal-picker-row .paired-badge.yes { color: var(--success); }
         .terminal-picker-row .paired-badge.no { color: var(--error); }
         .terminal-picker-row .paired-badge.unknown { color: #B7791F; }
 
-        /* Small at-a-glance online/offline dot on the header's terminal picker button —
-           so the operator can tell a terminal has gone offline without opening the picker. */
+        /* Small at-a-glance paired/not-paired dot on the header's terminal picker button —
+           reflects the same live check the picker modal does, so a pairing lost on mx51's own
+           side (re-paired elsewhere, cancelled from the terminal) is visible without even
+           opening the picker, rather than the button indefinitely showing stale "Paired". */
         .terminal-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #9AA7B4; flex-shrink: 0; }
         .terminal-status-dot.online { background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,0.3); }
         .terminal-status-dot.offline { background: #F87171; box-shadow: 0 0 0 3px rgba(248,113,113,0.3); }
@@ -751,7 +757,12 @@
         // Server-authoritative Power Fail recovery data (see PosDonationController::show())
         // — survives the browser tab itself being gone, unlike sessionStorage below.
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
-        const EFT_TERMINALS = @json($eftTerminalsForJs);
+        // Mutable (not const) — the terminal picker replaces this wholesale with a freshly
+        // live-checked list every time it's opened (see CBA_SCI_PICKER_REFRESH_URL below);
+        // this initial server-rendered value only ever matters for the very first paint,
+        // before the picker has ever been opened.
+        let EFT_TERMINALS = @json($eftTerminalsForJs);
+        const CBA_SCI_PICKER_REFRESH_URL = @json(route('admin.cba-sci.terminal-picker.refresh'));
         const CBA_SCI_CHARGE_START_URL = @json(route('admin.cba-sci.charge.start'));
         const CBA_SCI_CHARGE_STATUS_URL_BASE = @json(url('/admin/cba-sci/charge/status'));
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
@@ -788,23 +799,27 @@
             const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
             return t ? t.label : 'No terminal';
         }
-        // Online/offline is inferred from the terminal's own most recent transaction result
-        // (see EftTerminal::lastKnownStatus()) — 'unknown' just means no transaction has
-        // gone through yet on this terminal, never a guess.
-        function terminalStatusBadge(t) {
-            if (t.status === 'online') { return { cls: 'yes', text: 'Online' }; }
-            if (t.status === 'offline') { return { cls: 'no', text: 'Offline' }; }
-            return { cls: 'unknown', text: 'Not checked' };
-        }
+        // Paired/not-paired is the one thing actually worth showing here now — an inferred
+        // online/offline guess from past transaction results used to sit alongside it, but
+        // that's a stale, misleading thing to call "status" on a screen whose whole point is
+        // mx51's own required live check (see the fetch below): it never reflected whether a
+        // pairing was ACTUALLY still active, only whether a reading was cached at all.
         function renderTerminalPickerButton() {
             const el = document.getElementById('terminalPickerLabel');
             if (el) { el.textContent = currentTerminalLabel(); }
             const dot = document.getElementById('terminalStatusDot');
             if (dot) {
                 const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
-                const badge = t ? terminalStatusBadge(t) : { cls: 'unknown', text: 'No terminal selected' };
-                dot.className = 'terminal-status-dot ' + (badge.cls === 'yes' ? 'online' : (badge.cls === 'no' ? 'offline' : 'unknown'));
-                dot.title = badge.text + (t && t.status_at ? ' (' + t.status_at + ')' : '');
+                if (!t) {
+                    dot.className = 'terminal-status-dot unknown';
+                    dot.title = 'No terminal selected';
+                } else if (!t.paired) {
+                    dot.className = 'terminal-status-dot offline';
+                    dot.title = 'Not paired — select a different terminal or re-pair this one';
+                } else {
+                    dot.className = 'terminal-status-dot online';
+                    dot.title = 'Paired';
+                }
             }
         }
         function renderTerminalModalList() {
@@ -812,33 +827,62 @@
             if (!list) { return; }
             list.innerHTML = '';
             if (!EFT_TERMINALS.length) {
-                list.innerHTML = '<p class="text-muted small mb-0">No paired terminals yet — use the link below to pair one.</p>';
+                list.innerHTML = '<p class="text-muted small mb-0">No terminals registered yet — use the link below to add one.</p>';
                 return;
             }
             EFT_TERMINALS.forEach(function (t) {
                 const row = document.createElement('button');
                 row.type = 'button';
-                row.className = 'terminal-picker-row' + (String(t.id) === String(selectedTerminalId) ? ' selected' : '');
-                const statusBadge = terminalStatusBadge(t);
+                const isSelected = String(t.id) === String(selectedTerminalId);
+                row.className = 'terminal-picker-row' + (isSelected ? ' selected' : '') + (t.paired ? '' : ' disabled');
+                // A genuinely disabled <button> (not just a dimmed style) — mx51's own
+                // certification guidance is explicit that a terminal reporting unpaired must
+                // not be selectable at all, not merely discouraged.
+                row.disabled = !t.paired;
                 row.innerHTML = '<span>' + escapeHtmlPos(t.label) + (t.is_default ? ' <span class="text-muted small">(default)</span>' : '') + '</span>' +
                     '<span class="paired-badge-group">' +
                     '<span class="paired-badge ' + (t.paired ? 'yes' : 'no') + '">' + (t.paired ? 'Paired' : 'Not paired') + '</span>' +
-                    '<span class="paired-badge ' + statusBadge.cls + '">' + statusBadge.text + '</span>' +
                     '</span>';
-                row.addEventListener('click', function () {
-                    selectedTerminalId = String(t.id);
-                    saveSelectedTerminalId(selectedTerminalId);
-                    renderTerminalPickerButton();
-                    document.getElementById('terminalModalOverlay').classList.remove('active');
-                });
+                if (t.paired) {
+                    row.addEventListener('click', function () {
+                        selectedTerminalId = String(t.id);
+                        saveSelectedTerminalId(selectedTerminalId);
+                        renderTerminalPickerButton();
+                        document.getElementById('terminalModalOverlay').classList.remove('active');
+                    });
+                }
                 list.appendChild(row);
             });
         }
         const terminalPickerBtn = document.getElementById('terminalPickerBtn');
         if (terminalPickerBtn) {
+            // mx51's certification checklist requires a live GET /pairing-info check at the
+            // moment the pairing/terminal screen is opened, not a flag cached from page load
+            // that only ever changes once someone presses Unpair — EftTerminalController::
+            // index() already does this for the admin registry page; this is the same check
+            // for the POS's own terminal picker, which previously never ran it at all. Shown
+            // immediately on open (own loading state) rather than blocking the button click.
             terminalPickerBtn.addEventListener('click', function () {
-                renderTerminalModalList();
                 document.getElementById('terminalModalOverlay').classList.add('active');
+                const list = document.getElementById('terminalModalList');
+                if (list) { list.innerHTML = '<p class="text-muted small mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Checking terminal status…</p>'; }
+                fetch(CBA_SCI_PICKER_REFRESH_URL + '?event_id=' + encodeURIComponent(EVENT_ID), {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data && data.success && Array.isArray(data.terminals)) {
+                            EFT_TERMINALS = data.terminals;
+                        }
+                        renderTerminalModalList();
+                        renderTerminalPickerButton();
+                    })
+                    .catch(function () {
+                        // Still show whatever was last known rather than leaving the modal
+                        // stuck on the loading message if the live check itself can't be reached.
+                        renderTerminalModalList();
+                    });
             });
             document.getElementById('terminalModalCloseBtn').addEventListener('click', function () {
                 document.getElementById('terminalModalOverlay').classList.remove('active');
