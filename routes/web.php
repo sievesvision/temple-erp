@@ -683,6 +683,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
     // CBA Smart Terminal (mx51 SCI) transaction lifecycle — same role list as the Linkly
     // group above, since both providers are usable from the same donation POS/console and
     // Ticket Kiosk call sites.
+    Route::post('/admin/cba-sci/terminal-picker/refresh', [\App\Http\Controllers\CbaSciController::class, 'refreshPickerStatus'])->name('admin.cba-sci.terminal-picker.refresh');
     Route::post('/admin/cba-sci/charge/start', [\App\Http\Controllers\CbaSciController::class, 'startPurchase'])->name('admin.cba-sci.charge.start');
     Route::get('/admin/cba-sci/charge/status/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'poll'])->name('admin.cba-sci.charge.status');
     Route::post('/admin/cba-sci/charge/action/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'submitAction'])->name('admin.cba-sci.charge.action');
