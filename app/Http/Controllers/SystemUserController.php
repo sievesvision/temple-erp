@@ -71,7 +71,7 @@ class SystemUserController extends Controller
         }
 
         $request->validate([
-            'username' => 'nullable|alpha_num|min:4|max:6|unique:users,username,' . $targetUser->id,
+            'username' => 'nullable|alpha_num|min:6|max:10|unique:users,username,' . $targetUser->id,
         ]);
 
         $targetUser->update(['username' => $request->username ? strtolower($request->username) : null]);

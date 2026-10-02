@@ -747,7 +747,7 @@ class AuthController extends Controller
     public function attemptKioskPinLogin(Request $request)
     {
         $request->validate([
-            'username' => 'required|string|max:6',
+            'username' => 'required|string|max:10',
             'pin' => 'required|digits:6',
         ]);
 

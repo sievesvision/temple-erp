@@ -220,7 +220,7 @@
                     <td>
                         <form action="{{ route('admin.users.set-username', $u->id) }}" method="POST" class="username-form">
                             @csrf
-                            <input type="text" name="username" value="{{ $u->username }}" maxlength="6" placeholder="none" title="4-6 characters, letters/numbers only">
+                            <input type="text" name="username" value="{{ $u->username }}" maxlength="10" placeholder="none" title="6-10 characters, letters/numbers only">
                             <button type="submit">Save</button>
                         </form>
                         @if($u->kiosk_pin_locked_at)
