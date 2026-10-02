@@ -225,14 +225,30 @@ class KioskPinSettingsTest extends TestCase
         $this->assertSame('newusr', $user->refresh()->username);
     }
 
-    public function test_username_must_be_between_4_and_6_characters(): void
+    public function test_username_must_be_between_6_and_10_characters(): void
     {
-        [$user] = $this->posLevelCoordinator(null);
+        [$tooShort] = $this->posLevelCoordinator(null, 'short1');
+        [$tooLong] = $this->posLevelCoordinator('other', 'long11');
         $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
 
-        $response = $this->actingAs($admin)->post(route('admin.users.set-username', $user->id), ['username' => 'ab']);
+        $shortResponse = $this->actingAs($admin)->post(route('admin.users.set-username', $tooShort->id), ['username' => 'abcde']);
+        $shortResponse->assertSessionHasErrors('username');
 
-        $response->assertSessionHasErrors('username');
+        $longResponse = $this->actingAs($admin)->post(route('admin.users.set-username', $tooLong->id), ['username' => 'abcdefghijk']);
+        $longResponse->assertSessionHasErrors('username');
+    }
+
+    public function test_usernames_at_the_6_and_10_character_boundaries_are_both_accepted(): void
+    {
+        [$shortBound] = $this->posLevelCoordinator(null, 'bound6a');
+        [$longBound] = $this->posLevelCoordinator('other', 'bound6b');
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $this->actingAs($admin)->post(route('admin.users.set-username', $shortBound->id), ['username' => 'abcdef'])->assertSessionHasNoErrors();
+        $this->assertSame('abcdef', $shortBound->refresh()->username);
+
+        $this->actingAs($admin)->post(route('admin.users.set-username', $longBound->id), ['username' => 'abcdefghij'])->assertSessionHasNoErrors();
+        $this->assertSame('abcdefghij', $longBound->refresh()->username);
     }
 
     public function test_a_non_admin_cannot_assign_usernames(): void
