@@ -430,6 +430,17 @@
         .eft-override-btn { flex: 1 1 auto; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.9rem; color: #fff; }
         .eft-override-btn.eft-override-yes { background: var(--success); }
         .eft-override-btn.eft-override-no { background: var(--error); }
+
+        /* Soft-copy receipt viewer — mx51 returns the exact printed receipt text once a
+           transaction is finalised (merchant_receipt/customer_receipt on sci_transactions);
+           this just displays it verbatim rather than reformatting it, since it's the same
+           text a compliance-reviewed physical receipt would show. */
+        .receipt-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+        .receipt-tab { flex: 1; padding: 9px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--cream); font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); }
+        .receipt-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
+        .receipt-paper { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; text-align: left; max-height: 360px; overflow-y: auto; margin-bottom: 14px; }
+        .receipt-paper pre { font-family: 'Courier New', ui-monospace, monospace; font-size: 0.78rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word; margin: 0; color: #1a1a1a; }
+        .receipt-meta { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; }
     </style>
 </head>
 <body>
@@ -757,6 +768,9 @@
                                         @elseif($rowCanRefund && $rowSciTxn)
                                         <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $rowSciTxn->sci_transaction_id }}', {{ $row->amount }}, {{ $rowSciTxn->eft_terminal_id }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
                                         @endif
+                                        @if($rowSciTxn && ($rowSciTxn->merchant_receipt || $rowSciTxn->customer_receipt))
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $rowSciTxn->id }})"><i class="bi bi-receipt"></i></button>
+                                        @endif
                                     </td>
                                 </tr>
                                 @empty
@@ -806,6 +820,9 @@
                                     <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
                                     <td class="text-end">
                                         <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i></button>
+                                        @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i></button>
+                                        @endif
                                     </td>
                                 </tr>
                                 @endforeach
@@ -1546,6 +1563,32 @@
                     </div>
                     <button type="button" class="eft-modal-cancel-btn" id="sciRefundModalCancelBtn">Cancel Refund</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- SOFT-COPY RECEIPT VIEWER — mx51 stores the exact printed receipt text on
+         sci_transactions.merchant_receipt/customer_receipt once a transaction finalises (see
+         CbaSciController::poll()); this just displays whichever copies exist for a given
+         transaction, verbatim, rather than reformatting mx51's own text. --}}
+    @php
+        $sciReceiptMap = $sciTransactions->mapWithKeys(function ($t) {
+            $label = ucfirst($t->txn_type) . ' · ' . ($t->result_financial_status ?: $t->status) . ' · ' . ($temple['currency'] ?? '') . ' ' . number_format($t->amount ?? 0, 2) . ' · ' . $t->created_at->format('d M Y, g:i A');
+            return [$t->id => ['merchant' => $t->merchant_receipt, 'customer' => $t->customer_receipt, 'label' => $label]];
+        })->filter(fn ($r) => $r['merchant'] || $r['customer']);
+    @endphp
+    <div class="eft-modal-overlay" id="sciReceiptModalOverlay">
+        <div class="eft-modal" style="max-width: 400px;">
+            <div class="eft-modal-header"><i class="bi bi-receipt me-2"></i>Transaction Receipt</div>
+            <div class="eft-modal-body">
+                <div class="receipt-meta" id="sciReceiptMeta"></div>
+                <div class="receipt-tabs">
+                    <button type="button" class="receipt-tab active" data-copy="merchant" id="sciReceiptTabMerchant" onclick="showSciReceiptCopy('merchant')">Merchant Copy</button>
+                    <button type="button" class="receipt-tab" data-copy="customer" id="sciReceiptTabCustomer" onclick="showSciReceiptCopy('customer')">Customer Copy</button>
+                </div>
+                <div class="receipt-paper"><pre id="sciReceiptText"></pre></div>
+                <button type="button" class="eft-modal-cancel-btn mb-2" style="background: var(--maroon); color: #fff; border-color: var(--maroon);" onclick="printSciReceipt()"><i class="bi bi-printer me-1"></i>Print</button>
+                <button type="button" class="eft-modal-cancel-btn" id="sciReceiptCloseBtn">Close</button>
             </div>
         </div>
     </div>
@@ -2579,6 +2622,48 @@
 
             const clientRef = 'sci-refund-' + sciRefundOriginalTransactionId + '-' + Date.now();
             sciRefundFlow.start(e.currentTarget, { amount: amount, clientRef: clientRef, name: '', email: '', mobile: '', terminalId: terminalId });
+        });
+
+        // Soft-copy receipt viewer — SCI_RECEIPTS is keyed by sci_transactions.id, built
+        // server-side in the @php block above from whichever rows actually have stored
+        // receipt text, so a lookup miss here just means that transaction has none.
+        const SCI_RECEIPTS = @json($sciReceiptMap);
+        let sciReceiptCurrent = null;
+        let sciReceiptCurrentCopy = 'merchant';
+
+        function viewSciReceipt(id) {
+            const r = SCI_RECEIPTS[id];
+            if (!r) { return; }
+            sciReceiptCurrent = r;
+            document.getElementById('sciReceiptMeta').textContent = r.label;
+            document.getElementById('sciReceiptTabMerchant').hidden = !r.merchant;
+            document.getElementById('sciReceiptTabCustomer').hidden = !r.customer;
+            showSciReceiptCopy(r.merchant ? 'merchant' : 'customer');
+            document.getElementById('sciReceiptModalOverlay').classList.add('active');
+        }
+
+        function showSciReceiptCopy(copy) {
+            if (!sciReceiptCurrent) { return; }
+            sciReceiptCurrentCopy = copy;
+            document.getElementById('sciReceiptText').textContent = (copy === 'merchant' ? sciReceiptCurrent.merchant : sciReceiptCurrent.customer) || 'No receipt available.';
+            document.getElementById('sciReceiptTabMerchant').classList.toggle('active', copy === 'merchant');
+            document.getElementById('sciReceiptTabCustomer').classList.toggle('active', copy === 'customer');
+        }
+
+        function printSciReceipt() {
+            if (!sciReceiptCurrent) { return; }
+            const text = (sciReceiptCurrentCopy === 'merchant' ? sciReceiptCurrent.merchant : sciReceiptCurrent.customer) || '';
+            const win = window.open('', '_blank', 'width=380,height=600');
+            if (!win) { return; }
+            const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            win.document.write('<html><head><title>Receipt</title></head><body style="font-family: monospace; white-space: pre-wrap; padding: 16px; font-size: 13px;">' + escaped + '</body></html>');
+            win.document.close();
+            win.focus();
+            setTimeout(function () { try { win.print(); } catch (e) {} }, 300);
+        }
+
+        document.getElementById('sciReceiptCloseBtn').addEventListener('click', function () {
+            document.getElementById('sciReceiptModalOverlay').classList.remove('active');
         });
         @endif
     </script>
