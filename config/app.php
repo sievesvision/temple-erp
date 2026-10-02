@@ -79,7 +79,7 @@ return [
     |
     */
 
-    'timezone' => 'Asia/Kolkata',
+    'timezone' => 'Australia/Brisbane',
 
     /*
     |--------------------------------------------------------------------------
