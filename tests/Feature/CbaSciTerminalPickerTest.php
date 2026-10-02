@@ -38,6 +38,7 @@ class CbaSciTerminalPickerTest extends TestCase
     {
         $admin = $this->adminUser();
         $paired = $this->pairedSciTerminal();
+        $paired->update(['sci_tid' => '300999001']);
         $neverPaired = EftTerminal::create([
             'key' => 'sci-unpaired-' . uniqid(), 'label' => 'Unpaired mx51 Terminal', 'provider' => 'cba_sci',
             'pos_id' => (string) Str::uuid(),
@@ -51,6 +52,14 @@ class CbaSciTerminalPickerTest extends TestCase
         $terminals = collect($response->json('terminals'))->keyBy('id');
         $this->assertTrue($terminals[$paired->id]['paired']);
         $this->assertFalse($terminals[$neverPaired->id]['paired']);
+
+        // The picker's own "mandatory fields" (Pairing ID, TID, key) — only meaningful for
+        // mx51 terminals, present regardless of whether this exact call re-confirmed the
+        // pairing is still active.
+        $this->assertSame($paired->key, $terminals[$paired->id]['key']);
+        $this->assertSame('pid_123', $terminals[$paired->id]['sci_pairing_id']);
+        $this->assertSame('300999001', $terminals[$paired->id]['sci_tid']);
+        $this->assertNull($terminals[$neverPaired->id]['sci_pairing_id']);
 
         // A terminal with no pairing ID at all has nothing to check — refreshPairingStatus()
         // short-circuits before ever touching the network for it (see its own "is a noop for
@@ -86,6 +95,8 @@ class CbaSciTerminalPickerTest extends TestCase
         $response->assertOk();
         $terminals = collect($response->json('terminals'))->keyBy('id');
         $this->assertArrayHasKey($linkly->id, $terminals->toArray());
+        $this->assertNull($terminals[$linkly->id]['sci_pairing_id']);
+        $this->assertNull($terminals[$linkly->id]['sci_tid']);
         Http::assertNothingSent();
     }
 

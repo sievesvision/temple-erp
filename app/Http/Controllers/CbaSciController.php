@@ -203,10 +203,17 @@ class CbaSciController extends Controller
             $t->refresh();
             return [
                 'id' => $t->id,
+                'key' => $t->key,
                 'label' => $t->label,
                 'provider' => $t->provider,
                 'is_default' => (bool) $t->is_default,
                 'paired' => $t->isPairedFor($linklyMode),
+                // Only meaningful for mx51 — the picker shows these as the terminal's
+                // "mandatory fields" once paired, and the key for a once-paired terminal
+                // (sci_tid especially) can still matter to display even if it's gone unpaired
+                // since, so neither is gated behind the current paired state.
+                'sci_pairing_id' => $t->provider === 'cba_sci' ? $t->sci_pairing_id : null,
+                'sci_tid' => $t->provider === 'cba_sci' ? $t->sci_tid : null,
             ];
         })->values();
 

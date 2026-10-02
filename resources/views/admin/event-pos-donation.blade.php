@@ -104,12 +104,12 @@
         .pos-terminal-btn:hover { background: rgba(255,255,255,0.18); }
         .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
-        /* The terminal name competes hardest for row-1 space on a phone — its icon+status dot
-           already say everything an operator needs at a glance, so the label collapses first,
-           well before anything else has to. */
+        /* The terminal name competes hardest for row-1 space on a phone — it collapses to just
+           the icon first, well before anything else has to; the full name is always one tap
+           away in the picker itself. */
         @media (max-width: 480px) {
             .pos-terminal-btn { max-width: none; padding: 0; width: 44px; height: 44px; justify-content: center; }
-            .pos-terminal-btn span:not(.terminal-status-dot) { display: none; }
+            .pos-terminal-btn span { display: none; }
         }
 
         /* ---------- Main entry area ---------- */
@@ -361,27 +361,24 @@
         .eft-modal-cancel-btn:active { background: var(--cream); }
 
         /* This station's EFT terminal picker — same modal box styling as the EFT status
-           popup, since it's the same visual family, just listing selectable terminal rows. */
-        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
-        .terminal-picker-row.selected { border-color: var(--gold); background: var(--cream); }
-        /* A terminal mx51's own live pairing-info check just reported as not paired — a real
-           disabled <button> (see renderTerminalModalList()), dimmed here so that's visible at
-           a glance rather than only discoverable by trying to click it. */
-        .terminal-picker-row.disabled, .terminal-picker-row:disabled { opacity: 0.5; cursor: not-allowed; }
-        .terminal-picker-row .paired-badge-group { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        .terminal-picker-row .paired-badge { font-size: 0.75rem; font-weight: 700; }
-        .terminal-picker-row .paired-badge.yes { color: var(--success); }
-        .terminal-picker-row .paired-badge.no { color: var(--error); }
-        .terminal-picker-row .paired-badge.unknown { color: #B7791F; }
+           popup, since it's the same visual family. Each terminal is its own card now (not a
+           single clickable row) since an unpaired one can carry an inline re-pair form too. */
+        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); margin-bottom: 10px; }
+        .terminal-picker-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .terminal-picker-select { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+        .terminal-picker-select input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+        .terminal-picker-select input[type="checkbox"]:disabled { cursor: not-allowed; }
+        .terminal-picker-select input[type="checkbox"]:disabled + span { color: var(--text-secondary); }
+        .paired-badge { font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+        .paired-badge.yes { color: var(--success); }
+        .paired-badge.no { color: var(--error); }
+        .terminal-picker-details { margin-top: 6px; padding-left: 28px; font-size: 0.78rem; color: var(--text-secondary); }
+        .terminal-picker-repair { margin-top: 10px; padding-left: 28px; }
+        .terminal-picker-repair-step { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .terminal-picker-repair-step .form-control { max-width: 220px; }
+        .terminal-picker-repair .repair-confirmation-code { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.05em; width: 100%; }
+        .terminal-picker-repair .repair-error, .terminal-picker-repair .repair-confirm-error { width: 100%; }
 
-        /* Small at-a-glance paired/not-paired dot on the header's terminal picker button —
-           reflects the same live check the picker modal does, so a pairing lost on mx51's own
-           side (re-paired elsewhere, cancelled from the terminal) is visible without even
-           opening the picker, rather than the button indefinitely showing stale "Paired". */
-        .terminal-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #9AA7B4; flex-shrink: 0; }
-        .terminal-status-dot.online { background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,0.3); }
-        .terminal-status-dot.offline { background: #F87171; box-shadow: 0 0 0 3px rgba(248,113,113,0.3); }
-        .terminal-status-dot.unknown { background: #FBBF24; }
 
         /* Terminal soft-key buttons (OK/Yes/No/Authorise) — only ever shown when Linkly's own
            display notification currently flags that key as available (data.controls), never
@@ -478,7 +475,7 @@
             </div>
             @endif
             <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
-                <i class="bi bi-pc-display"></i><span class="terminal-status-dot" id="terminalStatusDot" title="Terminal status"></span><span id="terminalPickerLabel">Terminal</span>
+                <i class="bi bi-pc-display"></i><span id="terminalPickerLabel">Terminal</span>
             </button>
             @if($canReturnToConsole)
             <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
@@ -799,29 +796,126 @@
             const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
             return t ? t.label : 'No terminal';
         }
-        // Paired/not-paired is the one thing actually worth showing here now — an inferred
-        // online/offline guess from past transaction results used to sit alongside it, but
-        // that's a stale, misleading thing to call "status" on a screen whose whole point is
-        // mx51's own required live check (see the fetch below): it never reflected whether a
-        // pairing was ACTUALLY still active, only whether a reading was cached at all.
+        // The topbar button is just a label now — no colour-coded status indicator. A live
+        // paired/unpaired reading only exists right after the picker's own refresh fetch
+        // below runs, so showing a dot on this button all the time was either stale (page-load
+        // only) or meaningless between openings; the picker itself is where that status
+        // actually lives now.
         function renderTerminalPickerButton() {
             const el = document.getElementById('terminalPickerLabel');
             if (el) { el.textContent = currentTerminalLabel(); }
-            const dot = document.getElementById('terminalStatusDot');
-            if (dot) {
-                const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
-                if (!t) {
-                    dot.className = 'terminal-status-dot unknown';
-                    dot.title = 'No terminal selected';
-                } else if (!t.paired) {
-                    dot.className = 'terminal-status-dot offline';
-                    dot.title = 'Not paired — select a different terminal or re-pair this one';
-                } else {
-                    dot.className = 'terminal-status-dot online';
-                    dot.title = 'Paired';
-                }
-            }
         }
+        const CBA_SCI_PAIR_URL = @json(route('admin.cba-sci.pair'));
+        const CBA_SCI_TEST_URL = @json(route('admin.cba-sci.test'));
+
+        /**
+         * The inline "fix it right here" re-pairing form for an unpaired mx51 terminal — same
+         * two-step Pair-then-Test flow as cba-sci-pairing.blade.php's own sci-repair-widget
+         * (mx51's API genuinely requires confirming the code on the terminal before Test can
+         * report it active), deliberately reimplemented here rather than reused: that widget's
+         * own Test-success handler does a full window.location.reload(), which is fine on the
+         * standalone settings page but would blow away whatever the operator has half-entered
+         * on this donation form. No "Steps to pair" box — this is for a terminal already known
+         * to this registry, not a brand new one (see cba-sci-pairing.blade.php's own note);
+         * the terminal's existing name doubles as the pairing nickname, no separate field.
+         */
+        function buildInlineRepair(t) {
+            const wrap = document.createElement('div');
+            wrap.className = 'terminal-picker-repair';
+
+            const pairStep = document.createElement('div');
+            pairStep.className = 'terminal-picker-repair-step';
+            pairStep.innerHTML = '<input type="text" class="form-control form-control-sm rounded-3" placeholder="Pairing code from the terminal" maxlength="20">' +
+                '<button type="button" class="btn btn-sm btn-outline-primary">Pair</button>' +
+                '<div class="text-danger small repair-error" hidden></div>';
+            const codeInput = pairStep.querySelector('input');
+            const pairBtn = pairStep.querySelector('button');
+            const errorEl = pairStep.querySelector('.repair-error');
+
+            const confirmStep = document.createElement('div');
+            confirmStep.className = 'terminal-picker-repair-step';
+            confirmStep.hidden = true;
+            confirmStep.innerHTML = '<p class="small text-muted mb-1">Confirm this code is showing on the terminal, then press Test.</p>' +
+                '<div class="repair-confirmation-code"></div>' +
+                '<button type="button" class="btn btn-sm btn-outline-primary">Test</button>' +
+                '<div class="text-danger small repair-confirm-error" hidden></div>';
+            const confirmCodeEl = confirmStep.querySelector('.repair-confirmation-code');
+            const testBtn = confirmStep.querySelector('button');
+            const confirmErrorEl = confirmStep.querySelector('.repair-confirm-error');
+
+            pairBtn.addEventListener('click', function () {
+                errorEl.hidden = true;
+                const code = codeInput.value.trim();
+                if (!code) { errorEl.textContent = 'Enter the pairing code from the terminal.'; errorEl.hidden = false; return; }
+                pairBtn.disabled = true;
+                pairBtn.textContent = 'Pairing…';
+                const body = new URLSearchParams();
+                body.set('terminal_id', t.id);
+                body.set('pairing_code', code);
+                body.set('pairing_nickname', t.label);
+                fetch(CBA_SCI_PAIR_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        pairBtn.disabled = false;
+                        pairBtn.textContent = 'Pair';
+                        if (!data.success) {
+                            errorEl.textContent = data.message || 'Pairing failed — please try again.';
+                            errorEl.hidden = false;
+                            return;
+                        }
+                        confirmCodeEl.textContent = data.confirmation_code || '—';
+                        pairStep.hidden = true;
+                        confirmStep.hidden = false;
+                    })
+                    .catch(function () {
+                        pairBtn.disabled = false;
+                        pairBtn.textContent = 'Pair';
+                        errorEl.textContent = 'Could not reach the server — check your connection and try again.';
+                        errorEl.hidden = false;
+                    });
+            });
+
+            testBtn.addEventListener('click', function () {
+                confirmErrorEl.hidden = true;
+                testBtn.disabled = true;
+                testBtn.textContent = 'Testing…';
+                const body = new URLSearchParams();
+                body.set('terminal_id', t.id);
+                fetch(CBA_SCI_TEST_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data.still_paired) {
+                            // Re-run the same live refresh the picker opens with, so this
+                            // terminal shows up as selectable everywhere, consistently.
+                            refreshTerminalPicker();
+                            return;
+                        }
+                        testBtn.disabled = false;
+                        testBtn.textContent = 'Test';
+                        confirmErrorEl.textContent = data.message || 'Still waiting for the pairing to be confirmed on the terminal.';
+                        confirmErrorEl.hidden = false;
+                    })
+                    .catch(function () {
+                        testBtn.disabled = false;
+                        testBtn.textContent = 'Test';
+                        confirmErrorEl.textContent = 'Could not reach the server — check your connection and try again.';
+                        confirmErrorEl.hidden = false;
+                    });
+            });
+
+            wrap.appendChild(pairStep);
+            wrap.appendChild(confirmStep);
+            return wrap;
+        }
+
         function renderTerminalModalList() {
             const list = document.getElementById('terminalModalList');
             if (!list) { return; }
@@ -831,58 +925,84 @@
                 return;
             }
             EFT_TERMINALS.forEach(function (t) {
-                const row = document.createElement('button');
-                row.type = 'button';
+                const card = document.createElement('div');
+                card.className = 'terminal-picker-row';
+
+                const top = document.createElement('div');
+                top.className = 'terminal-picker-top';
                 const isSelected = String(t.id) === String(selectedTerminalId);
-                row.className = 'terminal-picker-row' + (isSelected ? ' selected' : '') + (t.paired ? '' : ' disabled');
-                // A genuinely disabled <button> (not just a dimmed style) — mx51's own
-                // certification guidance is explicit that a terminal reporting unpaired must
-                // not be selectable at all, not merely discouraged.
-                row.disabled = !t.paired;
-                row.innerHTML = '<span>' + escapeHtmlPos(t.label) + (t.is_default ? ' <span class="text-muted small">(default)</span>' : '') + '</span>' +
-                    '<span class="paired-badge-group">' +
-                    '<span class="paired-badge ' + (t.paired ? 'yes' : 'no') + '">' + (t.paired ? 'Paired' : 'Not paired') + '</span>' +
-                    '</span>';
-                if (t.paired) {
-                    row.addEventListener('click', function () {
-                        selectedTerminalId = String(t.id);
-                        saveSelectedTerminalId(selectedTerminalId);
-                        renderTerminalPickerButton();
-                        document.getElementById('terminalModalOverlay').classList.remove('active');
-                    });
+                const label = document.createElement('label');
+                label.className = 'terminal-picker-select';
+                label.innerHTML = '<input type="checkbox"' + (isSelected ? ' checked' : '') + (t.paired ? '' : ' disabled') + '>' +
+                    '<span>' + escapeHtmlPos(t.label) + (t.key ? ' <span class="text-muted small">(' + escapeHtmlPos(t.key) + ')</span>' : '') + (t.is_default ? ' <span class="text-muted small">· default</span>' : '') + '</span>';
+                const badge = document.createElement('span');
+                badge.className = 'paired-badge ' + (t.paired ? 'yes' : 'no');
+                badge.textContent = t.paired ? 'Paired' : 'Not paired';
+                top.appendChild(label);
+                top.appendChild(badge);
+                card.appendChild(top);
+
+                // A genuinely disabled checkbox (not just a dimmed style) — mx51's own
+                // certification guidance is explicit that an unpaired terminal must not be
+                // selectable at all, not merely discouraged. Checking it is a direct select +
+                // close, same one-step feel the plain row click used to have.
+                label.querySelector('input').addEventListener('change', function (e) {
+                    if (!t.paired) { e.target.checked = false; return; }
+                    selectedTerminalId = String(t.id);
+                    saveSelectedTerminalId(selectedTerminalId);
+                    renderTerminalPickerButton();
+                    document.getElementById('terminalModalOverlay').classList.remove('active');
+                });
+
+                if (t.paired && t.provider === 'cba_sci' && (t.sci_pairing_id || t.sci_tid)) {
+                    const details = document.createElement('div');
+                    details.className = 'terminal-picker-details';
+                    const parts = [];
+                    if (t.sci_pairing_id) { parts.push('Pairing ID: ' + t.sci_pairing_id); }
+                    if (t.sci_tid) { parts.push('TID: ' + t.sci_tid); }
+                    details.textContent = parts.join(' · ');
+                    card.appendChild(details);
                 }
-                list.appendChild(row);
+
+                if (!t.paired && t.provider === 'cba_sci') {
+                    card.appendChild(buildInlineRepair(t));
+                }
+
+                list.appendChild(card);
             });
+        }
+        // mx51's certification checklist requires a live GET /pairing-info check at the moment
+        // the pairing/terminal screen is opened, not a flag cached from page load that only
+        // ever changes once someone presses Unpair — EftTerminalController::index() already
+        // does this for the admin registry page; this is the same check for the POS's own
+        // terminal picker, which previously never ran it at all.
+        function refreshTerminalPicker() {
+            const list = document.getElementById('terminalModalList');
+            if (list) { list.innerHTML = '<p class="text-muted small mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Checking terminal status…</p>'; }
+            fetch(CBA_SCI_PICKER_REFRESH_URL + '?event_id=' + encodeURIComponent(EVENT_ID), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data && data.success && Array.isArray(data.terminals)) {
+                        EFT_TERMINALS = data.terminals;
+                    }
+                    renderTerminalModalList();
+                    renderTerminalPickerButton();
+                })
+                .catch(function () {
+                    // Still show whatever was last known rather than leaving the modal stuck
+                    // on the loading message if the live check itself can't be reached.
+                    renderTerminalModalList();
+                });
         }
         const terminalPickerBtn = document.getElementById('terminalPickerBtn');
         if (terminalPickerBtn) {
-            // mx51's certification checklist requires a live GET /pairing-info check at the
-            // moment the pairing/terminal screen is opened, not a flag cached from page load
-            // that only ever changes once someone presses Unpair — EftTerminalController::
-            // index() already does this for the admin registry page; this is the same check
-            // for the POS's own terminal picker, which previously never ran it at all. Shown
-            // immediately on open (own loading state) rather than blocking the button click.
+            // Shown immediately on open (own loading state) rather than blocking the click.
             terminalPickerBtn.addEventListener('click', function () {
                 document.getElementById('terminalModalOverlay').classList.add('active');
-                const list = document.getElementById('terminalModalList');
-                if (list) { list.innerHTML = '<p class="text-muted small mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Checking terminal status…</p>'; }
-                fetch(CBA_SCI_PICKER_REFRESH_URL + '?event_id=' + encodeURIComponent(EVENT_ID), {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
-                })
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) {
-                        if (data && data.success && Array.isArray(data.terminals)) {
-                            EFT_TERMINALS = data.terminals;
-                        }
-                        renderTerminalModalList();
-                        renderTerminalPickerButton();
-                    })
-                    .catch(function () {
-                        // Still show whatever was last known rather than leaving the modal
-                        // stuck on the loading message if the live check itself can't be reached.
-                        renderTerminalModalList();
-                    });
+                refreshTerminalPicker();
             });
             document.getElementById('terminalModalCloseBtn').addEventListener('click', function () {
                 document.getElementById('terminalModalOverlay').classList.remove('active');

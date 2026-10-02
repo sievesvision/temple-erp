@@ -88,17 +88,10 @@
                 </div>
             </div>
         </div>
-        {{-- SCIPAIRING09 — the pairing screen should show the same kind of step-by-step
-             instructions as mx51's own Espresso POS reference, not just a one-line hint. --}}
-        <div class="mt-3 p-3 rounded-3" style="background:#F9FAFB; border:1px solid #E5E7EB; font-size:0.84rem;">
-            <div class="fw-bold mb-2">Steps to pair for: Simple Cloud Integration</div>
-            <ol class="mb-0 ps-3" style="line-height:1.6;">
-                <li>On the terminal: Go to &ldquo;Manage POS pairing&rdquo; and create a new POS pairing.</li>
-                <li>On the terminal: Select &ldquo;Simple Cloud Integration&rdquo;.</li>
-                <li>Enter the pairing code provided from the terminal.</li>
-                <li>Create a pairing nickname for the terminal to identify.</li>
-                <li>Tap &ldquo;Pair&rdquo; to initiate the pairing on both devices.</li>
-            </ol>
-        </div>
+        {{-- SCIPAIRING09's step-by-step instructions (mx51's own Espresso POS reference) are
+             deliberately NOT repeated here — this widget is for RE-pairing a terminal already
+             known to this registry, not setting one up for the first time. A terminal that's
+             lost its pairing just needs a fresh code and a Pair button; the full walkthrough
+             lives once, in eft-terminal-add-wizard.blade.php, for a genuinely new terminal. --}}
     @endif
 </div>
