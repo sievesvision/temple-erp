@@ -385,6 +385,71 @@ class CbaSciTransactionTest extends TestCase
         $response->assertJson(['success' => false]);
     }
 
+    /**
+     * mx51's own documented "Submit to API" button contract: the POS collects every input
+     * element's current value keyed by its own `name`, POSTs that as the JSON body to the
+     * button's submit_url, and the response carries a fresh action_form that must replace
+     * whatever's currently shown. This was previously discarded entirely — the controller
+     * returned a bare {success, message} with no form data, so the browser had nothing to
+     * re-render with.
+     */
+    public function test_submit_action_sends_form_values_keyed_by_name_and_returns_the_new_action_form(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        SciTransaction::create([
+            'client_ref' => 'ref-submit-1', 'sci_transaction_id' => 'txn_submit_1', 'sci_version' => 3,
+            'eft_terminal_id' => $terminal->id, 'amount' => 20, 'status' => 'AWAITING_POS', 'initiated_by' => $admin->id,
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['data' => [
+            'status' => 'AWAITING_POS', 'version' => 4, 'message' => 'Next step',
+            'pos_instructions' => ['action_form' => ['layout' => [], 'properties' => ['doneText' => ['type' => 'text', 'text' => 'STEP_2']]]],
+        ]], 200)]);
+
+        $response = $this->actingAs($admin)->postJson(
+            route('admin.cba-sci.charge.action', 'txn_submit_1'),
+            ['submit_url' => 'https://sci-api.tenant.example/v1/transactions/txn_submit_1?action=APPROVE_SIGNATURE', 'form_values' => ['signature_name' => 'Jane Doe']]
+        );
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'status' => 'AWAITING_POS', 'message' => 'Next step']);
+        $this->assertSame('STEP_2', $response->json('pos_instructions.action_form.properties.doneText.text'));
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://sci-api.tenant.example/v1/transactions/txn_submit_1?action=APPROVE_SIGNATURE'
+                && $request->method() === 'POST'
+                && json_decode($request->body(), true) === ['signature_name' => 'Jane Doe'];
+        });
+
+        // The row is kept in sync exactly like poll() does — otherwise the client's own
+        // follow-up poll would send a stale min_version, asking mx51 to repeat what it just
+        // returned here instead of moving forward.
+        $txn = SciTransaction::where('sci_transaction_id', 'txn_submit_1')->first();
+        $this->assertSame(4, $txn->sci_version);
+        $this->assertSame('AWAITING_POS', $txn->status);
+        $this->assertSame('STEP_2', $txn->pos_instructions['action_form']['properties']['doneText']['text']);
+    }
+
+    public function test_submit_action_surfaces_an_error_without_a_pos_instructions_crash(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        SciTransaction::create([
+            'client_ref' => 'ref-submit-2', 'sci_transaction_id' => 'txn_submit_2', 'sci_version' => 1,
+            'eft_terminal_id' => $terminal->id, 'amount' => 20, 'status' => 'AWAITING_POS', 'initiated_by' => $admin->id,
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'transaction_refused']], 409)]);
+
+        $response = $this->actingAs($admin)->postJson(
+            route('admin.cba-sci.charge.action', 'txn_submit_2'),
+            ['submit_url' => 'https://sci-api.tenant.example/v1/transactions/txn_submit_2?action=APPROVE_SIGNATURE']
+        );
+
+        $response->assertStatus(422);
+        $response->assertJson(['success' => false]);
+        $this->assertNull($response->json('pos_instructions'));
+    }
+
     private function approvedPurchase(EftTerminal $terminal, float $amount = 40, array $overrides = []): SciTransaction
     {
         return SciTransaction::create(array_merge([
