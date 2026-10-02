@@ -361,7 +361,7 @@
                         </div>
                         <div class="card-panel" style="padding:0;">
                             <div class="table-scroll-wrap" style="max-height: calc(100vh - 300px);">
-                                <table class="console-table">
+                                <table class="console-table" id="ticketOrdersTable">
                                     <thead>
                                         <tr><th>Order #</th><th>Customer</th><th>Items</th><th class="col-amount">Total</th><th>Payment</th><th>Txn ID</th><th>Sold By</th><th>Date</th><th>Status</th><th class="text-end">Actions</th></tr>
                                     </thead>
@@ -377,7 +377,7 @@
                                                 || ($orderSciTxn && $orderSciTxn->status === 'FINALISED' && $orderSciTxn->result_financial_status === 'APPROVED' && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $orderSciTxn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED')))
                                             );
                                         @endphp
-                                        <tr>
+                                        <tr data-timestamp="{{ $order->created_at->format('Y-m-d H:i:s') }}">
                                             <td>#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</td>
                                             <td>{{ $order->customer_name ?: '—' }}</td>
                                             <td class="small text-muted">
@@ -392,7 +392,7 @@
                                             </td>
                                             <td class="col-txn">{{ $order->transaction_id ?: '—' }}</td>
                                             <td class="small">{{ $order->seller->name ?? '—' }}</td>
-                                            <td>{{ $order->order_date->format('d M Y') }}</td>
+                                            <td>{{ $order->order_date->format('d M Y') }}<div class="text-muted small">{{ $order->created_at->format('g:i A') }}</div></td>
                                             <td><span class="status-pill status-{{ strtolower($order->payment_status) }}">{{ $order->payment_status }}</span></td>
                                             <td class="text-end">
                                                 <a href="{{ route('admin.tickets.print', $order->id) }}" target="_blank" class="btn-action-checkstatus" title="Reprint stubs"><i class="bi bi-printer-fill"></i></a>
@@ -424,7 +424,7 @@
                                                 ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
                                                 : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
                                         @endphp
-                                        <tr>
+                                        <tr data-timestamp="{{ $ot->created_at->format('Y-m-d H:i:s') }}">
                                             <td>—</td>
                                             <td>{{ $ot->meta['customer_name'] ?? '—' }}</td>
                                             <td class="small text-muted">{{ $oIsRefund ? 'Refund' : 'Failed/abandoned attempt' }}</td>
@@ -435,7 +435,7 @@
                                             </td>
                                             <td class="col-txn">{{ $oRef ?: '—' }}</td>
                                             <td class="small">—</td>
-                                            <td>{{ $ot->created_at->format('d M Y') }}</td>
+                                            <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
                                             <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
                                             <td class="text-end">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i></button>
@@ -901,6 +901,23 @@
     <script>
         const CSRF_TOKEN = @json(csrf_token());
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
+
+        // All Transactions is built server-side as two separate blocks — every normal ticket
+        // order, THEN every "orphan" EFT row (declined/cancelled purchases, and refunds, which
+        // have no order of their own) — so with no sort ever applied, a newly declined or
+        // cancelled transaction physically sits after every real order in the DOM, effectively
+        // invisible without scrolling all the way down. Re-sorting by timestamp, descending,
+        // once on load interleaves both blocks into one real chronological order, so the most
+        // recent activity of ANY kind — approved, declined, cancelled, refunded — is always
+        // what's on top.
+        (function () {
+            const table = document.getElementById('ticketOrdersTable');
+            if (!table) { return; }
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr[data-timestamp]'));
+            rows.sort(function (a, b) { return b.dataset.timestamp.localeCompare(a.dataset.timestamp); });
+            rows.forEach(function (row) { tbody.appendChild(row); });
+        })();
 
         // This page previously had no shared feedback mechanism at all (the old mx51 refund
         // flow only ever updated its own two status lines) — a small bottom-corner toast,

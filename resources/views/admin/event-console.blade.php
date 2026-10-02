@@ -705,7 +705,7 @@
                                     <th class="col-amount sortable" data-sort="amount">Total<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="payment">Payment<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th>Txn ID</th>
-                                    <th class="sortable" data-sort="donationDate">Date<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="timestamp">Date<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="status">Status<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="text-end">Actions</th>
                                 </tr>
@@ -727,6 +727,7 @@
                                     );
                                 @endphp
                                 <tr data-donation-date="{{ date('Y-m-d', strtotime($row->donation_date)) }}"
+                                    data-timestamp="{{ date('Y-m-d H:i:s', strtotime($row->created_at)) }}"
                                     data-search="{{ strtolower($row->display_name.' '.($row->email ?? '').' '.($row->mobile ?? '')) }}"
                                     data-type="{{ $row->donation_type }}"
                                     data-donation-id="{{ $row->display_id }}"
@@ -759,7 +760,7 @@
                                         <div class="text-muted small" title="Linkly reference: {{ $row->linkly_txn_ref }}">Linkly: {{ $row->linkly_txn_ref }}</div>
                                         @endif
                                     </td>
-                                    <td>{{ date('d M Y', strtotime($row->donation_date)) }}</td>
+                                    <td>{{ date('d M Y', strtotime($row->donation_date)) }}<div class="text-muted small">{{ date('g:i A', strtotime($row->created_at)) }}</div></td>
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
                                     <td class="text-end">
                                         @include('admin.partials.donation-actions', ['row' => $row])
@@ -793,6 +794,7 @@
                                     $oDonorName = $ot->meta['donor_name'] ?? null;
                                 @endphp
                                 <tr data-donation-date="{{ $ot->created_at->format('Y-m-d') }}"
+                                    data-timestamp="{{ $ot->created_at->format('Y-m-d H:i:s') }}"
                                     data-search="{{ strtolower($oDonorName ?? '') }}"
                                     data-type="eft"
                                     data-donation-id=""
@@ -816,7 +818,7 @@
                                         <div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div>
                                     </td>
                                     <td class="col-txn" title="{{ $oRef }}">{{ $oRef ?: '—' }}</td>
-                                    <td>{{ $ot->created_at->format('d M Y') }}</td>
+                                    <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
                                     <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
                                     <td class="text-end">
                                         <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i></button>
@@ -2008,6 +2010,15 @@
         // on repeat clicks) — a plain DOM re-append of the row elements in the new order,
         // so it composes cleanly with the filter above (hidden rows just move along with
         // everything else; visibility is untouched by sorting).
+        //
+        // The table is built server-side as two separate blocks — every normal donation row,
+        // THEN every "orphan" EFT row (declined/cancelled purchases, and refunds, which have
+        // no donation of their own) — so with no sort ever applied, a newly declined or
+        // cancelled transaction physically sits after all 70+ real donations in the DOM,
+        // effectively invisible without scrolling all the way down. Defaulting to Date,
+        // descending, on load (the exact same sort a header click performs) interleaves both
+        // blocks into one real chronological order, so the most recent activity of ANY kind
+        // — approved, declined, cancelled, refunded — is always what's on top.
         (function () {
             const table = document.getElementById('donationsTable');
             if (!table) { return; }
@@ -2017,27 +2028,36 @@
             let sortDir = 1;
             let sortKey = null;
 
+            function applySort(key, dir) {
+                sortDir = dir;
+                sortKey = key;
+                const th = headers.find(function (h) { return h.dataset.sort === key; });
+                headers.forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); h.querySelector('.sort-icon').className = 'bi bi-arrow-down-up sort-icon'; });
+                if (th) {
+                    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+                    th.querySelector('.sort-icon').className = 'bi ' + (sortDir === 1 ? 'bi-caret-up-fill' : 'bi-caret-down-fill') + ' sort-icon';
+                }
+
+                const rows = Array.from(tbody.querySelectorAll('tr[data-donation-date]'));
+                const isNumeric = key === 'amount';
+                rows.sort(function (a, b) {
+                    if (isNumeric) {
+                        return (parseFloat(a.dataset[key]) - parseFloat(b.dataset[key])) * sortDir;
+                    }
+                    return (a.dataset[key] || '').localeCompare(b.dataset[key] || '') * sortDir;
+                });
+                rows.forEach(function (row) { tbody.appendChild(row); });
+                if (noMatchRow) { tbody.appendChild(noMatchRow); }
+            }
+
             headers.forEach(function (th) {
                 th.addEventListener('click', function () {
                     const key = th.dataset.sort;
-                    sortDir = (sortKey === key) ? -sortDir : 1;
-                    sortKey = key;
-                    headers.forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); h.querySelector('.sort-icon').className = 'bi bi-arrow-down-up sort-icon'; });
-                    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
-                    th.querySelector('.sort-icon').className = 'bi ' + (sortDir === 1 ? 'bi-caret-up-fill' : 'bi-caret-down-fill') + ' sort-icon';
-
-                    const rows = Array.from(tbody.querySelectorAll('tr[data-donation-date]'));
-                    const isNumeric = key === 'amount';
-                    rows.sort(function (a, b) {
-                        if (isNumeric) {
-                            return (parseFloat(a.dataset[key]) - parseFloat(b.dataset[key])) * sortDir;
-                        }
-                        return (a.dataset[key] || '').localeCompare(b.dataset[key] || '') * sortDir;
-                    });
-                    rows.forEach(function (row) { tbody.appendChild(row); });
-                    if (noMatchRow) { tbody.appendChild(noMatchRow); }
+                    applySort(key, (sortKey === key) ? -sortDir : 1);
                 });
             });
+
+            applySort('timestamp', -1);
         })();
 
         // Live clock in the topbar.
