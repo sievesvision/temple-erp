@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 /**
  * A plain "does it render at all" smoke test for the pages touched by the multi-terminal
- * refactor (Settings, Event Console, Event POS, Ticket Console, Ticket Kiosk) — each of
+ * refactor (Settings, Event Console, Event POS, Ticket Console, Ticket POS) — each of
  * these now lists every registered EftTerminal instead of a single global pairing, so this
  * exercises that with more than one terminal actually present, including one that's never
  * been paired at all.
@@ -80,7 +80,7 @@ class EftConsoleRenderingTest extends TestCase
         $response->assertSee('Unpaired Terminal');
     }
 
-    public function test_ticket_kiosk_renders_with_multiple_terminals(): void
+    public function test_ticket_pos_renders_with_multiple_terminals(): void
     {
         $response = $this->actingAs($this->adminUser())->get('/admin/tickets/pos');
 

@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * A standalone ticket-selling module (not tied to any Event) — a temple-wide catalog of
- * sellable ticket types, a dedicated kiosk page to sell them, and a management view of past
+ * sellable ticket types, a dedicated POS page to sell them, and a management view of past
  * orders. Mirrors the shape of the donations module (Event -> EventDonationOption ->
  * donation_selections becomes here just Ticket -> TicketOrder -> TicketOrderItem ->
  * TicketStub) but is entirely separate from it. Permission resource: 'tickets' (see
@@ -47,7 +47,7 @@ class TicketController extends Controller
      * The full Ticket Console (Settings/catalog, Sales, EFTPOS, Ticket Controllers) —
      * reachable by Admin, by any role RolePermission grants 'tickets' view to (e.g.
      * Committee), or by a Ticket Controller at 'admin' level. A view/entry-level Ticket
-     * Controller never sees the console at all — they land straight on the kiosk instead,
+     * Controller never sees the console at all — they land straight on the POS page instead,
      * mirroring EventConsoleController::show()'s pos-level redirect for Event Coordinator.
      */
     private function canManageTicketConsole($user, ?string $activeRole, ?string $controllerLevel = null): bool
@@ -61,7 +61,7 @@ class TicketController extends Controller
 
     /**
      * Manage Tickets — the Ticket Console (catalog, sales, EFTPOS, controller assignment).
-     * A view/entry-level Ticket Controller is redirected straight to the kiosk (see
+     * A view/entry-level Ticket Controller is redirected straight to the POS page (see
      * TicketControllerLevel) since the console itself is an admin-tier concern.
      */
     public function manageTickets(Request $request)
@@ -163,7 +163,7 @@ class TicketController extends Controller
                 ->get();
         }
 
-        // Settings pane — the ticket kiosk's own payment-method override, mirroring Event's
+        // Settings pane — the ticket POS's own payment-method override, mirroring Event's
         // paymentMethodsOverride() concept: null means "inherit the global enabled_payment_
         // methods Setting" (same as before this pane existed), a saved array means "use only
         // these, regardless of what donations elsewhere are configured to accept".
@@ -221,7 +221,7 @@ class TicketController extends Controller
 
     /**
      * @return array<int, string>|null null = inherit the global enabled_payment_methods
-     *   Setting (the behaviour every ticket kiosk had before this override existed).
+     *   Setting (the behaviour every ticket POS had before this override existed).
      */
     private function ticketPaymentMethodsOverride(): ?array
     {
@@ -234,7 +234,7 @@ class TicketController extends Controller
     }
 
     /**
-     * Saves (or clears) the Ticket Kiosk's own payment-method override — same admin tier as
+     * Saves (or clears) the Ticket POS's own payment-method override — same admin tier as
      * the rest of the console's Settings-equivalent actions.
      */
     public function updateSettings(Request $request)
@@ -257,7 +257,7 @@ class TicketController extends Controller
             Setting::set('ticket_payment_methods_override', json_encode(array_values($validated['payment_methods'] ?? [])));
         }
 
-        AuditLogService::log('Updated Ticket Kiosk settings (payment methods)');
+        AuditLogService::log('Updated Ticket POS settings (payment methods)');
 
         return redirect()->back()->with('success', 'Ticket settings updated.');
     }
@@ -312,9 +312,9 @@ class TicketController extends Controller
     }
 
     /**
-     * Whether the given user/active-role may open the kiosk and sell tickets — the normal
+     * Whether the given user/active-role may open the POS page and sell tickets — the normal
      * RolePermission grid (Admin/Committee/etc.), or a Ticket Controller at 'entry' level or
-     * above (never 'view' alone, which lands on the kiosk per manageTickets()'s redirect but
+     * above (never 'view' alone, which lands on the POS page per manageTickets()'s redirect but
      * can't actually transact — same read-only-vs-entry split as EventCoordinatorLevel).
      */
     private function canSellTickets($user, ?string $activeRole): bool
@@ -350,7 +350,7 @@ class TicketController extends Controller
     }
 
     /**
-     * The dedicated kiosk page — a cart-style "add tickets, adjust quantities, take payment"
+     * The dedicated POS page — a cart-style "add tickets, adjust quantities, take payment"
      * screen, separate from the donation POS page per this being its own standalone module.
      */
     public function posShow()
@@ -368,12 +368,12 @@ class TicketController extends Controller
 
         $tickets = Ticket::active()->orderBy('sort_order')->orderBy('name')->get();
         // The Ticket Console's own Settings pane can override which of Cash/UPI/Bank
-        // Transfer the kiosk offers, independent of the global enabled_payment_methods
+        // Transfer the POS page offers, independent of the global enabled_payment_methods
         // Setting donations elsewhere use — null means "inherit that global list" (the
-        // kiosk's original behaviour, unchanged).
+        // POS page's original behaviour, unchanged).
         $override = $this->ticketPaymentMethodsOverride();
         $basePaymentMethods = $override ?? json_decode(\App\Models\Setting::get('enabled_payment_methods', '["Cash","Bank Transfer","Cheque"]'), true) ?: [];
-        // EFT Terminal is offered on the ticket kiosk whenever it's paired, the same way the
+        // EFT Terminal is offered on the ticket POS page whenever it's paired, the same way the
         // donation POS page offers it — not gated behind the global enabled_payment_methods
         // list (which predates EFT Terminal and is about the *manual* Log Donation forms).
         $paymentMethods = array_values(array_unique(array_merge(
@@ -396,7 +396,7 @@ class TicketController extends Controller
         $canSell = $this->canSellTickets($user, $activeRole);
         $canManageConsole = $this->canManageTicketConsole($user, $activeRole, $controllerLevel);
 
-        // Every currently PAIRED terminal — this kiosk station picks which one it's using
+        // Every currently PAIRED terminal — this POS station picks which one it's using
         // (saved client-side, see ticket-pos.blade.php's terminal picker), so two computers
         // can each run their own ticket counter on two different terminals at once. An
         // unpaired terminal can't take a payment at all, so it's left off this list entirely
@@ -419,11 +419,11 @@ class TicketController extends Controller
             })
             ->values();
 
-        // The "Manage PIN" topbar icon only makes sense for an account the kiosk PIN feature
+        // The "Manage PIN" topbar icon only makes sense for an account the POS PIN feature
         // actually applies to — showing it to everyone else would just be a dead-end 403.
-        $canManageKioskPin = (bool) app(AuthController::class)->possibleKioskPosDestinations($user);
+        $canManagePosPin = (bool) app(AuthController::class)->possiblePosDestinations($user);
 
-        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManageKioskPin'));
+        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin'));
     }
 
     /**

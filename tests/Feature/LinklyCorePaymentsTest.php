@@ -173,7 +173,7 @@ class LinklyCorePaymentsTest extends TestCase
     // be refused outright while an earlier one is still unresolved on the SAME terminal —
     // this is what stops two concurrent sessions ever being sent to one physical/virtual
     // PIN pad (previously observed as Linkly-side "offline"/auto-cancelled/cross-wired
-    // results when two kiosk stations picked the same terminal by mistake).
+    // results when two POS stations picked the same terminal by mistake).
     public function test_starting_a_second_purchase_on_a_busy_terminal_is_refused(): void
     {
         $eventId = $this->createEvent();

@@ -30,7 +30,7 @@
             --pending-bg: #FFF7ED;
             --error-bg: #FEF2F2;
             --serif: 'Playfair Display', Georgia, serif;
-            /* Shared with the POS kiosk pages' own eft-modal/.sci-af-* CSS below, copied
+            /* Shared with the POS pages' own eft-modal/.sci-af-* CSS below, copied
                verbatim from event-pos-donation.blade.php so the mx51 refund modal matches the
                purchase modal's look exactly. */
             --radius-sm: 8px;
@@ -1361,7 +1361,7 @@
                                         </form>
                                         @if($canTouchThisCoord)
                                         @if($coord->level !== 'view')
-                                        <button type="button" class="btn-action-resend" title="Override kiosk username/PIN" onclick="openKioskCredModal({{ $coord->id }}, {{ json_encode($coord->name) }}, {{ json_encode($coord->username) }})">
+                                        <button type="button" class="btn-action-resend" title="Override POS username/PIN" onclick="openPosCredModal({{ $coord->id }}, {{ json_encode($coord->name) }}, {{ json_encode($coord->username) }})">
                                             <i class="bi bi-shield-lock-fill"></i>
                                         </button>
                                         @endif
@@ -1389,25 +1389,25 @@
                         </div>
                     </div>
 
-                    {{-- Shared across every row — populated by openKioskCredModal() rather than
+                    {{-- Shared across every row — populated by openPosCredModal() rather than
                          one modal per coordinator, since only one can ever be open at once.
                          Always requires the ACTING admin's own password (see
-                         EventCoordinatorController::overrideKioskCredentials()'s own docblock
+                         EventCoordinatorController::overridePosCredentials()'s own docblock
                          for why), never the target coordinator's. --}}
-                    <div class="modal fade" id="kioskCredModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal fade" id="posCredModal" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content border-0 shadow-lg rounded-4">
-                                <form id="kioskCredForm" method="POST">
+                                <form id="posCredForm" method="POST">
                                     @csrf
                                     <input type="hidden" name="return_context" value="console">
                                     <div class="modal-header border-0 pb-0">
-                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Override Kiosk Username/PIN — <span id="kioskCredCoordName"></span></h5>
+                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Override POS Username/PIN — <span id="posCredCoordName"></span></h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body py-3">
                                         <div class="mb-3">
-                                            <label class="form-label fw-semibold">Kiosk Username</label>
-                                            <input type="text" name="username" id="kioskCredUsername" class="form-control rounded-3" minlength="6" maxlength="10" placeholder="6-10 characters">
+                                            <label class="form-label fw-semibold">POS Username</label>
+                                            <input type="text" name="username" id="posCredUsername" class="form-control rounded-3" minlength="6" maxlength="10" placeholder="6-10 characters">
                                         </div>
                                         <div class="row g-3 mb-3">
                                             <div class="col-md-6">
@@ -1435,15 +1435,15 @@
                         </div>
                     </div>
                     <script>
-                        const KIOSK_CRED_URL_BASE = @json(route('admin.events.coordinators.overrideKioskCredentials', [$event->event_id, '__USER__']));
-                        function openKioskCredModal(userId, name, username) {
-                            document.getElementById('kioskCredForm').action = KIOSK_CRED_URL_BASE.replace('__USER__', userId);
-                            document.getElementById('kioskCredCoordName').textContent = name;
-                            document.getElementById('kioskCredUsername').value = username || '';
-                            document.getElementById('kioskCredForm').querySelector('input[name="current_password"]').value = '';
-                            document.getElementById('kioskCredForm').querySelector('input[name="new_pin"]').value = '';
-                            document.getElementById('kioskCredForm').querySelector('input[name="new_pin_confirmation"]').value = '';
-                            new bootstrap.Modal(document.getElementById('kioskCredModal')).show();
+                        const POS_CRED_URL_BASE = @json(route('admin.events.coordinators.overridePosCredentials', [$event->event_id, '__USER__']));
+                        function openPosCredModal(userId, name, username) {
+                            document.getElementById('posCredForm').action = POS_CRED_URL_BASE.replace('__USER__', userId);
+                            document.getElementById('posCredCoordName').textContent = name;
+                            document.getElementById('posCredUsername').value = username || '';
+                            document.getElementById('posCredForm').querySelector('input[name="current_password"]').value = '';
+                            document.getElementById('posCredForm').querySelector('input[name="new_pin"]').value = '';
+                            document.getElementById('posCredForm').querySelector('input[name="new_pin_confirmation"]').value = '';
+                            new bootstrap.Modal(document.getElementById('posCredModal')).show();
                         }
                     </script>
                 </div>

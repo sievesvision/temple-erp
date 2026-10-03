@@ -11,7 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // A session that times out while on one of the POS kiosk pages returns to the kiosk
+        // A session that times out while on one of the POS pages returns to the POS
         // login, not the general devotee/management one — decided by which route the expired
         // request was hitting (the user/session is already gone by the time this fires, so it
         // can't be role-based). Must be set here, not via Authenticate::redirectUsing() in a
@@ -25,9 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // reloads itself client-side instead; see the fetch wrapper in
         // event-pos-donation.blade.php / ticket-pos.blade.php.
         $middleware->redirectGuestsTo(function ($request) {
-            $kioskRoutes = ['admin.events.pos', 'admin.tickets.pos', 'kiosk.select'];
-            if ($request->route() && in_array($request->route()->getName(), $kioskRoutes, true)) {
-                return route('kiosk.login');
+            $posRoutes = ['admin.events.pos', 'admin.tickets.pos', 'pos.select'];
+            if ($request->route() && in_array($request->route()->getName(), $posRoutes, true)) {
+                return route('pos.login');
             }
             return route('login');
         });
@@ -51,13 +51,13 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // A 419 "Page Expired" is Laravel's default response to a CSRF token mismatch — the
-        // stock error page is a dead end on a kiosk terminal (no navigation, no way back to a
-        // working form) and is exactly what happens when a kiosk PIN pad or login form sits
+        // stock error page is a dead end on a POS terminal (no navigation, no way back to a
+        // working form) and is exactly what happens when a POS PIN pad or login form sits
         // open long enough for the session/token to go stale before anyone taps it (a counter
         // left idle overnight, well past SESSION_LIFETIME, is the normal case here, not an
-        // edge case). Redirect back to a fresh, working login screen instead — the kiosk one
-        // if the request was a kiosk route (PIN login/settings/select) or the kiosk's own
-        // email panel (flagged via ?from=kiosk on that shared login.post action, since that
+        // edge case). Redirect back to a fresh, working login screen instead — the POS one
+        // if the request was a POS route (PIN login/settings/select) or the POS page's own
+        // email panel (flagged via ?from=pos on that shared login.post action, since that
         // route is also posted to by the general login page), the general one otherwise.
         // Laravel's own Handler::prepareException() converts TokenMismatchException into a
         // plain HttpException(419, ..., $previous) BEFORE any custom render() callback gets
@@ -68,11 +68,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $kioskRoutes = ['kiosk.pin-login', 'kiosk.pin.update', 'kiosk.select.choose'];
-            $isKiosk = ($request->route() && in_array($request->route()->getName(), $kioskRoutes, true))
-                || $request->query('from') === 'kiosk';
+            $posRoutes = ['pos.pin-login', 'pos.pin.update', 'pos.select.choose'];
+            $isPos = ($request->route() && in_array($request->route()->getName(), $posRoutes, true))
+                || $request->query('from') === 'pos';
 
-            return redirect()->route($isKiosk ? 'kiosk.login' : 'login')
+            return redirect()->route($isPos ? 'pos.login' : 'login')
                 ->with('error', 'Your session timed out — please try again.');
         });
     })->create();

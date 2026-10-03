@@ -25,7 +25,7 @@ class SystemUserController extends Controller
         }
 
         $query = User::query()
-            ->select('id', 'name', 'email', 'username', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled', 'kiosk_pin_locked_at');
+            ->select('id', 'name', 'email', 'username', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled', 'pos_pin_locked_at');
 
         $roleFilter = $request->get('role');
         if ($roleFilter && in_array($roleFilter, RolePermission::roles(), true)) {
@@ -58,9 +58,9 @@ class SystemUserController extends Controller
     }
 
     /**
-     * Assigns (or clears) the short kiosk username a pos-level Event Coordinator / Ticket
-     * Controller types alongside their PIN at /kiosk/login — deliberately admin-set, not
-     * self-service, since it's the identifier that scopes their PINs (see KioskPin's own
+     * Assigns (or clears) the short POS username a pos-level Event Coordinator / Ticket
+     * Controller types alongside their PIN at /pos/login — deliberately admin-set, not
+     * self-service, since it's the identifier that scopes their PINs (see PosPin's own
      * docblock).
      */
     public function setUsername(Request $request, User $targetUser)
@@ -76,9 +76,9 @@ class SystemUserController extends Controller
 
         $targetUser->update(['username' => $request->username ? strtolower($request->username) : null]);
 
-        AuditLogService::log("Set kiosk username for {$targetUser->email} to " . ($request->username ?: '(cleared)') . '.');
+        AuditLogService::log("Set POS username for {$targetUser->email} to " . ($request->username ?: '(cleared)') . '.');
 
-        return redirect()->back()->with('success', 'Kiosk username updated for ' . $targetUser->name . '.');
+        return redirect()->back()->with('success', 'POS username updated for ' . $targetUser->name . '.');
     }
 
     public function sendResetLink(Request $request, User $targetUser)
@@ -96,23 +96,23 @@ class SystemUserController extends Controller
     }
 
     /**
-     * The per-account kiosk PIN login lockout (see AuthController::attemptKioskPinLogin())
+     * The per-account POS PIN login lockout (see AuthController::attemptPosPinLogin())
      * is normally cleared by that account's own next successful email/password login — this
      * is the "or by admin" escape hatch for when nobody's touched a real login yet (e.g.
      * mid-shift and the office needs that one counter's PIN access back immediately).
      */
-    public function resetKioskPinLockout(Request $request, User $targetUser)
+    public function resetPosPinLockout(Request $request, User $targetUser)
     {
         $user = Auth::user();
         if (!$user || $user->role !== 'Admin') {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
-        $targetUser->update(['kiosk_pin_failed_attempts' => 0, 'kiosk_pin_locked_at' => null]);
+        $targetUser->update(['pos_pin_failed_attempts' => 0, 'pos_pin_locked_at' => null]);
 
-        AuditLogService::log("Reset the kiosk PIN login lockout for {$targetUser->email}.");
+        AuditLogService::log("Reset the POS PIN login lockout for {$targetUser->email}.");
 
-        return redirect()->back()->with('success', 'Kiosk PIN login has been re-enabled for ' . $targetUser->name . '.');
+        return redirect()->back()->with('success', 'POS PIN login has been re-enabled for ' . $targetUser->name . '.');
     }
 
     /**

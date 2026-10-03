@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Devotee;
-use App\Models\KioskPin;
+use App\Models\PosPin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -256,61 +256,63 @@ class AuthController extends Controller
     }
 
     /**
-     * The POS-only kiosk login landing page — same step-1 form as showLogin() but a
-     * dedicated, kiosk-appropriate view (no registration/forgot-password links, no public
-     * navbar). Posts to the same login.post route, so completeLogin() below (unchanged)
-     * still decides the post-login destination purely from the account's role/level — this
-     * page's own destination-specific heading is purely cosmetic (which physical counter a
-     * bookmarked URL is meant for), never a restriction on who may sign in through it.
+     * The POS-only login landing page — same step-1 form as showLogin() but a dedicated,
+     * counter-appropriate view (no registration/forgot-password links, no public navbar).
+     * Posts to the same login.post route, so completeLogin() below (unchanged) still decides
+     * the post-login destination purely from the account's role/level — this page's own
+     * destination-specific heading is purely cosmetic (which physical counter a bookmarked
+     * URL is meant for), never a restriction on who may sign in through it.
      *
-     * Three ways to reach it: the plain generic page (kiosk.login), one bookmarked per event
-     * — by its {slug}, matching the public events.show route's own readable-URL convention,
-     * not the numeric event_id (kiosk.login.event/{slug} — "{Event Name} — Event Donation
-     * Kiosk") — and one for ticket sales (kiosk.login.tickets — "Ticketing Kiosk"). A counter
-     * terminal is expected to have its OWN one of these bookmarked/pinned, rather than
-     * everyone sharing the one generic URL and having to recognise their own counter after
-     * signing in.
+     * Three ways to reach it: the plain generic page (pos.login), one bookmarked per event —
+     * by its {slug}, matching the public events.show route's own readable-URL convention, not
+     * the numeric event_id (pos.login.event/{slug} — "{Event Name} — Event Donation POS") —
+     * and one for ticket sales (pos.login.tickets — "Ticket Sales POS"). A counter terminal is
+     * expected to have its OWN one of these bookmarked/pinned, rather than everyone sharing
+     * the one generic URL and having to recognise their own counter after signing in.
+     *
+     * Routed under /pos/* — "kiosk" is reserved for a separate, fully locked-down single-page
+     * app planned for later, so this POS login feature never claims that name/URL space.
      */
-    public function showKioskLogin(Request $request, $slug = null)
+    public function showPosLogin(Request $request, $slug = null)
     {
-        $kioskDestinationLabel = null;
+        $posDestinationLabel = null;
         $routeName = $request->route()?->getName();
 
-        if ($routeName === 'kiosk.login.event' && $slug) {
+        if ($routeName === 'pos.login.event' && $slug) {
             $eventName = \Illuminate\Support\Facades\DB::table('events')->where('slug', $slug)->value('event_name');
             if ($eventName) {
-                $kioskDestinationLabel = $eventName . ' — Event Donation Kiosk';
+                $posDestinationLabel = $eventName . ' — Event Donation POS';
             }
-        } elseif ($routeName === 'kiosk.login.tickets') {
-            $kioskDestinationLabel = 'Ticketing Kiosk';
+        } elseif ($routeName === 'pos.login.tickets') {
+            $posDestinationLabel = 'Ticket Sales POS';
         }
 
         // No "PIN login is disabled" pre-check here — lockout is per-account now (see
-        // attemptKioskPinLogin()), so which account might be locked isn't knowable until a
+        // attemptPosPinLogin()), so which account might be locked isn't knowable until a
         // username is actually submitted. The PIN panel is always offered by default.
-        return response()->view('auth.kiosk-login', ['kioskDestinationLabel' => $kioskDestinationLabel])
+        return response()->view('auth.pos-login', ['posDestinationLabel' => $posDestinationLabel])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
     /**
-     * A kiosk terminal's login screen realistically sits open far longer than a normal login
+     * A POS terminal's login screen realistically sits open far longer than a normal login
      * page — hours, sometimes overnight — and two things silently invalidate the CSRF token
      * that was baked into the page's HTML at load time, well before SESSION_LIFETIME would
      * ever be a factor on its own: (1) the session simply idles past SESSION_LIFETIME and
      * gets garbage-collected, and (2) — the one that actually explains a "continuous"/frequent
      * report rather than an overnight edge case — Laravel's SessionGuard::login() calls
      * session()->regenerate(true) on EVERY successful login, anywhere; since browser tabs
-     * share one cookie jar per domain, an admin (or the kiosk itself) logging in from a
+     * share one cookie jar per domain, an admin (or the POS terminal itself) logging in from a
      * SECOND tab of the SAME browser rotates the session/token out from under this already-
-     * open kiosk tab, with no visible sign anything changed until the next submit fails.
-     * The kiosk page polls this endpoint (see its own script) to keep its embedded token
+     * open POS tab, with no visible sign anything changed until the next submit fails.
+     * The POS page polls this endpoint (see its own script) to keep its embedded token
      * continuously in sync with whatever the current one actually is, so a stale-token 419
      * becomes rare rather than routine — the recovery redirect in bootstrap/app.php stays in
      * place as a last-resort safety net, not the primary way this is expected to behave.
      */
-    public function refreshKioskCsrfToken(Request $request)
+    public function refreshPosCsrfToken(Request $request)
     {
         return response()->json(['token' => csrf_token()]);
     }
@@ -444,7 +446,7 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        // Not 'email' — this field also accepts a kiosk-assigned username, which isn't a
+        // Not 'email' — this field also accepts a POS-assigned username, which isn't a
         // valid email address.
         $request->validate([
             'email' => 'required|string|max:255',
@@ -459,8 +461,8 @@ class AuthController extends Controller
             return back()->withErrors(['g-recaptcha-response' => 'Please complete the reCAPTCHA verification.'])->withInput();
         }
 
-        // The "email" field also accepts a kiosk-assigned username (e.g. an Event
-        // Coordinator/Ticket Controller signing in from a regular browser, not the kiosk PIN
+        // The "email" field also accepts a POS-assigned username (e.g. an Event
+        // Coordinator/Ticket Controller signing in from a regular browser, not the POS PIN
         // pad) — registration/password-reset/OTP stay email-only, this is the only lookup
         // that needs to accept either.
         $user = User::where('email', $request->email)
@@ -550,40 +552,40 @@ class AuthController extends Controller
     }
 
     /**
-     * Every "no-navigation kiosk page" this specific account can reach, regardless of which
+     * Every "no-navigation POS page" this specific account can reach, regardless of which
      * role is primary — reused by completeLogin() (decide where to land) and
-     * showKioskSelect() (render the picker, recomputed fresh rather than trusting anything
+     * showPosSelect() (render the picker, recomputed fresh rather than trusting anything
      * stashed at login time). Returns [] the instant EITHER side of the account isn't purely
-     * kiosk-only — a coordinator holding an 'entry' or 'view' assignment anywhere, or a ticket
-     * controller at 'admin' level — rather than a partial list, since a non-kiosk capability
+     * POS-only — a coordinator holding an 'entry' or 'view' assignment anywhere, or a ticket
+     * controller at 'admin' level — rather than a partial list, since a non-POS capability
      * anywhere means this account already has real navigation elsewhere and should keep using
      * today's existing (unmodified) redirect for that side, not be funnelled into this picker.
      *
      * 'pos' and 'admin'-level Event Coordinator assignments both qualify (an admin-level
      * coordinator can sign in with a PIN too, same as a pos-level one) — posDestinationUrl()
-     * always sends every one of these to the kiosk POS page regardless of level, since the
+     * always sends every one of these to the POS donation page regardless of level, since the
      * whole point of PIN login is the fastest possible counter entry; an admin-level
      * coordinator still reaches the full console from there via that page's own "Back to
      * console" button (PosDonationController's $canReturnToConsole).
      *
      * $includeAdminLevel defaults to true for every PIN-related caller. completeLogin() alone
-     * passes false for its OWN "more than one kiosk-only destination → make them pick" check —
-     * that check exists only because the kiosk POS/ticket pages have no navigation between
+     * passes false for its OWN "more than one POS-only destination → make them pick" check —
+     * that check exists only because the POS/ticket pages have no navigation between
      * destinations, which isn't true of an admin-level coordinator (the console already has its
      * own "Switch Event" menu), so an admin-level assignment must never cause that email+
-     * password login path to divert to the kiosk picker grid instead of its own existing
+     * password login path to divert to the POS picker grid instead of its own existing
      * earliest-event-first console logic further down completeLogin().
      *
      * @return array<int, array{type: 'event', event_id: int, slug: string, label: string, date: string}|array{type: 'tickets', label: string}>
      */
-    public function possibleKioskPosDestinations(User $user, bool $includeAdminLevel = true): array
+    public function possiblePosDestinations(User $user, bool $includeAdminLevel = true): array
     {
         // 'view' is deliberately left out even on the $includeAdminLevel=true branch — PIN
         // login always lands directly on the POS donation page (see redirectToPosDestination()'s
         // own docblock), and that page itself requires at least 'entry' level
         // (EventCoordinatorLevel::atLeast(..., 'entry')); a 'view'-level coordinator's PIN would
         // just land them on a page that immediately 403s. 'entry'/'pos'/'admin' coordinators can
-        // all actually use that page, so all three get a kiosk PIN, same as 'admin' already did.
+        // all actually use that page, so all three get a POS PIN, same as 'admin' already did.
         $allowedCoordinatorLevels = $includeAdminLevel ? ['pos', 'entry', 'admin'] : ['pos'];
 
         $coordinatorRows = \Illuminate\Support\Facades\DB::table('event_coordinators')
@@ -631,7 +633,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Every kiosk/PIN login destination always opens in POS mode, even for an admin-level
+     * Every POS/PIN login destination always opens in POS mode, even for an admin-level
      * coordinator — the whole point of PIN login is the fastest possible counter entry, and
      * the full console's multi-pane UI defeats that. An admin-level coordinator isn't stuck
      * there: the POS page's own "Back to console" button (PosDonationController's
@@ -649,17 +651,17 @@ class AuthController extends Controller
 
     /**
      * The "choose your counter" grid for an account that reached completeLogin() with more
-     * than one kiosk-only destination — recomputes fresh from the DB rather than trusting
+     * than one POS-only destination — recomputes fresh from the DB rather than trusting
      * anything stashed at login time, so a stale bookmark or a since-changed assignment never
      * shows a degenerate one-tile (or empty) grid: it just redirects straight past this page.
      */
-    public function showKioskSelect()
+    public function showPosSelect()
     {
         $user = Auth::user();
-        $destinations = $this->possibleKioskPosDestinations($user);
+        $destinations = $this->possiblePosDestinations($user);
 
         if (count($destinations) > 1) {
-            return view('auth.kiosk-select', ['destinations' => $destinations]);
+            return view('auth.pos-select', ['destinations' => $destinations]);
         }
         if (count($destinations) === 1) {
             return $this->redirectToPosDestination($destinations[0]);
@@ -671,12 +673,12 @@ class AuthController extends Controller
 
     /**
      * Handles a tile tap on the "choose your counter" grid. Re-validates the chosen
-     * destination against possibleKioskPosDestinations() rather than trusting the posted
+     * destination against possiblePosDestinations() rather than trusting the posted
      * type/event_id at face value — a POST is the only way to reach this (not a plain link),
      * specifically so redirectToPosDestination() can switch active_role to match before
      * redirecting (see its own docblock for why that's required).
      */
-    public function selectKioskPosDestination(Request $request)
+    public function selectPosDestination(Request $request)
     {
         $user = Auth::user();
         $validated = $request->validate([
@@ -684,7 +686,7 @@ class AuthController extends Controller
             'event_id' => 'required_if:type,event|nullable|integer',
         ]);
 
-        $destinations = $this->possibleKioskPosDestinations($user);
+        $destinations = $this->possiblePosDestinations($user);
         $match = collect($destinations)->first(function ($d) use ($validated) {
             if ($d['type'] !== $validated['type']) {
                 return false;
@@ -699,18 +701,18 @@ class AuthController extends Controller
         return $this->redirectToPosDestination($match);
     }
 
-    private const KIOSK_PIN_MAX_ATTEMPTS = 5;
+    private const POS_PIN_MAX_ATTEMPTS = 5;
 
-    private function clearKioskPinLockout(User $user): void
+    private function clearPosPinLockout(User $user): void
     {
-        $user->update(['kiosk_pin_failed_attempts' => 0, 'kiosk_pin_locked_at' => null]);
+        $user->update(['pos_pin_failed_attempts' => 0, 'pos_pin_locked_at' => null]);
     }
 
     /**
-     * Finds the possibleKioskPosDestinations() entry matching a stored destination_type/
-     * destination_id pair (from a KioskPin row) — this doubles as re-validating the grant is
+     * Finds the possiblePosDestinations() entry matching a stored destination_type/
+     * destination_id pair (from a PosPin row) — this doubles as re-validating the grant is
      * still current, since a revoked assignment simply won't appear in that list even though
-     * the KioskPin row itself is still stored.
+     * the PosPin row itself is still stored.
      */
     private function matchDestination(array $destinations, string $type, ?int $destinationId): ?array
     {
@@ -727,7 +729,7 @@ class AuthController extends Controller
      * picked it) — deliberately bypasses completeLogin()'s "land on primary role, branch on
      * destination count" logic, since there is nothing left to pick.
      */
-    private function finishDirectKioskLogin(User $user, array $destination)
+    private function finishDirectPosLogin(User $user, array $destination)
     {
         Auth::login($user);
         $user->update(['last_login_at' => now()]);
@@ -736,21 +738,21 @@ class AuthController extends Controller
     }
 
     /**
-     * PIN login for kiosk-only accounts — a faster alternative to email+password on a
+     * PIN login for POS-only accounts — a faster alternative to email+password on a
      * counter terminal. Unlike the old single-PIN-per-account design, the account is
      * identified by its own short username FIRST, so the PIN only ever needs to be checked
-     * against that one account's own KioskPin rows (one per destination — an event
+     * against that one account's own PosPin rows (one per destination — an event
      * assignment, or ticket sales) rather than scanned globally. This is what lets a PIN
      * directly pick a specific destination (no "choose your counter" step) and makes
-     * cross-account PIN collisions harmless — see KioskPin's own docblock.
+     * cross-account PIN collisions harmless — see PosPin's own docblock.
      *
      * Every failure — unknown username, wrong PIN, or a destination that's since been
      * revoked — returns the exact same generic message, so a locked-out account can never
      * be distinguished from a merely-wrong guess, and the lockout itself is scoped to that
      * one account (clearable by that account's own next successful email login, or by an
-     * admin — see SystemUserController::resetKioskPinLockout()).
+     * admin — see SystemUserController::resetPosPinLockout()).
      */
-    public function attemptKioskPinLogin(Request $request)
+    public function attemptPosPinLogin(Request $request)
     {
         $request->validate([
             'username' => 'required|string|max:10',
@@ -764,62 +766,62 @@ class AuthController extends Controller
             return back()->withErrors($genericError);
         }
 
-        if ($user->kiosk_pin_locked_at) {
+        if ($user->pos_pin_locked_at) {
             return back()->withErrors(['pin' => 'Too many incorrect attempts. Please sign in with your email and password.']);
         }
 
-        $pinRow = $user->kioskPins()->get()->first(fn ($row) => Hash::check($request->pin, $row->pin));
+        $pinRow = $user->posPins()->get()->first(fn ($row) => Hash::check($request->pin, $row->pin));
         $destination = $pinRow
-            ? $this->matchDestination($this->possibleKioskPosDestinations($user), $pinRow->destination_type, $pinRow->destination_id)
+            ? $this->matchDestination($this->possiblePosDestinations($user), $pinRow->destination_type, $pinRow->destination_id)
             : null;
 
         if (!$destination) {
-            $attempts = $user->kiosk_pin_failed_attempts + 1;
-            $user->kiosk_pin_failed_attempts = $attempts;
-            if ($attempts >= self::KIOSK_PIN_MAX_ATTEMPTS) {
-                $user->kiosk_pin_locked_at = now();
+            $attempts = $user->pos_pin_failed_attempts + 1;
+            $user->pos_pin_failed_attempts = $attempts;
+            if ($attempts >= self::POS_PIN_MAX_ATTEMPTS) {
+                $user->pos_pin_locked_at = now();
             }
             $user->save();
 
-            return $attempts >= self::KIOSK_PIN_MAX_ATTEMPTS
+            return $attempts >= self::POS_PIN_MAX_ATTEMPTS
                 ? back()->withErrors(['pin' => 'Too many incorrect attempts. Please sign in with your email and password.'])
                 : back()->withErrors($genericError);
         }
 
-        $this->clearKioskPinLockout($user);
+        $this->clearPosPinLockout($user);
 
-        return $this->finishDirectKioskLogin($user, $destination);
+        return $this->finishDirectPosLogin($user, $destination);
     }
 
     /**
-     * The self-service "set/change my kiosk PIN" screen — reached from a topbar icon on the
-     * kiosk pages themselves (there is no dashboard for a pos-level Event Coordinator or a
+     * The self-service "set/change my PIN" screen — reached from a topbar icon on the
+     * POS pages themselves (there is no dashboard for a pos-level Event Coordinator or a
      * view/entry Ticket Controller to embed this in, per ProfileController's own role
      * branches; an admin-level Event Coordinator does have a console dashboard, but this same
      * screen still covers their PIN setup too, reached the same way). Locked to accounts that
-     * currently resolve at least one kiosk destination via possibleKioskPosDestinations() —
+     * currently resolve at least one POS destination via possiblePosDestinations() —
      * pos/entry/admin level for an Event Coordinator, view/entry for a Ticket Controller. Shows
      * every reachable destination separately, each with its own PIN status — the username
      * itself is admin-assigned, shown read-only here.
      */
-    public function showKioskPinSettings()
+    public function showPosPinSettings()
     {
         $user = Auth::user();
-        $destinations = $this->possibleKioskPosDestinations($user);
+        $destinations = $this->possiblePosDestinations($user);
         if (!$destinations) {
             abort(403, 'Unauthorized access.');
         }
 
-        $pins = $user->kioskPins()->get()->keyBy(fn ($row) => $row->destination_type . ':' . $row->destination_id);
+        $pins = $user->posPins()->get()->keyBy(fn ($row) => $row->destination_type . ':' . $row->destination_id);
         foreach ($destinations as &$destination) {
             $key = $destination['type'] . ':' . ($destination['type'] === 'event' ? $destination['event_id'] : '');
             $destination['pin_set_at'] = optional($pins->get($key))->pin_set_at;
-            // The counter-specific landing page (see showKioskLogin()'s docblock) — shown so
-            // whoever sets up a physical kiosk device knows which URL to bookmark on it,
-            // instead of everyone sharing the one generic /kiosk/login page.
+            // The counter-specific landing page (see showPosLogin()'s docblock) — shown so
+            // whoever sets up a physical counter device knows which URL to bookmark on it,
+            // instead of everyone sharing the one generic /pos/login page.
             $destination['landing_url'] = $destination['type'] === 'event'
-                ? route('kiosk.login.event', $destination['slug'])
-                : route('kiosk.login.tickets');
+                ? route('pos.login.event', $destination['slug'])
+                : route('pos.login.tickets');
         }
         unset($destination);
 
@@ -828,24 +830,24 @@ class AuthController extends Controller
         // very next load, turning "Back to counter" into a loop. Instead, the referrer is
         // captured into a dedicated session key ONLY when it's genuinely one of this
         // account's own destination pages — true on the first real visit (linked from that
-        // kiosk page), never true on a reload of /kiosk/pin itself — so the stash is
-        // self-correcting: it's set once from a real kiosk page and never gets overwritten
+        // POS page), never true on a reload of /pos/pin itself — so the stash is
+        // self-correcting: it's set once from a real POS page and never gets overwritten
         // by this settings page's own URL. This is what lets a multi-destination account
         // return to the SPECIFIC counter they came from, not just the grid.
         $referrer = url()->previous();
         $destinationUrls = collect($destinations)->map(fn ($d) => $this->posDestinationUrl($d));
         if ($destinationUrls->contains($referrer)) {
-            session(['kiosk_pin_return_url' => $referrer]);
+            session(['pos_pin_return_url' => $referrer]);
         }
 
         // Re-validated the same way on the way out too — a stashed URL from a destination
         // this account no longer holds (revoked since it was stashed) is never trusted.
-        $stashed = session('kiosk_pin_return_url');
+        $stashed = session('pos_pin_return_url');
         $backUrl = ($stashed && $destinationUrls->contains($stashed))
             ? $stashed
-            : (count($destinations) === 1 ? $this->posDestinationUrl($destinations[0]) : route('kiosk.select'));
+            : (count($destinations) === 1 ? $this->posDestinationUrl($destinations[0]) : route('pos.select'));
 
-        return view('auth.kiosk-pin-settings', ['user' => $user, 'destinations' => $destinations, 'backUrl' => $backUrl]);
+        return view('auth.pos-pin-settings', ['user' => $user, 'destinations' => $destinations, 'backUrl' => $backUrl]);
     }
 
     /**
@@ -855,16 +857,16 @@ class AuthController extends Controller
      * Submitting the password alone (no new PIN) is a valid, deliberate "just clear the
      * lockout" action.
      *
-     * The PIN uniqueness check only ever scans THIS account's OWN other KioskPin rows —
+     * The PIN uniqueness check only ever scans THIS account's OWN other PosPin rows —
      * never other users' — because a PIN only ever means anything paired with this
      * account's own username. A collision here is a genuine usability problem (which of my
      * own counters would it open?) and safe to name explicitly, since it can never reveal
      * anything about anyone else's account.
      */
-    public function updateKioskPinSettings(Request $request)
+    public function updatePosPinSettings(Request $request)
     {
         $user = Auth::user();
-        $destinations = $this->possibleKioskPosDestinations($user);
+        $destinations = $this->possiblePosDestinations($user);
         if (!$destinations) {
             abort(403, 'Unauthorized access.');
         }
@@ -884,7 +886,7 @@ class AuthController extends Controller
             return back()->withErrors(['current_password' => 'That password is incorrect.']);
         }
 
-        $this->clearKioskPinLockout($user);
+        $this->clearPosPinLockout($user);
 
         $destinationId = $request->destination_type === 'event' ? (int) $request->destination_id : null;
 
@@ -893,18 +895,18 @@ class AuthController extends Controller
                 'new_pin' => 'digits:6|confirmed',
             ]);
 
-            $collision = $user->kioskPins()->get()
+            $collision = $user->posPins()->get()
                 ->reject(fn ($row) => $row->destination_type === $request->destination_type && (int) $row->destination_id === (int) $destinationId)
                 ->first(fn ($row) => Hash::check($request->new_pin, $row->pin));
             if ($collision) {
                 return back()->withErrors(['new_pin' => 'You are already using that PIN for another counter — please choose a different one.']);
             }
 
-            KioskPin::updateOrCreate(
+            PosPin::updateOrCreate(
                 ['user_id' => $user->id, 'destination_type' => $request->destination_type, 'destination_id' => $destinationId],
                 ['pin' => Hash::make($request->new_pin), 'pin_set_at' => now()]
             );
-            \App\Services\AuditLogService::log('Updated kiosk PIN for ' . $destination['label'] . '.');
+            \App\Services\AuditLogService::log('Updated POS PIN for ' . $destination['label'] . '.');
 
             return back()->with('success', 'Your PIN for ' . $destination['label'] . ' has been updated.');
         }
@@ -923,7 +925,7 @@ class AuthController extends Controller
         // step) is exactly what "revoke by using the email login" means for this account's
         // PIN-login lockout: it proves the front door still works, so there's no reason to
         // keep the faster PIN path shut for them.
-        $this->clearKioskPinLockout($user);
+        $this->clearPosPinLockout($user);
 
         // Login always lands on the account's stored/default role — a user holding
         // additional roles (Committee, Event Coordinator, etc. via grant tables) switches
@@ -954,29 +956,29 @@ class AuthController extends Controller
         Auth::login($user);
         $user->update(['last_login_at' => now()]);
 
-        // An account that is PURELY kiosk-only (every event assignment is 'pos' level, or a
+        // An account that is PURELY POS-only (every event assignment is 'pos' level, or a
         // 'view'/'entry' Ticket Controller) may hold more than one such destination at once
-        // (two events, or an event plus ticket access) — neither kiosk page has any
+        // (two events, or an event plus ticket access) — neither POS page has any
         // navigation to switch between them, so with more than one reachable destination the
         // account picks at login instead of one being silently guessed. Only engages for
         // these two roles — an Admin/Staff/etc. account holding the same grants as a
         // secondary role keeps using the topbar's "Switch Role" as today, since it already
         // has full navigation available.
         if (in_array($role, ['Event Coordinator', 'Ticket Controller'], true)) {
-            $destinations = $this->possibleKioskPosDestinations($user, includeAdminLevel: false);
+            $destinations = $this->possiblePosDestinations($user, includeAdminLevel: false);
             if (count($destinations) > 1) {
-                return redirect()->route('kiosk.select');
+                return redirect()->route('pos.select');
             }
             if (count($destinations) === 1) {
                 return $this->redirectToPosDestination($destinations[0]);
             }
-            // Zero kiosk-only destinations for this role — a console-level coordinator, an
+            // Zero POS-only destinations for this role — a console-level coordinator, an
             // admin-level ticket controller, or a coordinator with a non-pos assignment mixed
             // in — falls through to the existing role-specific logic below, unchanged.
         }
 
         // An Event Coordinator always lands straight on their workspace — the console for
-        // view/entry/admin level, or the kiosk-style POS page for pos level — rather than a
+        // view/entry/admin level, or the counter-style POS page for pos level — rather than a
         // list to click through first. With more than one assigned event, the earliest (by
         // event date) is the default; both pages have their own "Switch Event" menu for the
         // rest. A pos-level coordinator never reaches the console at all — this is their
@@ -1029,13 +1031,13 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $fromKiosk = $request->query('from') === 'kiosk';
+        $fromPos = $request->query('from') === 'pos';
 
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route($fromKiosk ? 'kiosk.login' : 'login')
+        return redirect()->route($fromPos ? 'pos.login' : 'login')
             ->with('success', 'Logged out successfully.');
     }
 

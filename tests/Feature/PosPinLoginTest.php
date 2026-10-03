@@ -2,20 +2,20 @@
 
 namespace Tests\Feature;
 
-use App\Models\KioskPin;
+use App\Models\PosPin;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
- * PIN login — a faster alternative to email+password for kiosk-only accounts. The account is
+ * PIN login — a faster alternative to email+password for POS-only accounts. The account is
  * identified by a short username FIRST, so the PIN only ever needs to be checked against that
- * one account's own KioskPin rows (one per destination) — see AuthController::
- * attemptKioskPinLogin()'s own docblock for why this makes the destination known immediately
+ * one account's own PosPin rows (one per destination) — see AuthController::
+ * attemptPosPinLogin()'s own docblock for why this makes the destination known immediately
  * and scopes the failed-attempt lockout to that one account.
  */
-class KioskPinLoginTest extends TestCase
+class PosPinLoginTest extends TestCase
 {
     private function posLevelCoordinatorWithPin(string $username = 'sieves', string $pin = '123456'): array
     {
@@ -31,7 +31,7 @@ class KioskPinLoginTest extends TestCase
             'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'pos',
             'created_at' => now(), 'updated_at' => now(),
         ]);
-        KioskPin::create([
+        PosPin::create([
             'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
             'pin' => Hash::make($pin), 'pin_set_at' => now(),
         ]);
@@ -52,7 +52,7 @@ class KioskPinLoginTest extends TestCase
             'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'admin',
             'created_at' => now(), 'updated_at' => now(),
         ]);
-        KioskPin::create([
+        PosPin::create([
             'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
             'pin' => Hash::make($pin), 'pin_set_at' => now(),
         ]);
@@ -69,7 +69,7 @@ class KioskPinLoginTest extends TestCase
     {
         [$user, $eventId] = $this->adminLevelCoordinatorWithPin();
 
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
         $response->assertRedirect(route('admin.events.pos', $eventId));
         $this->assertAuthenticatedAs($user);
@@ -77,7 +77,7 @@ class KioskPinLoginTest extends TestCase
     }
 
     /**
-     * 'entry' level resolves a kiosk destination the same as 'pos'/'admin' now — the POS
+     * 'entry' level resolves a POS destination the same as 'pos'/'admin' now — the POS
      * donation page a PIN login lands on requires at least 'entry' level to use
      * (EventCoordinatorLevel::atLeast(..., 'entry')), so unlike 'view' (see the next test)
      * there's nothing stopping an entry-level coordinator from actually using it.
@@ -96,24 +96,24 @@ class KioskPinLoginTest extends TestCase
             'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'entry',
             'created_at' => now(), 'updated_at' => now(),
         ]);
-        KioskPin::create([
+        PosPin::create([
             'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
             'pin' => Hash::make('123456'), 'pin_set_at' => now(),
         ]);
 
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
         $response->assertRedirect(route('admin.events.pos', $eventId));
         $this->assertAuthenticatedAs($user);
     }
 
     /**
-     * 'view' is the one level still excluded (see AuthController::possibleKioskPosDestinations()'s
+     * 'view' is the one level still excluded (see AuthController::possiblePosDestinations()'s
      * own docblock) — the POS page a PIN login lands on 403s a 'view'-level coordinator, so a
-     * stray KioskPin row for one (shouldn't normally exist — the settings screen never offers
+     * stray PosPin row for one (shouldn't normally exist — the settings screen never offers
      * it) must still never be allowed to complete a login.
      */
-    public function test_a_view_level_coordinator_cannot_use_a_kiosk_pin(): void
+    public function test_a_view_level_coordinator_cannot_use_a_pos_pin(): void
     {
         $user = User::factory()->create([
             'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
@@ -127,12 +127,12 @@ class KioskPinLoginTest extends TestCase
             'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'view',
             'created_at' => now(), 'updated_at' => now(),
         ]);
-        KioskPin::create([
+        PosPin::create([
             'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
             'pin' => Hash::make('123456'), 'pin_set_at' => now(),
         ]);
 
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
         $response->assertSessionHasErrors('pin');
         $this->assertGuest();
@@ -142,7 +142,7 @@ class KioskPinLoginTest extends TestCase
     {
         [$user, $eventId] = $this->posLevelCoordinatorWithPin();
 
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
         $response->assertRedirect(route('admin.events.pos', $eventId));
         $this->assertAuthenticatedAs($user);
@@ -153,18 +153,18 @@ class KioskPinLoginTest extends TestCase
     {
         [$user, $eventId] = $this->posLevelCoordinatorWithPin('sieves', '123456');
         DB::table('ticket_controllers')->insert(['user_id' => $user->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
-        KioskPin::create([
+        PosPin::create([
             'user_id' => $user->id, 'destination_type' => 'tickets', 'destination_id' => null,
             'pin' => Hash::make('456789'), 'pin_set_at' => now(),
         ]);
 
         // The event PIN opens the event directly...
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
         $response->assertRedirect(route('admin.events.pos', $eventId));
 
         // ...and the ticket PIN, for the SAME account, opens ticket sales directly instead.
         auth()->logout();
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '456789']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '456789']);
         $response->assertRedirect(route('admin.tickets.pos'));
     }
 
@@ -172,7 +172,7 @@ class KioskPinLoginTest extends TestCase
     {
         $this->posLevelCoordinatorWithPin('sieves', '123456');
 
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '000000']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '000000']);
 
         $response->assertSessionHasErrors('pin');
         $this->assertSame('Incorrect username or PIN.', session('errors')->first('pin'));
@@ -181,7 +181,7 @@ class KioskPinLoginTest extends TestCase
 
     public function test_an_unknown_username_fails_with_the_same_generic_message(): void
     {
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'nobody', 'pin' => '123456']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'nobody', 'pin' => '123456']);
 
         $response->assertSessionHasErrors('pin');
         $this->assertSame('Incorrect username or PIN.', session('errors')->first('pin'));
@@ -194,13 +194,13 @@ class KioskPinLoginTest extends TestCase
             'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
             'username' => 'sieves',
         ]);
-        KioskPin::create([
+        PosPin::create([
             'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => 999999,
             'pin' => Hash::make('654321'), 'pin_set_at' => now(),
         ]);
         // No matching event_coordinators row — access was removed after the PIN was set.
 
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '654321']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '654321']);
 
         $response->assertSessionHasErrors('pin');
         $this->assertGuest();
@@ -212,31 +212,31 @@ class KioskPinLoginTest extends TestCase
         $this->posLevelCoordinatorWithPin('other', '111111');
 
         for ($i = 0; $i < 5; $i++) {
-            $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '999999']);
+            $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '999999']);
         }
 
         $victim->refresh();
-        $this->assertNotNull($victim->kiosk_pin_locked_at);
+        $this->assertNotNull($victim->pos_pin_locked_at);
 
         // Even the CORRECT PIN is now rejected for the locked account...
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
         $response->assertSessionHasErrors('pin');
         $this->assertGuest();
 
-        // ...but a DIFFERENT kiosk-eligible account is completely unaffected.
-        $response = $this->post(route('kiosk.pin-login'), ['username' => 'other', 'pin' => '111111']);
+        // ...but a DIFFERENT POS-eligible account is completely unaffected.
+        $response = $this->post(route('pos.pin-login'), ['username' => 'other', 'pin' => '111111']);
         $this->assertAuthenticated();
     }
 
     public function test_a_successful_email_login_clears_that_accounts_pin_lockout(): void
     {
         [$user] = $this->posLevelCoordinatorWithPin('sieves', '123456');
-        $user->update(['kiosk_pin_failed_attempts' => 5, 'kiosk_pin_locked_at' => now()]);
+        $user->update(['pos_pin_failed_attempts' => 5, 'pos_pin_locked_at' => now()]);
 
         $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
 
         $user->refresh();
-        $this->assertNull($user->kiosk_pin_locked_at);
-        $this->assertSame(0, $user->kiosk_pin_failed_attempts);
+        $this->assertNull($user->pos_pin_locked_at);
+        $this->assertSame(0, $user->pos_pin_failed_attempts);
     }
 }

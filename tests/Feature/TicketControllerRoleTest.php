@@ -73,9 +73,9 @@ class TicketControllerRoleTest extends TestCase
         $response->assertSee('Ticket Console', false);
     }
 
-    // A view-level controller lands on the kiosk page itself (per the redirect above) but
+    // A view-level controller lands on the POS page itself (per the redirect above) but
     // can't actually complete a sale — same read-only-vs-entry split as EventCoordinatorLevel.
-    public function test_view_level_can_open_the_kiosk_but_cannot_complete_a_sale(): void
+    public function test_view_level_can_open_the_pos_page_but_cannot_complete_a_sale(): void
     {
         $user = $this->ticketControllerUser('view');
         $ticket = Ticket::create(['name' => 'Adult Entry', 'price' => 10.00, 'status' => 'Active']);

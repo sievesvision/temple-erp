@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\KioskPin;
+use App\Models\PosPin;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\AccountSetupService;
@@ -307,20 +307,20 @@ class EventCoordinatorController extends Controller
     }
 
     /**
-     * Set or reset a coordinator's kiosk username/PIN for this event on their behalf — the
-     * self-service screen (AuthController::updateKioskPinSettings()) needs the ACCOUNT's own
+     * Set or reset a coordinator's POS username/PIN for this event on their behalf — the
+     * self-service screen (AuthController::updatePosPinSettings()) needs the ACCOUNT's own
      * password, which an event-admin obviously doesn't have; this is the admin-assisted
      * equivalent for a coordinator who's forgotten theirs or never set one up, gated instead
      * on the ACTING admin's own password so a hijacked/unattended console session can't be
      * used to silently plant a new PIN. Same admin-vs-event-admin protection as the other
      * actions here: only the system Admin can touch an Event Admin's credentials this way.
      *
-     * Only pos/entry/admin level coordinators ever resolve a kiosk destination at all (see
-     * AuthController::possibleKioskPosDestinations()'s own docblock for why 'view' is left
+     * Only pos/entry/admin level coordinators ever resolve a POS destination at all (see
+     * AuthController::possiblePosDestinations()'s own docblock for why 'view' is left
      * out — that level can't open the POS page a PIN login lands on), so a 'view'-level
      * target is rejected before anything is written.
      */
-    public function overrideKioskCredentials(Request $request, $eventId, $userId)
+    public function overridePosCredentials(Request $request, $eventId, $userId)
     {
         if (!$this->canManageCoordinators($eventId)) {
             return $this->redirectAfterAction($request, $eventId)->with('error', 'Unauthorized access.');
@@ -331,10 +331,10 @@ class EventCoordinatorController extends Controller
             return $this->redirectAfterAction($request, $eventId)->with('error', 'That person does not coordinate this event.');
         }
         if ($coordinatorLevel === 'admin' && !$this->isSystemAdmin()) {
-            return $this->redirectAfterAction($request, $eventId)->with('error', 'Only the system Admin can override an Event Admin\'s kiosk credentials.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'Only the system Admin can override an Event Admin\'s POS credentials.');
         }
         if ($coordinatorLevel === 'view') {
-            return $this->redirectAfterAction($request, $eventId)->with('error', 'A View-level coordinator does not use a kiosk PIN.');
+            return $this->redirectAfterAction($request, $eventId)->with('error', 'A View-level coordinator does not use a POS PIN.');
         }
 
         $request->validate([
@@ -352,23 +352,23 @@ class EventCoordinatorController extends Controller
         $targetUser->update(['username' => $request->username ? strtolower($request->username) : null]);
 
         if ($request->filled('new_pin')) {
-            $collision = $targetUser->kioskPins()->get()
+            $collision = $targetUser->posPins()->get()
                 ->reject(fn ($row) => $row->destination_type === 'event' && (int) $row->destination_id === (int) $eventId)
                 ->first(fn ($row) => Hash::check($request->new_pin, $row->pin));
             if ($collision) {
                 return $this->redirectAfterAction($request, $eventId)->with('error', $targetUser->name . ' is already using that PIN for another counter — please choose a different one.');
             }
 
-            KioskPin::updateOrCreate(
+            PosPin::updateOrCreate(
                 ['user_id' => $targetUser->id, 'destination_type' => 'event', 'destination_id' => $eventId],
                 ['pin' => Hash::make($request->new_pin), 'pin_set_at' => now()]
             );
-            $targetUser->update(['kiosk_pin_failed_attempts' => 0, 'kiosk_pin_locked_at' => null]);
+            $targetUser->update(['pos_pin_failed_attempts' => 0, 'pos_pin_locked_at' => null]);
         }
 
-        AuditLogService::log("Overrode kiosk username/PIN for {$targetUser->email}", null, $eventId);
+        AuditLogService::log("Overrode POS username/PIN for {$targetUser->email}", null, $eventId);
 
-        return $this->redirectAfterAction($request, $eventId)->with('success', "Kiosk credentials updated for {$targetUser->name}.");
+        return $this->redirectAfterAction($request, $eventId)->with('success', "POS credentials updated for {$targetUser->name}.");
     }
 
     /**

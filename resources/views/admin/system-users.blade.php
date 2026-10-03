@@ -203,7 +203,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Kiosk Username</th>
+                    <th>POS Username</th>
                     <th>Role</th>
                     <th>Status</th>
                     <th>Last Login</th>
@@ -223,8 +223,8 @@
                             <input type="text" name="username" value="{{ $u->username }}" maxlength="10" placeholder="none" title="6-10 characters, letters/numbers only">
                             <button type="submit">Save</button>
                         </form>
-                        @if($u->kiosk_pin_locked_at)
-                            <form action="{{ route('admin.kiosk-pin.reset-lockout', $u->id) }}" method="POST" class="d-inline mt-1">
+                        @if($u->pos_pin_locked_at)
+                            <form action="{{ route('admin.pos-pin.reset-lockout', $u->id) }}" method="POST" class="d-inline mt-1">
                                 @csrf
                                 <button type="submit" class="btn-action-unlock">
                                     <i class="bi bi-shield-lock-fill"></i> Unlock PIN

@@ -68,7 +68,7 @@ class EftTerminalRegistryAccessTest extends TestCase
         return $user;
     }
 
-    // Lands only on the kiosk-style Donation POS page (never the full console) — see
+    // Lands only on the counter-style Donation POS page (never the full console) — see
     // AuthController::login()'s level==='pos' branch and EventCoordinatorLevel's docblock.
     private function posLevelCoordinator(): User
     {
@@ -84,7 +84,7 @@ class EftTerminalRegistryAccessTest extends TestCase
         return $user;
     }
 
-    // 'view' lands on the Ticket POS kiosk exactly like 'entry' does — only 'admin' reaches the
+    // 'view' lands on the Ticket POS page exactly like 'entry' does — only 'admin' reaches the
     // full Ticket Console — see TicketControllerLevel's docblock.
     private function ticketViewController(): User
     {
@@ -135,7 +135,7 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseMissing('eft_terminals', ['key' => 'should-not-exist']);
     }
 
-    // A pos-level coordinator only ever reaches the kiosk-style Donation POS page, which shows
+    // A pos-level coordinator only ever reaches the counter-style Donation POS page, which shows
     // an "Open EFT Terminal Settings" link unconditionally — if their own station's terminal
     // ever goes unpaired, they need to be able to re-pair it without an Admin on hand, since
     // there's no other page they can even get to.
@@ -153,7 +153,7 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseHas('eft_terminals', ['key' => 'pos-level-added']);
     }
 
-    // view/entry Ticket Controllers both land on the Ticket POS kiosk the same way (only
+    // view/entry Ticket Controllers both land on the Ticket POS page the same way (only
     // 'admin' reaches the full Ticket Console) — same reasoning as the pos-level coordinator
     // case above.
     public function test_ticket_view_controller_can_view_and_add_a_terminal(): void

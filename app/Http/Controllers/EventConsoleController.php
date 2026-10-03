@@ -32,7 +32,7 @@ class EventConsoleController extends Controller
             ? EventCoordinatorLevel::of((int) $eventId, $user->id)
             : null;
 
-        // A pos-level coordinator never gets the general console — only the dedicated kiosk
+        // A pos-level coordinator never gets the general console — only the dedicated POS
         // page. Send them there instead of a bare 403 if they land on this URL somehow.
         if ($coordinatorLevel === 'pos') {
             return redirect()->route('admin.events.pos', $eventId);

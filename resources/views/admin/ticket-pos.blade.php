@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Ticket Kiosk</title>
+    <title>Ticket Sales POS</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
@@ -18,15 +18,15 @@
             --border: #D9CBB0; --shade: #F2ECE0; --text-primary: #1F2A37;
             --text-secondary: #6B7280; --success: #10B981; --error: #EF4444;
             /* One shared radius scale, deliberately tighter than the old 12-22px range — a
-               terminal/kiosk reads as more purposeful with crisp, moderate corners than with
-               soft app-style bubbles. */
+               terminal/POS screen reads as more purposeful with crisp, moderate corners than
+               with soft app-style bubbles. */
             --radius-sm: 8px; --radius-md: 10px; --radius-lg: 14px;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow-x: hidden; height: 100%; }
         body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; background: var(--cream); color: var(--text-primary); display: flex; flex-direction: column; }
         button, input, select, textarea { font-family: inherit; }
-        /* Kiosk hardening: no accidental text selection/callouts from a fast tap-and-hold,
+        /* POS hardening: no accidental text selection/callouts from a fast tap-and-hold,
            and no 300ms ghost-click delay on older mobile Safari/Chrome. */
         button, .pos-item-tile, .pos-method-btn { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 
@@ -47,7 +47,7 @@
             .pos-terminal-btn span { display: none; }
         }
 
-        /* ---------- Full-width kiosk: items grid on the left, cart panel on the right ---------- */
+        /* ---------- Full-width POS: items grid on the left, cart panel on the right ---------- */
         .pos-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
         @media (min-width: 900px) { .pos-body { flex-direction: row; } }
 
@@ -57,7 +57,7 @@
         /* Each tile is a miniature version of the temple's own printed ticket design — an
            ornate bordered card themed by the ticket's own background_color (see App\Models\
            Ticket), with a circular image frame, the ticket name, and a price badge — rather
-           than a plain photo-background button, so the kiosk itself looks like the physical
+           than a plain photo-background button, so the POS page itself looks like the physical
            tickets it's selling. */
         .pos-item-tile {
             position: relative; border-radius: var(--radius-md); padding: 8px; border: none; cursor: pointer;
@@ -249,7 +249,7 @@
     @include('partials.test-banner')
     <header class="pos-topbar">
         <div class="pos-topbar-title">
-            <h1>Ticket Kiosk</h1>
+            <h1>Ticket Sales POS</h1>
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
         <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
@@ -263,10 +263,10 @@
                 <i class="bi bi-person-fill"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-                @if($canManageKioskPin)
-                <li><a class="dropdown-item" href="{{ route('kiosk.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage kiosk PIN</a></li>
+                @if($canManagePosPin)
+                <li><a class="dropdown-item" href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage POS PIN</a></li>
                 @endif
-                <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'kiosk']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'pos']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
             </ul>
         </div>
     </header>
@@ -425,7 +425,7 @@
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
-         otherwise a fix shipped here never reaches an already-open kiosk tab or a browser
+         otherwise a fix shipped here never reaches an already-open POS tab or a browser
          that cached the old copy days ago, since nothing about the <script> tag itself
          changes between deploys. --}}
     <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
@@ -440,12 +440,12 @@
         ] : null;
     @endphp
     <script>
-        // A session that expires while this kiosk is left open only ever surfaces to a
+        // A session that expires while this POS page is left open only ever surfaces to a
         // background fetch() (the various polling/save calls below) as a plain 401 JSON body
         // — Laravel's default unauthenticated() handler never redirects a request that
         // expects JSON. Reloading the page turns that into a normal full-page navigation,
         // which (now unauthenticated) is what actually triggers the server-side redirect to
-        // the kiosk login screen — see Authenticate::redirectUsing() in AppServiceProvider.
+        // the POS login screen — see Authenticate::redirectUsing() in AppServiceProvider.
         (function () {
             const nativeFetch = window.fetch;
             window.fetch = function () {
@@ -481,7 +481,7 @@
         // Two storage layers, deliberately: sessionStorage is scoped per TAB (never shared,
         // even between two tabs of the same browser/computer showing this same page) and
         // always wins once this tab has explicitly picked a terminal — this is what keeps
-        // two kiosk tabs on ONE computer (e.g. two virtual PIN pads for testing) genuinely
+        // two POS tabs on ONE computer (e.g. two virtual PIN pads for testing) genuinely
         // independent. localStorage is shared across every tab of this browser and is only
         // ever used as the *suggested default* for a brand-new tab that hasn't picked yet
         // (and is what the Ticket Console's "This Computer's EFT Terminal" Settings control
@@ -533,7 +533,7 @@
          * (mx51's API genuinely requires confirming the code on the terminal before Test can
          * report it active), deliberately reimplemented here rather than reused: that widget's
          * own Test-success handler does a full window.location.reload(), which is fine on the
-         * standalone settings page but would blow away whatever's half-entered in this kiosk's
+         * standalone settings page but would blow away whatever's half-entered in this POS page's
          * cart. No "Steps to pair" box — this is for a terminal already known to this registry,
          * not a brand new one (see cba-sci-pairing.blade.php's own note); the terminal's
          * existing name doubles as the pairing nickname, no separate field.

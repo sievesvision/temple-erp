@@ -53,35 +53,37 @@ Route::get('/register/verify-otp', [AuthController::class, 'showVerifyOtp'])->na
 Route::post('/register/verify-otp', [AuthController::class, 'verifyOtp'])->name('register.verify-otp.post');
 Route::post('/register/resend-otp', [AuthController::class, 'resendOtp'])->name('register.resend-otp');
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-// Dedicated kiosk-styled login landing page for POS-only accounts (an Event Coordinator at
+// Dedicated POS-styled login landing page for POS-only accounts (an Event Coordinator at
 // 'pos' level, a Ticket Controller at 'view'/'entry' level) — posts to the same login.post
-// handler below, so credential/2FA/lockout/recaptcha logic is never duplicated.
-Route::get('/kiosk/login', [AuthController::class, 'showKioskLogin'])->name('kiosk.login');
+// handler below, so credential/2FA/lockout/recaptcha logic is never duplicated. Routed under
+// /pos/* rather than /kiosk/* — "kiosk" is reserved for a separate, fully locked-down
+// single-page app planned for later, so it's never claimed by this POS login feature.
+Route::get('/pos/login', [AuthController::class, 'showPosLogin'])->name('pos.login');
 // Destination-specific landing pages — each meant to be bookmarked on ONE physical counter's
-// own device, showing that counter's own name ("Kumbabisekam 2027 — Event Donation Kiosk",
-// "Ticketing Kiosk") instead of the generic page above. Purely cosmetic: login itself still
-// goes through the same login.post/kiosk.pin-login handlers regardless of which page was used.
+// own device, showing that counter's own name ("Kumbabisekam 2027 — Event Donation POS",
+// "Ticket Sales POS") instead of the generic page above. Purely cosmetic: login itself still
+// goes through the same login.post/pos.pin-login handlers regardless of which page was used.
 // {slug}, not the numeric event_id — matches the public events.show route's own convention
 // of readable URLs rather than exposing sequential internal ids.
-Route::get('/kiosk/login/event/{slug}', [AuthController::class, 'showKioskLogin'])->name('kiosk.login.event')->where('slug', '[A-Za-z0-9-]+');
-Route::get('/kiosk/login/tickets', [AuthController::class, 'showKioskLogin'])->name('kiosk.login.tickets');
-Route::get('/kiosk', fn () => redirect()->route('kiosk.login'));
-// Polled periodically by the kiosk login page itself to keep its embedded CSRF token from
-// ever going stale while the page sits open — see AuthController::refreshKioskCsrfToken()'s
+Route::get('/pos/login/event/{slug}', [AuthController::class, 'showPosLogin'])->name('pos.login.event')->where('slug', '[A-Za-z0-9-]+');
+Route::get('/pos/login/tickets', [AuthController::class, 'showPosLogin'])->name('pos.login.tickets');
+Route::get('/pos', fn () => redirect()->route('pos.login'));
+// Polled periodically by the POS login page itself to keep its embedded CSRF token from
+// ever going stale while the page sits open — see AuthController::refreshPosCsrfToken()'s
 // own docblock for why this is necessary well before SESSION_LIFETIME alone would matter.
-Route::get('/kiosk/csrf-token', [AuthController::class, 'refreshKioskCsrfToken'])->name('kiosk.csrf-token');
+Route::get('/pos/csrf-token', [AuthController::class, 'refreshPosCsrfToken'])->name('pos.csrf-token');
 // "Choose your counter" grid — only ever reached by an account holding more than one
-// kiosk-only destination (see AuthController::completeLogin()/possibleKioskPosDestinations()).
-Route::get('/kiosk/select', [AuthController::class, 'showKioskSelect'])->middleware('auth')->name('kiosk.select');
-Route::post('/kiosk/select', [AuthController::class, 'selectKioskPosDestination'])->middleware('auth')->name('kiosk.select.choose');
-// PIN login — a faster alternative to email+password for kiosk-only accounts. No auth
+// POS-only destination (see AuthController::completeLogin()/possiblePosDestinations()).
+Route::get('/pos/select', [AuthController::class, 'showPosSelect'])->middleware('auth')->name('pos.select');
+Route::post('/pos/select', [AuthController::class, 'selectPosDestination'])->middleware('auth')->name('pos.select.choose');
+// PIN login — a faster alternative to email+password for POS-only accounts. No auth
 // middleware (this IS the login). Identified by username+PIN together (see
-// AuthController::attemptKioskPinLogin()), so the destination is known immediately and the
+// AuthController::attemptPosPinLogin()), so the destination is known immediately and the
 // lockout is scoped to that one account rather than global.
-Route::post('/kiosk/pin-login', [AuthController::class, 'attemptKioskPinLogin'])->name('kiosk.pin-login');
+Route::post('/pos/pin-login', [AuthController::class, 'attemptPosPinLogin'])->name('pos.pin-login');
 Route::middleware(['auth'])->group(function () {
-    Route::get('/kiosk/pin', [AuthController::class, 'showKioskPinSettings'])->name('kiosk.pin.edit');
-    Route::post('/kiosk/pin', [AuthController::class, 'updateKioskPinSettings'])->name('kiosk.pin.update');
+    Route::get('/pos/pin', [AuthController::class, 'showPosPinSettings'])->name('pos.pin.edit');
+    Route::post('/pos/pin', [AuthController::class, 'updatePosPinSettings'])->name('pos.pin.update');
 });
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::get('/login/verify-otp', [AuthController::class, 'showLoginVerifyOtp'])->name('login.verify-otp');
@@ -516,7 +518,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/users/{targetUser}/send-reset-link', [\App\Http\Controllers\SystemUserController::class, 'sendResetLink'])->name('admin.users.send-reset-link');
     Route::post('/admin/users/{targetUser}/toggle-2fa', [\App\Http\Controllers\SystemUserController::class, 'toggleTwoFactor'])->name('admin.users.toggle-2fa');
     Route::post('/admin/users/{targetUser}/username', [\App\Http\Controllers\SystemUserController::class, 'setUsername'])->name('admin.users.set-username');
-    Route::post('/admin/users/{targetUser}/kiosk-pin/reset-lockout', [\App\Http\Controllers\SystemUserController::class, 'resetKioskPinLockout'])->name('admin.kiosk-pin.reset-lockout');
+    Route::post('/admin/users/{targetUser}/pos-pin/reset-lockout', [\App\Http\Controllers\SystemUserController::class, 'resetPosPinLockout'])->name('admin.pos-pin.reset-lockout');
     Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
 
     // Leave Requests Route (Admin management)
@@ -602,7 +604,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::post('/admin/events/{event}/eft/logon', [\App\Http\Controllers\DonationController::class, 'logonLinkly'])->name('admin.events.eft.logon');
     Route::post('/admin/events/{event}/eft/reprint/{sessionId}', [\App\Http\Controllers\DonationController::class, 'reprintEftReceipt'])->name('admin.events.eft.reprint');
     Route::post('/admin/events/{event}/eft/pair', [\App\Http\Controllers\DonationController::class, 'pairEftFromConsole'])->name('admin.events.eft.pair');
-    // The kiosk-style POS donation page — a pos-level coordinator's only reachable page;
+    // The counter-style POS donation page — a pos-level coordinator's only reachable page;
     // everyone else who can add donations can use it too as a faster alternative to the
     // full console's Quick Entry. Saves through the same storeDevotee/storeGuest routes above.
     Route::get('/admin/events/{event}/pos', [\App\Http\Controllers\PosDonationController::class, 'show'])->name('admin.events.pos');
@@ -620,7 +622,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     Route::post('/admin/events/{event}/coordinators/{user}/level', [\App\Http\Controllers\EventCoordinatorController::class, 'updateLevel'])->name('admin.events.coordinators.updateLevel');
     Route::post('/admin/events/{event}/coordinators/{user}/send-reset-link', [\App\Http\Controllers\EventCoordinatorController::class, 'sendResetLink'])->name('admin.events.coordinators.sendResetLink');
     Route::post('/admin/events/{event}/coordinators/{user}/toggle-lock', [\App\Http\Controllers\EventCoordinatorController::class, 'toggleLock'])->name('admin.events.coordinators.toggleLock');
-    Route::post('/admin/events/{event}/coordinators/{user}/kiosk-credentials', [\App\Http\Controllers\EventCoordinatorController::class, 'overrideKioskCredentials'])->name('admin.events.coordinators.overrideKioskCredentials');
+    Route::post('/admin/events/{event}/coordinators/{user}/pos-credentials', [\App\Http\Controllers\EventCoordinatorController::class, 'overridePosCredentials'])->name('admin.events.coordinators.overridePosCredentials');
     Route::delete('/admin/events/{event}/coordinators/{user}', [\App\Http\Controllers\EventCoordinatorController::class, 'destroy'])->name('admin.events.coordinators.destroy');
 });
 
@@ -671,7 +673,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Event Coordinator'])
 });
 
 // EFT Terminal start/poll/cancel/sendkey are shared by BOTH the donation POS/console flow and
-// the standalone Ticket Kiosk (see DonationController's generalised startEftCharge()/
+// the standalone Ticket POS (see DonationController's generalised startEftCharge()/
 // canUseEftTerminal() — these four act on a Linkly session generically, regardless of what
 // it's actually paying for), so this role list is the union of both call sites' roles rather
 // than living inside either one's own narrower group.
@@ -683,7 +685,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
 
     // CBA Smart Terminal (mx51 SCI) transaction lifecycle — same role list as the Linkly
     // group above, since both providers are usable from the same donation POS/console and
-    // Ticket Kiosk call sites.
+    // Ticket POS call sites.
     Route::post('/admin/cba-sci/terminal-picker/refresh', [\App\Http\Controllers\CbaSciController::class, 'refreshPickerStatus'])->name('admin.cba-sci.terminal-picker.refresh');
     Route::post('/admin/cba-sci/charge/start', [\App\Http\Controllers\CbaSciController::class, 'startPurchase'])->name('admin.cba-sci.charge.start');
     Route::get('/admin/cba-sci/charge/status/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'poll'])->name('admin.cba-sci.charge.status');
@@ -719,7 +721,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
 
     Route::get('/admin/ticket-orders', [\App\Http\Controllers\TicketController::class, 'manageOrders'])->name('admin.tickets.orders');
 
-    // Ticket Console's own Settings pane (kiosk payment-method override) — same admin-tier
+    // Ticket Console's own Settings pane (POS payment-method override) — same admin-tier
     // gate as the console itself (see TicketController::canManageTicketConsole()).
     Route::post('/admin/tickets/settings', [\App\Http\Controllers\TicketController::class, 'updateSettings'])->name('admin.tickets.settings.update');
 

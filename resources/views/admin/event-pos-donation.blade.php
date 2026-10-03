@@ -31,14 +31,14 @@
             --error: #EF4444;
             --serif: 'Playfair Display', Georgia, serif;
             /* One shared radius scale, deliberately tighter than the old 12-22px range — a
-               terminal/kiosk reads as more purposeful with crisp, moderate corners than with
-               soft app-style bubbles. */
+               terminal/POS screen reads as more purposeful with crisp, moderate corners than
+               with soft app-style bubbles. */
             --radius-sm: 8px;
             --radius-md: 10px;
             --radius-lg: 14px;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        /* Kiosk hardening: no accidental text selection/callouts from a fast tap-and-hold,
+        /* POS hardening: no accidental text selection/callouts from a fast tap-and-hold,
            and no 300ms ghost-click delay on older mobile Safari/Chrome — both matter more
            here than on an ordinary page since this runs as an unattended counter device. */
         button, .pos-tier-pill, .pos-method-btn, .terminal-picker-row { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
@@ -130,7 +130,11 @@
             background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--border);
             box-shadow: 0 1px 3px rgba(15,23,42,0.06); padding: 18px 20px;
         }
-        .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; font-size: 1.08rem; color: var(--text-primary); margin: 0; }
+        /* Inter, not the serif display face — a section header you scan past a dozen times a
+           shift (Donor Details, Donation Amount...) reads faster in the same grotesque the
+           form fields themselves use than in a decorative face, which is better spent on the
+           temple branding up in the topbar instead. */
+        .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 700; font-size: 1.08rem; color: var(--text-primary); margin: 0; letter-spacing: -0.01em; }
         .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
         .pos-card-subtitle { margin: 4px 0 16px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
         {{-- Numbered steps instead of generic icons for the three cards that make up the
@@ -237,7 +241,7 @@
         .pos-card-header-row .pos-card-subtitle { margin: 4px 0 0; }
 
         /* auto-fit rather than a fixed 3 columns — reflows gracefully at any width instead of
-           forcing three equal columns that can squeeze text at narrow (phone/kiosk) sizes. */
+           forcing three equal columns that can squeeze text at narrow (phone/POS) sizes. */
         .pos-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin-bottom: 14px; }
         .pos-quick-amount-btn, .pos-tier-quick-btn {
             display: flex; align-items: center; justify-content: center;
@@ -507,10 +511,10 @@
                     <i class="bi bi-person-fill"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    @if($canManageKioskPin)
-                    <li><a class="dropdown-item" href="{{ route('kiosk.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage kiosk PIN</a></li>
+                    @if($canManagePosPin)
+                    <li><a class="dropdown-item" href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage POS PIN</a></li>
                     @endif
-                    <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'kiosk']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'pos']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                 </ul>
             </div>
         </div>
@@ -732,7 +736,7 @@
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
-         otherwise a fix shipped here never reaches an already-open kiosk tab or a browser
+         otherwise a fix shipped here never reaches an already-open POS tab or a browser
          that cached the old copy days ago, since nothing about the <script> tag itself
          changes between deploys. --}}
     <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
@@ -754,12 +758,12 @@
         ] : null;
     @endphp
     <script>
-        // A session that expires while this kiosk is left open only ever surfaces to a
+        // A session that expires while this POS page is left open only ever surfaces to a
         // background fetch() (the various polling/save calls below) as a plain 401 JSON body
         // — Laravel's default unauthenticated() handler never redirects a request that
         // expects JSON. Reloading the page turns that into a normal full-page navigation,
         // which (now unauthenticated) is what actually triggers the server-side redirect to
-        // the kiosk login screen — see Authenticate::redirectUsing() in AppServiceProvider.
+        // the POS login screen — see Authenticate::redirectUsing() in AppServiceProvider.
         (function () {
             const nativeFetch = window.fetch;
             window.fetch = function () {
@@ -1484,7 +1488,7 @@
         }
 
         // "Orders this session" — sessionStorage only, so it survives a reload of this same
-        // browser tab (a kiosk left open all day) but never persists beyond it and never
+        // browser tab (a POS page left open all day) but never persists beyond it and never
         // touches the server — the console's own donations table is the real record.
         const SESSION_KEY = 'posOrders_' + EVENT_ID;
         function loadSessionOrders() {

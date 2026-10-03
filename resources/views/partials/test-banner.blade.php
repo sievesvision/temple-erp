@@ -1,7 +1,7 @@
 @if(config('app.show_test_banner'))
 {{-- Deliberately self-contained (own fixed positioning, own styles) rather than relying on
      each host page's layout — there are a dozen independent header implementations across
-     this app (per-role layouts, both POS kiosks, standalone console pages), and a banner that
+     this app (per-role layouts, both POS pages, standalone console pages), and a banner that
      has to be hand-fitted into each one's own flex/grid structure would be fragile. A fixed
      strip pinned above everything (including any page's own sticky header) plus a small body
      offset works identically no matter what the page underneath looks like. The only
