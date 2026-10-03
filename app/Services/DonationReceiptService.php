@@ -158,15 +158,22 @@ class DonationReceiptService
 
         $mailable = $mailableFactory((bool) $donorEmail, $eventName);
 
-        try {
-            if ($donorEmail) {
-                Mail::to($donorEmail)->cc($coordinatorEmails)->send($mailable);
-            } else {
-                Mail::to($coordinatorEmails)->send($mailable);
+        // Deferred to run after the HTTP response is already on its way to the browser —
+        // the SMTP round-trip (often 1-2s) must never make a clerk wait before the POS lets
+        // them move to the next donation. No queue worker is required for this: Laravel runs
+        // afterResponse() closures from the terminating-callback hook in the same request,
+        // just after the response bytes are flushed to the client.
+        dispatch(function () use ($donorEmail, $coordinatorEmails, $mailable) {
+            try {
+                if ($donorEmail) {
+                    Mail::to($donorEmail)->cc($coordinatorEmails)->send($mailable);
+                } else {
+                    Mail::to($coordinatorEmails)->send($mailable);
+                }
+            } catch (\Exception $e) {
+                // Ignore mail errors — a failed donation email must never block a donation.
             }
-        } catch (\Exception $e) {
-            // Ignore mail errors — a failed donation email must never block a donation.
-        }
+        })->afterResponse();
     }
 
     private static function parseEmailList(?string $value): array

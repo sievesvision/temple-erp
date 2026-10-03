@@ -313,6 +313,20 @@
         .pos-warning-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; }
         .pos-warning-ok-btn:active { filter: brightness(0.92); }
 
+        /* Cash/Bank Transfer confirmation — these two methods aren't verified on the spot by
+           a terminal, so the clerk and donor both need a clear "it's recorded, a receipt is
+           on its way" moment rather than a corner toast. Same popup shell as the warning
+           above (just green instead of red), and dismisses itself: a tap anywhere on the
+           overlay (OK button included, since the click bubbles to it) or a short timeout. */
+        .pos-confirm-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
+        .pos-confirm-overlay.active { display: flex; }
+        .pos-confirm-popup { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; cursor: default; }
+        .pos-confirm-icon { background: var(--success); color: #fff; font-size: 1.8rem; padding: 20px; }
+        .pos-confirm-body { padding: 22px 24px 26px; }
+        .pos-confirm-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
+        .pos-confirm-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; cursor: pointer; }
+        .pos-confirm-ok-btn:active { filter: brightness(0.92); }
+
         /* ---------- EFT terminal status popup — center-screen, mirrors what's on the
            physical/virtual PIN pad while a card payment is in progress ---------- */
         .eft-modal-overlay {
@@ -635,6 +649,16 @@
             <div class="pos-warning-body">
                 <div class="pos-warning-message" id="posWarningMessage"></div>
                 <button type="button" class="pos-warning-ok-btn" id="posWarningOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="pos-confirm-overlay" id="posConfirmOverlay">
+        <div class="pos-confirm-popup">
+            <div class="pos-confirm-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="pos-confirm-body">
+                <div class="pos-confirm-message" id="posConfirmMessage"></div>
+                <button type="button" class="pos-confirm-ok-btn" id="posConfirmOkBtn">OK</button>
             </div>
         </div>
     </div>
@@ -1260,6 +1284,22 @@
         document.getElementById('posWarningOkBtn').addEventListener('click', function () {
             document.getElementById('posWarningOverlay').classList.remove('active');
         });
+
+        let posConfirmHideTimer = null;
+        function hidePosConfirm() {
+            if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
+            document.getElementById('posConfirmOverlay').classList.remove('active');
+        }
+        function showPosConfirm(message) {
+            if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
+            document.getElementById('posConfirmMessage').textContent = message;
+            document.getElementById('posConfirmOverlay').classList.add('active');
+            posConfirmHideTimer = setTimeout(hidePosConfirm, 5000);
+        }
+        // A click anywhere on the overlay dismisses it — the OK button's own click bubbles up
+        // to this same listener, so one handler covers both "press OK" and "tap anywhere".
+        document.getElementById('posConfirmOverlay').addEventListener('click', hidePosConfirm);
+
         // Center-screen popup mirroring the PIN pad's own display while a card payment is
         // in progress — a corner toast isn't prominent enough for something the operator
         // and donor both need to watch together.
@@ -1524,8 +1564,22 @@
                 .then(function (result) {
                     btn.disabled = false;
                     if (result.status >= 200 && result.status < 300 && result.data.success) {
-                        const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
-                        showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
+                        // Cash/Bank Transfer aren't verified on the spot by a terminal, so they
+                        // get a clear center-screen confirmation instead of the quieter corner
+                        // toast (UPI/EFT Terminal already have their own on-screen confirmation —
+                        // the terminal prompt/receipt view — so they keep the toast).
+                        if (selectedMethod === 'Cash' || selectedMethod === 'Bank Transfer') {
+                            const emailNote = emailValue
+                                ? ' A receipt will be emailed to ' + emailValue + '.'
+                                : '';
+                            const message = selectedMethod === 'Bank Transfer'
+                                ? 'Donation of ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' recorded as pending bank transfer.' + emailNote
+                                : 'Donation of ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' recorded.' + emailNote;
+                            showPosConfirm(message);
+                        } else {
+                            const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
+                            showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
+                        }
                         addSessionOrder({ name: name, amount: amount, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
                         resetPosForm();
                         document.getElementById('posGuestName').focus();
