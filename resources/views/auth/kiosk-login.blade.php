@@ -360,7 +360,7 @@
 
           <div class="kiosk-username-field">
             <label for="kioskUsernameInput">Counter Username</label>
-            <input type="text" name="username" id="kioskUsernameInput" maxlength="10" autocomplete="off" autocapitalize="off" spellcheck="false" value="{{ old('username') }}" placeholder="counter1">
+            <input type="text" name="username" id="kioskUsernameInput" maxlength="10" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Username">
           </div>
 
           <div class="pin-dots" id="pinDots">
@@ -498,16 +498,6 @@
       const usernameInput = document.getElementById('kioskUsernameInput');
       let digits = '';
 
-      // A counter terminal is typically used by one person per shift — remembering the last
-      // username typed on THIS device (never synced/shared) saves retyping it every time
-      // without weakening anything, since the PIN itself is never stored.
-      try {
-        if (usernameInput && !usernameInput.value) {
-          const remembered = window.localStorage.getItem('kioskUsername');
-          if (remembered) { usernameInput.value = remembered; }
-        }
-      } catch (e) { /* localStorage unavailable (private mode etc.) — just skip the convenience */ }
-
       function render() {
         dots.forEach(function (dot, i) { dot.classList.toggle('filled', i < digits.length); });
         hiddenInput.value = digits;
@@ -537,7 +527,6 @@
           usernameInput.focus();
           return;
         }
-        try { window.localStorage.setItem('kioskUsername', usernameInput.value.trim()); } catch (e) { /* ignore */ }
         submitted = true;
         form.submit();
       }
@@ -568,9 +557,13 @@
         submitPin();
       });
 
-      // A counter PC may have a real keyboard attached, not just a touchscreen.
+      // A counter PC may have a real keyboard attached, not just a touchscreen. Skipped
+      // entirely while the username field itself has focus — a username containing a digit
+      // (e.g. "counter1") was otherwise feeding that same keystroke into the PIN too, since
+      // this listened on the whole document regardless of which field was actually focused.
       document.addEventListener('keydown', function (e) {
         if (pinPanel.classList.contains('d-none')) { return; }
+        if (document.activeElement === usernameInput) { return; }
         if (e.key >= '0' && e.key <= '9') { addDigit(e.key); }
         else if (e.key === 'Backspace') { digits = digits.slice(0, -1); render(); }
       });
