@@ -39,7 +39,59 @@
         background: var(--primary, #b8863a);
         color: white;
     }
+
+    /* A plain inline alert here used to be the only confirmation a donor got — easy to miss
+       entirely, since redirect()->back() after submitting lands them back at the TOP of the
+       page (fragments like #donate-now are never sent to the server, so there's no way to
+       redirect straight back to this section), leaving the message sitting below the fold
+       until/unless they scroll all the way back down to it. A full-screen popup guarantees
+       it's seen regardless of scroll position, the same treatment the POS confirmation uses. */
+    .donate-confirm-overlay { position: fixed; inset: 0; background: rgba(37,35,31,0.6); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
+    .donate-confirm-overlay.active { display: flex; }
+    .donate-confirm-box { background: #fff; border-radius: 18px; max-width: 440px; width: 100%; overflow: hidden; text-align: center; box-shadow: 0 30px 70px rgba(0,0,0,0.3); cursor: default; }
+    .donate-confirm-header { background: linear-gradient(135deg, var(--primary, #b8863a), color-mix(in srgb, var(--primary, #b8863a) 55%, black)); color: #fff; padding: 16px 20px; font-weight: 800; letter-spacing: 0.04em; font-size: 0.92rem; text-transform: uppercase; }
+    .donate-confirm-box.is-error .donate-confirm-header { background: linear-gradient(135deg, #c0392b, #7b241c); }
+    .donate-confirm-body { padding: 2rem 2rem 1.75rem; }
+    .donate-confirm-icon { font-size: 3rem; color: var(--primary, #b8863a); margin-bottom: 0.75rem; }
+    .donate-confirm-box.is-error .donate-confirm-icon { color: #c0392b; }
+    .donate-confirm-message { font-size: 1.05rem; color: var(--ink, #25231f); line-height: 1.6; margin-bottom: 1.5rem; }
+    .donate-confirm-ok { background: linear-gradient(135deg, var(--primary, #b8863a), color-mix(in srgb, var(--primary, #b8863a) 55%, black)); color: #fff; border: none; font-weight: 700; padding: 0.85rem 2.25rem; border-radius: 999px; font-size: 1rem; cursor: pointer; }
 </style>
+
+@if(session('success_donation') || $errors->any())
+<div class="donate-confirm-overlay active" id="{{ $formId }}-confirmOverlay">
+    <div class="donate-confirm-box {{ $errors->any() ? 'is-error' : '' }}">
+        <div class="donate-confirm-header">{{ $errors->any() ? 'Please Check Your Details' : 'Donation Confirmed' }}</div>
+        <div class="donate-confirm-body">
+        <div class="donate-confirm-icon"><i class="bi {{ $errors->any() ? 'bi-exclamation-circle-fill' : 'bi-check-circle-fill' }}"></i></div>
+        @if(session('success_donation'))
+            <p class="donate-confirm-message">{{ session('success_donation') }}</p>
+        @else
+            <p class="donate-confirm-message mb-0">
+                @foreach($errors->all() as $error)
+                    {{ $error }}@if(!$loop->last)<br>@endif
+                @endforeach
+            </p>
+        @endif
+        <button type="button" class="donate-confirm-ok">OK</button>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var overlay = document.getElementById('{{ $formId }}-confirmOverlay');
+    if (!overlay || overlay.dataset.bound) { return; }
+    overlay.dataset.bound = '1';
+    var hideTimer = setTimeout(function () { overlay.classList.remove('active'); }, 8000);
+    // Click anywhere (the OK button's own click bubbles here too) dismisses it.
+    overlay.addEventListener('click', function () {
+        clearTimeout(hideTimer);
+        overlay.classList.remove('active');
+    });
+})();
+</script>
+@endif
+
 <div class="donate-tabs-card">
     <ul class="nav nav-pills donate-method-tabs mb-4" id="{{ $formId }}-tabs" role="tablist">
         <li class="nav-item" role="presentation">

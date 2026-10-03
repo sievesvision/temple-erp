@@ -80,7 +80,7 @@
         table.console-table th, table.console-table td { padding: 10px 10px; text-align: left; font-size: 0.85rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
         table.console-table th { background: var(--cream); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.02em; position: sticky; top: 0; z-index: 5; }
         table.console-table td.col-name { white-space: normal; font-weight: 600; }
-        table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         table.console-table td.col-txn { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; color: var(--text-secondary); }
         table.console-table tbody tr:hover { background: var(--cream); }
         .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
@@ -102,7 +102,7 @@
         .stat-tile { background: var(--white); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(31,42,55,0.04); border: 1px solid var(--border); display: flex; align-items: center; gap: 14px; min-width: 0; }
         .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
         .stat-tile .label { color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .stat-tile .value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
+        .stat-tile .value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
 
         .ticket-type-card { border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--white); }
         .ticket-type-swatch { height: 60px; background-size: cover; background-position: center; }

@@ -181,11 +181,18 @@
            own column whether or not the center slot has anything in it, so hiding the center
            on a narrow screen can never leave the date/time stranded without its right-alignment
            (a flex:1 center spacer used to do that pushing — disappearing along with the
-           content it held, which is exactly what broke it). */
+           content it held, which is exactly what broke it). The two outer tracks are equal
+           1fr shares (not auto) specifically so the center track sits on the true page
+           center regardless of how lopsided the temple name vs. the date/time text are —
+           auto/auto would instead center it in whatever space happens to be left over
+           between two differently-sized outer columns, which drifts off-center exactly when
+           one side's text is much longer than the other's. The outer tracks' own edges are
+           still the footer's true left/right edges either way, so left/right alignment is
+           unaffected (and stays correct even once the center is hidden on a narrow screen). */
         .pos-footer-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
-        .pos-footer { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
+        .pos-footer { margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
         .pos-footer-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-        .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
+        .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: contain; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
         .pos-footer-text strong { display: block; color: var(--text-primary); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-footer-text span { display: block; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -333,6 +340,7 @@
         .pos-confirm-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
         .pos-confirm-overlay.active { display: flex; }
         .pos-confirm-popup { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; cursor: default; }
+        .pos-confirm-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: #fff; padding: 14px 20px; font-weight: 800; letter-spacing: 0.04em; font-size: 0.9rem; text-transform: uppercase; }
         .pos-confirm-icon { background: var(--success); color: #fff; font-size: 1.8rem; padding: 20px; }
         .pos-confirm-body { padding: 22px 24px 26px; }
         .pos-confirm-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
@@ -624,13 +632,14 @@
             <div class="pos-footer-left">
                 <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
                 <div class="pos-footer-text">
-                    <strong>{{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
+                    <strong>&copy; {{ date('Y') }} {{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
                     <span>{{ $temple['name'] ?? '' }}{{ !empty($temple['subtitle']) ? ', ' . $temple['subtitle'] : '' }}</span>
                 </div>
             </div>
             <div class="pos-footer-powered">
+                <span class="version">Powered by</span>
                 <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
-                <span>Powered by <strong>Sievesvision</strong> <span class="version">· v{{ config('sievespos.version') }}</span></span>
+                <span class="version">v{{ config('sievespos.version') }} · Sievesvision</span>
             </div>
             <div class="pos-footer-right">
                 <div class="pos-footer-date" id="posFooterDate"></div>
@@ -670,6 +679,7 @@
 
     <div class="pos-confirm-overlay" id="posConfirmOverlay">
         <div class="pos-confirm-popup">
+            <div class="pos-confirm-header">Donation Recorded</div>
             <div class="pos-confirm-icon"><i class="bi bi-check-circle-fill"></i></div>
             <div class="pos-confirm-body">
                 <div class="pos-confirm-message" id="posConfirmMessage"></div>

@@ -212,9 +212,10 @@
                         <h2>Make Your Donation</h2>
                     </div>
 
-                    @if(session('success_donation'))<div class="alert alert-success">{{ session('success_donation') }}</div>@endif
-                    @if($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-
+                    {{-- Success/error feedback is now a prominent popup rendered inside the
+                         shared donate-form partial itself (so it's visible regardless of
+                         scroll position after the post-submit redirect lands back at the top
+                         of the page), not a plain inline alert here. --}}
                     @include('frontend.partials.donate-form', ['temple' => $temple, 'lockedEvent' => $event, 'donationOptions' => $donationOptions, 'formAction' => route('donate.without.login'), 'formId' => 'event-donate-form', 'stripeEnabled' => $stripeEnabled, 'requireDonorEmail' => $requireDonorEmail, 'requireDonorMobile' => $requireDonorMobile, 'requireCaptcha' => true])
                 @endif
             </div>
