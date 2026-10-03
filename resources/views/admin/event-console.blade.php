@@ -290,7 +290,7 @@
            option labels ("Sponsorship for a Conch") — the data underneath is just numbers. */
         table.console-table th { background: var(--cream); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.02em; line-height: 1.25; position: sticky; top: 0; z-index: 5; white-space: normal; vertical-align: bottom; }
         table.console-table td.col-name { white-space: normal; min-width: 110px; max-width: 160px; font-weight: 600; }
-        table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; }
+        table.console-table td.col-amount, table.console-table th.col-amount { text-align: right; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         table.console-table th.col-amount { max-width: 80px; font-family: 'Inter', sans-serif; }
         table.console-table td.col-amount.total { font-weight: 700; color: var(--text-primary); }
         table.console-table td.col-contact { white-space: normal; max-width: 130px; }
@@ -328,7 +328,7 @@
         .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
         .stat-tile .stat-text { min-width: 0; }
         .stat-tile .label { color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .stat-tile .value { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; overflow-wrap: break-word; }
+        .stat-tile .value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; overflow-wrap: break-word; }
 
         .breakdown-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .breakdown-row:last-child { border-bottom: none; }
@@ -521,7 +521,7 @@
                 </div>
                 <div class="sidebar-decoration">
                     <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
-                    <p>Powered by <strong>Sievesvision</strong> <span class="version">· v{{ config('sievespos.version') }}</span></p>
+                    <p><strong>SievesPOS v{{ config('sievespos.version') }}</strong> <span class="version">· Powered by Sievesvision</span></p>
                 </div>
             </aside>
 

@@ -181,9 +181,16 @@
            own column whether or not the center slot has anything in it, so hiding the center
            on a narrow screen can never leave the date/time stranded without its right-alignment
            (a flex:1 center spacer used to do that pushing — disappearing along with the
-           content it held, which is exactly what broke it). */
+           content it held, which is exactly what broke it). The two outer tracks are equal
+           1fr shares (not auto) specifically so the center track sits on the true page
+           center regardless of how lopsided the temple name vs. the date/time text are —
+           auto/auto would instead center it in whatever space happens to be left over
+           between two differently-sized outer columns, which drifts off-center exactly when
+           one side's text is much longer than the other's. The outer tracks' own edges are
+           still the footer's true left/right edges either way, so left/right alignment is
+           unaffected (and stays correct even once the center is hidden on a narrow screen). */
         .pos-footer-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
-        .pos-footer { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
+        .pos-footer { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
         .pos-footer-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
         .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
@@ -630,7 +637,7 @@
             </div>
             <div class="pos-footer-powered">
                 <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
-                <span>Powered by <strong>Sievesvision</strong> <span class="version">· v{{ config('sievespos.version') }}</span></span>
+                <span><strong>SievesPOS v{{ config('sievespos.version') }}</strong> <span class="version">· Powered by Sievesvision</span></span>
             </div>
             <div class="pos-footer-right">
                 <div class="pos-footer-date" id="posFooterDate"></div>
