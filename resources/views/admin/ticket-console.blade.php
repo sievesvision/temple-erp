@@ -997,7 +997,7 @@
         // otherwise reset back to Dashboard after saving — same "consoleActivePane"
         // localStorage convention as event-console.blade.php, so a form submission anywhere
         // in one of these panes reopens that exact pane once the page reloads.
-        ['pane-settings', 'pane-eft-settings', 'pane-cash-banking', 'pane-controllers'].forEach(function (paneId) {
+        ['pane-settings', 'pane-eft-settings', 'pane-cash-banking', 'pane-controllers', 'pane-sales'].forEach(function (paneId) {
             const pane = document.getElementById(paneId);
             if (!pane) { return; }
             pane.querySelectorAll('form').forEach(function (form) {
@@ -1098,6 +1098,7 @@
                     }
                     if (data.success) {
                         setRefundStatus('REFUND APPROVED', data.auth_code ? 'Auth ' + data.auth_code : '');
+                        try { localStorage.setItem('consoleActivePane', 'pane-sales'); } catch (e) {}
                         setTimeout(function () { window.location.reload(); }, 1200);
                     } else {
                         setRefundStatus('REFUND ' + (data.payment_status || 'NOT COMPLETED').toUpperCase(), data.message || '');
@@ -1179,7 +1180,10 @@
             // usable for as long as the Action Framework response keeps showing them. A plain
             // Cancel before anything started never reloads, since nothing changed.
             onModalClosed: function () {
-                if (sciRefundNeedsReload) { window.location.reload(); }
+                if (sciRefundNeedsReload) {
+                    try { localStorage.setItem('consoleActivePane', 'pane-sales'); } catch (e) {}
+                    window.location.reload();
+                }
             },
         };
         const sciRefundFlow = SciActionFramework.createFlow(sciRefundFlowCfg);

@@ -650,7 +650,7 @@
                         </div>
                         <div class="page-header-actions d-flex gap-2">
                             <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
-                            <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+                            <button type="button" class="btn-refresh" onclick="try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {} location.reload();"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
                         </div>
                     </div>
                     @php
@@ -1931,6 +1931,18 @@
                 try { localStorage.setItem('consoleActivePane', 'pane-cash-banking'); } catch (e) {}
             });
         });
+        // All Transactions (Approve/Resend/Check Status/Edit/Delete on a donation row) is the
+        // same plain POST/redirect pattern — missing this was exactly what sent an admin back
+        // to New Donation after approving a Bank Transfer instead of leaving them on the table
+        // they were just working from.
+        // The Edit Donation modals live outside #pane-table in the DOM (modals are rendered
+        // at the end of the page, not nested in the pane they're opened from), so they need
+        // their own selector even though they submit to the exact same table.
+        document.querySelectorAll('#pane-table form, [id^="editDevoteeDonationModal"] form, [id^="editGuestDonationModal"] form').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
+            });
+        });
         (function restoreActivePane() {
             let savedPane = null;
             try { savedPane = localStorage.getItem('consoleActivePane'); } catch (e) {}
@@ -2584,6 +2596,7 @@
                     if (data.success) {
                         setEftRefundStatus('REFUND APPROVED', data.auth_code ? 'Auth ' + data.auth_code : '');
                         showToast('Refund approved.');
+                        try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
                         setTimeout(function () { location.reload(); }, 1200);
                     } else {
                         setEftRefundStatus('REFUND ' + (data.payment_status || 'NOT COMPLETED').toUpperCase(), data.message || '');
@@ -2672,7 +2685,10 @@
             // like the purchase flow already does; a plain Cancel before anything started
             // never reloads, since nothing changed.
             onModalClosed: function () {
-                if (sciRefundNeedsReload) { location.reload(); }
+                if (sciRefundNeedsReload) {
+                    try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
+                    location.reload();
+                }
             },
         };
         const sciRefundFlow = SciActionFramework.createFlow(sciRefundFlowCfg);
