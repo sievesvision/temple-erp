@@ -66,6 +66,7 @@
         .sidebar-decoration p { font-size: 0.72rem; color: var(--text-secondary); margin: 0; }
         .sidebar-decoration p strong { color: var(--text-primary); font-weight: 700; }
         .sidebar-decoration p .version { opacity: 0.75; }
+        .sidebar-decoration .copyright { margin-bottom: 2px; opacity: 0.75; }
 
         .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
 
@@ -521,7 +522,8 @@
                 </div>
                 <div class="sidebar-decoration">
                     <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
-                    <p><strong>SievesPOS v{{ config('sievespos.version') }}</strong> <span class="version">· Powered by Sievesvision</span></p>
+                    <p class="copyright">&copy; {{ date('Y') }} {{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</p>
+                    <p><span class="version">Powered by</span> v{{ config('sievespos.version') }} <span class="version">· Sievesvision</span></p>
                 </div>
             </aside>
 

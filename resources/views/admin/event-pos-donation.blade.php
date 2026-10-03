@@ -190,9 +190,9 @@
            still the footer's true left/right edges either way, so left/right alignment is
            unaffected (and stays correct even once the center is hidden on a narrow screen). */
         .pos-footer-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
-        .pos-footer { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
+        .pos-footer { margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
         .pos-footer-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-        .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
+        .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: contain; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
         .pos-footer-text strong { display: block; color: var(--text-primary); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-footer-text span { display: block; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -631,13 +631,14 @@
             <div class="pos-footer-left">
                 <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
                 <div class="pos-footer-text">
-                    <strong>{{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
+                    <strong>&copy; {{ date('Y') }} {{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
                     <span>{{ $temple['name'] ?? '' }}{{ !empty($temple['subtitle']) ? ', ' . $temple['subtitle'] : '' }}</span>
                 </div>
             </div>
             <div class="pos-footer-powered">
+                <span class="version">Powered by</span>
                 <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
-                <span><strong>SievesPOS v{{ config('sievespos.version') }}</strong> <span class="version">· Powered by Sievesvision</span></span>
+                <span class="version">v{{ config('sievespos.version') }} · Sievesvision</span>
             </div>
             <div class="pos-footer-right">
                 <div class="pos-footer-date" id="posFooterDate"></div>
