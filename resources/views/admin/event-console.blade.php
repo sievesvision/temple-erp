@@ -1375,6 +1375,11 @@
                                             <button type="submit" class="btn-action-resend" title="Send password reset link"><i class="bi bi-key-fill"></i></button>
                                         </form>
                                         @if($canTouchThisCoord)
+                                        @if($coord->level !== 'view')
+                                        <button type="button" class="btn-action-resend" title="Override kiosk username/PIN" onclick="openKioskCredModal({{ $coord->id }}, {{ json_encode($coord->name) }}, {{ json_encode($coord->username) }})">
+                                            <i class="bi bi-shield-lock-fill"></i>
+                                        </button>
+                                        @endif
                                         <form action="{{ route('admin.events.coordinators.toggleLock', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $coord->status === 'Active' ? 'Lock' : 'Unlock' }} this account?')">
                                             @csrf
                                             <input type="hidden" name="return_context" value="console">
@@ -1398,6 +1403,63 @@
                         </table>
                         </div>
                     </div>
+
+                    {{-- Shared across every row — populated by openKioskCredModal() rather than
+                         one modal per coordinator, since only one can ever be open at once.
+                         Always requires the ACTING admin's own password (see
+                         EventCoordinatorController::overrideKioskCredentials()'s own docblock
+                         for why), never the target coordinator's. --}}
+                    <div class="modal fade" id="kioskCredModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <form id="kioskCredForm" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="return_context" value="console">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Override Kiosk Username/PIN — <span id="kioskCredCoordName"></span></h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="field-group mb-3">
+                                            <label class="field-label">Kiosk Username</label>
+                                            <input type="text" name="username" id="kioskCredUsername" class="form-control" minlength="6" maxlength="10" placeholder="6-10 characters">
+                                        </div>
+                                        <div class="field-row two-col mb-3">
+                                            <div class="field-group">
+                                                <label class="field-label">New PIN <span class="text-muted">(leave blank to keep current)</span></label>
+                                                <input type="text" name="new_pin" class="form-control" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
+                                            </div>
+                                            <div class="field-group">
+                                                <label class="field-label">Confirm New PIN</label>
+                                                <input type="text" name="new_pin_confirmation" class="form-control" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="field-group">
+                                            <label class="field-label">Your password <span class="text-muted">(to confirm this change)</span></label>
+                                            <input type="password" name="current_password" class="form-control" required autocomplete="current-password">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn-save">Save</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                        const KIOSK_CRED_URL_BASE = @json(route('admin.events.coordinators.overrideKioskCredentials', [$event->event_id, '__USER__']));
+                        function openKioskCredModal(userId, name, username) {
+                            document.getElementById('kioskCredForm').action = KIOSK_CRED_URL_BASE.replace('__USER__', userId);
+                            document.getElementById('kioskCredCoordName').textContent = name;
+                            document.getElementById('kioskCredUsername').value = username || '';
+                            document.getElementById('kioskCredForm').querySelector('input[name="current_password"]').value = '';
+                            document.getElementById('kioskCredForm').querySelector('input[name="new_pin"]').value = '';
+                            document.getElementById('kioskCredForm').querySelector('input[name="new_pin_confirmation"]').value = '';
+                            new bootstrap.Modal(document.getElementById('kioskCredModal')).show();
+                        }
+                    </script>
                 </div>
                 @endif
 

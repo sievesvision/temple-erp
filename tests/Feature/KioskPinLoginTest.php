@@ -76,7 +76,13 @@ class KioskPinLoginTest extends TestCase
         $this->assertSame('Event Coordinator', session('active_role'));
     }
 
-    public function test_an_entry_level_coordinator_cannot_set_up_or_use_a_kiosk_pin(): void
+    /**
+     * 'entry' level resolves a kiosk destination the same as 'pos'/'admin' now — the POS
+     * donation page a PIN login lands on requires at least 'entry' level to use
+     * (EventCoordinatorLevel::atLeast(..., 'entry')), so unlike 'view' (see the next test)
+     * there's nothing stopping an entry-level coordinator from actually using it.
+     */
+    public function test_an_entry_level_coordinator_can_log_in_with_a_pin_and_lands_on_pos_mode(): void
     {
         $user = User::factory()->create([
             'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
@@ -88,6 +94,37 @@ class KioskPinLoginTest extends TestCase
         ]);
         DB::table('event_coordinators')->insert([
             'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'entry',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        KioskPin::create([
+            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
+            'pin' => Hash::make('123456'), 'pin_set_at' => now(),
+        ]);
+
+        $response = $this->post(route('kiosk.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+
+        $response->assertRedirect(route('admin.events.pos', $eventId));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    /**
+     * 'view' is the one level still excluded (see AuthController::possibleKioskPosDestinations()'s
+     * own docblock) — the POS page a PIN login lands on 403s a 'view'-level coordinator, so a
+     * stray KioskPin row for one (shouldn't normally exist — the settings screen never offers
+     * it) must still never be allowed to complete a login.
+     */
+    public function test_a_view_level_coordinator_cannot_use_a_kiosk_pin(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
+            'username' => 'sieves',
+        ]);
+        $eventId = DB::table('events')->insertGetId([
+            'event_name' => 'Pin Test Event', 'event_date' => now()->addMonth()->toDateString(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('event_coordinators')->insert([
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'view',
             'created_at' => now(), 'updated_at' => now(),
         ]);
         KioskPin::create([

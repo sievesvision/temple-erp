@@ -578,7 +578,13 @@ class AuthController extends Controller
      */
     public function possibleKioskPosDestinations(User $user, bool $includeAdminLevel = true): array
     {
-        $allowedCoordinatorLevels = $includeAdminLevel ? ['pos', 'admin'] : ['pos'];
+        // 'view' is deliberately left out even on the $includeAdminLevel=true branch — PIN
+        // login always lands directly on the POS donation page (see redirectToPosDestination()'s
+        // own docblock), and that page itself requires at least 'entry' level
+        // (EventCoordinatorLevel::atLeast(..., 'entry')); a 'view'-level coordinator's PIN would
+        // just land them on a page that immediately 403s. 'entry'/'pos'/'admin' coordinators can
+        // all actually use that page, so all three get a kiosk PIN, same as 'admin' already did.
+        $allowedCoordinatorLevels = $includeAdminLevel ? ['pos', 'entry', 'admin'] : ['pos'];
 
         $coordinatorRows = \Illuminate\Support\Facades\DB::table('event_coordinators')
             ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
@@ -792,7 +798,7 @@ class AuthController extends Controller
      * branches; an admin-level Event Coordinator does have a console dashboard, but this same
      * screen still covers their PIN setup too, reached the same way). Locked to accounts that
      * currently resolve at least one kiosk destination via possibleKioskPosDestinations() —
-     * pos or admin level for an Event Coordinator, view/entry for a Ticket Controller. Shows
+     * pos/entry/admin level for an Event Coordinator, view/entry for a Ticket Controller. Shows
      * every reachable destination separately, each with its own PIN status — the username
      * itself is admin-assigned, shown read-only here.
      */
