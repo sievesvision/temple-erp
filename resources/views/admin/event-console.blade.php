@@ -1411,38 +1411,39 @@
                          for why), never the target coordinator's. --}}
                     <div class="modal fade" id="kioskCredModal" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
+                            <div class="modal-content border-0 shadow-lg rounded-4">
                                 <form id="kioskCredForm" method="POST">
                                     @csrf
                                     <input type="hidden" name="return_context" value="console">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Override Kiosk Username/PIN — <span id="kioskCredCoordName"></span></h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    <div class="modal-header border-0 pb-0">
+                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Override Kiosk Username/PIN — <span id="kioskCredCoordName"></span></h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
-                                    <div class="modal-body">
-                                        <div class="field-group mb-3">
-                                            <label class="field-label">Kiosk Username</label>
-                                            <input type="text" name="username" id="kioskCredUsername" class="form-control" minlength="6" maxlength="10" placeholder="6-10 characters">
+                                    <div class="modal-body py-3">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Kiosk Username</label>
+                                            <input type="text" name="username" id="kioskCredUsername" class="form-control rounded-3" minlength="6" maxlength="10" placeholder="6-10 characters">
                                         </div>
-                                        <div class="field-row two-col mb-3">
-                                            <div class="field-group">
-                                                <label class="field-label">New PIN <span class="text-muted">(leave blank to keep current)</span></label>
-                                                <input type="text" name="new_pin" class="form-control" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">New PIN</label>
+                                                <input type="text" name="new_pin" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
                                             </div>
-                                            <div class="field-group">
-                                                <label class="field-label">Confirm New PIN</label>
-                                                <input type="text" name="new_pin_confirmation" class="form-control" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">Confirm New PIN</label>
+                                                <input type="text" name="new_pin_confirmation" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
                                             </div>
                                         </div>
+                                        <p class="text-muted small mt-n2 mb-3">Leave both PIN fields blank to keep the current PIN and only update the username.</p>
                                         <hr>
-                                        <div class="field-group">
-                                            <label class="field-label">Your password <span class="text-muted">(to confirm this change)</span></label>
-                                            <input type="password" name="current_password" class="form-control" required autocomplete="current-password">
+                                        <div class="mb-1">
+                                            <label class="form-label fw-semibold">Your password <span class="text-muted fw-normal">(to confirm this change)</span></label>
+                                            <input type="password" name="current_password" class="form-control rounded-3" required autocomplete="current-password">
                                         </div>
                                     </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                                        <button type="submit" class="btn-save">Save</button>
+                                    <div class="modal-footer border-0 pt-0">
+                                        <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
+                                        <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #C89B3C, #A67C2B); border:none;">Save</button>
                                     </div>
                                 </form>
                             </div>
