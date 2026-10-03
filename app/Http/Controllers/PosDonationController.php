@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
- * A deliberately minimal, kiosk-style "point of sale" donation entry screen — one event,
+ * A deliberately minimal, counter-style "point of sale" donation entry screen — one event,
  * one job: take the next donation as fast as possible. Guest donations only (no devotee
  * lookup — every entry taken here is a walk-up donor). No dashboard, no donations table, no
  * settings; the only history shown is what this browser session itself has recorded, via
@@ -85,9 +85,9 @@ class PosDonationController extends Controller
         // Events" list — so the only exit this page offers them is Logout.
         $canReturnToConsole = !($activeRole === 'Event Coordinator' && $coordinatorLevel === 'pos');
 
-        // The "Manage PIN" topbar icon only makes sense for an account the kiosk PIN feature
+        // The "Manage PIN" topbar icon only makes sense for an account the POS PIN feature
         // actually applies to — showing it to everyone else would just be a dead-end 403.
-        $canManageKioskPin = (bool) app(AuthController::class)->possibleKioskPosDestinations($user);
+        $canManagePosPin = (bool) app(AuthController::class)->possiblePosDestinations($user);
 
         $temple = Setting::templeBranding();
 
@@ -108,7 +108,7 @@ class PosDonationController extends Controller
         // Every currently PAIRED terminal — the station itself picks which one it's using
         // (saved client-side, see event-pos-donation.blade.php's terminal picker), so two
         // stations on two different terminals can each run this same event's POS
-        // concurrently, or one on this event and one on the Ticket Kiosk. An unpaired
+        // concurrently, or one on this event and one on the Ticket POS. An unpaired
         // terminal can't take a payment at all, so it's left off this list entirely rather
         // than offered as a selectable-but-broken option (it still shows on the EFT
         // Terminal Settings page, grouped under "Inactive").
@@ -140,7 +140,7 @@ class PosDonationController extends Controller
             'temple',
             'pendingEftRecovery',
             'eftTerminalsForJs',
-            'canManageKioskPin',
+            'canManagePosPin',
             'eftMinimumAmount'
         ));
     }

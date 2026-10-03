@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * Covers running more than one EFT terminal at once — e.g. one station on the Ticket Kiosk
+ * Covers running more than one EFT terminal at once — e.g. one station on the Ticket POS
  * and another on an event's donation POS (or two ticket counters on two computers), each
  * paired independently via App\Models\EftTerminal and never sharing a bearer token or
  * pairing secret. See LinklyEftService (every method now takes an explicit EftTerminal) and

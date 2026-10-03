@@ -59,7 +59,7 @@
         <header style="margin-top: 44px;">
             <span class="badge">Multiple Terminals</span>
             <h1 style="font-size: 1.4rem;">Running More Than One Terminal at Once</h1>
-            <p>SievesPOS can pair and run several EFTPOS terminals at the same time — for example, one for the Ticket Kiosk and a separate one for an event's donation POS, or two ticket-selling computers each on their own terminal, so neither queue has to wait for the other.</p>
+            <p>SievesPOS can pair and run several EFTPOS terminals at the same time — for example, one for the Ticket POS and a separate one for an event's donation POS, or two ticket-selling computers each on their own terminal, so neither queue has to wait for the other.</p>
         </header>
 
         <div class="step">
@@ -75,10 +75,10 @@
         <div class="step">
             <h2><span class="step-num">8</span> Choose which terminal each computer uses</h2>
             <p>Which terminal a given computer actually charges to is set <strong>on that computer only</strong> — it is never a shared, server-wide setting, which is what lets two computers run two terminals at once without conflicting:</p>
-            <p>&bull; On the <strong>Ticket Kiosk</strong> screen itself, tap the <strong>Terminal</strong> button in the top bar to see and choose from the registered, paired terminals.</p>
-            <p>&bull; Or, from the <strong>Ticket Console &rarr; Settings</strong> pane, use <strong>This Computer's EFT Terminal</strong> to pick and save a terminal for whichever computer you're using at the time — it takes effect on the Ticket Kiosk on that same computer immediately.</p>
+            <p>&bull; On the <strong>Ticket POS</strong> screen itself, tap the <strong>Terminal</strong> button in the top bar to see and choose from the registered, paired terminals.</p>
+            <p>&bull; Or, from the <strong>Ticket Console &rarr; Settings</strong> pane, use <strong>This Computer's EFT Terminal</strong> to pick and save a terminal for whichever computer you're using at the time — it takes effect on the Ticket POS on that same computer immediately.</p>
             <p>&bull; The <strong>Event POS</strong> donation screen has the same Terminal button in its top bar for choosing that station's terminal.</p>
-            <div class="note"><strong>Note:</strong> this choice is stored only in that browser (not sent to SievesPOS's server), so it must be set again on each new computer or if that browser's data is cleared — the kiosk will use the registry's default terminal until it is.</div>
+            <div class="note"><strong>Note:</strong> this choice is stored only in that browser (not sent to SievesPOS's server), so it must be set again on each new computer or if that browser's data is cleared — the POS page will use the registry's default terminal until it is.</div>
         </div>
 
         <div class="step">

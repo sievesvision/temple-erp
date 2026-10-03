@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Phase 3 smoke test — the donation POS and ticket kiosk pages must still render (no Blade
+ * Phase 3 smoke test — the donation POS and ticket POS pages must still render (no Blade
  * errors from the new Action Framework markup/JS wiring) and must report a CBA Smart
  * Terminal as paired using its own SCI pairing state, not Linkly's secret_live/secret_sandbox
  * columns (see EftTerminal::isPairedFor()).

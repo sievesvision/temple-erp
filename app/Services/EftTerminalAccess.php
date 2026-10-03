@@ -17,15 +17,15 @@ use Illuminate\Support\Facades\DB;
  * EftTerminalController::setDefault()/destroy()) since those affect every other console's
  * fallback resolution, not just the caller's own event/module.
  *
- * Also covers whoever actually operates a POS kiosk — both kiosk pages
+ * Also covers whoever actually operates a POS counter — both POS pages
  * (event-pos-donation.blade.php, ticket-pos.blade.php) show an "Open EFT Terminal Settings"
  * link unconditionally, and a station whose own terminal has gone unpaired is exactly the
  * situation that link exists for; waiting on an Admin to be available isn't realistic for an
  * unattended counter. That's a 'pos'-level Event Coordinator specifically (the only tier that
- * ever lands on the kiosk with no console access at all — see EventCoordinatorLevel's
+ * ever lands on the POS page with no console access at all — see EventCoordinatorLevel's
  * docblock) — 'entry'-level stays excluded, since an entry-level coordinator already has the
- * full console (and whatever Admin oversight comes with that) rather than only the kiosk. For
- * Ticket Controller, 'view' and 'entry' both land on the Ticket POS kiosk the same way (only
+ * full console (and whatever Admin oversight comes with that) rather than only the POS page. For
+ * Ticket Controller, 'view' and 'entry' both land on the Ticket POS page the same way (only
  * 'admin' reaches the Ticket Console — see TicketControllerLevel's docblock), so both tiers
  * are included here.
  */
@@ -46,7 +46,7 @@ class EftTerminalAccess
         if ($activeRole === 'Event Coordinator') {
             // 'entry'-level deliberately stays excluded — an entry-level coordinator already
             // has the full console (with an Admin to fall back on for terminal setup), unlike
-            // a 'pos'-level coordinator who only ever sees the kiosk and nothing else.
+            // a 'pos'-level coordinator who only ever sees the POS page and nothing else.
             return DB::table('event_coordinators')
                 ->where('user_id', $user->id)
                 ->whereIn('level', ['pos', 'admin'])

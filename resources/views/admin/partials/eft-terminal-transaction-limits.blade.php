@@ -1,7 +1,7 @@
 {{-- Minimum EFT Terminal transaction amount — common storage/enforcement across both
      providers (see App\Services\EftTransactionLimits), used by CbaSciController::
      startPurchase() (mx51) and DonationController::startEftCharge() (Linkly, shared by the
-     Donation POS and Ticket Kiosk) in place of a hardcoded "must be at least 1". System-
+     Donation POS and Ticket POS) in place of a hardcoded "must be at least 1". System-
      Admin-only, same tier as the other settings cards on this page. --}}
 @php $eftMinimumAmount = \App\Services\EftTransactionLimits::minimumAmount(); @endphp
 <div class="eftr-settings-card">

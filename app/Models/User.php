@@ -33,8 +33,8 @@ protected $fillable = [
     'password_changed_at',
     'last_reset_email_sent_at',
     'two_factor_enabled',
-    'kiosk_pin_failed_attempts',
-    'kiosk_pin_locked_at',
+    'pos_pin_failed_attempts',
+    'pos_pin_locked_at',
 ];
 
     /**
@@ -60,7 +60,7 @@ protected $fillable = [
             'last_login_at' => 'datetime',
             'password_changed_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
-            'kiosk_pin_locked_at' => 'datetime',
+            'pos_pin_locked_at' => 'datetime',
         ];
     }
 
@@ -76,9 +76,9 @@ protected $fillable = [
         Mail::to($this->email)->send(new AdminPasswordResetLinkMail($this->name, $url));
     }
 
-    public function kioskPins()
+    public function posPins()
     {
-        return $this->hasMany(KioskPin::class);
+        return $this->hasMany(PosPin::class);
     }
 
     /**

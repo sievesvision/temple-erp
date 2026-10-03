@@ -18,7 +18,7 @@ with Linkly (or your onboarding contact) before submitting for accreditation.
 | Terminal pairing (Settings page, Admin-only) | `app/Http/Controllers/LinklyController.php` |
 | Purchase/poll/cancel/refund/logon/reprint/pairing orchestration + webhook | `app/Http/Controllers/DonationController.php` (`startEftCharge`, `pollEftCharge`, `cancelEftCharge`, `refundEftCharge`, `logonLinkly`, `reprintEftReceipt`, `pairEftFromConsole`, `linklyWebhook`) |
 | Accreditation ledger (transaction references, audit trail) | `app/Models/LinklyTransaction.php`, migration `2026_09_30_000000_create_linkly_transactions_table.php` |
-| POS kiosk purchase UI (pos-entry) | `resources/views/admin/event-pos-donation.blade.php` |
+| POS purchase UI (pos-entry) | `resources/views/admin/event-pos-donation.blade.php` |
 | Event Console EFTPOS pane (event-coordinator-admin) | `resources/views/admin/event-console.blade.php` (pane `pane-eftpos`) |
 | Per-event coordinator level (pos/entry/admin) | `app/Services/EventCoordinatorLevel.php` |
 | Resulting donation records | `donations` table (devotee), `donations_without_logins` table (guest) |
@@ -31,7 +31,7 @@ instruction not to invent new roles, these map onto the existing per-event coord
 (`app/Services/EventCoordinatorLevel.php`), already used identically for every other
 console capability:
 
-- **pos-entry** → whoever can already reach the POS kiosk page and start a Purchase:
+- **pos-entry** → whoever can already reach the POS page and start a Purchase:
   Admin, Committee/Accountant (via the `donations`/`add` grid grant), or an Event
   Coordinator at `pos`/`entry` level for that specific event. Gate:
   `DonationController::canRecordDonation()`.

@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
  * One independently-pairable EFT terminal (a physical PIN pad, or a virtual test one) — each
  * holds its own pairing state for whichever provider it speaks (Linkly Cloud, or CBA Smart
  * Terminal via mx51's Simple Cloud Integration), so several can be paired and used at once
- * (e.g. one station on the Ticket Kiosk, another on an event's donation POS, running
+ * (e.g. one station on the Ticket POS, another on an event's donation POS, running
  * simultaneously without interfering) regardless of provider. `provider` says which set of
  * columns below is meaningful for a given row: Linkly's own username/password/posVendorId/
  * base URLs stay global on LinklyConfigService (only the pairing secret and posId differ

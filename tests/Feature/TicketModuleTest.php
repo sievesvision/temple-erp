@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * Covers the standalone Ticket module (catalog, kiosk order recording, individual stub
+ * Covers the standalone Ticket module (catalog, POS order recording, individual stub
  * printing, and reuse of the Linkly EFT infrastructure built for donations) — see
  * TicketController and DonationController's generalised startEftCharge()/
  * createDonationIfApprovedPurchaseUnrecorded()/markDonationCancelledIfRefundJustApproved().
@@ -38,7 +38,7 @@ class TicketModuleTest extends TestCase
     }
 
     // A user with only 'tickets' permission (no 'donations' grant) can still reach the
-    // catalog and kiosk — proves the 'tickets' resource is actually wired into RolePermission.
+    // catalog and POS page — proves the 'tickets' resource is actually wired into RolePermission.
     public function test_committee_user_can_manage_ticket_catalog(): void
     {
         $user = $this->ticketUser();
@@ -94,7 +94,7 @@ class TicketModuleTest extends TestCase
     }
 
     // The printed stub is deliberately plain (no per-ticket theming) — that colour theme
-    // lives on the kiosk tile instead (see the next test) — and still renders even once the
+    // lives on the POS tile instead (see the next test) — and still renders even once the
     // catalog entry it was sold from has since been deleted.
     public function test_print_view_stays_plain_and_survives_a_deleted_ticket_type(): void
     {
@@ -138,9 +138,9 @@ class TicketModuleTest extends TestCase
         $print->assertSee('setPaperWidth(\'80mm\'', false);
     }
 
-    // The kiosk tile picks up the ticket type's own background_color theme (see
+    // The POS tile picks up the ticket type's own background_color theme (see
     // resources/views/admin/ticket-pos.blade.php's color-mix()-derived --tile-accent).
-    public function test_kiosk_tile_reflects_the_tickets_colour_theme(): void
+    public function test_pos_tile_reflects_the_tickets_colour_theme(): void
     {
         $user = $this->ticketUser();
         Ticket::create(['name' => 'Themed Ticket', 'price' => 21.00, 'status' => 'Active', 'background_color' => '#6B21A8']);

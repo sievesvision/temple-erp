@@ -912,7 +912,7 @@ class DonationController extends Controller
         $validated = $request->validate([
             // Admin-configurable (EFT Terminal Settings) rather than a hardcoded 1 — see
             // App\Services\EftTransactionLimits. Shared by both the Donation POS and Ticket
-            // Kiosk, since both start an EFT charge through this same method.
+            // POS, since both start an EFT charge through this same method.
             'amount' => 'required|numeric|min:' . \App\Services\EftTransactionLimits::minimumAmount(),
             // A per-attempt idempotency key the browser generates once and reuses for every
             // retry of the *same* checkout attempt (double-clicking Pay, or resuming after a
@@ -932,7 +932,7 @@ class DonationController extends Controller
             // Ticket-order fields only.
             'cart_json' => 'nullable|string',
             // Which physical terminal this station is using — lets two stations (e.g. one on
-            // the Ticket Kiosk, one on an event's POS) run concurrent sessions on their own
+            // the Ticket POS, one on an event's POS) run concurrent sessions on their own
             // paired terminals. Omitted (an old cached page, or a single-terminal deployment)
             // falls back to the registry's default terminal.
             'terminal_id' => 'nullable|integer|exists:eft_terminals,id',

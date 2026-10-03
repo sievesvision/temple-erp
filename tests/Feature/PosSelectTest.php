@@ -7,15 +7,15 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * The "choose your counter" grid for an account holding more than one kiosk-only
+ * The "choose your counter" grid for an account holding more than one POS-only
  * destination at once (two pos-level events, or an event plus ticket access) — see
- * AuthController::possibleKioskPosDestinations()/completeLogin()/showKioskSelect(). Only
- * ever engages for a Event Coordinator/Ticket Controller account that is PURELY kiosk-only;
+ * AuthController::possiblePosDestinations()/completeLogin()/showPosSelect(). Only
+ * ever engages for a Event Coordinator/Ticket Controller account that is PURELY POS-only;
  * every other combination keeps today's pre-existing single-destination behavior.
  */
-class KioskSelectTest extends TestCase
+class PosSelectTest extends TestCase
 {
-    private function makeEvent(string $name = 'Kiosk Event'): int
+    private function makeEvent(string $name = 'POS Event'): int
     {
         return DB::table('events')->insertGetId([
             'event_name' => $name, 'event_date' => now()->addMonth()->toDateString(),
@@ -58,11 +58,11 @@ class KioskSelectTest extends TestCase
 
         $response = $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
 
-        $response->assertRedirect(route('kiosk.select'));
+        $response->assertRedirect(route('pos.select'));
 
-        $grid = $this->actingAs($user)->get(route('kiosk.select'));
+        $grid = $this->actingAs($user)->get(route('pos.select'));
         $grid->assertOk();
-        $grid->assertSee('Kiosk Event');
+        $grid->assertSee('POS Event');
         $grid->assertSee('Ticket Sales');
         $grid->assertSee('value="' . $eventId . '"', false);
     }
@@ -75,37 +75,37 @@ class KioskSelectTest extends TestCase
      * active_role is literally 'Ticket Controller'. Exercises the actual POST endpoint the
      * tile submits to, for both directions, to prove the fix holds.
      */
-    public function test_choosing_the_ticket_tile_switches_active_role_and_actually_reaches_the_kiosk(): void
+    public function test_choosing_the_ticket_tile_switches_active_role_and_actually_reaches_the_pos(): void
     {
         $user = User::factory()->create(['role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########')]);
         $eventId = $this->makeEvent();
         $this->assignEvent($user, $eventId, 'pos');
         $this->grantTicketAccess($user, 'entry');
 
-        $response = $this->actingAs($user)->post(route('kiosk.select.choose'), ['type' => 'tickets']);
+        $response = $this->actingAs($user)->post(route('pos.select.choose'), ['type' => 'tickets']);
 
         $response->assertRedirect(route('admin.tickets.pos'));
         $this->assertSame('Ticket Controller', session('active_role'));
 
         // Follow through to the real destination — must not 403.
-        $kiosk = $this->get(route('admin.tickets.pos'));
-        $kiosk->assertOk();
+        $pos = $this->get(route('admin.tickets.pos'));
+        $pos->assertOk();
     }
 
-    public function test_choosing_the_event_tile_switches_active_role_and_actually_reaches_the_kiosk(): void
+    public function test_choosing_the_event_tile_switches_active_role_and_actually_reaches_the_pos(): void
     {
         $user = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
         $eventId = $this->makeEvent();
         $this->assignEvent($user, $eventId, 'pos');
         $this->grantTicketAccess($user, 'entry');
 
-        $response = $this->actingAs($user)->post(route('kiosk.select.choose'), ['type' => 'event', 'event_id' => $eventId]);
+        $response = $this->actingAs($user)->post(route('pos.select.choose'), ['type' => 'event', 'event_id' => $eventId]);
 
         $response->assertRedirect(route('admin.events.pos', $eventId));
         $this->assertSame('Event Coordinator', session('active_role'));
 
-        $kiosk = $this->get(route('admin.events.pos', $eventId));
-        $kiosk->assertOk();
+        $pos = $this->get(route('admin.events.pos', $eventId));
+        $pos->assertOk();
     }
 
     public function test_choosing_a_destination_not_actually_granted_is_rejected(): void
@@ -116,7 +116,7 @@ class KioskSelectTest extends TestCase
         $this->grantTicketAccess($user, 'entry');
         $otherEventId = $this->makeEvent('Not Assigned To Me');
 
-        $response = $this->actingAs($user)->post(route('kiosk.select.choose'), ['type' => 'event', 'event_id' => $otherEventId]);
+        $response = $this->actingAs($user)->post(route('pos.select.choose'), ['type' => 'event', 'event_id' => $otherEventId]);
 
         $response->assertForbidden();
     }
@@ -134,8 +134,8 @@ class KioskSelectTest extends TestCase
         $response->assertRedirect(route('admin.tickets.pos'));
         $this->assertSame('Ticket Controller', session('active_role'));
 
-        $kiosk = $this->get(route('admin.tickets.pos'));
-        $kiosk->assertOk();
+        $pos = $this->get(route('admin.tickets.pos'));
+        $pos->assertOk();
     }
 
     public function test_two_pos_events_with_no_ticket_grant_also_lands_on_the_select_grid(): void
@@ -148,9 +148,9 @@ class KioskSelectTest extends TestCase
 
         $response = $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
 
-        $response->assertRedirect(route('kiosk.select'));
+        $response->assertRedirect(route('pos.select'));
 
-        $grid = $this->actingAs($user)->get(route('kiosk.select'));
+        $grid = $this->actingAs($user)->get(route('pos.select'));
         $grid->assertSee('Event A');
         $grid->assertSee('Event B');
     }
@@ -163,7 +163,7 @@ class KioskSelectTest extends TestCase
         $this->assignEvent($user, $posEvent, 'pos');
         $this->assignEvent($user, $adminEvent, 'admin');
         // Also holds ticket access — must NOT trigger the grid, since not every event
-        // assignment is 'pos' level (the guard in possibleKioskPosDestinations()).
+        // assignment is 'pos' level (the guard in possiblePosDestinations()).
         $this->grantTicketAccess($user, 'entry');
 
         $response = $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
@@ -200,7 +200,7 @@ class KioskSelectTest extends TestCase
         $user = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
         $this->grantTicketAccess($user, 'view');
 
-        $response = $this->actingAs($user)->get(route('kiosk.select'));
+        $response = $this->actingAs($user)->get(route('pos.select'));
 
         $response->assertRedirect(route('admin.tickets.pos'));
     }
@@ -210,15 +210,15 @@ class KioskSelectTest extends TestCase
         $user = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
         $this->grantTicketAccess($user, 'admin');
 
-        $response = $this->actingAs($user)->get(route('kiosk.select'));
+        $response = $this->actingAs($user)->get(route('pos.select'));
 
         $response->assertRedirect(route('admin.tickets.index'));
     }
 
-    public function test_an_expired_session_on_the_select_grid_redirects_to_the_kiosk_login(): void
+    public function test_an_expired_session_on_the_select_grid_redirects_to_the_pos_login(): void
     {
-        $response = $this->get(route('kiosk.select'));
+        $response = $this->get(route('pos.select'));
 
-        $response->assertRedirect(route('kiosk.login'));
+        $response->assertRedirect(route('pos.login'));
     }
 }

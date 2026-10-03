@@ -9,7 +9,7 @@ use App\Models\User;
 use Tests\TestCase;
 
 /**
- * The Ticket Console's Settings (kiosk payment-method override) and Logs panes — added for
+ * The Ticket Console's Settings (POS payment-method override) and Logs panes — added for
  * parity with the Event Console, which already has both. See TicketController::
  * updateSettings()/ticketPaymentMethodsOverride() and manageTickets()'s $ticketLogs query.
  */
@@ -27,14 +27,14 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
         $response->assertOk();
         $response->assertSee('pane-settings', false);
         $response->assertSee('pane-logs', false);
-        $response->assertSee('Payment Methods for Ticket Kiosk');
+        $response->assertSee('Payment Methods for Ticket POS');
     }
 
     // The Settings pane also holds the terminal registry (add a new terminal) plus a
     // per-computer terminal picker — saved only in localStorage on the browser that used it,
-    // never sent to the server, so two kiosk computers can each be pointed at a different
+    // never sent to the server, so two POS computers can each be pointed at a different
     // terminal (see the localStorage key 'ticketPosEftTerminalId', shared with the actual
-    // kiosk page at ticket-pos.blade.php).
+    // POS page at ticket-pos.blade.php).
     public function test_settings_pane_lists_terminals_and_has_a_per_computer_picker(): void
     {
         EftTerminal::factory()->create(['key' => 'counter-2', 'label' => 'Ticket Counter 2']);
@@ -49,7 +49,7 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
         $response->assertSee('Ticket Counter 2');
     }
 
-    public function test_saving_a_custom_payment_method_override_changes_the_kiosk(): void
+    public function test_saving_a_custom_payment_method_override_changes_the_pos_page(): void
     {
         $admin = $this->adminUser();
 
@@ -59,11 +59,11 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
 
         $this->assertSame('["Cash"]', Setting::get('ticket_payment_methods_override'));
 
-        $kiosk = $this->actingAs($admin)->get('/admin/tickets/pos');
-        $kiosk->assertOk();
-        $kiosk->assertSee('"Cash"', false);
-        $kiosk->assertDontSee('"UPI"', false);
-        $kiosk->assertDontSee('"Bank Transfer"', false);
+        $pos = $this->actingAs($admin)->get('/admin/tickets/pos');
+        $pos->assertOk();
+        $pos->assertSee('"Cash"', false);
+        $pos->assertDontSee('"UPI"', false);
+        $pos->assertDontSee('"Bank Transfer"', false);
     }
 
     public function test_reverting_to_global_payment_methods_clears_the_override(): void

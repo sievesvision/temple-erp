@@ -66,7 +66,7 @@
      * @param {string} cfg.cancelUrlBase   e.g. '/admin/cba-sci/charge/cancel'
      * @param {string} cfg.overrideUrlBase e.g. '/admin/cba-sci/charge/override'
      * @param {string} cfg.csrfToken
-     * @param {?number|string} cfg.eventId  omitted entirely for a non-event-scoped kiosk (tickets)
+     * @param {?number|string} cfg.eventId  omitted entirely for a non-event-scoped POS page (tickets)
      * @param {string} cfg.currencyCode
      * @param {string} cfg.attemptStorageKey  sessionStorage key for same-tab refresh resume
      * @param {Object} cfg.el  DOM refs: overlay, amount, statusBox, statusLine1, statusLine2,

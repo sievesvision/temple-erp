@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>POS · {{ $event->event_name }}</title>
+    <title>POS · {{ $event->event_name }} · SievesPOS v{{ config('sievespos.version') }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,14 +31,14 @@
             --error: #EF4444;
             --serif: 'Playfair Display', Georgia, serif;
             /* One shared radius scale, deliberately tighter than the old 12-22px range — a
-               terminal/kiosk reads as more purposeful with crisp, moderate corners than with
-               soft app-style bubbles. */
+               terminal/POS screen reads as more purposeful with crisp, moderate corners than
+               with soft app-style bubbles. */
             --radius-sm: 8px;
             --radius-md: 10px;
             --radius-lg: 14px;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        /* Kiosk hardening: no accidental text selection/callouts from a fast tap-and-hold,
+        /* POS hardening: no accidental text selection/callouts from a fast tap-and-hold,
            and no 300ms ghost-click delay on older mobile Safari/Chrome — both matter more
            here than on an ordinary page since this runs as an unattended counter device. */
         button, .pos-tier-pill, .pos-method-btn, .terminal-picker-row { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
@@ -130,7 +130,11 @@
             background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--border);
             box-shadow: 0 1px 3px rgba(15,23,42,0.06); padding: 18px 20px;
         }
-        .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; font-size: 1.08rem; color: var(--text-primary); margin: 0; }
+        /* Inter, not the serif display face — a section header you scan past a dozen times a
+           shift (Donor Details, Donation Amount...) reads faster in the same grotesque the
+           form fields themselves use than in a decorative face, which is better spent on the
+           temple branding up in the topbar instead. */
+        .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 700; font-size: 1.08rem; color: var(--text-primary); margin: 0; letter-spacing: -0.01em; }
         .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
         .pos-card-subtitle { margin: 4px 0 16px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
         {{-- Numbered steps instead of generic icons for the three cards that make up the
@@ -172,19 +176,27 @@
         .pos-clear-btn:active { background: var(--cream); }
 
         /* A proper full-width bar (like the header) rather than plain text sitting on the
-           page background — bottom of the page reads as a distinct navigation-style strip. */
+           page background — bottom of the page reads as a distinct navigation-style strip.
+           A 3-column grid (not flex) is deliberate: the left/right slots stay pinned to their
+           own column whether or not the center slot has anything in it, so hiding the center
+           on a narrow screen can never leave the date/time stranded without its right-alignment
+           (a flex:1 center spacer used to do that pushing — disappearing along with the
+           content it held, which is exactly what broke it). */
         .pos-footer-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
-        .pos-footer { max-width: 1600px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 12px 24px; color: var(--text-secondary); }
+        .pos-footer { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
+        .pos-footer-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
         .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
-        .pos-footer-text strong { color: var(--text-primary); font-size: 0.85rem; }
-        .pos-footer-text span { font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-footer-tagline { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.85rem; white-space: nowrap; overflow: hidden; }
-        .pos-footer-tagline .line { flex: 1 1 40px; max-width: 60px; height: 1px; background: rgba(201,149,46,0.4); }
+        .pos-footer-text strong { display: block; color: var(--text-primary); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-footer-text span { display: block; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-footer-powered { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; font-size: 0.76rem; white-space: nowrap; }
+        .pos-footer-powered img { height: 16px; width: auto; opacity: 0.82; flex-shrink: 0; }
+        .pos-footer-powered .version { color: var(--text-secondary); opacity: 0.75; }
+        .pos-footer-powered strong { color: var(--text-primary); font-weight: 700; }
         .pos-footer-right { text-align: right; flex-shrink: 0; line-height: 1.35; }
-        .pos-footer-date { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); }
-        .pos-footer-time { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); }
-        @media (max-width: 700px) { .pos-footer-tagline, .pos-footer-text span { display: none; } }
+        .pos-footer-date { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); white-space: nowrap; }
+        .pos-footer-time { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
+        @media (max-width: 700px) { .pos-footer-powered, .pos-footer-text span { display: none; } }
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
         .pos-input {
@@ -229,7 +241,7 @@
         .pos-card-header-row .pos-card-subtitle { margin: 4px 0 0; }
 
         /* auto-fit rather than a fixed 3 columns — reflows gracefully at any width instead of
-           forcing three equal columns that can squeeze text at narrow (phone/kiosk) sizes. */
+           forcing three equal columns that can squeeze text at narrow (phone/POS) sizes. */
         .pos-quick-amounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; margin-bottom: 14px; }
         .pos-quick-amount-btn, .pos-tier-quick-btn {
             display: flex; align-items: center; justify-content: center;
@@ -312,6 +324,20 @@
         .pos-warning-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
         .pos-warning-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; }
         .pos-warning-ok-btn:active { filter: brightness(0.92); }
+
+        /* Cash/Bank Transfer confirmation — these two methods aren't verified on the spot by
+           a terminal, so the clerk and donor both need a clear "it's recorded, a receipt is
+           on its way" moment rather than a corner toast. Same popup shell as the warning
+           above (just green instead of red), and dismisses itself: a tap anywhere on the
+           overlay (OK button included, since the click bubbles to it) or a short timeout. */
+        .pos-confirm-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
+        .pos-confirm-overlay.active { display: flex; }
+        .pos-confirm-popup { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; cursor: default; }
+        .pos-confirm-icon { background: var(--success); color: #fff; font-size: 1.8rem; padding: 20px; }
+        .pos-confirm-body { padding: 22px 24px 26px; }
+        .pos-confirm-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
+        .pos-confirm-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; cursor: pointer; }
+        .pos-confirm-ok-btn:active { filter: brightness(0.92); }
 
         /* ---------- EFT terminal status popup — center-screen, mirrors what's on the
            physical/virtual PIN pad while a card payment is in progress ---------- */
@@ -485,10 +511,10 @@
                     <i class="bi bi-person-fill"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    @if($canManageKioskPin)
-                    <li><a class="dropdown-item" href="{{ route('kiosk.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage kiosk PIN</a></li>
+                    @if($canManagePosPin)
+                    <li><a class="dropdown-item" href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage POS PIN</a></li>
                     @endif
-                    <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'kiosk']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'pos']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                 </ul>
             </div>
         </div>
@@ -595,14 +621,17 @@
 
     <footer class="pos-footer-bar">
         <div class="pos-footer">
-            <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
-            <div class="pos-footer-text">
-                <strong>{{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
-                <span>{{ $temple['name'] ?? '' }}{{ !empty($temple['subtitle']) ? ', ' . $temple['subtitle'] : '' }}</span>
+            <div class="pos-footer-left">
+                <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
+                <div class="pos-footer-text">
+                    <strong>{{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
+                    <span>{{ $temple['name'] ?? '' }}{{ !empty($temple['subtitle']) ? ', ' . $temple['subtitle'] : '' }}</span>
+                </div>
             </div>
-            @if(!empty($temple['eyebrow']))
-            <div class="pos-footer-tagline"><span class="line"></span><span>{{ $temple['eyebrow'] }}</span><span class="line"></span></div>
-            @endif
+            <div class="pos-footer-powered">
+                <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
+                <span>Powered by <strong>Sievesvision</strong> <span class="version">· v{{ config('sievespos.version') }}</span></span>
+            </div>
             <div class="pos-footer-right">
                 <div class="pos-footer-date" id="posFooterDate"></div>
                 <div class="pos-footer-time" id="posFooterTime"></div>
@@ -635,6 +664,16 @@
             <div class="pos-warning-body">
                 <div class="pos-warning-message" id="posWarningMessage"></div>
                 <button type="button" class="pos-warning-ok-btn" id="posWarningOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="pos-confirm-overlay" id="posConfirmOverlay">
+        <div class="pos-confirm-popup">
+            <div class="pos-confirm-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="pos-confirm-body">
+                <div class="pos-confirm-message" id="posConfirmMessage"></div>
+                <button type="button" class="pos-confirm-ok-btn" id="posConfirmOkBtn">OK</button>
             </div>
         </div>
     </div>
@@ -697,7 +736,7 @@
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
-         otherwise a fix shipped here never reaches an already-open kiosk tab or a browser
+         otherwise a fix shipped here never reaches an already-open POS tab or a browser
          that cached the old copy days ago, since nothing about the <script> tag itself
          changes between deploys. --}}
     <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
@@ -719,12 +758,12 @@
         ] : null;
     @endphp
     <script>
-        // A session that expires while this kiosk is left open only ever surfaces to a
+        // A session that expires while this POS page is left open only ever surfaces to a
         // background fetch() (the various polling/save calls below) as a plain 401 JSON body
         // — Laravel's default unauthenticated() handler never redirects a request that
         // expects JSON. Reloading the page turns that into a normal full-page navigation,
         // which (now unauthenticated) is what actually triggers the server-side redirect to
-        // the kiosk login screen — see Authenticate::redirectUsing() in AppServiceProvider.
+        // the POS login screen — see Authenticate::redirectUsing() in AppServiceProvider.
         (function () {
             const nativeFetch = window.fetch;
             window.fetch = function () {
@@ -1260,6 +1299,22 @@
         document.getElementById('posWarningOkBtn').addEventListener('click', function () {
             document.getElementById('posWarningOverlay').classList.remove('active');
         });
+
+        let posConfirmHideTimer = null;
+        function hidePosConfirm() {
+            if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
+            document.getElementById('posConfirmOverlay').classList.remove('active');
+        }
+        function showPosConfirm(message) {
+            if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
+            document.getElementById('posConfirmMessage').textContent = message;
+            document.getElementById('posConfirmOverlay').classList.add('active');
+            posConfirmHideTimer = setTimeout(hidePosConfirm, 5000);
+        }
+        // A click anywhere on the overlay dismisses it — the OK button's own click bubbles up
+        // to this same listener, so one handler covers both "press OK" and "tap anywhere".
+        document.getElementById('posConfirmOverlay').addEventListener('click', hidePosConfirm);
+
         // Center-screen popup mirroring the PIN pad's own display while a card payment is
         // in progress — a corner toast isn't prominent enough for something the operator
         // and donor both need to watch together.
@@ -1433,7 +1488,7 @@
         }
 
         // "Orders this session" — sessionStorage only, so it survives a reload of this same
-        // browser tab (a kiosk left open all day) but never persists beyond it and never
+        // browser tab (a POS page left open all day) but never persists beyond it and never
         // touches the server — the console's own donations table is the real record.
         const SESSION_KEY = 'posOrders_' + EVENT_ID;
         function loadSessionOrders() {
@@ -1524,8 +1579,22 @@
                 .then(function (result) {
                     btn.disabled = false;
                     if (result.status >= 200 && result.status < 300 && result.data.success) {
-                        const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
-                        showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
+                        // Cash/Bank Transfer aren't verified on the spot by a terminal, so they
+                        // get a clear center-screen confirmation instead of the quieter corner
+                        // toast (UPI/EFT Terminal already have their own on-screen confirmation —
+                        // the terminal prompt/receipt view — so they keep the toast).
+                        if (selectedMethod === 'Cash' || selectedMethod === 'Bank Transfer') {
+                            const emailNote = emailValue
+                                ? ' A receipt will be emailed to ' + emailValue + '.'
+                                : '';
+                            const message = selectedMethod === 'Bank Transfer'
+                                ? 'Donation of ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' recorded as pending bank transfer.' + emailNote
+                                : 'Donation of ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' recorded.' + emailNote;
+                            showPosConfirm(message);
+                        } else {
+                            const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
+                            showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
+                        }
                         addSessionOrder({ name: name, amount: amount, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
                         resetPosForm();
                         document.getElementById('posGuestName').focus();

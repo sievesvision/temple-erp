@@ -68,7 +68,7 @@ accreditation process asks for these to locate each test transaction.
 
 ### TEST 8 — Refund is not available to a pos-entry user
 **Required user:** pos-entry (a cashier/entry-level account)
-**POS steps:** Attempt to reach the Refund action (there is no Refund button on the POS kiosk screen at all; confirm the EFTPOS pane itself is not reachable for this account, and that directly requesting the refund URL is rejected).
+**POS steps:** Attempt to reach the Refund action (there is no Refund button on the POS screen at all; confirm the EFTPOS pane itself is not reachable for this account, and that directly requesting the refund URL is rejected).
 **Expected SievesPOS behaviour:** No Refund UI is visible; a direct request is rejected (403) server-side.
 **PASS / FAIL:** ______
 

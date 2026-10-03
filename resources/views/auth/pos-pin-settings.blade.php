@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-  <title>{{ $temple['name'] }} · Kiosk PIN</title>
+  <title>{{ $temple['name'] }} · POS PIN</title>
   <link rel="icon" type="image/gif" href="{{ $temple['logo'] }}">
 
   <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
@@ -71,18 +71,18 @@
   <div class="settings-card">
     <a href="{{ $backUrl }}" class="back-link"><i class="bi bi-arrow-left"></i> Back to counter</a>
 
-    <h1 class="settings-title font-divine">Your Kiosk PIN</h1>
+    <h1 class="settings-title font-divine">Your POS PIN</h1>
     <p class="settings-subtitle">Set or change the 6-digit PIN used for fast sign-in at each of your counters.</p>
 
     @if($user->username)
       <div class="username-status">
         <i class="bi bi-person-badge-fill"></i>
-        <span>Your kiosk username is <strong>{{ $user->username }}</strong> — use it together with your PIN at sign-in.</span>
+        <span>Your POS username is <strong>{{ $user->username }}</strong> — use it together with your PIN at sign-in.</span>
       </div>
     @else
       <div class="username-status">
         <i class="bi bi-exclamation-circle"></i>
-        <span>You don't have a kiosk username yet — ask an admin to assign one before you can set a PIN.</span>
+        <span>You don't have a POS username yet — ask an admin to assign one before you can set a PIN.</span>
       </div>
     @endif
 
@@ -115,7 +115,7 @@
             Bookmark this counter's own sign-in page on its device: <a href="{{ $destination['landing_url'] }}">{{ $destination['landing_url'] }}</a>
           </div>
 
-          <form method="POST" action="{{ route('kiosk.pin.update') }}">
+          <form method="POST" action="{{ route('pos.pin.update') }}">
             @csrf
             <input type="hidden" name="destination_type" value="{{ $destination['type'] }}">
             @if($destination['type'] === 'event')

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Console · {{ $event->event_name }}</title>
+    <title>Console · {{ $event->event_name }} · SievesPOS v{{ config('sievespos.version') }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
@@ -30,7 +30,7 @@
             --pending-bg: #FFF7ED;
             --error-bg: #FEF2F2;
             --serif: 'Playfair Display', Georgia, serif;
-            /* Shared with the POS kiosk pages' own eft-modal/.sci-af-* CSS below, copied
+            /* Shared with the POS pages' own eft-modal/.sci-af-* CSS below, copied
                verbatim from event-pos-donation.blade.php so the mx51 refund modal matches the
                purchase modal's look exactly. */
             --radius-sm: 8px;
@@ -61,10 +61,11 @@
         .sidebar-link:hover { background: var(--cream); color: var(--text-primary); }
         .sidebar-link.active { background: var(--gold); color: white; box-shadow: 0 4px 12px rgba(200,155,60,0.35); }
 
-        .sidebar-decoration { padding: 24px 20px; text-align: center; border-top: 1px solid var(--border); }
-        .sidebar-decoration svg { width: 110px; height: auto; margin-bottom: 12px; }
-        .sidebar-decoration p { font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.85rem; line-height: 1.5; margin: 0; }
-        .sidebar-decoration .lotus-divider { width: 60px; height: auto; margin: 12px auto 0; display: block; }
+        .sidebar-decoration { padding: 18px 20px; text-align: center; border-top: 1px solid var(--border); }
+        .sidebar-decoration img { height: 16px; width: auto; opacity: 0.8; margin-bottom: 6px; }
+        .sidebar-decoration p { font-size: 0.72rem; color: var(--text-secondary); margin: 0; }
+        .sidebar-decoration p strong { color: var(--text-primary); font-weight: 700; }
+        .sidebar-decoration p .version { opacity: 0.75; }
 
         .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
 
@@ -519,24 +520,8 @@
                     @endif
                 </div>
                 <div class="sidebar-decoration">
-                    <svg viewBox="0 0 200 130" aria-hidden="true">
-                        <polygon points="100,6 112,24 88,24" fill="var(--gold)"/>
-                        <rect x="93" y="24" width="14" height="8" fill="var(--gold)"/>
-                        <polygon points="100,20 120,38 80,38" fill="var(--gold)" opacity="0.88"/>
-                        <rect x="72" y="38" width="56" height="10" fill="var(--gold)" opacity="0.88"/>
-                        <polygon points="100,34 130,54 70,54" fill="var(--gold)" opacity="0.74"/>
-                        <rect x="60" y="54" width="80" height="12" fill="var(--gold)" opacity="0.74"/>
-                        <polygon points="100,50 142,72 58,72" fill="var(--gold)" opacity="0.6"/>
-                        <rect x="45" y="72" width="110" height="16" fill="var(--gold)" opacity="0.6"/>
-                        <rect x="35" y="88" width="130" height="28" fill="var(--gold)" opacity="0.48"/>
-                        <rect x="55" y="100" width="14" height="16" fill="var(--cream)"/>
-                        <rect x="131" y="100" width="14" height="16" fill="var(--cream)"/>
-                        <rect x="92" y="96" width="16" height="20" fill="var(--maroon)"/>
-                    </svg>
-                    <p>&ldquo;A small contribution creates a lasting legacy.&rdquo;</p>
-                    <svg class="lotus-divider" viewBox="0 0 60 20" aria-hidden="true">
-                        <path d="M30 18 C22 18 16 12 16 6 C22 6 27 10 30 16 C33 10 38 6 44 6 C44 12 38 18 30 18 Z" fill="var(--gold)" opacity="0.8"/>
-                    </svg>
+                    <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
+                    <p>Powered by <strong>Sievesvision</strong> <span class="version">· v{{ config('sievespos.version') }}</span></p>
                 </div>
             </aside>
 
@@ -650,7 +635,7 @@
                         </div>
                         <div class="page-header-actions d-flex gap-2">
                             <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
-                            <button type="button" class="btn-refresh" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+                            <button type="button" class="btn-refresh" onclick="try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {} location.reload();"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
                         </div>
                     </div>
                     @php
@@ -1375,6 +1360,11 @@
                                             <button type="submit" class="btn-action-resend" title="Send password reset link"><i class="bi bi-key-fill"></i></button>
                                         </form>
                                         @if($canTouchThisCoord)
+                                        @if($coord->level !== 'view')
+                                        <button type="button" class="btn-action-resend" title="Override POS username/PIN" onclick="openPosCredModal({{ $coord->id }}, {{ json_encode($coord->name) }}, {{ json_encode($coord->username) }})">
+                                            <i class="bi bi-shield-lock-fill"></i>
+                                        </button>
+                                        @endif
                                         <form action="{{ route('admin.events.coordinators.toggleLock', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $coord->status === 'Active' ? 'Lock' : 'Unlock' }} this account?')">
                                             @csrf
                                             <input type="hidden" name="return_context" value="console">
@@ -1398,6 +1388,64 @@
                         </table>
                         </div>
                     </div>
+
+                    {{-- Shared across every row — populated by openPosCredModal() rather than
+                         one modal per coordinator, since only one can ever be open at once.
+                         Always requires the ACTING admin's own password (see
+                         EventCoordinatorController::overridePosCredentials()'s own docblock
+                         for why), never the target coordinator's. --}}
+                    <div class="modal fade" id="posCredModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow-lg rounded-4">
+                                <form id="posCredForm" method="POST">
+                                    @csrf
+                                    <input type="hidden" name="return_context" value="console">
+                                    <div class="modal-header border-0 pb-0">
+                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Override POS Username/PIN — <span id="posCredCoordName"></span></h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body py-3">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">POS Username</label>
+                                            <input type="text" name="username" id="posCredUsername" class="form-control rounded-3" minlength="6" maxlength="10" placeholder="6-10 characters">
+                                        </div>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">New PIN</label>
+                                                <input type="text" name="new_pin" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">Confirm New PIN</label>
+                                                <input type="text" name="new_pin_confirmation" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
+                                            </div>
+                                        </div>
+                                        <p class="text-muted small mt-n2 mb-3">Leave both PIN fields blank to keep the current PIN and only update the username.</p>
+                                        <hr>
+                                        <div class="mb-1">
+                                            <label class="form-label fw-semibold">Your password <span class="text-muted fw-normal">(to confirm this change)</span></label>
+                                            <input type="password" name="current_password" class="form-control rounded-3" required autocomplete="current-password">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0 pt-0">
+                                        <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
+                                        <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #C89B3C, #A67C2B); border:none;">Save</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                        const POS_CRED_URL_BASE = @json(route('admin.events.coordinators.overridePosCredentials', [$event->event_id, '__USER__']));
+                        function openPosCredModal(userId, name, username) {
+                            document.getElementById('posCredForm').action = POS_CRED_URL_BASE.replace('__USER__', userId);
+                            document.getElementById('posCredCoordName').textContent = name;
+                            document.getElementById('posCredUsername').value = username || '';
+                            document.getElementById('posCredForm').querySelector('input[name="current_password"]').value = '';
+                            document.getElementById('posCredForm').querySelector('input[name="new_pin"]').value = '';
+                            document.getElementById('posCredForm').querySelector('input[name="new_pin_confirmation"]').value = '';
+                            new bootstrap.Modal(document.getElementById('posCredModal')).show();
+                        }
+                    </script>
                 </div>
                 @endif
 
@@ -1867,6 +1915,18 @@
         document.querySelectorAll('#pane-cash-banking form').forEach(function (form) {
             form.addEventListener('submit', function () {
                 try { localStorage.setItem('consoleActivePane', 'pane-cash-banking'); } catch (e) {}
+            });
+        });
+        // All Transactions (Approve/Resend/Check Status/Edit/Delete on a donation row) is the
+        // same plain POST/redirect pattern — missing this was exactly what sent an admin back
+        // to New Donation after approving a Bank Transfer instead of leaving them on the table
+        // they were just working from.
+        // The Edit Donation modals live outside #pane-table in the DOM (modals are rendered
+        // at the end of the page, not nested in the pane they're opened from), so they need
+        // their own selector even though they submit to the exact same table.
+        document.querySelectorAll('#pane-table form, [id^="editDevoteeDonationModal"] form, [id^="editGuestDonationModal"] form').forEach(function (form) {
+            form.addEventListener('submit', function () {
+                try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
             });
         });
         (function restoreActivePane() {
@@ -2522,6 +2582,7 @@
                     if (data.success) {
                         setEftRefundStatus('REFUND APPROVED', data.auth_code ? 'Auth ' + data.auth_code : '');
                         showToast('Refund approved.');
+                        try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
                         setTimeout(function () { location.reload(); }, 1200);
                     } else {
                         setEftRefundStatus('REFUND ' + (data.payment_status || 'NOT COMPLETED').toUpperCase(), data.message || '');
@@ -2610,7 +2671,10 @@
             // like the purchase flow already does; a plain Cancel before anything started
             // never reloads, since nothing changed.
             onModalClosed: function () {
-                if (sciRefundNeedsReload) { location.reload(); }
+                if (sciRefundNeedsReload) {
+                    try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
+                    location.reload();
+                }
             },
         };
         const sciRefundFlow = SciActionFramework.createFlow(sciRefundFlowCfg);

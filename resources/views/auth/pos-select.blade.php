@@ -106,11 +106,11 @@
 
   <div class="tile-grid">
     @foreach($destinations as $destination)
-      {{-- A POST, not a plain link — selectKioskPosDestination() must switch active_role to
+      {{-- A POST, not a plain link — selectPosDestination() must switch active_role to
            match the destination before redirecting, since posShow()/PosDonationController
            check the *active* role literally, not just whichever roles the route itself
            allows through. --}}
-      <form method="POST" action="{{ route('kiosk.select.choose') }}">
+      <form method="POST" action="{{ route('pos.select.choose') }}">
         @csrf
         <input type="hidden" name="type" value="{{ $destination['type'] }}">
         @if($destination['type'] === 'event')
@@ -132,7 +132,7 @@
   </div>
 
   <div class="select-footer">
-    <a class="select-logout" href="{{ route('logout', ['from' => 'kiosk']) }}"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
+    <a class="select-logout" href="{{ route('logout', ['from' => 'pos']) }}"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
   </div>
 </body>
 </html>

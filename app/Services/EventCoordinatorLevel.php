@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
  * purposes (atLeast(..., 'entry') is true for it) but is otherwise a completely separate,
  * more restrictive path: a pos-level coordinator never gets the general console at all —
  * see EventConsoleController::show()'s explicit redirect and AuthController::login() — only
- * the dedicated kiosk-style POS donation page. A row with no level (shouldn't happen
+ * the dedicated counter-style POS donation page. A row with no level (shouldn't happen
  * post-migration, but defensively handled) is treated as the lowest tier rather than
  * granted anything by default.
  */

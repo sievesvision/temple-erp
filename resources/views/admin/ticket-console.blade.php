@@ -19,7 +19,7 @@
             --text-secondary: #6B7280; --success: #10B981; --warning: #F59E0B; --error: #EF4444;
             --success-bg: #ECFDF5; --pending-bg: #FFF7ED; --error-bg: #FEF2F2;
             --serif: 'Playfair Display', Georgia, serif;
-            /* Shared with the POS kiosk pages' own eft-modal/.sci-af-* CSS below, copied
+            /* Shared with the POS pages' own eft-modal/.sci-af-* CSS below, copied
                verbatim from event-pos-donation.blade.php so the mx51 refund modal matches the
                purchase modal's look exactly. */
             --radius-sm: 8px; --radius-md: 10px; --radius-lg: 14px;
@@ -227,7 +227,7 @@
             </div>
             <div class="topbar-title"><h1>Ticket Console</h1></div>
             <div class="topbar-right">
-                <a href="{{ route('admin.tickets.pos') }}" target="_blank" class="admin-pill"><i class="bi bi-box-arrow-up-right"></i><span>Ticket Kiosk</span></a>
+                <a href="{{ route('admin.tickets.pos') }}" target="_blank" class="admin-pill"><i class="bi bi-box-arrow-up-right"></i><span>Ticket POS</span></a>
                 <div class="dropdown">
                     <button class="admin-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle"></i><span>{{ \Illuminate\Support\Str::limit(auth()->user()->name ?? 'User', 14) }}</span>
@@ -311,7 +311,7 @@
                     <div class="console-pane" id="pane-types">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-ticket-perforated-fill"></i></div>
-                            <div><h2>Ticket Types</h2><p>The catalog sold from the Ticket Kiosk.</p></div>
+                            <div><h2>Ticket Types</h2><p>The catalog sold from the Ticket POS.</p></div>
                             @if($canAdd)
                             <div class="page-header-actions">
                                 <button type="button" class="btn-save" data-bs-toggle="modal" data-bs-target="#addTicketModal"><i class="bi bi-plus-lg me-1"></i>Add Ticket Type</button>
@@ -358,7 +358,7 @@
                     <div class="console-pane" id="pane-sales">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-receipt"></i></div>
-                            <div><h2>All Transactions</h2><p>Every order and EFT terminal transaction from the Ticket Kiosk.</p></div>
+                            <div><h2>All Transactions</h2><p>Every order and EFT terminal transaction from the Ticket POS.</p></div>
                         </div>
                         <div class="card-panel" style="padding:0;">
                             <div class="table-scroll-wrap" style="max-height: calc(100vh - 300px);">
@@ -458,11 +458,11 @@
                     <div class="console-pane" id="pane-settings">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-gear-fill"></i></div>
-                            <div><h2>Settings</h2><p>Ticket Kiosk configuration.</p></div>
+                            <div><h2>Settings</h2><p>Ticket POS configuration.</p></div>
                         </div>
                         <div class="card-panel">
-                            <div class="fw-bold mb-2">Payment Methods for Ticket Kiosk</div>
-                            <p class="text-muted small mb-3">EFT Terminal is always offered whenever a terminal is paired. Choose which of the others the kiosk should accept — leave "Use global settings" checked to inherit the same list donations use (Admin &gt; Settings &gt; Payment Methods).</p>
+                            <div class="fw-bold mb-2">Payment Methods for Ticket POS</div>
+                            <p class="text-muted small mb-3">EFT Terminal is always offered whenever a terminal is paired. Choose which of the others the POS page should accept — leave "Use global settings" checked to inherit the same list donations use (Admin &gt; Settings &gt; Payment Methods).</p>
                             <form action="{{ route('admin.tickets.settings.update') }}" method="POST" id="ticketSettingsForm">
                                 @csrf
                                 <div class="form-check mb-3">
@@ -510,7 +510,7 @@
 
                         <div class="card-panel mt-3">
                             <div class="fw-bold mb-2">This Computer's EFT Terminal</div>
-                            <p class="text-muted small mb-3">Which physical terminal <strong>this computer</strong> uses when selling tickets — saved only in this browser, not on the server, so two kiosk computers can each be set to a different terminal and sell concurrently without interfering. Setting it here takes effect on the Ticket Kiosk page on this same computer immediately.</p>
+                            <p class="text-muted small mb-3">Which physical terminal <strong>this computer</strong> uses when selling tickets — saved only in this browser, not on the server, so two POS computers can each be set to a different terminal and sell concurrently without interfering. Setting it here takes effect on the Ticket POS page on this same computer immediately.</p>
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-6">
                                     <label class="field-label">Terminal for this computer</label>
@@ -599,7 +599,7 @@
                     <div class="console-pane" id="pane-controllers">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-people-fill"></i></div>
-                            <div><h2>Ticket Controllers</h2><p>People with access to the Ticket Console / Kiosk.</p></div>
+                            <div><h2>Ticket Controllers</h2><p>People with access to the Ticket Console / POS.</p></div>
                         </div>
                         <div class="card-panel mb-3">
                             <div class="fw-bold mb-2">Add a Ticket Controller</div>
@@ -942,10 +942,10 @@
             });
         }
 
-        // "This Computer's EFT Terminal" — the same localStorage key the Ticket Kiosk page
+        // "This Computer's EFT Terminal" — the same localStorage key the Ticket POS page
         // itself reads (see ticket-pos.blade.php), so setting it here takes effect there too
         // on this same computer/browser. Never sent to the server — that's the whole point:
-        // two kiosk computers can each be pointed at a different terminal independently.
+        // two POS computers can each be pointed at a different terminal independently.
         (function () {
             const STORAGE_KEY = 'ticketPosEftTerminalId';
             const select = document.getElementById('thisComputerTerminalSelect');
@@ -959,7 +959,7 @@
                     select.value = saved;
                     status.textContent = 'Currently set for this computer.';
                 } else {
-                    status.textContent = 'Not set for this computer yet — the kiosk will use the default terminal.';
+                    status.textContent = 'Not set for this computer yet — the POS page will use the default terminal.';
                 }
             } catch (e) {
                 status.textContent = 'Could not read this browser\'s saved terminal.';
@@ -997,7 +997,7 @@
         // otherwise reset back to Dashboard after saving — same "consoleActivePane"
         // localStorage convention as event-console.blade.php, so a form submission anywhere
         // in one of these panes reopens that exact pane once the page reloads.
-        ['pane-settings', 'pane-eft-settings', 'pane-cash-banking', 'pane-controllers'].forEach(function (paneId) {
+        ['pane-settings', 'pane-eft-settings', 'pane-cash-banking', 'pane-controllers', 'pane-sales'].forEach(function (paneId) {
             const pane = document.getElementById(paneId);
             if (!pane) { return; }
             pane.querySelectorAll('form').forEach(function (form) {
@@ -1098,6 +1098,7 @@
                     }
                     if (data.success) {
                         setRefundStatus('REFUND APPROVED', data.auth_code ? 'Auth ' + data.auth_code : '');
+                        try { localStorage.setItem('consoleActivePane', 'pane-sales'); } catch (e) {}
                         setTimeout(function () { window.location.reload(); }, 1200);
                     } else {
                         setRefundStatus('REFUND ' + (data.payment_status || 'NOT COMPLETED').toUpperCase(), data.message || '');
@@ -1139,7 +1140,7 @@
             cancelUrlBase: CBA_SCI_CHARGE_CANCEL_URL_BASE,
             overrideUrlBase: CBA_SCI_CHARGE_OVERRIDE_URL_BASE,
             csrfToken: CSRF_TOKEN,
-            // Ticket Kiosk/Console is a non-event-scoped module — no eventId, same convention
+            // Ticket POS/Console is a non-event-scoped module — no eventId, same convention
             // ticket-pos.blade.php's own purchase flow already uses.
             currencyCode: CURRENCY_CODE,
             attemptStorageKey: 'sciRefundAttempt',
@@ -1179,7 +1180,10 @@
             // usable for as long as the Action Framework response keeps showing them. A plain
             // Cancel before anything started never reloads, since nothing changed.
             onModalClosed: function () {
-                if (sciRefundNeedsReload) { window.location.reload(); }
+                if (sciRefundNeedsReload) {
+                    try { localStorage.setItem('consoleActivePane', 'pane-sales'); } catch (e) {}
+                    window.location.reload();
+                }
             },
         };
         const sciRefundFlow = SciActionFramework.createFlow(sciRefundFlowCfg);
