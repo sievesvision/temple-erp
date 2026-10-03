@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>POS · {{ $event->event_name }}</title>
+    <title>POS · {{ $event->event_name }} · SievesPOS v{{ config('sievespos.version') }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -172,19 +172,27 @@
         .pos-clear-btn:active { background: var(--cream); }
 
         /* A proper full-width bar (like the header) rather than plain text sitting on the
-           page background — bottom of the page reads as a distinct navigation-style strip. */
+           page background — bottom of the page reads as a distinct navigation-style strip.
+           A 3-column grid (not flex) is deliberate: the left/right slots stay pinned to their
+           own column whether or not the center slot has anything in it, so hiding the center
+           on a narrow screen can never leave the date/time stranded without its right-alignment
+           (a flex:1 center spacer used to do that pushing — disappearing along with the
+           content it held, which is exactly what broke it). */
         .pos-footer-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
-        .pos-footer { max-width: 1600px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 12px 24px; color: var(--text-secondary); }
+        .pos-footer { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
+        .pos-footer-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
         .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
         .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
-        .pos-footer-text strong { color: var(--text-primary); font-size: 0.85rem; }
-        .pos-footer-text span { font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-footer-tagline { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.85rem; white-space: nowrap; overflow: hidden; }
-        .pos-footer-tagline .line { flex: 1 1 40px; max-width: 60px; height: 1px; background: rgba(201,149,46,0.4); }
+        .pos-footer-text strong { display: block; color: var(--text-primary); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-footer-text span { display: block; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-footer-powered { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; font-size: 0.76rem; white-space: nowrap; }
+        .pos-footer-powered img { height: 16px; width: auto; opacity: 0.82; flex-shrink: 0; }
+        .pos-footer-powered .version { color: var(--text-secondary); opacity: 0.75; }
+        .pos-footer-powered strong { color: var(--text-primary); font-weight: 700; }
         .pos-footer-right { text-align: right; flex-shrink: 0; line-height: 1.35; }
-        .pos-footer-date { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); }
-        .pos-footer-time { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); }
-        @media (max-width: 700px) { .pos-footer-tagline, .pos-footer-text span { display: none; } }
+        .pos-footer-date { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); white-space: nowrap; }
+        .pos-footer-time { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
+        @media (max-width: 700px) { .pos-footer-powered, .pos-footer-text span { display: none; } }
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
         .pos-input {
@@ -609,14 +617,17 @@
 
     <footer class="pos-footer-bar">
         <div class="pos-footer">
-            <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
-            <div class="pos-footer-text">
-                <strong>{{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
-                <span>{{ $temple['name'] ?? '' }}{{ !empty($temple['subtitle']) ? ', ' . $temple['subtitle'] : '' }}</span>
+            <div class="pos-footer-left">
+                <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
+                <div class="pos-footer-text">
+                    <strong>{{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
+                    <span>{{ $temple['name'] ?? '' }}{{ !empty($temple['subtitle']) ? ', ' . $temple['subtitle'] : '' }}</span>
+                </div>
             </div>
-            @if(!empty($temple['eyebrow']))
-            <div class="pos-footer-tagline"><span class="line"></span><span>{{ $temple['eyebrow'] }}</span><span class="line"></span></div>
-            @endif
+            <div class="pos-footer-powered">
+                <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
+                <span>Powered by <strong>Sievesvision</strong> <span class="version">· v{{ config('sievespos.version') }}</span></span>
+            </div>
             <div class="pos-footer-right">
                 <div class="pos-footer-date" id="posFooterDate"></div>
                 <div class="pos-footer-time" id="posFooterTime"></div>

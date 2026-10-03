@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Console · {{ $event->event_name }}</title>
+    <title>Console · {{ $event->event_name }} · SievesPOS v{{ config('sievespos.version') }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
@@ -61,10 +61,11 @@
         .sidebar-link:hover { background: var(--cream); color: var(--text-primary); }
         .sidebar-link.active { background: var(--gold); color: white; box-shadow: 0 4px 12px rgba(200,155,60,0.35); }
 
-        .sidebar-decoration { padding: 24px 20px; text-align: center; border-top: 1px solid var(--border); }
-        .sidebar-decoration svg { width: 110px; height: auto; margin-bottom: 12px; }
-        .sidebar-decoration p { font-family: var(--serif); font-style: italic; color: var(--gold-hover); font-size: 0.85rem; line-height: 1.5; margin: 0; }
-        .sidebar-decoration .lotus-divider { width: 60px; height: auto; margin: 12px auto 0; display: block; }
+        .sidebar-decoration { padding: 18px 20px; text-align: center; border-top: 1px solid var(--border); }
+        .sidebar-decoration img { height: 16px; width: auto; opacity: 0.8; margin-bottom: 6px; }
+        .sidebar-decoration p { font-size: 0.72rem; color: var(--text-secondary); margin: 0; }
+        .sidebar-decoration p strong { color: var(--text-primary); font-weight: 700; }
+        .sidebar-decoration p .version { opacity: 0.75; }
 
         .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
 
@@ -519,24 +520,8 @@
                     @endif
                 </div>
                 <div class="sidebar-decoration">
-                    <svg viewBox="0 0 200 130" aria-hidden="true">
-                        <polygon points="100,6 112,24 88,24" fill="var(--gold)"/>
-                        <rect x="93" y="24" width="14" height="8" fill="var(--gold)"/>
-                        <polygon points="100,20 120,38 80,38" fill="var(--gold)" opacity="0.88"/>
-                        <rect x="72" y="38" width="56" height="10" fill="var(--gold)" opacity="0.88"/>
-                        <polygon points="100,34 130,54 70,54" fill="var(--gold)" opacity="0.74"/>
-                        <rect x="60" y="54" width="80" height="12" fill="var(--gold)" opacity="0.74"/>
-                        <polygon points="100,50 142,72 58,72" fill="var(--gold)" opacity="0.6"/>
-                        <rect x="45" y="72" width="110" height="16" fill="var(--gold)" opacity="0.6"/>
-                        <rect x="35" y="88" width="130" height="28" fill="var(--gold)" opacity="0.48"/>
-                        <rect x="55" y="100" width="14" height="16" fill="var(--cream)"/>
-                        <rect x="131" y="100" width="14" height="16" fill="var(--cream)"/>
-                        <rect x="92" y="96" width="16" height="20" fill="var(--maroon)"/>
-                    </svg>
-                    <p>&ldquo;A small contribution creates a lasting legacy.&rdquo;</p>
-                    <svg class="lotus-divider" viewBox="0 0 60 20" aria-hidden="true">
-                        <path d="M30 18 C22 18 16 12 16 6 C22 6 27 10 30 16 C33 10 38 6 44 6 C44 12 38 18 30 18 Z" fill="var(--gold)" opacity="0.8"/>
-                    </svg>
+                    <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
+                    <p>Powered by <strong>Sievesvision</strong> <span class="version">· v{{ config('sievespos.version') }}</span></p>
                 </div>
             </aside>
 
