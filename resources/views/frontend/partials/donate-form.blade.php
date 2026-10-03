@@ -48,16 +48,21 @@
        it's seen regardless of scroll position, the same treatment the POS confirmation uses. */
     .donate-confirm-overlay { position: fixed; inset: 0; background: rgba(37,35,31,0.6); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
     .donate-confirm-overlay.active { display: flex; }
-    .donate-confirm-box { background: #fff; border-radius: 18px; max-width: 440px; width: 100%; padding: 2.25rem 2rem 1.75rem; text-align: center; box-shadow: 0 30px 70px rgba(0,0,0,0.3); cursor: default; }
+    .donate-confirm-box { background: #fff; border-radius: 18px; max-width: 440px; width: 100%; overflow: hidden; text-align: center; box-shadow: 0 30px 70px rgba(0,0,0,0.3); cursor: default; }
+    .donate-confirm-header { background: linear-gradient(135deg, var(--primary, #b8863a), color-mix(in srgb, var(--primary, #b8863a) 55%, black)); color: #fff; padding: 16px 20px; font-weight: 800; letter-spacing: 0.04em; font-size: 0.92rem; text-transform: uppercase; }
+    .donate-confirm-box.is-error .donate-confirm-header { background: linear-gradient(135deg, #c0392b, #7b241c); }
+    .donate-confirm-body { padding: 2rem 2rem 1.75rem; }
     .donate-confirm-icon { font-size: 3rem; color: var(--primary, #b8863a); margin-bottom: 0.75rem; }
     .donate-confirm-box.is-error .donate-confirm-icon { color: #c0392b; }
-    .donate-confirm-message { font-size: 1.08rem; color: var(--ink, #25231f); line-height: 1.6; margin-bottom: 1.5rem; }
+    .donate-confirm-message { font-size: 1.05rem; color: var(--ink, #25231f); line-height: 1.6; margin-bottom: 1.5rem; }
     .donate-confirm-ok { background: linear-gradient(135deg, var(--primary, #b8863a), color-mix(in srgb, var(--primary, #b8863a) 55%, black)); color: #fff; border: none; font-weight: 700; padding: 0.85rem 2.25rem; border-radius: 999px; font-size: 1rem; cursor: pointer; }
 </style>
 
 @if(session('success_donation') || $errors->any())
 <div class="donate-confirm-overlay active" id="{{ $formId }}-confirmOverlay">
     <div class="donate-confirm-box {{ $errors->any() ? 'is-error' : '' }}">
+        <div class="donate-confirm-header">{{ $errors->any() ? 'Please Check Your Details' : 'Donation Confirmed' }}</div>
+        <div class="donate-confirm-body">
         <div class="donate-confirm-icon"><i class="bi {{ $errors->any() ? 'bi-exclamation-circle-fill' : 'bi-check-circle-fill' }}"></i></div>
         @if(session('success_donation'))
             <p class="donate-confirm-message">{{ session('success_donation') }}</p>
@@ -69,6 +74,7 @@
             </p>
         @endif
         <button type="button" class="donate-confirm-ok">OK</button>
+        </div>
     </div>
 </div>
 <script>

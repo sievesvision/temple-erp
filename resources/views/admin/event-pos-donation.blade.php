@@ -340,6 +340,7 @@
         .pos-confirm-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
         .pos-confirm-overlay.active { display: flex; }
         .pos-confirm-popup { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; cursor: default; }
+        .pos-confirm-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: #fff; padding: 14px 20px; font-weight: 800; letter-spacing: 0.04em; font-size: 0.9rem; text-transform: uppercase; }
         .pos-confirm-icon { background: var(--success); color: #fff; font-size: 1.8rem; padding: 20px; }
         .pos-confirm-body { padding: 22px 24px 26px; }
         .pos-confirm-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
@@ -678,6 +679,7 @@
 
     <div class="pos-confirm-overlay" id="posConfirmOverlay">
         <div class="pos-confirm-popup">
+            <div class="pos-confirm-header">Donation Recorded</div>
             <div class="pos-confirm-icon"><i class="bi bi-check-circle-fill"></i></div>
             <div class="pos-confirm-body">
                 <div class="pos-confirm-message" id="posConfirmMessage"></div>

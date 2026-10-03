@@ -521,8 +521,8 @@
                     @endif
                 </div>
                 <div class="sidebar-decoration">
-                    <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
                     <p class="copyright">&copy; {{ date('Y') }} {{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</p>
+                    <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
                     <p><span class="version">Powered by</span> v{{ config('sievespos.version') }} <span class="version">· Sievesvision</span></p>
                 </div>
             </aside>
