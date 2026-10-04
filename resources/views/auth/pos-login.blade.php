@@ -221,7 +221,15 @@
       .pos-intro-tagline:not(.has-destination) { display: none; }
       .pos-feature-list { display: none; }
       .pos-card { padding: 1.35rem 1.5rem 1.1rem; }
-      .pos-brand { display: none; }
+      /* NOT hidden here (unlike the wide-layout rule above): this max-height query fires on
+         most phones in portrait too (Safari's chrome alone pushes the usable viewport under
+         900px), and on a narrow layout the card's brand row is the ONLY place the logo
+         renders — the wide layout's own copy of the temple name is what makes hiding it safe
+         there, and that condition doesn't hold here. Shrunk instead, to still save space. */
+      .pos-brand { margin-bottom: 0.75rem; gap: 4px; }
+      .pos-brand img { width: 40px; height: 40px; }
+      .pos-brand .om-mark { font-size: 1.6rem; }
+      .pos-brand-tag { display: none; }
       .pos-card-title { margin-top: 0; }
       .pos-card-subtitle { margin-bottom: 0.85rem; }
       .pos-username-field { margin-bottom: 0.6rem; }
@@ -243,6 +251,10 @@
       .pos-shell { gap: 0.75rem; }
       .pos-intro h1 { font-size: clamp(1.3rem, 3.2vw, 1.7rem); }
       .pos-card { padding: 1rem 1.25rem 0.85rem; }
+      .pos-brand { margin-bottom: 0.5rem; }
+      .pos-brand img { width: 32px; height: 32px; }
+      .pos-brand .om-mark { font-size: 1.3rem; }
+      .pos-brand-name { font-size: 1rem; }
       .pos-card-title { font-size: 1rem; }
       .pos-card-subtitle { font-size: 0.8rem; margin-bottom: 0.6rem; }
       .pos-username-field { margin-bottom: 0.4rem; }
