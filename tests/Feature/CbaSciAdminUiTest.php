@@ -65,9 +65,9 @@ class CbaSciAdminUiTest extends TestCase
     {
         $admin = $this->adminUser();
         EftTerminal::create([
-            'key' => 'sci-paired', 'label' => 'SCI Paired', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid(),
+            'key' => 'sci-paired', 'label' => 'Front Bar', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid(),
             'sci_pairing_id' => 'pid_abc', 'sci_key_id' => 'kid_abc', 'sci_signing_secret_part_b' => 'secret',
-            'sci_api_base_url' => 'https://sci-api.tenant.example', 'sci_pairing_nickname' => 'Front Bar',
+            'sci_api_base_url' => 'https://sci-api.tenant.example',
             'sci_confirmation_code' => '2022',
         ]);
 
@@ -127,7 +127,7 @@ class CbaSciAdminUiTest extends TestCase
         $response->assertSessionHas('success');
         $terminal->refresh();
         $this->assertTrue($terminal->isSciPaired());
-        $this->assertSame('Kiosk 2', $terminal->sci_pairing_nickname);
+        $this->assertSame('Kiosk 2', $terminal->label);
     }
 
     // The re-pair widget calls this over fetch() to get the confirmation code it needs for its
@@ -246,17 +246,22 @@ class CbaSciAdminUiTest extends TestCase
         $this->assertFalse($terminal->fresh()->isSciPaired());
     }
 
-    public function test_removing_a_terminal_with_recorded_sci_transactions_is_blocked(): void
+    // eft_terminal_id on sci_transactions is ->nullOnDelete() — removing a terminal with
+    // recorded history is allowed, the transaction's own data just loses the (purely display)
+    // reference to which terminal processed it.
+    public function test_removing_a_terminal_with_recorded_sci_transactions_is_allowed(): void
     {
         $admin = $this->adminUser();
         $terminal = EftTerminal::create(['key' => 'sci-hist', 'label' => 'SCI Hist', 'provider' => 'cba_sci', 'pos_id' => \Illuminate\Support\Str::uuid()]);
-        \App\Models\SciTransaction::create([
+        $transaction = \App\Models\SciTransaction::create([
             'client_ref' => 'ref-1', 'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'FINALISED',
         ]);
 
         $response = $this->actingAs($admin)->delete(route('admin.eft-terminals.destroy', $terminal));
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('eft_terminals', ['id' => $terminal->id]);
+        $this->assertNull($transaction->fresh()->eft_terminal_id);
     }
 }

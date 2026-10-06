@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /**
@@ -21,7 +20,7 @@ use Illuminate\Support\Str;
  */
 class EftTerminal extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'key',
@@ -37,7 +36,6 @@ class EftTerminal extends Model
         'sci_api_base_url',
         'sci_confirmation_code',
         'sci_tid',
-        'sci_pairing_nickname',
         'sci_terminal_nickname',
         'sci_paired_at',
         'sci_last_checked_at',

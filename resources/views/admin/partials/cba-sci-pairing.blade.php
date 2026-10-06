@@ -20,7 +20,8 @@
             <i class="bi bi-check-circle-fill me-1"></i>Paired successfully.
         </div>
         <div class="row g-2 mb-3" style="font-size:0.88rem;">
-            <div class="col-md-6"><span class="text-muted">Pairing Nickname:</span> <strong>{{ $terminal->sci_pairing_nickname ?: '—' }}</strong></div>
+            {{-- The terminal's own Label (shown at the top of this card) IS the nickname given
+                 at pairing time — one field, not a separate always-identical duplicate here. --}}
             <div class="col-md-6"><span class="text-muted">Pairing ID:</span> <strong>{{ $terminal->sci_pairing_id }}</strong></div>
             @if($terminal->sci_tid)
             <div class="col-md-6"><span class="text-muted">TID:</span> <strong>{{ $terminal->sci_tid }}</strong></div>

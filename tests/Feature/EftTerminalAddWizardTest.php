@@ -112,17 +112,17 @@ class EftTerminalAddWizardTest extends TestCase
         $this->assertSame($countBefore, EftTerminal::count());
     }
 
-    // The same "roll back the just-created row" path as a genuine pairing failure above no
-    // longer applies here — mx51's TID is the terminal's real identity now, so a TID that
-    // already belongs to another row means this IS that same physical device, re-registered.
-    // The old row is retired (soft-deleted, history intact) rather than refused.
-    public function test_add_and_pair_replaces_a_terminal_whose_tid_is_already_registered(): void
+    // mx51's TID is the terminal's real identity — if a physical device is already registered
+    // under an existing row, Add Terminal must update THAT row in place rather than creating a
+    // second one for the same device. The placeholder this request creates is discarded.
+    public function test_add_and_pair_updates_the_existing_terminal_whose_tid_is_already_registered(): void
     {
         $admin = $this->adminUser();
         $existing = EftTerminal::create([
             'key' => 'sci-tid_dupe', 'label' => 'Main Counter', 'provider' => 'cba_sci',
             'pos_id' => 'pos-existing', 'sci_tid' => 'tid_dupe',
         ]);
+        $countBefore = EftTerminal::count();
         Http::fake([
             'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
                 'pairing_id' => 'pid_dupe', 'key_id' => 'kid_dupe', 'confirmation_code' => '4242',
@@ -132,23 +132,20 @@ class EftTerminalAddWizardTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.addAndPair'), [
-            'provider' => 'cba_sci', 'pairing_code' => '999999',
+            'provider' => 'cba_sci', 'pairing_code' => '999999', 'pairing_nickname' => 'Reception',
         ]);
 
         $response->assertOk();
-        $response->assertJson(['success' => true]);
+        $response->assertJson(['success' => true, 'terminal_id' => $existing->id]);
 
-        $newTerminal = EftTerminal::find($response->json('terminal_id'));
-        $this->assertNotNull($newTerminal);
-        $this->assertSame('tid_dupe', $newTerminal->sci_tid);
-        $this->assertSame('sci-tid_dupe', $newTerminal->key);
-
-        // The old row is retired, not deleted outright — soft-deleted and renamed so it never
-        // collides with the key the new row just claimed.
-        $this->assertNull(EftTerminal::find($existing->id));
+        // No new row was created — the existing registration was updated in place, and the
+        // placeholder this request made along the way was discarded.
+        $this->assertSame($countBefore, EftTerminal::count());
         $existing->refresh();
-        $this->assertNotNull($existing->deleted_at);
-        $this->assertStringStartsWith('sci-tid_dupe-retired-', $existing->key);
+        $this->assertSame('tid_dupe', $existing->sci_tid);
+        $this->assertSame('sci-tid_dupe', $existing->key);
+        $this->assertSame('Reception', $existing->label);
+        $this->assertTrue($existing->isSciPaired());
     }
 
     public function test_add_and_pair_requires_registry_access(): void
@@ -180,9 +177,6 @@ class EftTerminalAddWizardTest extends TestCase
 
         $response->assertOk();
         $response->assertJson(['success' => true]);
-        // forceDelete()'d, not soft-deleted — this row never had any recorded activity (the
-        // guard above proves it), so there's no history to preserve, and the 'key' field needs
-        // to be genuinely free again for a retry (see cancelNewTerminal()'s own comment).
         $this->assertDatabaseMissing('eft_terminals', ['id' => $terminal->id]);
     }
 
