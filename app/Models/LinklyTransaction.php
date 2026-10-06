@@ -61,9 +61,12 @@ class LinklyTransaction extends Model
      * reused for every follow-up action against the same session (poll/cancel/sendkey/
      * reprint/refund), since a session is permanently tied to whichever terminal opened it.
      */
+    // withTrashed() — a removed (soft-deleted) terminal must still resolve here, so a
+    // historical transaction keeps showing which physical terminal it ran on even after that
+    // terminal is gone from the registry (see EftTerminalController::destroy()).
     public function eftTerminal()
     {
-        return $this->belongsTo(EftTerminal::class);
+        return $this->belongsTo(EftTerminal::class)->withTrashed();
     }
 
     public function refunds()

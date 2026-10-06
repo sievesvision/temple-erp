@@ -553,7 +553,7 @@ class CbaSciTransactionTest extends TestCase
         ]);
 
         $response->assertStatus(422);
-        $response->assertJson(['success' => false, 'message' => 'Select a valid mx51 terminal for this refund.']);
+        $response->assertJson(['success' => false, 'message' => 'Select a valid SCI terminal for this refund.']);
         Http::assertNothingSent();
     }
 

@@ -18,9 +18,9 @@
                 <strong>{{ $terminal->label }}</strong>
                 <span class="text-muted small">({{ $terminal->key }})</span>
             </div>
-            <div class="terminal-summary-meta">Key: {{ $terminal->key }} &nbsp;|&nbsp; Provider: {{ $isMx51 ? 'mx51 Cloud' : 'Linkly Cloud' }} &nbsp;|&nbsp; Mode: {{ strtoupper($mode) }}</div>
+            <div class="terminal-summary-meta">Key: {{ $terminal->key }} &nbsp;|&nbsp; Provider: {{ $isMx51 ? 'SCI' : 'Linkly Cloud' }} &nbsp;|&nbsp; Mode: {{ strtoupper($mode) }}</div>
             <div class="terminal-summary-badges">
-                <span class="badge-pill badge-provider">{{ $isMx51 ? 'MX51 CLOUD' : 'LINKLY CLOUD' }}</span>
+                <span class="badge-pill badge-provider">{{ $isMx51 ? 'SCI' : 'LINKLY CLOUD' }}</span>
                 @if($terminal->is_default)<span class="badge-pill badge-info">Default</span>@endif
                 <span class="badge-pill {{ $paired ? 'badge-ok' : 'badge-bad' }}">{{ $paired ? 'Paired' : 'Not Paired' }}</span>
             </div>
@@ -107,7 +107,7 @@
                         @endif
                     </div>
                     <div><span class="text-muted small">Unique Terminal Code</span><br><strong>{{ $terminal->key }}</strong></div>
-                    <div><span class="text-muted small">Provider</span><br><strong>{{ $isMx51 ? 'mx51 Cloud' : 'Linkly Cloud' }}</strong></div>
+                    <div><span class="text-muted small">Provider</span><br><strong>{{ $isMx51 ? 'SCI' : 'Linkly Cloud' }}</strong></div>
                 </div>
             </div>
 

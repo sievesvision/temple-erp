@@ -52,9 +52,12 @@ class SciTransaction extends Model
      */
     public const FINAL_STATUSES = ['FINALISED'];
 
+    // withTrashed() — a removed (soft-deleted) terminal must still resolve here, so a
+    // historical transaction keeps showing which physical terminal it ran on even after that
+    // terminal is gone from the registry (see EftTerminalController::destroy()).
     public function eftTerminal()
     {
-        return $this->belongsTo(EftTerminal::class);
+        return $this->belongsTo(EftTerminal::class)->withTrashed();
     }
 
     public function originalTransaction()

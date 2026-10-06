@@ -151,6 +151,9 @@ class EftTerminalAddWizardTest extends TestCase
 
         $response->assertOk();
         $response->assertJson(['success' => true]);
+        // forceDelete()'d, not soft-deleted — this row never had any recorded activity (the
+        // guard above proves it), so there's no history to preserve, and the 'key' field needs
+        // to be genuinely free again for a retry (see cancelNewTerminal()'s own comment).
         $this->assertDatabaseMissing('eft_terminals', ['id' => $terminal->id]);
     }
 

@@ -103,7 +103,7 @@ class EftTerminalController extends Controller
         ]);
 
         $settingKey = $validated['provider'] === 'cba_sci' ? 'cba_sci_mode' : 'linkly_mode';
-        $providerLabel = $validated['provider'] === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud';
+        $providerLabel = $validated['provider'] === 'cba_sci' ? 'SCI' : 'Linkly Cloud';
         Setting::set($settingKey, $validated['mode']);
 
         AuditLogService::log("Switched {$providerLabel} to " . strtoupper($validated['mode']) . ' mode');
@@ -225,7 +225,13 @@ class EftTerminalController extends Controller
             : LinklyEftService::pair($validated['pairing_code'], $terminal);
 
         if (!$result['success']) {
-            $terminal->delete();
+            // forceDelete(), not delete() — this row never succeeded at anything (no
+            // transaction, no completed pairing), so there's no history worth a soft delete's
+            // protection (see EftTerminal's SoftDeletes trait / EftTerminalController::
+            // destroy()'s own docblock). It also has to be a real delete: the 'key' field's
+            // unique validation above doesn't know about soft-deletes, so a merely
+            // soft-deleted row would keep blocking the exact retry this comment describes.
+            $terminal->forceDelete();
             return response()->json(['success' => false, 'message' => $result['message']]);
         }
 
@@ -269,8 +275,12 @@ class EftTerminalController extends Controller
             \App\Services\CbaSciService::unpair($terminal);
         }
 
+        // forceDelete() — the guard above already proved zero recorded transactions, so unlike
+        // destroy()'s soft delete there's no history worth preserving here, and the 'key'
+        // field needs to be genuinely free again for a retry (its unique validation in
+        // addAndPair()/store() doesn't know about soft-deletes).
         $label = $terminal->label;
-        $terminal->delete();
+        $terminal->forceDelete();
 
         AuditLogService::log("Cancelled pairing and removed EFT terminal '{$label}'");
 
@@ -391,14 +401,17 @@ class EftTerminalController extends Controller
             return redirect()->back()->with('error', 'Cannot remove the default terminal — set another one as default first.')->with('expandTerminalId', $terminal->id);
         }
 
-        if ($terminal->linklyTransactions()->exists() || $terminal->sciTransactions()->exists()) {
-            return redirect()->back()->with('error', 'Cannot remove a terminal with recorded transactions — it stays in the registry for that history to remain readable.')->with('expandTerminalId', $terminal->id);
-        }
-
         if ($terminal->isSciPaired()) {
             \App\Services\CbaSciService::unpair($terminal);
         }
 
+        // A soft delete (see EftTerminal's SoftDeletes trait) — a terminal with recorded
+        // transactions used to be impossible to remove at all, which was the real complaint:
+        // its history stays fully intact (eft_terminal_id on every linkly_transactions/
+        // sci_transactions row still points at this exact row, just no longer returned by the
+        // registry/pickers/EftTerminal::default()'s normal queries), and LinklyTransaction::
+        // eftTerminal()/SciTransaction::eftTerminal() are withTrashed() specifically so that
+        // history keeps showing which physical terminal was used.
         $label = $terminal->label;
         $terminal->delete();
 

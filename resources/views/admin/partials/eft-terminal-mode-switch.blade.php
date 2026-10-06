@@ -19,13 +19,13 @@
         </form>
     </div>
     <div class="eftr-mode-switch-row">
-        <span class="eftr-mode-switch-label">mx51 Cloud</span>
+        <span class="eftr-mode-switch-label">Simple Cloud Integration (SCI)</span>
         <form action="{{ route('admin.eft-terminals.updateMode') }}" method="POST" class="eftr-mode-switch-form">
             @csrf
             <input type="hidden" name="provider" value="cba_sci">
             <div class="btn-group btn-group-sm" role="group">
                 <button type="submit" name="mode" value="sandbox" class="btn {{ $cbaSciMode === 'sandbox' ? 'btn-secondary' : 'btn-outline-secondary' }}" {{ $cbaSciMode === 'sandbox' ? 'disabled' : '' }}>Sandbox</button>
-                <button type="submit" name="mode" value="live" class="btn {{ $cbaSciMode === 'live' ? 'btn-danger' : 'btn-outline-danger' }}" {{ $cbaSciMode === 'live' ? 'disabled' : '' }} onclick="return confirm('Switch mx51 Cloud to LIVE mode? Every subsequent transaction will process a real card.');">Live</button>
+                <button type="submit" name="mode" value="live" class="btn {{ $cbaSciMode === 'live' ? 'btn-danger' : 'btn-outline-danger' }}" {{ $cbaSciMode === 'live' ? 'disabled' : '' }} onclick="return confirm('Switch SCI to LIVE mode? Every subsequent transaction will process a real card.');">Live</button>
             </div>
         </form>
     </div>

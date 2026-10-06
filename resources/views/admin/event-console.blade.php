@@ -707,7 +707,7 @@
                                     // EventConsoleController::show()'s $linklyPurchaseByDonation docblock.
                                     $rowLinklyTxn = $row->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
                                     $rowSciTxn = $row->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
-                                    $rowEftProvider = $rowLinklyTxn ? 'Linkly' : ($rowSciTxn ? 'mx51' : null);
+                                    $rowEftProvider = $rowLinklyTxn ? 'Linkly' : ($rowSciTxn ? 'SCI' : null);
                                     $rowEftTerminalLabel = $rowLinklyTxn->eftTerminal->label ?? ($rowSciTxn->eftTerminal->label ?? null);
                                     $rowCanRefund = $canEditEvent && (
                                         ($rowLinklyTxn && $rowLinklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $rowLinklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
@@ -772,7 +772,7 @@
                                 @php
                                     $ot = $orow->txn;
                                     $oIsRefund = $ot->txn_type === 'refund';
-                                    $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'mx51';
+                                    $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'SCI';
                                     $oRef = $orow->provider === 'linkly' ? $ot->pos_txn_ref : ($ot->sci_transaction_id ?: $ot->client_ref);
                                     $oTerminalLabel = $ot->eftTerminal->label ?? null;
                                     $oStatusWord = $orow->provider === 'linkly' ? $ot->status : (($ot->result_financial_status ?: $ot->status) ?? '');

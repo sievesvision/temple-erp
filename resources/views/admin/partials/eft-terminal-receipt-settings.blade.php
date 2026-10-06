@@ -13,7 +13,7 @@
     $posAutoPrintSignatureReceipt = \App\Services\EftReceiptSettings::posAutoPrintSignatureReceipt();
 @endphp
 <div class="eftr-settings-card">
-    <div class="eftr-settings-heading"><i class="bi bi-receipt me-1"></i>Receipt Printing &amp; Signature (mx51 only, for now)</div>
+    <div class="eftr-settings-heading"><i class="bi bi-receipt me-1"></i>Receipt Printing &amp; Signature (SCI only, for now)</div>
     <form action="{{ route('admin.eft-terminals.updateReceiptSettings') }}" method="POST" style="width:100%;">
         @csrf
         <div class="row g-3">
@@ -42,7 +42,7 @@
                 </div>
             </div>
         </div>
-        <p class="text-muted small mt-2 mb-2">Sent to mx51 as print_merchant_receipt / prompt_customer_receipt / verify_signature_on_terminal / pos_auto_print_signature_receipt on every transaction. mx51's own recommended defaults: all off except "Auto-print signature receipt from POS", which defaults on.</p>
+        <p class="text-muted small mt-2 mb-2">Sent to SCI as print_merchant_receipt / prompt_customer_receipt / verify_signature_on_terminal / pos_auto_print_signature_receipt on every transaction. SCI's own recommended defaults: all off except "Auto-print signature receipt from POS", which defaults on.</p>
         <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
     </form>
 </div>
