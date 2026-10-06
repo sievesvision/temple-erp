@@ -11,6 +11,34 @@
     initAddTerminalWizard();
     initSciRepairWidgets();
 
+    // Callable from outside this file (the event/ticket console pages' own switchPane(), so
+    // opening the "EFT Terminal Settings" pane always re-runs mx51's live pairing check rather
+    // than trusting whatever was last rendered) — see EftTerminalRegistryView::
+    // selfHealSciPairings(), which admin.eft-terminals.index's JSON response already runs.
+    window.EftTerminalRegistry = { refresh: refreshTerminalsList };
+
+    // Lives at the top level (not inside initAddTerminalWizard()) so it works even on a page
+    // where the Add Terminal button itself is hidden (no canManageRegistryLevel) — reading its
+    // URL from #eftTerminalsList's own data attribute, which is always rendered wherever this
+    // registry partial is, rather than from that conditionally-rendered button.
+    function refreshTerminalsList() {
+        const currentList = document.getElementById('eftTerminalsList');
+        if (!currentList) { return Promise.resolve(); }
+        const refreshUrl = currentList.dataset.refreshUrl;
+        if (!refreshUrl) { return Promise.resolve(); }
+
+        return fetch(refreshUrl, { headers: { 'Accept': 'application/json' } })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (!data.html) { return; }
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data.html, 'text/html');
+                const freshList = doc.getElementById('eftTerminalsList');
+                if (freshList) { currentList.innerHTML = freshList.innerHTML; }
+            })
+            .catch(function () { /* list simply stays as it was before the refresh attempt */ });
+    }
+
     function postForm(url, csrf, params) {
         return fetch(url, {
             method: 'POST',
@@ -50,7 +78,6 @@
         const ADD_URL = toggleBtn.dataset.addUrl;
         const TEST_URL = toggleBtn.dataset.testUrl;
         const CANCEL_NEW_URL_BASE = toggleBtn.dataset.cancelNewUrlBase;
-        const REFRESH_URL = toggleBtn.dataset.refreshUrl;
         const CSRF = toggleBtn.dataset.csrf;
 
         const terminalsList = document.getElementById('eftTerminalsList');
@@ -233,20 +260,6 @@
             closeWizard();
             refreshTerminalsList();
         });
-
-        function refreshTerminalsList() {
-            fetch(REFRESH_URL, { headers: { 'Accept': 'application/json' } })
-                .then(function (resp) { return resp.json(); })
-                .then(function (data) {
-                    if (!data.html) { return; }
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(data.html, 'text/html');
-                    const freshList = doc.getElementById('eftTerminalsList');
-                    const currentList = document.getElementById('eftTerminalsList');
-                    if (freshList && currentList) { currentList.innerHTML = freshList.innerHTML; }
-                })
-                .catch(function () { /* list simply stays as it was before the refresh attempt */ });
-        }
     }
 
     // Re-pairing an EXISTING mx51 terminal used to be a plain full-page POST that landed

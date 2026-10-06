@@ -986,6 +986,14 @@
             document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
             document.getElementById('appSidebar').classList.remove('open');
             document.getElementById('sidebarBackdrop').classList.remove('show');
+            // Opening this pane should always reflect the terminal's REAL pairing state, not
+            // whatever was last rendered — a terminal unpaired from the POS's own terminal
+            // picker (or any other console) since this page loaded must never still show
+            // "Paired" here. window.EftTerminalRegistry is defined by js/eft-terminal-
+            // registry.js, which this page already links.
+            if (paneId === 'pane-eft-settings' && window.EftTerminalRegistry) {
+                window.EftTerminalRegistry.refresh();
+            }
             return true;
         }
 
@@ -997,7 +1005,7 @@
         // otherwise reset back to Dashboard after saving — same "consoleActivePane"
         // localStorage convention as event-console.blade.php, so a form submission anywhere
         // in one of these panes reopens that exact pane once the page reloads.
-        ['pane-settings', 'pane-eft-settings', 'pane-cash-banking', 'pane-controllers', 'pane-sales'].forEach(function (paneId) {
+        ['pane-settings', 'pane-cash-banking', 'pane-controllers', 'pane-sales'].forEach(function (paneId) {
             const pane = document.getElementById(paneId);
             if (!pane) { return; }
             pane.querySelectorAll('form').forEach(function (form) {
@@ -1006,6 +1014,22 @@
                 });
             });
         });
+        // pane-eft-settings is handled separately, via event delegation on the pane itself
+        // rather than each individual form — unlike the panes above, its #eftTerminalsList
+        // content gets replaced wholesale via innerHTML after the Add Terminal wizard succeeds
+        // (see js/eft-terminal-registry.js refreshTerminalsList()), which would silently drop
+        // a listener attached directly to any one form. A 'submit' event bubbles, so this still
+        // catches every terminal card's form (rename/set default/remove/pair/unpair) even ones
+        // added after that refresh.
+        (function () {
+            const pane = document.getElementById('pane-eft-settings');
+            if (!pane) { return; }
+            pane.addEventListener('submit', function (e) {
+                if (e.target.tagName === 'FORM') {
+                    try { localStorage.setItem('consoleActivePane', 'pane-eft-settings'); } catch (err) {}
+                }
+            });
+        })();
         (function restoreActivePane() {
             let savedPane = null;
             try { savedPane = localStorage.getItem('consoleActivePane'); } catch (e) {}
