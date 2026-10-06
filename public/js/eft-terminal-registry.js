@@ -261,15 +261,15 @@
     }
 
     // Re-pairing an EXISTING mx51 terminal used to be a plain full-page POST that landed
-    // straight on the static "Paired successfully" view — skipping the same interactive
-    // "confirm the code on the terminal, then press Test" moment the Add Terminal wizard
-    // already has. This brings that same moment to re-pairing too, scoped per terminal (a page
-    // can show more than one unpaired mx51 terminal's card at once) via data attributes and
-    // querying only within each widget's own subtree, never a fixed global id. Unlike the
-    // wizard, this doesn't need its own success-state markup or a partial-list refresh: once
-    // Test actually confirms the pairing, a plain reload is enough to land back on the
-    // existing, unchanged "Paired successfully" branch of cba-sci-pairing.blade.php — that
-    // static view was always correct, it was only ever reached one step too early.
+    // straight on the static paired view — skipping the same interactive "confirm the code on
+    // the terminal, then press Test" moment the Add Terminal wizard already has. This brings
+    // that same moment to re-pairing too, scoped per terminal (a page can show more than one
+    // unpaired mx51 terminal's card at once) via data attributes and querying only within each
+    // widget's own subtree, never a fixed global id. Unlike the wizard, this doesn't need its
+    // own success-state markup or a partial-list refresh: once Test actually confirms the
+    // pairing, a plain reload is enough — the card then renders paired (see
+    // eft-terminal-card.blade.php's $expandable), which was always correct, it was only ever
+    // reached one step too early.
     function initSciRepairWidgets() {
         document.querySelectorAll('.sci-repair-widget').forEach(function (widget) {
             const PAIR_URL = widget.dataset.pairUrl;

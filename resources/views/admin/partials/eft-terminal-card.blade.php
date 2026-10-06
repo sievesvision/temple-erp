@@ -9,9 +9,14 @@
     $startExpanded = (int) session('expandTerminalId') === $terminal->id;
     $canAct = $canManageRegistryLevel ?? false;
     $canUnpair = $isMx51 && $paired;
+    // A paired SCI terminal has nothing left to configure here — Unpair lives in the "…" menu —
+    // so it gets no expand/collapse at all. Only an unpaired SCI terminal (still needs a
+    // pairing code) or a Linkly terminal (pairing code + Check Connection, always) keep it.
+    $expandable = !($isMx51 && $paired);
 @endphp
 <div class="terminal-card{{ $paired ? '' : ' terminal-card-inactive' }}">
-    <div class="terminal-summary-row" role="button" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}" aria-controls="{{ $detailId }}">
+    <div class="terminal-summary-row"
+         @if($expandable) role="button" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}" aria-controls="{{ $detailId }}" @endif>
         <span class="terminal-icon"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt=""></span>
 
         <div class="terminal-summary-main">
@@ -32,17 +37,24 @@
                 @if($terminal->is_default)<span class="badge-pill badge-info">Default</span>@endif
                 <span class="badge-pill {{ $paired ? 'badge-ok' : 'badge-bad' }}">{{ $paired ? 'Paired' : 'Not Paired' }}</span>
             </div>
+            {{-- SCIPAIRING02's branding requirement, shown directly here rather than behind a
+                 click — a paired terminal has no expandable panel at all any more (see
+                 $expandable above), so this is the only place left for it to appear. --}}
+            @if($isMx51)
+            <div class="d-flex align-items-center gap-2 mt-1" style="font-size:0.82rem;">
+                <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:18px; height:18px; border-radius:4px; object-fit:cover;">
+                <span class="text-muted">Simple Cloud Integration</span>
+            </div>
+            @endif
         </div>
 
-        {{-- The row itself already toggles this card's details (data-bs-toggle above) — no
-             separate Settings button needed, and no separate Connection/Status column either:
-             the Paired/Not Paired badge above already reflects a live mx51 check on every page
-             load (see EftTerminalRegistryView::selfHealSciPairings()) — a second "Status" pill
-             next to it only ever repeated the exact same true/false. "Set as
-             default"/Unpair/"Remove" live in the "…" menu; anyone trusted to add/pair a
-             terminal is trusted to change or remove any terminal in the registry too, since
-             it's still one shared, global list, not scoped per event/Tickets (see
-             EftTerminalAccess's own docblock). --}}
+        {{-- No separate Settings button, and no separate Connection/Status column either: the
+             Paired/Not Paired badge above already reflects a live mx51 check on every page load
+             (see EftTerminalRegistryView::selfHealSciPairings()) — a second "Status" pill next
+             to it only ever repeated the exact same true/false. "Set as default"/Unpair/
+             "Remove" live in the "…" menu; anyone trusted to add/pair a terminal is trusted to
+             change or remove any terminal in the registry too, since it's still one shared,
+             global list, not scoped per event/Tickets (see EftTerminalAccess's own docblock). --}}
         @if($canAct && (!$terminal->is_default || $canUnpair))
         <div class="terminal-summary-actions" onclick="event.stopPropagation();">
             <div class="dropdown">
@@ -82,7 +94,9 @@
 
     {{-- Just the pairing controls — everything else here (label, TID/key, provider, mode) is
          already shown on the summary row above, and Set default/Unpair/Remove live in its "…"
-         menu. --}}
+         menu. Only rendered at all when $expandable — a paired SCI terminal has nothing left to
+         show here. --}}
+    @if($expandable)
     <div class="collapse{{ $startExpanded ? ' show' : '' }}" id="{{ $detailId }}">
         <div class="terminal-detail-body">
             @if($isMx51)
@@ -108,4 +122,5 @@
             @endif
         </div>
     </div>
+    @endif
 </div>
