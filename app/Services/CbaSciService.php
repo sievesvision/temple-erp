@@ -34,9 +34,7 @@ class CbaSciService
      * Exchanges a terminal-displayed pairing code for a permanent per-terminal pairing,
      * saved onto the given terminal. See https://developer.mx51.io/docs/sci-pairing —
      * POST {pairing_base}/progress-pairing, simple ApiKey auth (not signed — there's no
-     * per-pairing secret yet at this point). On success, `$terminal` isn't always the row that
-     * ends up updated — see the TID matching below — so callers must use the returned
-     * terminal_id, not assume it's $terminal->id.
+     * per-pairing secret yet at this point).
      *
      * @return array{success: bool, message: string, terminal_id?: int}
      */
@@ -71,45 +69,31 @@ class CbaSciService
 
         $tid = $data['tid'] ?? null;
 
-        // mx51's own TID is the physical device's real identity, independent of whichever
-        // registry row we started from. If it's already registered under one or more DIFFERENT
-        // rows — re-paired via the Add Terminal wizard instead of that terminal's own Re-pair
-        // widget, or simply re-paired after an explicit Unpair (which clears sci_tid but leaves
-        // the old row's key as 'sci-{tid}', still sitting on it) — those rows ARE this same
-        // physical terminal, so the first one found is updated in place and any others are
-        // deleted outright rather than left behind as dead duplicates; the row passed in here is
-        // discarded by the caller too when it isn't the one that ends up kept (see
-        // EftTerminalController::addAndPair()).
-        $target = $terminal;
-        $inheritedDefault = false;
-        if ($tid) {
-            $duplicates = EftTerminal::where(function ($query) use ($tid) {
-                $query->where('sci_tid', $tid)->orWhere('key', 'sci-' . $tid);
-            })->where('id', '!=', $terminal->id)->get();
-
-            if ($duplicates->isNotEmpty()) {
-                $target = $duplicates->shift();
-                foreach ($duplicates as $extra) {
-                    if ($extra->is_default) {
-                        $inheritedDefault = true;
-                    }
-                    $extra->delete();
-                }
-            }
-        }
-
         // No nickname given and this row never had a real name of its own (still carrying
         // addAndPair()'s generic 'New Terminal' placeholder, blank, or an earlier auto-generated
         // "Terminal {tid}" label from a previous pairing) — the TID is more useful as a label
         // than a name nobody actually chose.
-        $label = $target->label;
+        $label = $terminal->label;
         if ($nickname !== null && $nickname !== '') {
             $label = $nickname;
         } elseif ($tid && (!$label || $label === 'New Terminal' || preg_match('/^Terminal \d+$/', $label))) {
             $label = 'Terminal ' . $tid;
         }
 
-        $updates = [
+        // The same physical device can legitimately end up registered under more than one row
+        // (re-added without noticing one already exists, testing, etc.) — that's allowed, this
+        // never merges or deletes another terminal just because its TID matches. `key` still has
+        // to stay unique at the DB level though, so the clean 'sci-{tid}' form only applies when
+        // nothing else is already using it; a genuine duplicate falls back to a per-row suffix.
+        $key = $terminal->key;
+        if ($tid) {
+            $key = 'sci-' . $tid;
+            if (EftTerminal::where('key', $key)->where('id', '!=', $terminal->id)->exists()) {
+                $key = $key . '-' . $terminal->id;
+            }
+        }
+
+        $terminal->update([
             'provider' => 'cba_sci',
             'sci_pairing_id' => $data['pairing_id'],
             'sci_key_id' => $data['key_id'] ?? null,
@@ -120,22 +104,15 @@ class CbaSciService
             'sci_terminal_nickname' => $data['terminal_nickname'] ?? null,
             'sci_paired_at' => now(),
             'label' => $label,
-            'key' => $tid ? 'sci-' . $tid : $target->key,
-        ];
-        // Only ever set true — a deleted duplicate's default status is inherited, never
-        // overwrites $target's own (possibly unhydrated on a just-created row) current value.
-        if ($inheritedDefault) {
-            $updates['is_default'] = true;
-        }
-
-        $target->update($updates);
+            'key' => $key,
+        ]);
 
         // Covers the registry having had no usable default at all (e.g. everything was
         // unpaired) — this newly-paired terminal becomes the default if nothing else already
         // is one. A no-op if the current default is already paired.
         EftTerminal::ensureUsableDefault();
 
-        return ['success' => true, 'message' => 'Terminal paired successfully.', 'terminal_id' => $target->id];
+        return ['success' => true, 'message' => 'Terminal paired successfully.', 'terminal_id' => $terminal->id];
     }
 
     private static function pairingErrorMessage($response): string
@@ -247,10 +224,9 @@ class CbaSciService
      * the local cleanup still runs.
      *
      * sci_tid is deliberately NOT cleared — it's the physical device's own enduring identity,
-     * not a pairing credential, and `key` ('sci-{tid}') is left pointing at it too. This is
-     * what lets pair()'s TID-matching find this exact row again when the same device is
-     * re-paired, and lets the card keep showing which physical terminal this is even while
-     * unpaired.
+     * not a pairing credential, and `key` ('sci-{tid}') is left pointing at it too. This lets
+     * the card keep showing which physical terminal this is even while unpaired, and lets
+     * re-pairing this exact row find its own key again unchanged.
      *
      * @return array{success: bool, message: string}
      */
