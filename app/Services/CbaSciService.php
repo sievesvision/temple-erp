@@ -67,6 +67,24 @@ class CbaSciService
             return ['success' => false, 'message' => 'Pairing succeeded but the terminal did not return the expected pairing details.'];
         }
 
+        // mx51's own TID identifies the physical device, independent of whichever registry
+        // row/pairing_id we're attaching it to — if it already belongs to a DIFFERENT row,
+        // this is the same physical terminal being registered twice rather than a genuinely
+        // new one. Caught here (shared by both addAndPair()'s "new terminal" flow and the
+        // existing-row re-pair flow) rather than left to create a confusing duplicate that
+        // would show up twice in every terminal picker.
+        $tid = $data['tid'] ?? null;
+        if ($tid) {
+            $duplicate = EftTerminal::where('sci_tid', $tid)->where('id', '!=', $terminal->id)->first();
+            if ($duplicate) {
+                return [
+                    'success' => false,
+                    'message' => "This terminal is already registered as \"{$duplicate->label}\" — use that one instead of adding a new entry.",
+                    'duplicate_terminal_id' => $duplicate->id,
+                ];
+            }
+        }
+
         $terminal->update([
             'provider' => 'cba_sci',
             'sci_pairing_id' => $data['pairing_id'],

@@ -17,11 +17,13 @@ use Illuminate\Support\Facades\Auth;
  * RolePermission resource (typically Admin/Committee only), while an event-admin coordinator
  * or ticket-admin controller already has full pairing/refund/logon rights over any terminal
  * from their own console and needs to be able to register a *new* one too — see
- * App\Services\EftTerminalAccess for exactly who that is. "Set default" now shares that same
- * broader access (anyone who can manage the registry can change it), since the destinations
- * that rely on the default already trust those same roles for day-to-day terminal operation;
- * only "remove a terminal" stays System-Admin-only, since that can take a terminal out from
- * under another console entirely rather than just changing which one is preferred.
+ * App\Services\EftTerminalAccess for exactly who that is. "Set default" and "remove a
+ * terminal" now share that same broader access too (anyone who can manage the registry can
+ * change or remove any terminal in it — the registry is still one shared, global list, not
+ * scoped per event/Tickets), since the destinations that rely on a terminal already trust
+ * those same roles for its day-to-day operation. System-Admin-only is now exclusively about
+ * the provider-wide sandbox/live switch (updateMode()) — going live moves real money for
+ * every terminal of that provider, which is a different order of consequence entirely.
  */
 class EftTerminalController extends Controller
 {
@@ -393,7 +395,7 @@ class EftTerminalController extends Controller
 
     public function destroy(Request $request, EftTerminal $terminal)
     {
-        if (!$this->isAdmin()) {
+        if (!$this->canManageRegistry()) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

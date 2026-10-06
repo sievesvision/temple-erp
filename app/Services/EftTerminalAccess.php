@@ -13,9 +13,12 @@ use Illuminate\Support\Facades\DB;
  * rights over any terminal from their own console (see DonationController::
  * canManageEftForEvent() / TicketController::canManageTicketConsole()) and needs to be able
  * to add a *new* terminal too — not just re-pair an existing row an Admin had to create for
- * them first. "Set default" and "remove a terminal" stay System-Admin-only (see
- * EftTerminalController::setDefault()/destroy()) since those affect every other console's
- * fallback resolution, not just the caller's own event/module.
+ * them first. "Set default" and "remove a terminal" (see EftTerminalController::setDefault()/
+ * destroy()) now use this same broader check too — the registry stays one shared, global
+ * list rather than scoped per event/Tickets, so anyone trusted to add/pair a terminal is
+ * trusted to change or remove any terminal in it. System-Admin-only is reserved for the
+ * provider-wide sandbox/live switch (updateMode()) alone, since going live moves real money
+ * for every terminal of that provider at once.
  *
  * Also covers whoever actually operates a POS counter — both POS pages
  * (event-pos-donation.blade.php, ticket-pos.blade.php) show an "Open EFT Terminal Settings"

@@ -65,6 +65,58 @@ class CbaSciPairingTest extends TestCase
         });
     }
 
+    // The physical terminal, not the registry row, is what mx51's TID actually identifies —
+    // pairing a brand new row against a TID some OTHER row already carries means the same
+    // physical device is being registered twice, which would otherwise show up as two
+    // identical-looking entries in every terminal picker.
+    public function test_pairing_refuses_a_tid_already_registered_to_a_different_terminal(): void
+    {
+        $existing = $this->makeTerminal();
+        $existing->update(['sci_tid' => 'tid123', 'label' => 'Front Counter']);
+
+        Http::fake([
+            'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
+                'pairing_id' => 'pid_456', 'key_id' => 'kid_456', 'confirmation_code' => '9999',
+                'signing_secret_part_b' => 'secret-b-2', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+                'tid' => 'tid123',
+            ]], 200),
+        ]);
+
+        $newTerminal = $this->makeTerminal();
+        $result = CbaSciService::pair('654321', null, $newTerminal);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame($existing->id, $result['duplicate_terminal_id']);
+        $this->assertStringContainsString('Front Counter', $result['message']);
+
+        // The new row must be left genuinely unpaired — no pairing_id/secret saved from a
+        // device that actually belongs to a different registry entry.
+        $newTerminal->refresh();
+        $this->assertNull($newTerminal->sci_pairing_id);
+        $this->assertFalse($newTerminal->isSciPaired());
+    }
+
+    // Re-pairing the SAME row against the same physical device it already represents is the
+    // normal case, not a duplicate — the exclusion has to be by id, not just "any match".
+    public function test_pairing_allows_re_pairing_the_same_row_with_its_own_tid(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update(['sci_tid' => 'tid123']);
+
+        Http::fake([
+            'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
+                'pairing_id' => 'pid_789', 'key_id' => 'kid_789', 'confirmation_code' => '1111',
+                'signing_secret_part_b' => 'secret-b-3', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+                'tid' => 'tid123',
+            ]], 200),
+        ]);
+
+        $result = CbaSciService::pair('111111', null, $terminal);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($terminal->fresh()->isSciPaired());
+    }
+
     public function test_secret_part_b_is_never_exposed_in_array_or_json_output(): void
     {
         Http::fake([
