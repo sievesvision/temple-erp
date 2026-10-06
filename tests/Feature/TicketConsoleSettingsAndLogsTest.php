@@ -30,11 +30,14 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
         $response->assertSee('Payment Methods for Ticket POS');
     }
 
-    // The Settings pane also holds the terminal registry (add a new terminal) plus a
-    // per-computer terminal picker — saved only in localStorage on the browser that used it,
-    // never sent to the server, so two POS computers can each be pointed at a different
-    // terminal (see the localStorage key 'ticketPosEftTerminalId', shared with the actual
-    // POS page at ticket-pos.blade.php).
+    // The Settings pane holds a per-computer terminal picker — saved only in localStorage on
+    // the browser that used it, never sent to the server, so two POS computers can each be
+    // pointed at a different terminal (see the localStorage key 'ticketPosEftTerminalId',
+    // shared with the actual POS page at ticket-pos.blade.php). It deliberately doesn't show
+    // Paired/Not paired status (that was a separate display, rendered once at page load and
+    // never refreshed, so it went stale the moment a terminal was paired/unpaired elsewhere
+    // without a reload) — the EFT Terminal Settings pane is the one place that status is
+    // ever shown, since it self-heals against mx51 on every open.
     public function test_settings_pane_lists_terminals_and_has_a_per_computer_picker(): void
     {
         EftTerminal::factory()->create(['key' => 'counter-2', 'label' => 'Ticket Counter 2']);
@@ -45,7 +48,6 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
         $response->assertSee('This Computer', false);
         $response->assertSee('thisComputerTerminalSelect', false);
         $response->assertSee('ticketPosEftTerminalId', false);
-        $response->assertSee('Registered EFT Terminals');
         $response->assertSee('Ticket Counter 2');
     }
 

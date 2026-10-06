@@ -525,16 +525,21 @@
                         </div>
 
                         <div class="card-panel mt-3">
-                            <div class="fw-bold mb-2">This Computer's EFT Terminal</div>
-                            <p class="text-muted small mb-3">Which physical terminal <strong>this computer</strong> uses when selling tickets — saved only in this browser, not on the server, so two POS computers can each be set to a different terminal and sell concurrently without interfering. Setting it here takes effect on the Ticket POS page on this same computer immediately.</p>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="fw-bold">This Computer's EFT Terminal</div>
+                                <button type="button" onclick="activatePane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
+                            </div>
+                            <p class="text-muted small mb-3">Which physical terminal <strong>this computer</strong> uses when selling tickets — saved only in this browser, not on the server, so two POS computers can each be set to a different terminal and sell concurrently without interfering. Setting it here takes effect on the Ticket POS page on this same computer immediately. Pairing status isn't shown here since it can change at any time — check the EFT Terminal Settings page for that.</p>
                             <div class="row g-2 align-items-end">
                                 <div class="col-md-6">
                                     <label class="field-label">Terminal for this computer</label>
                                     <select class="form-select" id="thisComputerTerminalSelect">
                                         <option value="">— Choose a terminal —</option>
-                                        @foreach($eftTerminals as $terminal)
-                                        <option value="{{ $terminal->id }}">{{ $terminal->label }}{{ $terminal->is_default ? ' (default)' : '' }} — {{ $terminal->isPaired($linklyMode) ? 'Paired' : 'Not paired' }}</option>
-                                        @endforeach
+                                        @forelse($eftTerminals as $terminal)
+                                        <option value="{{ $terminal->id }}">{{ $terminal->label }}{{ $terminal->is_default ? ' (default)' : '' }}</option>
+                                        @empty
+                                        <option value="" disabled>No terminals registered yet</option>
+                                        @endforelse
                                     </select>
                                 </div>
                                 <div class="col-md-3">
@@ -544,36 +549,6 @@
                                     <span class="text-muted small" id="thisComputerTerminalStatus"></span>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="card-panel mt-3">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <div class="fw-bold">Registered EFT Terminals</div>
-                                <button type="button" onclick="activatePane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
-                            </div>
-                            <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Adding, pairing and unpairing terminals (Linkly or SCI) all happen on the EFT Terminal Settings page.</p>
-                            @forelse($eftTerminals as $terminal)
-                            @php $lastKnown = $terminal->lastKnownStatus(); $terminalPaired = $terminal->isPairedFor($linklyMode); @endphp
-                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2 pb-2 border-bottom">
-                                <strong>{{ $terminal->label }}</strong>
-                                <span class="text-muted small">({{ $terminal->key }})</span>
-                                @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
-                                <span class="badge bg-secondary">{{ $terminal->provider === 'cba_sci' ? 'SCI' : 'Linkly Cloud' }}</span>
-                                <span class="status-pill status-{{ $terminalPaired ? 'paid' : 'cancelled' }}">{{ $terminalPaired ? 'Paired' : 'Not paired' }}</span>
-                                @if($lastKnown['state'] === 'online')
-                                <span class="status-pill status-paid">Online</span>
-                                @elseif($lastKnown['state'] === 'offline')
-                                <span class="status-pill status-cancelled">Offline</span>
-                                @else
-                                <span class="status-pill status-pending">Not checked</span>
-                                @endif
-                                @if($lastKnown['at'])
-                                <span class="text-muted" style="font-size:0.72rem;">({{ $lastKnown['at']->diffForHumans() }})</span>
-                                @endif
-                            </div>
-                            @empty
-                            <p class="text-muted small mb-0">No terminals registered yet — <a href="#" onclick="event.preventDefault(); activatePane('pane-eft-settings');">add one on the EFT Terminal Settings page</a>.</p>
-                            @endforelse
                         </div>
                     </div>
 
