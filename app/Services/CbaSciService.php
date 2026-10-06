@@ -72,24 +72,43 @@ class CbaSciService
         $tid = $data['tid'] ?? null;
 
         // mx51's own TID is the physical device's real identity, independent of whichever
-        // registry row we started from. If it's already registered under a DIFFERENT row —
-        // re-paired via the Add Terminal wizard instead of that terminal's own Re-pair widget,
-        // or simply re-paired after an explicit Unpair (which clears sci_tid but leaves the old
-        // row's key as 'sci-{tid}', still sitting on it) — that row IS this same physical
-        // terminal, so it's updated in place and the row passed in here is left untouched; see
-        // EftTerminalController::addAndPair(), which discards its own just-created placeholder
-        // when that happens rather than leaving a dead duplicate behind.
+        // registry row we started from. If it's already registered under one or more DIFFERENT
+        // rows — re-paired via the Add Terminal wizard instead of that terminal's own Re-pair
+        // widget, or simply re-paired after an explicit Unpair (which clears sci_tid but leaves
+        // the old row's key as 'sci-{tid}', still sitting on it) — those rows ARE this same
+        // physical terminal, so the first one found is updated in place and any others are
+        // deleted outright rather than left behind as dead duplicates; the row passed in here is
+        // discarded by the caller too when it isn't the one that ends up kept (see
+        // EftTerminalController::addAndPair()).
         $target = $terminal;
+        $inheritedDefault = false;
         if ($tid) {
-            $existing = EftTerminal::where(function ($query) use ($tid) {
+            $duplicates = EftTerminal::where(function ($query) use ($tid) {
                 $query->where('sci_tid', $tid)->orWhere('key', 'sci-' . $tid);
-            })->where('id', '!=', $terminal->id)->first();
-            if ($existing) {
-                $target = $existing;
+            })->where('id', '!=', $terminal->id)->get();
+
+            if ($duplicates->isNotEmpty()) {
+                $target = $duplicates->shift();
+                foreach ($duplicates as $extra) {
+                    if ($extra->is_default) {
+                        $inheritedDefault = true;
+                    }
+                    $extra->delete();
+                }
             }
         }
 
-        $target->update([
+        // No nickname given and this row never had a real name of its own (still carrying
+        // addAndPair()'s generic 'New Terminal' placeholder, or blank) — the TID is more useful
+        // as a label than a name nobody actually chose.
+        $label = $target->label;
+        if ($nickname !== null && $nickname !== '') {
+            $label = $nickname;
+        } elseif ((!$label || $label === 'New Terminal') && $tid) {
+            $label = (string) $tid;
+        }
+
+        $updates = [
             'provider' => 'cba_sci',
             'sci_pairing_id' => $data['pairing_id'],
             'sci_key_id' => $data['key_id'] ?? null,
@@ -99,13 +118,16 @@ class CbaSciService
             'sci_tid' => $tid,
             'sci_terminal_nickname' => $data['terminal_nickname'] ?? null,
             'sci_paired_at' => now(),
-            // The nickname given at pairing time IS the terminal's display name — one field,
-            // not two (there used to also be a separate sci_pairing_nickname column, always
-            // holding the same value and shown as a redundant second line next to the card's
-            // own Label).
-            'label' => $nickname !== null && $nickname !== '' ? $nickname : $target->label,
+            'label' => $label,
             'key' => $tid ? 'sci-' . $tid : $target->key,
-        ]);
+        ];
+        // Only ever set true — a deleted duplicate's default status is inherited, never
+        // overwrites $target's own (possibly unhydrated on a just-created row) current value.
+        if ($inheritedDefault) {
+            $updates['is_default'] = true;
+        }
+
+        $target->update($updates);
 
         return ['success' => true, 'message' => 'Terminal paired successfully.', 'terminal_id' => $target->id];
     }
