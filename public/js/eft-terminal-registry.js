@@ -8,14 +8,16 @@
 (function () {
     'use strict';
 
-    initAddTerminalWizard();
-    initSciRepairWidgets();
-
-    // Callable from outside this file (the event/ticket console pages' own switchPane(), so
-    // opening the "EFT Terminal Settings" pane always re-runs mx51's live pairing check rather
-    // than trusting whatever was last rendered) — see EftTerminalRegistryView::
-    // selfHealSciPairings(), which admin.eft-terminals.index's JSON response already runs.
+    // Exported FIRST, before either init*() call below — both of those assume every element
+    // they look up exists (no null-guards beyond the one top-of-function early return each
+    // has), so a markup change or edge case that makes either throw must never also take this
+    // export down with it; the console pages' own switchPane()/activatePane() depend on it
+    // being there every time the "EFT Terminal Settings" pane is opened, independent of
+    // whether the wizard/re-pair widgets themselves initialised cleanly.
     window.EftTerminalRegistry = { refresh: refreshTerminalsList };
+
+    try { initAddTerminalWizard(); } catch (e) { console.error('EFT terminal add-wizard failed to initialise', e); }
+    try { initSciRepairWidgets(); } catch (e) { console.error('EFT terminal re-pair widgets failed to initialise', e); }
 
     // Lives at the top level (not inside initAddTerminalWizard()) so it works even on a page
     // where the Add Terminal button itself is hidden (no canManageRegistryLevel) — reading its
@@ -56,10 +58,10 @@
     function hideError(el) { el.hidden = true; el.textContent = ''; }
     function showError(el, message) { el.textContent = message; el.hidden = false; }
 
-    // A 422 from Laravel's own validate() (e.g. the Unique Terminal Code is already taken)
-    // comes back as {message, errors: {field: [...]}} rather than this app's usual
-    // {success:false, message} shape — pull the specific field error out when present instead
-    // of falling back to the generic "The given data was invalid." message.
+    // A 422 from Laravel's own validate() comes back as {message, errors: {field: [...]}}
+    // rather than this app's usual {success:false, message} shape — pull the specific field
+    // error out when present instead of falling back to the generic "The given data was
+    // invalid." message.
     function firstValidationError(data) {
         if (data && data.errors) {
             const firstKey = Object.keys(data.errors)[0];
@@ -96,7 +98,6 @@
         const stepsListLinkly = document.getElementById('wizardStepsListLinkly');
 
         const pairingCodeInput = document.getElementById('wizardPairingCode');
-        const terminalKeyInput = document.getElementById('wizardTerminalKey');
         const pairingNicknameInput = document.getElementById('wizardPairingNickname');
         const step1Error = document.getElementById('wizardStep1Error');
         const pairBtn = document.getElementById('wizardPairBtn');
@@ -116,7 +117,6 @@
 
         function resetWizard() {
             pairingCodeInput.value = '';
-            terminalKeyInput.value = '';
             pairingNicknameInput.value = '';
             hideError(step1Error);
             hideError(step2Error);
@@ -183,15 +183,13 @@
 
             const provider = providerSci.checked ? 'cba_sci' : 'linkly';
             const pairingCode = pairingCodeInput.value.trim();
-            const terminalKey = terminalKeyInput.value.trim();
             const pairingNickname = pairingNicknameInput.value.trim();
 
             if (!pairingCode) { showError(step1Error, 'Enter the pairing code from the terminal.'); return; }
-            if (!terminalKey) { showError(step1Error, 'Enter a unique terminal code.'); return; }
 
             setBusy(pairBtn, true, 'Pairing…');
 
-            postForm(ADD_URL, CSRF, { provider: provider, pairing_code: pairingCode, key: terminalKey, pairing_nickname: pairingNickname })
+            postForm(ADD_URL, CSRF, { provider: provider, pairing_code: pairingCode, pairing_nickname: pairingNickname })
                 .then(function (data) {
                     setBusy(pairBtn, false);
                     if (!data.success) {

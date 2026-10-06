@@ -69,10 +69,15 @@ class CbaSciPairingTest extends TestCase
     // pairing a brand new row against a TID some OTHER row already carries means the same
     // physical device is being registered twice, which would otherwise show up as two
     // identical-looking entries in every terminal picker.
-    public function test_pairing_refuses_a_tid_already_registered_to_a_different_terminal(): void
+    // The TID, not an admin-typed code, is what actually identifies a physical terminal — so
+    // pairing a brand-new row against a TID some OTHER row already carries means this is that
+    // same physical device being registered again, not a genuinely new one. The old row is
+    // retired (soft-deleted) rather than left behind as a dead duplicate, and the new row
+    // inherits its place, including the TID-derived key.
+    public function test_pairing_replaces_a_terminal_already_registered_with_the_same_tid(): void
     {
         $existing = $this->makeTerminal();
-        $existing->update(['sci_tid' => 'tid123', 'label' => 'Front Counter']);
+        $existing->update(['sci_tid' => 'tid123', 'label' => 'Front Counter', 'key' => 'sci-tid123']);
 
         Http::fake([
             'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
@@ -85,15 +90,39 @@ class CbaSciPairingTest extends TestCase
         $newTerminal = $this->makeTerminal();
         $result = CbaSciService::pair('654321', null, $newTerminal);
 
-        $this->assertFalse($result['success']);
-        $this->assertSame($existing->id, $result['duplicate_terminal_id']);
-        $this->assertStringContainsString('Front Counter', $result['message']);
-
-        // The new row must be left genuinely unpaired — no pairing_id/secret saved from a
-        // device that actually belongs to a different registry entry.
+        $this->assertTrue($result['success']);
         $newTerminal->refresh();
-        $this->assertNull($newTerminal->sci_pairing_id);
-        $this->assertFalse($newTerminal->isSciPaired());
+        $this->assertTrue($newTerminal->isSciPaired());
+        $this->assertSame('tid123', $newTerminal->sci_tid);
+        $this->assertSame('sci-tid123', $newTerminal->key);
+
+        // The old row is gone from the active registry but still fully present (soft-deleted),
+        // under a renamed key so it never collides with the one the new row just claimed.
+        $this->assertNull(EftTerminal::find($existing->id));
+        $existing->refresh();
+        $this->assertNotNull($existing->deleted_at);
+        $this->assertNull($existing->sci_pairing_id);
+        $this->assertStringStartsWith('sci-tid123-retired-', $existing->key);
+    }
+
+    public function test_pairing_transfers_default_status_when_replacing_the_default_terminal(): void
+    {
+        $existing = $this->makeTerminal();
+        $existing->update(['sci_tid' => 'tid123', 'is_default' => true]);
+
+        Http::fake([
+            'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
+                'pairing_id' => 'pid_456', 'key_id' => 'kid_456', 'confirmation_code' => '9999',
+                'signing_secret_part_b' => 'secret-b-2', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+                'tid' => 'tid123',
+            ]], 200),
+        ]);
+
+        $newTerminal = $this->makeTerminal();
+        $result = CbaSciService::pair('654321', null, $newTerminal);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($newTerminal->fresh()->is_default);
     }
 
     // Re-pairing the SAME row against the same physical device it already represents is the
@@ -115,6 +144,7 @@ class CbaSciPairingTest extends TestCase
 
         $this->assertTrue($result['success']);
         $this->assertTrue($terminal->fresh()->isSciPaired());
+        $this->assertSame('sci-tid123', $terminal->fresh()->key);
     }
 
     public function test_secret_part_b_is_never_exposed_in_array_or_json_output(): void

@@ -67,25 +67,7 @@ class CbaSciService
             return ['success' => false, 'message' => 'Pairing succeeded but the terminal did not return the expected pairing details.'];
         }
 
-        // mx51's own TID identifies the physical device, independent of whichever registry
-        // row/pairing_id we're attaching it to — if it already belongs to a DIFFERENT row,
-        // this is the same physical terminal being registered twice rather than a genuinely
-        // new one. Caught here (shared by both addAndPair()'s "new terminal" flow and the
-        // existing-row re-pair flow) rather than left to create a confusing duplicate that
-        // would show up twice in every terminal picker.
-        $tid = $data['tid'] ?? null;
-        if ($tid) {
-            $duplicate = EftTerminal::where('sci_tid', $tid)->where('id', '!=', $terminal->id)->first();
-            if ($duplicate) {
-                return [
-                    'success' => false,
-                    'message' => "This terminal is already registered as \"{$duplicate->label}\" — use that one instead of adding a new entry.",
-                    'duplicate_terminal_id' => $duplicate->id,
-                ];
-            }
-        }
-
-        $terminal->update([
+        $updates = [
             'provider' => 'cba_sci',
             'sci_pairing_id' => $data['pairing_id'],
             'sci_key_id' => $data['key_id'] ?? null,
@@ -96,7 +78,40 @@ class CbaSciService
             'sci_pairing_nickname' => $data['pairing_nickname'] ?? $nickname,
             'sci_terminal_nickname' => $data['terminal_nickname'] ?? null,
             'sci_paired_at' => now(),
-        ]);
+        ];
+
+        // mx51's own TID identifies the physical device, independent of whichever registry row
+        // we're attaching it to — it's a more reliable identity than any admin-typed label, so
+        // it becomes this terminal's own key too (see EftTerminalController::addAndPair(),
+        // which no longer asks an admin to type one at all). If this exact TID already belongs
+        // to a DIFFERENT row, that row is this same physical terminal under an older
+        // registration — retired here (soft-deleted, so any transaction history pointing at it
+        // stays fully intact — see LinklyTransaction::eftTerminal()/SciTransaction::
+        // eftTerminal()'s withTrashed()) rather than left behind as a dead duplicate that would
+        // otherwise show up twice in every terminal picker. Its default-terminal status, if it
+        // had one, transfers across — this IS that terminal, as far as the registry is
+        // concerned, just re-paired under a new row.
+        $tid = $data['tid'] ?? null;
+        if ($tid) {
+            $duplicate = EftTerminal::where('sci_tid', $tid)->where('id', '!=', $terminal->id)->first();
+            if ($duplicate) {
+                self::unpair($duplicate);
+                // 'key' is unique at the DB level, and the retired row would otherwise still
+                // be sitting on the exact 'sci-{tid}' value this terminal is about to claim —
+                // soft-deleted rows aren't excluded from that constraint, only from ordinary
+                // queries. Renamed rather than cleared so it stays its own distinct, still-
+                // identifiable value for whatever history still points at it.
+                $duplicate->update(['key' => $duplicate->key . '-retired-' . $duplicate->id]);
+                if ($duplicate->is_default) {
+                    $updates['is_default'] = true;
+                }
+                $duplicate->delete();
+            }
+
+            $updates['key'] = 'sci-' . $tid;
+        }
+
+        $terminal->update($updates);
 
         return ['success' => true, 'message' => 'Terminal paired successfully.'];
     }
