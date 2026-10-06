@@ -396,22 +396,26 @@ class TicketController extends Controller
         $canSell = $this->canSellTickets($user, $activeRole);
         $canManageConsole = $this->canManageTicketConsole($user, $activeRole, $controllerLevel);
 
-        // Every currently PAIRED terminal — this POS station picks which one it's using
-        // (saved client-side, see ticket-pos.blade.php's terminal picker), so two computers
-        // can each run their own ticket counter on two different terminals at once. An
+        // Every currently PAIRED terminal — the operator picks which one they're using (saved
+        // both to this browser and against their own account, see ticket-pos.blade.php's
+        // terminal picker and EftTerminalController::selectForMe()), so two computers can each
+        // run their own ticket counter on two different terminals at once. An
         // unpaired terminal can't take a payment at all, so it's left off this list entirely
         // rather than offered as a selectable-but-broken option (it still shows on the EFT
         // Terminal Settings page, grouped under "Inactive").
         $linklyMode = \App\Services\LinklyConfigService::mode();
+        // Per-operator, not the registry's raw global flag — see EftTerminal::default(), which
+        // this mirrors, so the picker pre-selects whichever terminal THIS user last picked.
+        $myDefaultTerminalId = EftTerminal::default()?->id;
         $eftTerminalsForJs = EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
             ->filter(fn ($t) => $t->isPairedFor($linklyMode))
-            ->map(function ($t) use ($linklyMode) {
+            ->map(function ($t) use ($linklyMode, $myDefaultTerminalId) {
                 $status = $t->lastKnownStatus();
                 return [
                     'id' => $t->id,
                     'label' => $t->label,
                     'provider' => $t->provider,
-                    'is_default' => (bool) $t->is_default,
+                    'is_default' => $t->id === $myDefaultTerminalId,
                     'paired' => $t->isPairedFor($linklyMode),
                     'status' => $status['state'],
                     'status_at' => $status['at']?->diffForHumans(),

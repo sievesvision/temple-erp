@@ -105,23 +105,27 @@ class PosDonationController extends Controller
             ->latest('id')
             ->first();
 
-        // Every currently PAIRED terminal — the station itself picks which one it's using
-        // (saved client-side, see event-pos-donation.blade.php's terminal picker), so two
-        // stations on two different terminals can each run this same event's POS
-        // concurrently, or one on this event and one on the Ticket POS. An unpaired
+        // Every currently PAIRED terminal — the operator picks which one they're using (saved
+        // both to this browser and against their own account, see event-pos-donation.blade.
+        // php's terminal picker and EftTerminalController::selectForMe()), so two stations on
+        // two different terminals can each run this same event's POS concurrently, or one on
+        // this event and one on the Ticket POS. An unpaired
         // terminal can't take a payment at all, so it's left off this list entirely rather
         // than offered as a selectable-but-broken option (it still shows on the EFT
         // Terminal Settings page, grouped under "Inactive").
         $linklyMode = \App\Services\LinklyConfigService::mode();
+        // Per-operator, not the registry's raw global flag — see EftTerminal::default(), which
+        // this mirrors, so the picker pre-selects whichever terminal THIS user last picked.
+        $myDefaultTerminalId = \App\Models\EftTerminal::default()?->id;
         $eftTerminalsForJs = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
             ->filter(fn ($t) => $t->isPairedFor($linklyMode))
-            ->map(function ($t) use ($linklyMode) {
+            ->map(function ($t) use ($linklyMode, $myDefaultTerminalId) {
                 $status = $t->lastKnownStatus();
                 return [
                     'id' => $t->id,
                     'label' => $t->label,
                     'provider' => $t->provider,
-                    'is_default' => (bool) $t->is_default,
+                    'is_default' => $t->id === $myDefaultTerminalId,
                     'paired' => $t->isPairedFor($linklyMode),
                     'status' => $status['state'],
                     'status_at' => $status['at']?->diffForHumans(),

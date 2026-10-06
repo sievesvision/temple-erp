@@ -35,6 +35,7 @@ protected $fillable = [
     'two_factor_enabled',
     'pos_pin_failed_attempts',
     'pos_pin_locked_at',
+    'preferred_eft_terminal_id',
 ];
 
     /**
@@ -79,6 +80,16 @@ protected $fillable = [
     public function posPins()
     {
         return $this->hasMany(PosPin::class);
+    }
+
+    /**
+     * The terminal this user's POS picker last saved for them — see EftTerminal::default()/
+     * resolveOrDefault(), which fall back to the registry's own is_default terminal once this
+     * is null (never set yet, or its terminal was removed and nullOnDelete cleared it).
+     */
+    public function preferredEftTerminal()
+    {
+        return $this->belongsTo(EftTerminal::class, 'preferred_eft_terminal_id');
     }
 
     /**
