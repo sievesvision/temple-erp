@@ -126,6 +126,22 @@
             display: none; align-items: center; justify-content: center; padding: 20px;
         }
         .eft-modal-overlay.active { display: flex; }
+
+        /* EFT Terminal Settings pane — covers the wait for the live mx51 pairing-info check
+           (see activatePane() below) so the pane never flashes stale "Paired" data before
+           self-healing it; a plain spinner, not the full modal chrome, since there's nothing
+           to interact with here. */
+        .eft-settings-loading-overlay {
+            position: fixed; inset: 0; background: rgba(249,243,231,0.92); z-index: 1500;
+            display: none; align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+        }
+        .eft-settings-loading-overlay.active { display: flex; }
+        .eft-settings-loading-spinner {
+            width: 40px; height: 40px; border-radius: 50%; border: 4px solid rgba(107,15,26,0.2);
+            border-top-color: var(--maroon); animation: eft-settings-spin 0.8s linear infinite;
+        }
+        @keyframes eft-settings-spin { to { transform: rotate(360deg); } }
+        .eft-settings-loading-text { font-weight: 700; color: var(--maroon); font-size: 0.95rem; }
         .eft-modal {
             background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px;
             max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
@@ -824,6 +840,13 @@
          against a refund's transaction id exactly as they do for a purchase. The only thing a
          refund needs that a purchase doesn't is an initial "enter/confirm amount" step, since a
          refund doesn't already know its amount the way an in-progress sale does. -->
+    <!-- Shown while opening EFT Terminal Settings, covering the live pairing-status check —
+         see activatePane() further down. -->
+    <div class="eft-settings-loading-overlay" id="eftSettingsLoadingOverlay">
+        <div class="eft-settings-loading-spinner"></div>
+        <div class="eft-settings-loading-text">Checking terminal status…</div>
+    </div>
+
     <div class="eft-modal-overlay" id="sciRefundModalOverlay">
         <div class="eft-modal">
             <div class="eft-modal-header"><i class="bi bi-arrow-counterclockwise me-2"></i>Refund Transaction</div>
@@ -981,19 +1004,35 @@
         function activatePane(paneId) {
             const link = document.querySelector('[data-pane="' + paneId + '"]');
             if (!link) { return false; }
-            document.querySelectorAll('[data-pane]').forEach(function (b) { b.classList.remove('active'); });
-            link.classList.add('active');
-            document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
-            document.getElementById('appSidebar').classList.remove('open');
-            document.getElementById('sidebarBackdrop').classList.remove('show');
-            // Opening this pane should always reflect the terminal's REAL pairing state, not
-            // whatever was last rendered — a terminal unpaired from the POS's own terminal
-            // picker (or any other console) since this page loaded must never still show
-            // "Paired" here. window.EftTerminalRegistry is defined by js/eft-terminal-
-            // registry.js, which this page already links.
-            if (paneId === 'pane-eft-settings' && window.EftTerminalRegistry) {
-                window.EftTerminalRegistry.refresh();
+
+            function reveal() {
+                document.querySelectorAll('[data-pane]').forEach(function (b) { b.classList.remove('active'); });
+                link.classList.add('active');
+                document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
+                document.getElementById('appSidebar').classList.remove('open');
+                document.getElementById('sidebarBackdrop').classList.remove('show');
             }
+
+            // Opening the EFT Terminal Settings pane should always reflect the terminal's REAL
+            // pairing state, not whatever was last rendered — a terminal unpaired from the
+            // POS's own terminal picker (or any other console) since this page loaded must
+            // never still show "Paired" here. Rather than revealing the pane immediately and
+            // letting that check run in the background (which briefly showed the stale/wrong
+            // state), the pane stays hidden — behind a plain "Checking terminal status…"
+            // spinner — until the check has actually finished. window.EftTerminalRegistry is
+            // defined by js/eft-terminal-registry.js, which this page already links.
+            if (paneId === 'pane-eft-settings' && window.EftTerminalRegistry) {
+                const overlay = document.getElementById('eftSettingsLoadingOverlay');
+                if (overlay) { overlay.classList.add('active'); }
+                const done = function () {
+                    if (overlay) { overlay.classList.remove('active'); }
+                    reveal();
+                };
+                window.EftTerminalRegistry.refresh().then(done).catch(done);
+                return true;
+            }
+
+            reveal();
             return true;
         }
 
