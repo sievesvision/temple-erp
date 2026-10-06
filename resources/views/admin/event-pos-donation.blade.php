@@ -520,12 +520,15 @@
             @if($canReturnToConsole)
             <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
             @endif
-            <!-- Only ever shown when no EFT terminal is paired at all — the normal path to the
-                 picker (select "EFT Terminal" as the payment method, then "Switch") is
-                 unreachable in that state, since that method button stays disabled with nothing
-                 paired to pick. A pos-level user needs a way in regardless — see
-                 EftTerminalAccess's own docblock on why this tier is trusted to pair here. -->
-            <button type="button" class="pos-topbar-btn pos-topbar-btn-setup" id="posEftSettingsTopbarBtn" title="Set up EFT Terminal" hidden><i class="bi bi-credit-card-2-front"></i></button>
+            <!-- Always visible, regardless of whether a terminal is currently paired — the
+                 Switch button near Pay only ever shows up while "EFT Terminal" is the selected
+                 payment method (and that method stays disabled with nothing paired to pick), so
+                 it's not a reliable way in. This is the one entry point to terminal
+                 settings/pairing a pos-level user can always reach — see EftTerminalAccess's own
+                 docblock on why this tier is trusted to pair here. The gold dot flags that setup
+                 still needs attention (nothing paired yet); it clears once a terminal is paired,
+                 but the button itself never disappears. -->
+            <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><i class="bi bi-credit-card-2-front"></i></button>
             <div class="dropdown">
                 <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
                     <i class="bi bi-person-fill"></i>
@@ -1043,7 +1046,7 @@
         const posEftSettingsTopbarBtn = document.getElementById('posEftSettingsTopbarBtn');
         function updateEftSettingsTopbarBtn() {
             if (!posEftSettingsTopbarBtn) { return; }
-            posEftSettingsTopbarBtn.hidden = eftTerminalAvailable();
+            posEftSettingsTopbarBtn.classList.toggle('pos-topbar-btn-setup', !eftTerminalAvailable());
         }
         updateEftSettingsTopbarBtn();
         if (posEftSettingsTopbarBtn) {
