@@ -31,7 +31,7 @@
          as developer-only noise. --}}
     <a href="{{ route('eft.pairing-guide') }}" target="_blank" class="eft-pairing-guide-link"><i class="bi bi-question-circle me-1"></i>Pairing Guide</a>
     @if($canManageRegistryLevel)
-    <button type="button" class="btn-add-terminal" id="addTerminalToggleBtn"
+    <button type="button" class="btn-eft-toggle" id="addTerminalToggleBtn"
             data-add-url="{{ route('admin.eft-terminals.addAndPair') }}"
             data-test-url="{{ route('admin.cba-sci.test') }}"
             data-cancel-new-url-base="{{ url('/admin/eft-terminals') }}"

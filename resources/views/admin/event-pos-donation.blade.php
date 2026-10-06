@@ -296,6 +296,10 @@
         .pos-method-btn.active .pos-method-icon-badge { background: rgba(255,255,255,0.25); border-color: transparent; }
         .pos-method-icon-badge i { font-size: 1.1rem; color: var(--gold-hover); }
         .pos-method-btn.active .pos-method-icon-badge i { color: #fff; }
+        /* No paired terminal at all — EFT Terminal isn't a usable option right now. */
+        .pos-method-btn.disabled { opacity: 0.45; cursor: not-allowed; }
+        .pos-method-btn.disabled.active { border-color: var(--border); background: var(--shade); color: var(--text-primary); box-shadow: none; }
+        .pos-method-btn.disabled.active::after { display: none; }
 
         .pos-save-btn {
             width: 100%; padding: 18px; border-radius: var(--radius-md); border: none;
@@ -397,12 +401,19 @@
         /* This station's EFT terminal picker — same modal box styling as the EFT status
            popup, since it's the same visual family. Only paired terminals ever appear here
            (see renderTerminalModalList()), so there's nothing to pair/repair from this list —
-           that lives entirely on the EFT Terminal Settings page now. */
-        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); margin-bottom: 10px; }
-        .terminal-picker-select { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); cursor: pointer; }
-        .terminal-picker-select input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+           that lives entirely on the EFT Terminal Settings page now. Each row is a big
+           button-style option, not a plain checkbox row — the whole card is clickable, and the
+           currently-selected one is unmistakably highlighted (border/fill colour + a filled
+           check + a "Selected" tag), not just a small tick easy to miss at a glance. */
+        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); margin-bottom: 10px; cursor: pointer; transition: border-color .12s, background-color .12s; }
+        .terminal-picker-row:hover { border-color: var(--maroon); }
+        .terminal-picker-row.selected { border-color: var(--maroon); background: var(--cream); }
+        .terminal-picker-select { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+        .terminal-picker-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 0.8rem; background: var(--white); }
+        .terminal-picker-row.selected .terminal-picker-check { border-color: var(--maroon); background: var(--maroon); color: #fff; }
         .terminal-picker-sci-logo { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
-        .terminal-picker-details { margin-top: 4px; padding-left: 28px; font-size: 0.78rem; color: var(--text-secondary); }
+        .terminal-picker-details { margin-top: 4px; padding-left: 32px; font-size: 0.78rem; color: var(--text-secondary); }
+        .terminal-picker-selected-tag { margin-left: auto; font-size: 0.68rem; font-weight: 800; color: var(--maroon); text-transform: uppercase; letter-spacing: 0.04em; }
 
 
         /* Terminal soft-key buttons (OK/Yes/No/Authorise) — only ever shown when Linkly's own
@@ -855,18 +866,21 @@
             }
             pairedTerminals.forEach(function (t) {
                 const card = document.createElement('div');
-                card.className = 'terminal-picker-row';
-
                 const isSelected = String(t.id) === String(selectedTerminalId);
-                const label = document.createElement('label');
-                label.className = 'terminal-picker-select';
+                card.className = 'terminal-picker-row' + (isSelected ? ' selected' : '');
+                card.setAttribute('role', 'button');
+                card.setAttribute('tabindex', '0');
+
+                const top = document.createElement('div');
+                top.className = 'terminal-picker-select';
                 const providerMark = t.provider === 'cba_sci'
                     ? '<img src="' + SCI_LOGO_URL + '" alt="SCI" class="terminal-picker-sci-logo">'
                     : '<span class="badge-pill badge-provider">LINKLY CLOUD</span>';
-                label.innerHTML = '<input type="checkbox"' + (isSelected ? ' checked' : '') + '>' +
+                top.innerHTML = '<span class="terminal-picker-check">&#10003;</span>' +
                     providerMark +
-                    '<span>' + escapeHtmlPos(t.label) + (t.is_default ? ' <span class="text-muted small">· default</span>' : '') + '</span>';
-                card.appendChild(label);
+                    '<span>' + escapeHtmlPos(t.label) + (t.is_default ? ' <span class="text-muted small">· default</span>' : '') + '</span>' +
+                    (isSelected ? '<span class="terminal-picker-selected-tag">Selected</span>' : '');
+                card.appendChild(top);
 
                 if (t.provider === 'cba_sci' && t.sci_pairing_id) {
                     const details = document.createElement('div');
@@ -875,11 +889,15 @@
                     card.appendChild(details);
                 }
 
-                label.querySelector('input').addEventListener('change', function () {
+                function selectThisTerminal() {
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);
                     renderTerminalPickerButton();
                     document.getElementById('terminalModalOverlay').classList.remove('active');
+                }
+                card.addEventListener('click', selectThisTerminal);
+                card.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectThisTerminal(); }
                 });
 
                 list.appendChild(card);
@@ -904,6 +922,7 @@
                     }
                     renderTerminalModalList();
                     renderTerminalPickerButton();
+                    updateEftMethodAvailability();
                 })
                 .catch(function () {
                     // Still show whatever was last known rather than leaving the modal stuck
@@ -955,15 +974,25 @@
         const posMethodList = ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash'];
         // EFT Terminal is the fastest, most reconciliation-friendly method when it's on offer
         // at all — default to it rather than whichever method happens to sort first, so a
-        // clerk doesn't have to remember to switch off Cash every single sale.
-        const posDefaultMethod = posMethodList.includes('EFT Terminal') ? 'EFT Terminal' : posMethodList[0];
+        // clerk doesn't have to remember to switch off Cash every single sale. But it's only
+        // genuinely "on offer" if some terminal is actually paired right now — EFT_TERMINALS is
+        // paired-only on first load (see PosDonationController::show()) and re-filtered the
+        // same way after every live picker refresh (see renderTerminalModalList()), so this one
+        // check covers both.
+        function eftTerminalAvailable() { return EFT_TERMINALS.some(function (t) { return t.paired; }); }
+        const posDefaultMethod = (posMethodList.includes('EFT Terminal') && eftTerminalAvailable())
+            ? 'EFT Terminal'
+            : posMethodList.find(function (m) { return m !== 'EFT Terminal' || eftTerminalAvailable(); }) || posMethodList[0];
         posMethodList.forEach(function (m) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'pos-method-btn' + (m === posDefaultMethod ? ' active' : '');
+            const disabled = m === 'EFT Terminal' && !eftTerminalAvailable();
+            btn.className = 'pos-method-btn' + (m === posDefaultMethod ? ' active' : '') + (disabled ? ' disabled' : '');
             btn.innerHTML = '<span class="pos-method-icon-badge"><i class="bi ' + (methodIcons[m] || 'bi-wallet2') + '"></i></span>' + m;
             btn.dataset.method = m;
+            if (disabled) { btn.title = 'No EFT terminal is currently paired.'; }
             btn.addEventListener('click', function () {
+                if (btn.classList.contains('disabled')) { return; }
                 methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 selectedMethod = m;
@@ -972,6 +1001,27 @@
             methodRow.appendChild(btn);
             if (m === posDefaultMethod) { selectedMethod = m; }
         });
+
+        // Re-run whenever the picker's own live refresh updates EFT_TERMINALS (e.g. the
+        // previously-paired terminal was just unpaired/removed elsewhere) — switches away from
+        // EFT Terminal automatically if it was selected and just became unavailable, same as it
+        // would never have defaulted to it in the first place on a fresh page load.
+        function updateEftMethodAvailability() {
+            const btn = methodRow.querySelector('.pos-method-btn[data-method="EFT Terminal"]');
+            if (!btn) { return; }
+            const available = eftTerminalAvailable();
+            btn.classList.toggle('disabled', !available);
+            btn.title = available ? '' : 'No EFT terminal is currently paired.';
+            if (!available && selectedMethod === 'EFT Terminal') {
+                methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
+                const fallbackBtn = Array.prototype.find.call(methodRow.querySelectorAll('.pos-method-btn'), function (b) { return !b.classList.contains('disabled'); });
+                if (fallbackBtn) {
+                    fallbackBtn.classList.add('active');
+                    selectedMethod = fallbackBtn.dataset.method;
+                    updatePosSummary();
+                }
+            }
+        }
 
         // Payment methods that confirm money on the spot ("PAY now") versus ones that only
         // record a claim to be verified later ("pledge") — drives both the summary card's

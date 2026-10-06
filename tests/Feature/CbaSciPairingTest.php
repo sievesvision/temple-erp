@@ -87,6 +87,24 @@ class CbaSciPairingTest extends TestCase
         $this->assertSame('Terminal tid_notag', $terminal->fresh()->label);
     }
 
+    // Nothing in the registry was paired (e.g. everything had been unpaired) — the first
+    // terminal to pair becomes the usable default again, rather than leaving the registry
+    // without one until an admin manually sets it.
+    public function test_pairing_becomes_the_default_when_nothing_else_is_paired(): void
+    {
+        $terminal = $this->makeTerminal();
+        Http::fake([
+            'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
+                'pairing_id' => 'pid_fresh', 'key_id' => 'kid_fresh', 'signing_secret_part_b' => 'secret-b',
+                'sci_api_base_url' => 'https://sci-api.tenant.example', 'tid' => 'tid_fresh',
+            ]], 200),
+        ]);
+
+        CbaSciService::pair('333333', null, $terminal);
+
+        $this->assertTrue($terminal->fresh()->is_default);
+    }
+
     // The physical terminal, not the registry row, is what mx51's TID actually identifies — if
     // it's already registered under a DIFFERENT row, that existing row is updated in place
     // (new pairing credentials, name refreshed if a nickname was given) rather than creating a
@@ -489,6 +507,47 @@ class CbaSciPairingTest extends TestCase
         $this->assertSame('tid_keep', $terminal->sci_tid);
         $this->assertSame('sci-tid_keep', $terminal->key);
         $this->assertFalse($terminal->isSciPaired());
+    }
+
+    // Unpairing the registry's own default terminal must never leave it silently pointing at a
+    // dead end — the next paired terminal (if any) takes over automatically.
+    public function test_unpairing_the_default_terminal_promotes_the_next_paired_one(): void
+    {
+        // A migration seeds a "Main Terminal" row (is_default=true) into every fresh database —
+        // cleared here so there's exactly one default to begin with, same precondition
+        // setDefault() itself always enforces.
+        EftTerminal::query()->update(['is_default' => false]);
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'is_default' => true,
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        $other = EftTerminal::create([
+            'key' => 'sci-other-' . uniqid(), 'label' => 'Other Terminal', 'provider' => 'cba_sci',
+            'pos_id' => (string) Str::uuid(), 'sci_pairing_id' => 'pid_other',
+            'sci_signing_secret_part_b' => 'secret-other', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
+
+        CbaSciService::unpair($terminal);
+
+        $this->assertFalse($terminal->fresh()->is_default);
+        $this->assertTrue($other->fresh()->is_default);
+    }
+
+    public function test_unpairing_the_only_paired_terminal_leaves_no_default(): void
+    {
+        EftTerminal::query()->update(['is_default' => false]);
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'is_default' => true,
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
+
+        CbaSciService::unpair($terminal);
+
+        $this->assertFalse($terminal->fresh()->is_default);
     }
 
     public function test_unpair_hits_the_versioned_unpair_path(): void

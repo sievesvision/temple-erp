@@ -101,7 +101,6 @@
         const pairingNicknameInput = document.getElementById('wizardPairingNickname');
         const step1Error = document.getElementById('wizardStep1Error');
         const pairBtn = document.getElementById('wizardPairBtn');
-        const cancelStep1Btn = document.getElementById('wizardCancelStep1Btn');
 
         const confirmationCodeEl = document.getElementById('wizardConfirmationCode');
         const step2Error = document.getElementById('wizardStep2Error');
@@ -167,7 +166,16 @@
         }
 
         function backToTerminals() {
-            if (!step2.hidden) { cancelPendingPairing(); return; }
+            // Leaving the wizard entirely while an unconfirmed mx51 pairing is still pending —
+            // cancel it first (same server call the dedicated Cancel button makes), then
+            // actually leave; if the cancel itself fails, stay put so the error is visible
+            // rather than leaving silently with the pairing still live.
+            if (!step2.hidden) {
+                cancelPendingPairing(function (cancelled) {
+                    if (cancelled) { closeWizard(); refreshTerminalsList(); }
+                });
+                return;
+            }
             if (!success.hidden) { closeWizard(); refreshTerminalsList(); return; }
             closeWizard();
         }
@@ -175,8 +183,6 @@
         toggleBtn.addEventListener('click', function () {
             if (wizard.hidden) { openWizard(); } else { backToTerminals(); }
         });
-
-        cancelStep1Btn.addEventListener('click', closeWizard);
 
         pairBtn.addEventListener('click', function () {
             hideError(step1Error);
@@ -231,28 +237,48 @@
                 });
         });
 
-        // Shared by the Step 2 Cancel button and the top "Back to Terminals" button when Step 2
-        // is the one currently showing — both mean the same thing: abandon this still-
-        // unconfirmed mx51 pairing (per mx51's own certification checklist, SCIPAIRING07,
-        // cancelling must call Unpair too — see EftTerminalController::cancelNewTerminal()) and
-        // return to the list.
-        function cancelPendingPairing() {
-            if (!pendingTerminalId) { closeWizard(); return; }
+        // Actually cancels a still-pending mx51 pairing server-side (unpair + delete the row —
+        // see EftTerminalController::cancelNewTerminal()), per mx51's own certification
+        // checklist (SCIPAIRING07). Shared by the dedicated Step 2 Cancel button (which then
+        // resets to a fresh Step 1, ready to try again) and the top "Back to Terminals" button
+        // when Step 2 is showing (which then leaves the wizard entirely) — onDone(cancelled)
+        // tells the caller which happened, since a failure here (e.g. this "pending" pairing
+        // actually resolved to an existing, already-registered terminal with real history —
+        // see CbaSciService::pair()'s TID matching — which correctly refuses to be deleted this
+        // way) must leave the admin looking at *why*, not be silently treated as a success that
+        // bounces them somewhere while the pairing is still live.
+        function cancelPendingPairing(onDone) {
+            if (!pendingTerminalId) { if (onDone) { onDone(true); } return; }
+            hideError(step2Error);
             setBusy(cancelStep2Btn, true, 'Cancelling…');
 
             postForm(CANCEL_NEW_URL_BASE + '/' + pendingTerminalId + '/cancel-new', CSRF, {})
-                .then(function () {
+                .then(function (data) {
                     setBusy(cancelStep2Btn, false);
-                    closeWizard();
-                    refreshTerminalsList();
+                    if (!data.success) {
+                        showError(step2Error, data.message || 'Could not cancel this pairing.');
+                        if (onDone) { onDone(false); }
+                        return;
+                    }
+                    pendingTerminalId = null;
+                    if (onDone) { onDone(true); }
                 })
                 .catch(function () {
                     setBusy(cancelStep2Btn, false);
-                    closeWizard();
+                    showError(step2Error, 'Could not reach the server — check your connection and try again.');
+                    if (onDone) { onDone(false); }
                 });
         }
 
-        cancelStep2Btn.addEventListener('click', cancelPendingPairing);
+        cancelStep2Btn.addEventListener('click', function () {
+            cancelPendingPairing(function (cancelled) {
+                if (!cancelled) { return; }
+                // Back to a fresh Step 1, ready to add another terminal — cancelling here means
+                // "that attempt didn't work, let me try again," not "I'm done adding terminals."
+                refreshTerminalsList();
+                resetWizard();
+            });
+        });
 
         backToTerminalsBtn.addEventListener('click', function () {
             closeWizard();

@@ -79,9 +79,17 @@
 /* ---------- Add terminal ---------- */
 .add-terminal-card { background: var(--eftr-white); border: 1px solid var(--eftr-border); border-radius: 12px; padding: 22px 24px; margin-top: 28px; }
 .field-hint { font-size: 0.74rem; color: var(--eftr-text-secondary); margin-top: 4px; }
-.btn-add-terminal { padding: 10px 22px; border-radius: 8px; border: none; background: var(--eftr-maroon); color: white; font-weight: 800; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; }
-.btn-add-terminal:hover { background: var(--eftr-maroon-dark); color: #fff; }
+/* Filled maroon is reserved for the one primary action currently in front of you — the
+   wizard's own Pair/Test buttons — so it reads as "the thing to press next," not a colour
+   repeated everywhere regardless of importance. */
+.btn-add-terminal { padding: 10px 22px; border-radius: 8px; border: none; background: var(--eftr-maroon); color: white; font-weight: 700; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; transition: background-color .15s ease, box-shadow .15s ease; }
+.btn-add-terminal:hover { background: var(--eftr-maroon-dark); color: #fff; box-shadow: 0 3px 10px rgba(107,15,26,0.25); }
 .btn-add-terminal:disabled { opacity: 0.6; }
+
+/* The top-level "Add New Terminal" toggle — always available, not the step currently in
+   progress — stays a quieter outline style instead of repeating that same solid block. */
+.btn-eft-toggle { padding: 10px 22px; border-radius: 8px; border: 1.5px solid var(--eftr-maroon); background: transparent; color: var(--eftr-maroon); font-weight: 700; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; transition: background-color .15s ease, color .15s ease; }
+.btn-eft-toggle:hover { background: var(--eftr-maroon); color: #fff; }
 
 /* ---------- Add Terminal wizard ---------- */
 #addTerminalWizard { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--eftr-border); }
@@ -97,7 +105,7 @@
 .wizard-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr); gap: 24px; align-items: start; }
 @media (max-width: 760px) { .wizard-columns { grid-template-columns: minmax(0, 1fr); } }
 
-.wizard-field { margin-bottom: 14px; }
+.wizard-field { margin-bottom: 14px; max-width: 360px; }
 .wizard-actions { display: flex; gap: 10px; margin-top: 18px; }
 
 .wizard-alert { border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; margin-bottom: 14px; }

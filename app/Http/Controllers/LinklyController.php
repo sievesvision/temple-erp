@@ -45,6 +45,13 @@ class LinklyController extends Controller
             $terminal->update(['label' => $validated['label']]);
         }
 
+        if ($result['success']) {
+            // Covers the registry having had no usable default at all (e.g. everything was
+            // unpaired) — this newly-paired terminal becomes the default if nothing else
+            // already is one. A no-op if the current default is already paired.
+            EftTerminal::ensureUsableDefault();
+        }
+
         return redirect()->back()
             ->with($result['success'] ? 'success' : 'error', $result['message'])
             ->with('expandTerminalId', $terminal->id);
@@ -70,6 +77,9 @@ class LinklyController extends Controller
 
         if ($wasPaired) {
             AuditLogService::log("Unpaired Linkly terminal '{$terminal->label}' ({$terminal->key})");
+            // If this was the registry's default terminal, it's no longer usable — promote the
+            // next paired one (if any) so the default never silently points at a dead end.
+            EftTerminal::ensureUsableDefault();
         }
 
         return redirect()->back()

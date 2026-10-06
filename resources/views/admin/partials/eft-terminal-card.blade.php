@@ -57,8 +57,11 @@
              to it only ever repeated the exact same true/false. "Set as default"/Unpair/
              "Remove" live in the "…" menu; anyone trusted to add/pair a terminal is trusted to
              change or remove any terminal in the registry too, since it's still one shared,
-             global list, not scoped per event/Tickets (see EftTerminalAccess's own docblock). --}}
-        @if($canAct && (!$terminal->is_default || $canUnpair))
+             global list, not scoped per event/Tickets (see EftTerminalAccess's own docblock).
+             Removing or unpairing the default terminal is allowed, same as any other — the next
+             paired terminal (if any) is promoted automatically (see EftTerminal::
+             ensureUsableDefault()), so this never has to be blocked "set another default first". --}}
+        @if($canAct)
         <div class="terminal-summary-actions" onclick="event.stopPropagation();">
             <div class="dropdown">
                 <button type="button" class="btn-terminal-more" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots"></i></button>
@@ -73,22 +76,20 @@
                     @endif
                     @if($canUnpair)
                     <li>
-                        <form action="{{ route('admin.cba-sci.unpair') }}" method="POST" onsubmit="return confirm('Unpair this terminal? The terminal will need a fresh pairing code to reconnect.');">
+                        <form action="{{ route('admin.cba-sci.unpair') }}" method="POST" onsubmit="return confirm('{{ $terminal->is_default ? 'Unpair this terminal? Another paired terminal will become the default, if one exists.' : 'Unpair this terminal? The terminal will need a fresh pairing code to reconnect.' }}');">
                             @csrf
                             <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
                             <button type="submit" class="dropdown-item">Unpair</button>
                         </form>
                     </li>
                     @endif
-                    @if(!$terminal->is_default)
                     <li><hr class="dropdown-divider"></li>
                     <li>
-                        <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('Remove this terminal?')">
+                        <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('{{ $terminal->is_default ? 'Remove this terminal? Another paired terminal will become the default, if one exists.' : 'Remove this terminal?' }}')">
                             @csrf @method('DELETE')
                             <button type="submit" class="dropdown-item text-danger">Remove</button>
                         </form>
                     </li>
-                    @endif
                 </ul>
             </div>
         </div>
