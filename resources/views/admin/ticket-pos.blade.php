@@ -149,6 +149,9 @@
         .pos-method-btn { flex: 1 1 calc(50% - 8px); min-width: 90px; padding: 10px 8px; min-height: 46px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--shade); font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); }
         .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.3); }
         .pos-method-btn i { display: block; font-size: 1.1rem; margin-bottom: 2px; }
+        /* No paired terminal at all — EFT Terminal isn't a usable option right now. */
+        .pos-method-btn.disabled { opacity: 0.45; cursor: not-allowed; }
+        .pos-method-btn.disabled.active { border-color: var(--border); background: var(--shade); color: var(--text-secondary); box-shadow: none; }
 
         .pos-save-btn { width: 100%; padding: 16px; border-radius: var(--radius-md); border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.1rem; box-shadow: 0 10px 26px rgba(200,155,60,0.35); min-height: 56px; }
         .pos-save-btn:disabled { opacity: 0.55; }
@@ -539,31 +542,42 @@
             }
             pairedTerminals.forEach(function (t) {
                 const card = document.createElement('div');
-                card.style.cssText = 'width:100%; padding:12px 16px; border-radius:8px; border:2px solid var(--border); margin-bottom:10px;';
-
                 const isSelected = String(t.id) === String(selectedTerminalId);
-                const label = document.createElement('label');
-                label.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:0.95rem; font-weight:700; cursor:pointer;';
+                // A big button-style option, not a plain checkbox row — the whole card is
+                // clickable, and the selected one is unmistakably highlighted (border/fill +
+                // filled check + a "Selected" tag), not just a small tick easy to miss.
+                card.style.cssText = 'width:100%; padding:12px 16px; border-radius:8px; cursor:pointer; margin-bottom:10px; border:2px solid ' + (isSelected ? 'var(--maroon)' : 'var(--border)') + '; background:' + (isSelected ? 'var(--cream)' : 'var(--white)') + ';';
+                card.setAttribute('role', 'button');
+                card.setAttribute('tabindex', '0');
+
+                const top = document.createElement('div');
+                top.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:0.95rem; font-weight:700;';
                 const providerMark = t.provider === 'cba_sci'
                     ? '<img src="' + SCI_LOGO_URL + '" alt="SCI" style="width:18px; height:18px; border-radius:4px; object-fit:cover; flex-shrink:0;">'
                     : '<span class="badge-pill badge-provider">LINKLY CLOUD</span>';
-                label.innerHTML = '<input type="checkbox" style="width:18px; height:18px;"' + (isSelected ? ' checked' : '') + '>' +
+                const checkCircle = '<span style="width:22px; height:22px; border-radius:50%; border:2px solid ' + (isSelected ? 'var(--maroon)' : 'var(--border)') + '; background:' + (isSelected ? 'var(--maroon)' : 'var(--white)') + '; color:#fff; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.8rem;">' + (isSelected ? '&#10003;' : '') + '</span>';
+                top.innerHTML = checkCircle +
                     providerMark +
-                    '<span>' + t.label + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">· default</span>' : '') + '</span>';
-                card.appendChild(label);
+                    '<span>' + t.label + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">· default</span>' : '') + '</span>' +
+                    (isSelected ? '<span style="margin-left:auto; font-size:0.68rem; font-weight:800; color:var(--maroon); text-transform:uppercase; letter-spacing:0.04em;">Selected</span>' : '');
+                card.appendChild(top);
 
                 if (t.provider === 'cba_sci' && t.sci_pairing_id) {
                     const details = document.createElement('div');
-                    details.style.cssText = 'margin-top:4px; padding-left:28px; font-size:0.78rem; color:var(--text-secondary);';
+                    details.style.cssText = 'margin-top:4px; padding-left:32px; font-size:0.78rem; color:var(--text-secondary);';
                     details.textContent = 'Pairing ID: ' + t.sci_pairing_id;
                     card.appendChild(details);
                 }
 
-                label.querySelector('input').addEventListener('change', function () {
+                function selectThisTerminal() {
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);
                     renderTerminalPickerButton();
                     document.getElementById('terminalModalOverlay').classList.remove('active');
+                }
+                card.addEventListener('click', selectThisTerminal);
+                card.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectThisTerminal(); }
                 });
 
                 list.appendChild(card);
@@ -588,6 +602,7 @@
                     }
                     renderTerminalModalList();
                     renderTerminalPickerButton();
+                    updateEftMethodAvailability();
                 })
                 .catch(function () {
                     // Still show whatever was last known rather than leaving the modal stuck
@@ -737,14 +752,25 @@
         const posMethodList = PAYMENT_METHODS.length ? PAYMENT_METHODS : ['Cash'];
         // EFT Terminal is the fastest, most reconciliation-friendly method when it's on offer
         // at all — default to it rather than whichever method happens to sort first, so a
-        // clerk doesn't have to remember to switch off Cash every single sale.
-        const posDefaultMethod = posMethodList.includes('EFT Terminal') ? 'EFT Terminal' : posMethodList[0];
+        // clerk doesn't have to remember to switch off Cash every single sale. But it's only
+        // genuinely "on offer" if some terminal is actually paired right now — EFT_TERMINALS is
+        // paired-only on first load (see TicketController::pos()) and re-filtered the same way
+        // after every live picker refresh (see renderTerminalModalList()), so this one check
+        // covers both.
+        function eftTerminalAvailable() { return EFT_TERMINALS.some(function (t) { return t.paired; }); }
+        const posDefaultMethod = (posMethodList.includes('EFT Terminal') && eftTerminalAvailable())
+            ? 'EFT Terminal'
+            : posMethodList.find(function (m) { return m !== 'EFT Terminal' || eftTerminalAvailable(); }) || posMethodList[0];
         posMethodList.forEach(function (m) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'pos-method-btn' + (m === posDefaultMethod ? ' active' : '');
+            const disabled = m === 'EFT Terminal' && !eftTerminalAvailable();
+            btn.className = 'pos-method-btn' + (m === posDefaultMethod ? ' active' : '') + (disabled ? ' disabled' : '');
             btn.innerHTML = '<i class="bi ' + (methodIcons[m] || 'bi-wallet2') + '"></i>' + m;
+            btn.dataset.method = m;
+            if (disabled) { btn.title = 'No EFT terminal is currently paired.'; }
             btn.addEventListener('click', function () {
+                if (btn.classList.contains('disabled')) { return; }
                 methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 selectedMethod = m;
@@ -752,6 +778,25 @@
             methodRow.appendChild(btn);
             if (m === posDefaultMethod) { selectedMethod = m; }
         });
+
+        // Re-run whenever the picker's own live refresh updates EFT_TERMINALS (e.g. the
+        // previously-paired terminal was just unpaired/removed elsewhere) — switches away from
+        // EFT Terminal automatically if it was selected and just became unavailable.
+        function updateEftMethodAvailability() {
+            const btn = methodRow.querySelector('.pos-method-btn[data-method="EFT Terminal"]');
+            if (!btn) { return; }
+            const available = eftTerminalAvailable();
+            btn.classList.toggle('disabled', !available);
+            btn.title = available ? '' : 'No EFT terminal is currently paired.';
+            if (!available && selectedMethod === 'EFT Terminal') {
+                methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
+                const fallbackBtn = Array.prototype.find.call(methodRow.querySelectorAll('.pos-method-btn'), function (b) { return !b.classList.contains('disabled'); });
+                if (fallbackBtn) {
+                    fallbackBtn.classList.add('active');
+                    selectedMethod = fallbackBtn.dataset.method;
+                }
+            }
+        }
 
         let toastHideTimer = null;
         function showToast(message, isError) {

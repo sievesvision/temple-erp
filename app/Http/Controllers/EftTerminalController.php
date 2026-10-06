@@ -409,10 +409,6 @@ class EftTerminalController extends Controller
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
-        if ($terminal->is_default) {
-            return redirect()->back()->with('error', 'Cannot remove the default terminal — set another one as default first.')->with('expandTerminalId', $terminal->id);
-        }
-
         if ($terminal->isSciPaired()) {
             \App\Services\CbaSciService::unpair($terminal);
         }
@@ -422,7 +418,15 @@ class EftTerminalController extends Controller
         // transaction's own data, it just stops naming which terminal processed it (a display
         // detail only; see EftConsoleTransactionHistoryTest etc.). Nothing worth losing.
         $label = $terminal->label;
+        $wasDefault = $terminal->is_default;
         $terminal->delete();
+
+        // Removing the default terminal no longer blocks outright — the next paired terminal
+        // (if any) is promoted automatically instead, so the registry is never left pointing at
+        // a default that no longer exists.
+        if ($wasDefault) {
+            EftTerminal::ensureUsableDefault();
+        }
 
         AuditLogService::log("Removed EFT terminal '{$label}'");
 

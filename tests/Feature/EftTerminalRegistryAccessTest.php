@@ -484,4 +484,37 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertSame(50.0, (float) $transaction->amount);
         $this->assertSame('FINALISED', $transaction->status);
     }
+
+    // Removing the default terminal used to be blocked outright ("set another one as default
+    // first") — it's allowed now, and the next paired terminal takes over as default instead,
+    // so the registry is never left with a default that no longer exists.
+    public function test_removing_the_default_terminal_promotes_the_next_paired_one(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+        $default = $this->defaultEftTerminal();
+        $other = EftTerminal::factory()->create(['key' => 'promotable-terminal', 'secret_sandbox' => 'other-secret']);
+
+        $response = $this->actingAs($admin)->delete("/admin/eft-terminals/{$default->id}");
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('eft_terminals', ['id' => $default->id]);
+        $this->assertTrue($other->fresh()->is_default);
+    }
+
+    // No OTHER paired terminal exists — nothing to promote, so the registry is simply left
+    // without a default rather than erroring. EFT Terminal transactions become unavailable in
+    // that state (see the POS pages' own "EFT Terminal" method button).
+    public function test_removing_the_only_paired_terminal_leaves_no_default(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
+        $default = $this->defaultEftTerminal();
+        $unpaired = EftTerminal::factory()->create(['key' => 'unpaired-terminal']);
+
+        $response = $this->actingAs($admin)->delete("/admin/eft-terminals/{$default->id}");
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('eft_terminals', ['id' => $default->id]);
+        $this->assertFalse($unpaired->fresh()->is_default);
+    }
 }

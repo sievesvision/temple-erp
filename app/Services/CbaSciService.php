@@ -130,6 +130,11 @@ class CbaSciService
 
         $target->update($updates);
 
+        // Covers the registry having had no usable default at all (e.g. everything was
+        // unpaired) — this newly-paired terminal becomes the default if nothing else already
+        // is one. A no-op if the current default is already paired.
+        EftTerminal::ensureUsableDefault();
+
         return ['success' => true, 'message' => 'Terminal paired successfully.', 'terminal_id' => $target->id];
     }
 
@@ -272,6 +277,12 @@ class CbaSciService
             'sci_paired_at' => null,
             'sci_last_checked_at' => null,
         ]);
+
+        // If this was the registry's default terminal, it's no longer usable — promote the
+        // next paired one (if any) so the default never silently points at a dead end. A no-op
+        // whenever this wasn't the default, or it's still paired (can't happen here, but keeps
+        // this safe to call unconditionally from every caller).
+        EftTerminal::ensureUsableDefault();
 
         return ['success' => true, 'message' => 'Terminal unpaired.'];
     }

@@ -298,6 +298,21 @@ class EftMultiTerminalTest extends TestCase
         $this->assertNull($terminalB->fresh()->secret_sandbox);
     }
 
+    // Unpairing the registry's own default terminal must never leave it silently pointing at a
+    // dead end — the next paired terminal (if any) takes over automatically (see
+    // EftTerminal::ensureUsableDefault()).
+    public function test_unpairing_the_default_linkly_terminal_promotes_the_next_paired_one(): void
+    {
+        $default = $this->defaultEftTerminal('default-secret');
+        $terminalB = $this->secondTerminal('terminal-b-secret');
+        $admin = $this->adminUser();
+
+        $this->actingAs($admin)->post('/admin/eft/unpair', ['terminal_id' => $default->id]);
+
+        $this->assertFalse($default->fresh()->is_default);
+        $this->assertTrue($terminalB->fresh()->is_default);
+    }
+
     public function test_unpairing_requires_registry_access(): void
     {
         $terminalB = $this->secondTerminal('existing-secret');

@@ -51,9 +51,12 @@
                         <input type="text" id="wizardPairingNickname" class="form-control rounded-3" placeholder="e.g. Front Counter" maxlength="255">
                     </div>
 
+                    {{-- No Cancel here — nothing has happened yet to cancel. The top toggle
+                         button (labelled "Back to Terminals" while the wizard is open) is the
+                         way out of this step; Cancel only ever appears once a pairing is
+                         actually in progress (Step 2 below). --}}
                     <div class="wizard-actions">
                         <button type="button" class="btn-add-terminal" id="wizardPairBtn">Pair</button>
-                        <button type="button" class="btn btn-outline-secondary rounded-3" id="wizardCancelStep1Btn">Cancel</button>
                     </div>
                 </div>
 

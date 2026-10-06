@@ -84,6 +84,34 @@ class EftTerminal extends Model
     }
 
     /**
+     * Keeps exactly one PAIRED terminal marked as the registry's own default whenever
+     * possible — called after anything that could make the current default unusable (an
+     * Unpair, or removing it outright via EftTerminalController::destroy()). A no-op if the
+     * current default is still paired; otherwise it's cleared, and the first other paired
+     * terminal found (if any) is promoted in its place. If nothing in the registry is paired at
+     * all, the registry is simply left with no default — there's no usable terminal right now
+     * (see the POS pages' own "EFT Terminal" payment method button, which disables itself in
+     * exactly that case).
+     */
+    public static function ensureUsableDefault(): void
+    {
+        $linklyMode = \App\Services\LinklyConfigService::mode();
+        $current = self::where('is_default', true)->first();
+        if ($current && $current->isPairedFor($linklyMode)) {
+            return;
+        }
+
+        $next = self::all()->first(fn ($t) => $t->isPairedFor($linklyMode));
+
+        if ($current) {
+            $current->update(['is_default' => false]);
+        }
+        if ($next) {
+            $next->update(['is_default' => true]);
+        }
+    }
+
+    /**
      * Resolves a terminal by id if given and valid, falling back to the default terminal —
      * the one place every EFT-starting controller action decides "which terminal", so a
      * missing/invalid id never silently 500s but always degrades to the default.
