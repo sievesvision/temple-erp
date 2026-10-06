@@ -36,16 +36,19 @@
         .pos-topbar-title .pos-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pos-topbar-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 42px; height: 42px; border-radius: var(--radius-sm); font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.22); }
-        .pos-terminal-btn { background: rgba(255,255,255,0.12); border: none; color: white; height: 42px; padding: 0 14px; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 700; flex-shrink: 0; display: flex; align-items: center; gap: 8px; max-width: 160px; }
-        .pos-terminal-btn:hover { background: rgba(255,255,255,0.22); }
-        .pos-terminal-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        /* The terminal name is the first thing to give up its label on a cramped phone header
-           — it collapses to just the icon, well before anything else has to; the full name is
-           always one tap away in the picker itself. */
-        @media (max-width: 480px) {
-            .pos-terminal-btn { max-width: none; padding: 0; width: 42px; justify-content: center; }
-            .pos-terminal-btn span { display: none; }
-        }
+
+        /* Which physical terminal the "EFT Terminal" payment method will actually charge —
+           shown right above the action buttons only while that method is selected, not a
+           topbar icon indistinguishable from Settings/Account (the previous design). */
+        .pos-terminal-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--cream); border: 1.5px solid var(--gold); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 10px; }
+        .pos-terminal-status-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .pos-terminal-status-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--white); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .pos-terminal-status-icon i { font-size: 1rem; color: var(--gold-hover); }
+        .pos-terminal-status-text { min-width: 0; }
+        .pos-terminal-status-label { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+        .pos-terminal-status-name { font-size: 0.92rem; font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pos-terminal-switch-btn { flex-shrink: 0; padding: 7px 14px; border-radius: var(--radius-sm); border: 1.5px solid var(--maroon); background: transparent; color: var(--maroon); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+        .pos-terminal-switch-btn:hover { background: var(--maroon); color: #fff; }
 
         /* ---------- Full-width POS: items grid on the left, cart panel on the right ---------- */
         .pos-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -255,9 +258,6 @@
             <h1>Ticket Sales POS</h1>
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
-        <button type="button" class="pos-terminal-btn" id="terminalPickerBtn" title="This station's EFT terminal">
-            <i class="bi bi-credit-card-2-front-fill"></i><span id="terminalPickerLabel">Terminal</span>
-        </button>
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
@@ -331,6 +331,19 @@
                 </div>
 
                 <div class="pos-method-row" id="posMethodRow"></div>
+
+                {{-- Only relevant while "EFT Terminal" is the selected method — see
+                     updatePosTerminalStatus() in the script below. --}}
+                <div class="pos-terminal-status" id="posTerminalStatus" hidden>
+                    <div class="pos-terminal-status-info">
+                        <span class="pos-terminal-status-icon"><i class="bi bi-pc-display"></i></span>
+                        <div class="pos-terminal-status-text">
+                            <div class="pos-terminal-status-label">Current Terminal</div>
+                            <div class="pos-terminal-status-name" id="posTerminalStatusName">—</div>
+                        </div>
+                    </div>
+                    <button type="button" class="pos-terminal-switch-btn" id="posTerminalSwitchBtn">Switch</button>
+                </div>
 
                 @if($canSell)
                 <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-printer-fill me-2"></i>Complete Sale &amp; Print</button>
@@ -514,18 +527,14 @@
             const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
             return t ? t.label : 'No terminal';
         }
-        // Paired/not-paired is the one thing actually worth showing here now — an inferred
-        // online/offline guess from past transaction results used to sit alongside it, but
-        // that's a stale, misleading thing to call "status" on a screen whose whole point is
-        // mx51's own required live check (see the fetch below): it never reflected whether a
-        // pairing was ACTUALLY still active, only whether a reading was cached at all.
-        // The topbar button is just a label now — no colour-coded status indicator. A live
-        // paired/unpaired reading only exists right after the picker's own refresh fetch
-        // below runs, so showing a dot on this button all the time was either stale (page-load
-        // only) or meaningless between openings; the picker itself is where that status
-        // actually lives now.
-        function renderTerminalPickerButton() {
-            document.getElementById('terminalPickerLabel').textContent = currentTerminalLabel();
+        // Keeps the "Current Terminal" name in sync wherever it's shown — the status strip just
+        // above the action buttons now, not a topbar icon easily mistaken for Settings/Account
+        // (the previous design). Whether that strip shows AT ALL depends on "EFT Terminal"
+        // actually being the selected payment method — see updatePosTerminalStatus() below,
+        // defined once `selectedMethod` exists further down.
+        function updateTerminalStatusName() {
+            const el = document.getElementById('posTerminalStatusName');
+            if (el) { el.textContent = currentTerminalLabel(); }
         }
         const SCI_LOGO_URL = @json(asset('images/sci-logo.jpg'));
 
@@ -572,7 +581,7 @@
                 function selectThisTerminal() {
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);
-                    renderTerminalPickerButton();
+                    updateTerminalStatusName();
                     document.getElementById('terminalModalOverlay').classList.remove('active');
                 }
                 card.addEventListener('click', selectThisTerminal);
@@ -601,7 +610,7 @@
                         EFT_TERMINALS = data.terminals;
                     }
                     renderTerminalModalList();
-                    renderTerminalPickerButton();
+                    updateTerminalStatusName();
                     updateEftMethodAvailability();
                 })
                 .catch(function () {
@@ -611,14 +620,16 @@
                 });
         }
         // Shown immediately on open (own loading state) rather than blocking the click.
-        document.getElementById('terminalPickerBtn').addEventListener('click', function () {
-            document.getElementById('terminalModalOverlay').classList.add('active');
-            refreshTerminalPicker();
-        });
+        const posTerminalSwitchBtn = document.getElementById('posTerminalSwitchBtn');
+        if (posTerminalSwitchBtn) {
+            posTerminalSwitchBtn.addEventListener('click', function () {
+                document.getElementById('terminalModalOverlay').classList.add('active');
+                refreshTerminalPicker();
+            });
+        }
         document.getElementById('terminalModalCancel').addEventListener('click', function () {
             document.getElementById('terminalModalOverlay').classList.remove('active');
         });
-        renderTerminalPickerButton();
 
         // ---------- Cart ----------
         let cart = {}; // ticket_id -> {id, name, price, quantity}
@@ -774,10 +785,22 @@
                 methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 selectedMethod = m;
+                updatePosTerminalStatus();
             });
             methodRow.appendChild(btn);
             if (m === posDefaultMethod) { selectedMethod = m; }
         });
+
+        // Only relevant while "EFT Terminal" is the selected method — a plain label/Switch
+        // button sitting right above the action buttons, not a topbar icon easily mistaken for
+        // Settings/Account (the previous design).
+        const posTerminalStatus = document.getElementById('posTerminalStatus');
+        function updatePosTerminalStatus() {
+            if (!posTerminalStatus) { return; }
+            posTerminalStatus.hidden = selectedMethod !== 'EFT Terminal';
+            updateTerminalStatusName();
+        }
+        updatePosTerminalStatus();
 
         // Re-run whenever the picker's own live refresh updates EFT_TERMINALS (e.g. the
         // previously-paired terminal was just unpaired/removed elsewhere) — switches away from
@@ -796,6 +819,7 @@
                     selectedMethod = fallbackBtn.dataset.method;
                 }
             }
+            updatePosTerminalStatus();
         }
 
         let toastHideTimer = null;
