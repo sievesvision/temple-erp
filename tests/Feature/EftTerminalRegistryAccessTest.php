@@ -171,14 +171,12 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseHas('eft_terminals', ['key' => 'ticket-view-added']);
     }
 
-    // "Set default" shares the page's own broader canManageRegistry() access — anyone trusted
-    // to add/pair a terminal is trusted to say which one is preferred system-wide (it no
-    // longer needs to be System-Admin-only now that each operator's own POS terminal picker
-    // also remembers a *personal* default against their account, independently of this global
-    // one — see EftTerminal::default()/resolveOrDefault() and EftTerminalController::
-    // selectForMe()). "Remove" stays System-Admin-only below, since it can take a terminal
-    // away from another console entirely rather than just changing a preference.
-    public function test_event_admin_coordinator_can_set_default_but_cannot_remove_a_terminal(): void
+    // "Set default" and "remove" both share the page's own broader canManageRegistry() access
+    // — anyone trusted to add/pair a terminal is trusted to change or remove any terminal in
+    // the registry too, since it's still one shared, global list rather than scoped per
+    // event/Tickets (see EftTerminalAccess's own docblock). Only the provider-wide
+    // sandbox/live switch (updateMode()) stays System-Admin-only.
+    public function test_event_admin_coordinator_can_set_default_and_remove_a_non_default_terminal(): void
     {
         $user = $this->eventAdminCoordinator();
         $terminal = EftTerminal::factory()->create(['key' => 'protected-terminal']);
@@ -186,8 +184,19 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->actingAs($user)->post("/admin/eft-terminals/{$terminal->id}/default")->assertRedirect();
         $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id, 'is_default' => true]);
 
-        $this->actingAs($user)->delete("/admin/eft-terminals/{$terminal->id}");
-        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
+        $other = EftTerminal::factory()->create(['key' => 'removable-by-coordinator']);
+        $this->actingAs($user)->delete("/admin/eft-terminals/{$other->id}")->assertRedirect();
+        $this->assertSoftDeleted('eft_terminals', ['id' => $other->id]);
+    }
+
+    public function test_entry_level_coordinator_cannot_remove_a_terminal(): void
+    {
+        $user = $this->entryLevelCoordinator();
+        $terminal = EftTerminal::factory()->create(['key' => 'entry-cannot-remove']);
+
+        $this->actingAs($user)->delete("/admin/eft-terminals/{$terminal->id}")
+            ->assertSessionHas('error', 'Unauthorized access.');
+        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id, 'deleted_at' => null]);
     }
 
     // The POS terminal picker fires this the moment an operator picks a terminal (see

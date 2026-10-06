@@ -49,15 +49,38 @@ class EftTerminalRegistryView
     }
 
     /**
-     * fetch() + groups() together, for the (common) case of a page that just wants to render
-     * the registry as it stands right now without also running the mx51 self-heal check that
-     * only EftTerminalController::index() performs (see that method's own docblock for why
-     * that check stays a one-place-only side effect rather than something every hosting page
-     * repeats on every load).
+     * Live-checks every currently-SCI-paired terminal against mx51's own GET /pairing-info
+     * (see CbaSciService::refreshPairingStatus()), silently self-correcting one that's
+     * actually been unpaired on mx51's own side — nothing pushes an unpair notification to
+     * this app, so without this the "Paired" badge can only ever go stale, never recover, on
+     * whichever page skips it. Must run BEFORE groups() partitions into active/inactive, since
+     * a self-heal can move a terminal from one bucket to the other.
      */
-    public static function data(): array
+    public static function selfHealSciPairings(\Illuminate\Support\Collection $eftTerminals): void
+    {
+        foreach ($eftTerminals as $eftTerminal) {
+            if ($eftTerminal->provider === 'cba_sci' && $eftTerminal->isSciPaired()) {
+                CbaSciService::refreshPairingStatus($eftTerminal);
+            }
+        }
+    }
+
+    /**
+     * fetch() + groups() together. Pass $selfHeal = true wherever an operator is specifically
+     * looking at pairing status right now — the standalone EFT Terminal Settings page, and
+     * each event's/Tickets' own console EFT Terminal Settings pane — so a terminal unpaired on
+     * mx51's own side (e.g. from the POS's own terminal picker) is never shown as still
+     * "Paired" there just because this particular page never re-checked. Left false (the
+     * default) anywhere that merely needs the list/counts incidentally, since a live mx51 API
+     * round-trip per terminal isn't free.
+     */
+    public static function data(bool $selfHeal = false): array
     {
         $fetched = self::fetch();
+
+        if ($selfHeal) {
+            self::selfHealSciPairings($fetched['eftTerminals']);
+        }
 
         return array_merge($fetched, self::groups($fetched['eftTerminals'], $fetched['linklyMode']));
     }

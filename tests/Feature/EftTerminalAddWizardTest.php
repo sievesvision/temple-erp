@@ -108,6 +108,37 @@ class EftTerminalAddWizardTest extends TestCase
         $this->assertDatabaseMissing('eft_terminals', ['key' => 'wizard-fail-1']);
     }
 
+    // The same "roll back the just-created row" path as a genuine pairing failure above, but
+    // for a different reason: mx51's TID here belongs to an ALREADY-registered terminal, so
+    // this attempt is the same physical device being added a second time, not a new one.
+    public function test_add_and_pair_refuses_a_terminal_whose_tid_is_already_registered(): void
+    {
+        $admin = $this->adminUser();
+        $existing = EftTerminal::create([
+            'key' => 'already-registered', 'label' => 'Main Counter', 'provider' => 'cba_sci',
+            'pos_id' => 'pos-existing', 'sci_tid' => 'tid_dupe',
+        ]);
+        Http::fake([
+            'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
+                'pairing_id' => 'pid_dupe', 'key_id' => 'kid_dupe', 'confirmation_code' => '4242',
+                'signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+                'tid' => 'tid_dupe',
+            ]], 200),
+        ]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.addAndPair'), [
+            'provider' => 'cba_sci', 'pairing_code' => '999999', 'key' => 'wizard-duplicate-tid',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => false]);
+        $response->assertJsonFragment(['message' => 'This terminal is already registered as "Main Counter" — use that one instead of adding a new entry.']);
+        // The just-created duplicate row is gone entirely (forceDelete() — nothing ever
+        // succeeded on it); the original registration is completely untouched.
+        $this->assertDatabaseMissing('eft_terminals', ['key' => 'wizard-duplicate-tid']);
+        $this->assertDatabaseHas('eft_terminals', ['id' => $existing->id, 'sci_tid' => 'tid_dupe']);
+    }
+
     public function test_add_and_pair_rejects_a_duplicate_unique_terminal_code_without_calling_the_pairing_api(): void
     {
         $admin = $this->adminUser();

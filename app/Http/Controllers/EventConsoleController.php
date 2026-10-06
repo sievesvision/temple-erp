@@ -238,7 +238,11 @@ class EventConsoleController extends Controller
         // @include's the exact same registry partial the standalone settings page and Admin
         // Settings do (see admin.partials.eft-terminal-registry), so pairing/adding a
         // terminal is implemented exactly once regardless of where it's reached from.
-        $eftRegistryData = \App\Services\EftTerminalRegistryView::data();
+        // selfHeal: true — an operator opening this pane is specifically looking at pairing
+        // status, so it must never show a terminal as still "Paired" after it was unpaired
+        // from the POS's own terminal picker (or any other console) in the meantime; see
+        // EftTerminalRegistryView::selfHealSciPairings()'s own docblock.
+        $eftRegistryData = \App\Services\EftTerminalRegistryView::data(selfHeal: true);
         $eftTerminals = $eftRegistryData['eftTerminals'];
         $linklyMode = $eftRegistryData['linklyMode'];
         $cbaSciMode = $eftRegistryData['cbaSciMode'];

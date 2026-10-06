@@ -17,11 +17,13 @@ use Illuminate\Support\Facades\Auth;
  * RolePermission resource (typically Admin/Committee only), while an event-admin coordinator
  * or ticket-admin controller already has full pairing/refund/logon rights over any terminal
  * from their own console and needs to be able to register a *new* one too — see
- * App\Services\EftTerminalAccess for exactly who that is. "Set default" now shares that same
- * broader access (anyone who can manage the registry can change it), since the destinations
- * that rely on the default already trust those same roles for day-to-day terminal operation;
- * only "remove a terminal" stays System-Admin-only, since that can take a terminal out from
- * under another console entirely rather than just changing which one is preferred.
+ * App\Services\EftTerminalAccess for exactly who that is. "Set default" and "remove a
+ * terminal" now share that same broader access too (anyone who can manage the registry can
+ * change or remove any terminal in it — the registry is still one shared, global list, not
+ * scoped per event/Tickets), since the destinations that rely on a terminal already trust
+ * those same roles for its day-to-day operation. System-Admin-only is now exclusively about
+ * the provider-wide sandbox/live switch (updateMode()) — going live moves real money for
+ * every terminal of that provider, which is a different order of consequence entirely.
  */
 class EftTerminalController extends Controller
 {
@@ -44,7 +46,16 @@ class EftTerminalController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        ['eftTerminals' => $eftTerminals, 'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode] = \App\Services\EftTerminalRegistryView::fetch();
+        // Viewing this page is one of the two moments mx51's own certification checklist
+        // requires a live pairing-info check (the other is just before a transaction starts,
+        // see CbaSciController::startPurchase()) — a mx51 terminal marked paired locally gets
+        // silently self-corrected here if it's actually been unpaired on mx51's own side. See
+        // EftTerminalRegistryView::selfHealSciPairings()'s own docblock for the other place
+        // this same check now runs (the event/ticket consoles' own EFT Terminal Settings pane).
+        [
+            'linklyMode' => $linklyMode, 'cbaSciMode' => $cbaSciMode,
+            'activeTerminals' => $activeTerminals, 'inactiveTerminals' => $inactiveTerminals, 'allOperational' => $allOperational,
+        ] = \App\Services\EftTerminalRegistryView::data(selfHeal: true);
         $canManageRegistryLevel = $this->canManageRegistry();
         $isSystemAdmin = $this->isAdmin();
         // Embedded in an iframe popup from a POS page (see eft-terminal-settings-modal.blade.
@@ -55,22 +66,6 @@ class EftTerminalController extends Controller
         // ever means "inside that POS-page popup," and the whole topbar (not just Back/
         // Logout) is hidden in favour of the popup's own title bar and close control.
         $embedded = $request->boolean('embedded');
-
-        // Viewing this page is one of the two moments mx51's own certification checklist
-        // requires a live pairing-info check (the other is just before a transaction starts,
-        // see CbaSciController::startPurchase()) — a mx51 terminal marked paired locally gets
-        // silently self-corrected here if it's actually been unpaired on mx51's own side. This
-        // is deliberately only done here, not inside EftTerminalRegistryView::data() itself —
-        // a live mx51 API round-trip per terminal isn't something the consoles or Admin
-        // Settings should pay for on every ordinary page load.
-        foreach ($eftTerminals as $eftTerminal) {
-            if ($eftTerminal->provider === 'cba_sci' && $eftTerminal->isSciPaired()) {
-                \App\Services\CbaSciService::refreshPairingStatus($eftTerminal);
-            }
-        }
-
-        ['activeTerminals' => $activeTerminals, 'inactiveTerminals' => $inactiveTerminals, 'allOperational' => $allOperational]
-            = \App\Services\EftTerminalRegistryView::groups($eftTerminals, $linklyMode);
 
         // The Add Terminal wizard re-fetches just the registry list (not a full page
         // navigation) once it's done — same data this method already builds above, just
@@ -393,7 +388,7 @@ class EftTerminalController extends Controller
 
     public function destroy(Request $request, EftTerminal $terminal)
     {
-        if (!$this->isAdmin()) {
+        if (!$this->canManageRegistry()) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
