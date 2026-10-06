@@ -274,8 +274,14 @@ class EftTerminalController extends Controller
      * call Unpair too) then deletes the terminal entirely, since this row only exists as part
      * of this one still-unconfirmed wizard run. Uses the broader canManageRegistry() tier
      * rather than destroy()'s System-Admin-only gate, since anyone who could start this wizard
-     * should be able to back out of it — safe because it only ever removes a terminal with
-     * zero recorded transactions, true by construction for a brand new row.
+     * should be able to back out of it.
+     *
+     * That "brand new row" assumption doesn't always hold any more: CbaSciService::pair()'s
+     * TID matching can resolve this same pairing attempt onto a DIFFERENT, already-registered
+     * terminal with real history instead of the placeholder addAndPair() just created (see its
+     * own docblock) — deleting that would destroy a real terminal, not undo this wizard run. In
+     * that case Cancel just unpairs it instead, reverting the pairing this attempt just made
+     * while leaving the terminal and its history exactly as they were before.
      */
     public function cancelNewTerminal(Request $request, EftTerminal $terminal)
     {
@@ -284,7 +290,11 @@ class EftTerminalController extends Controller
         }
 
         if ($terminal->linklyTransactions()->exists() || $terminal->sciTransactions()->exists()) {
-            return response()->json(['success' => false, 'message' => 'This terminal already has recorded activity and cannot be cancelled this way.'], 422);
+            if ($terminal->isSciPaired()) {
+                \App\Services\CbaSciService::unpair($terminal);
+            }
+            AuditLogService::log("Cancelled a pairing attempt on existing EFT terminal '{$terminal->label}' ({$terminal->key})");
+            return response()->json(['success' => true]);
         }
 
         if ($terminal->isSciPaired()) {

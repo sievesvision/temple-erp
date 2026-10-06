@@ -180,7 +180,11 @@ class EftTerminalAddWizardTest extends TestCase
         $this->assertDatabaseMissing('eft_terminals', ['id' => $terminal->id]);
     }
 
-    public function test_cancel_new_terminal_refuses_a_terminal_with_recorded_transactions(): void
+    // This "pending" pairing can resolve onto an EXISTING, already-registered terminal with
+    // real history instead of a brand new row (CbaSciService::pair()'s TID matching) — deleting
+    // it would destroy a real terminal, not undo this wizard run, so Cancel unpairs it instead
+    // and still reports success; the row and its history survive untouched.
+    public function test_cancel_new_terminal_unpairs_instead_of_deleting_a_terminal_with_recorded_transactions(): void
     {
         $admin = $this->adminUser();
         $terminal = EftTerminal::factory()->create([
@@ -192,13 +196,14 @@ class EftTerminalAddWizardTest extends TestCase
             'client_ref' => 'wizard-ref-1', 'sci_transaction_id' => 'txn_wizard', 'sci_version' => 1,
             'eft_terminal_id' => $terminal->id, 'amount' => 20, 'status' => 'PENDING',
         ]);
-        Http::fake();
+        Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
 
         $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.cancelNew', $terminal));
 
-        $response->assertStatus(422);
-        Http::assertNothingSent();
+        $response->assertOk();
+        $response->assertJson(['success' => true]);
         $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
+        $this->assertFalse($terminal->fresh()->isSciPaired());
     }
 
     public function test_cancel_new_terminal_requires_registry_access(): void
