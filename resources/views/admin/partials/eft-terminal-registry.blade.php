@@ -4,8 +4,9 @@
      it's reached from. Expects: $activeTerminals, $inactiveTerminals, $linklyMode,
      $cbaSciMode, $canManageRegistryLevel, $isSystemAdmin, $allOperational — the first five
      mirror EftTerminalController::index()'s own variables exactly; $isSystemAdmin (literal
-     Admin role, stricter than $canManageRegistryLevel) gates Set Default/Remove Terminal the
-     same way eft-terminal-card.blade.php always has. The host page must link
+     Admin role) now only gates the account-wide Transaction Limits/Receipt Printing settings
+     below — $canManageRegistryLevel alone gates everything else, including Set Default/Remove
+     Terminal, the same way eft-terminal-card.blade.php does. The host page must link
      css/eft-terminal-registry.css once and already define the --maroon/--gold/--cream/
      --white/--border/--text-primary/--text-secondary/--serif tokens this relies on (every
      current host already does, as they all share the same temple-branding palette) and
@@ -34,14 +35,18 @@
             data-add-url="{{ route('admin.eft-terminals.addAndPair') }}"
             data-test-url="{{ route('admin.cba-sci.test') }}"
             data-cancel-new-url-base="{{ url('/admin/eft-terminals') }}"
-            data-refresh-url="{{ route('admin.eft-terminals.index') }}"
             data-csrf="{{ csrf_token() }}">
         <i class="bi bi-plus-lg"></i> Add New Terminal
     </button>
     @endif
 </div>
 
-<div id="eftTerminalsList">
+{{-- data-refresh-url lives here (not on the button above, which only renders for
+     $canManageRegistryLevel) so js/eft-terminal-registry.js's exported refresh() — used by
+     the host consoles to re-run mx51's live pairing check every time their "EFT Terminal
+     Settings" pane is opened — works for every viewer of this partial, not only those who can
+     also add a terminal. --}}
+<div id="eftTerminalsList" data-refresh-url="{{ route('admin.eft-terminals.index') }}">
 @if($activeTerminals->isEmpty() && $inactiveTerminals->isEmpty())
 <p class="text-muted">No terminals registered yet — add one above.</p>
 @endif

@@ -1872,6 +1872,14 @@
             });
             document.querySelectorAll('.console-pane').forEach(function (p) { p.classList.toggle('active', p.id === paneId); });
             closeSidebarDrawer();
+            // Opening this pane should always reflect the terminal's REAL pairing state, not
+            // whatever was last rendered — a terminal unpaired from the POS's own terminal
+            // picker (or any other console) since this page loaded must never still show
+            // "Paired" here. window.EftTerminalRegistry is defined by js/eft-terminal-
+            // registry.js, which every host of this pane already links.
+            if (paneId === 'pane-eft-settings' && window.EftTerminalRegistry) {
+                window.EftTerminalRegistry.refresh();
+            }
         }
 
         document.querySelectorAll('[data-pane]').forEach(function (el) {
@@ -1909,10 +1917,16 @@
                 try { localStorage.setItem('consoleActivePane', 'pane-coordinators'); } catch (e) {}
             });
         });
-        document.querySelectorAll('#pane-eft-settings form').forEach(function (form) {
-            form.addEventListener('submit', function () {
-                try { localStorage.setItem('consoleActivePane', 'pane-eft-settings'); } catch (e) {}
-            });
+        // Event-delegated (listening on the pane itself, not each individual form) — unlike
+        // the other panes below, this one's #eftTerminalsList content gets replaced wholesale
+        // via innerHTML after the Add Terminal wizard succeeds (see js/eft-terminal-registry.js
+        // refreshTerminalsList()), which would silently drop a listener attached directly to
+        // any one form. A 'submit' event bubbles, so this still catches every terminal card's
+        // form (rename/set default/remove/pair/unpair) even ones added after that refresh.
+        document.getElementById('pane-eft-settings').addEventListener('submit', function (e) {
+            if (e.target.tagName === 'FORM') {
+                try { localStorage.setItem('consoleActivePane', 'pane-eft-settings'); } catch (err) {}
+            }
         });
         document.querySelectorAll('#pane-cash-banking form').forEach(function (form) {
             form.addEventListener('submit', function () {
