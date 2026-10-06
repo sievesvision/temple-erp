@@ -36,7 +36,14 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(data.html, 'text/html');
                 const freshList = doc.getElementById('eftTerminalsList');
-                if (freshList) { currentList.innerHTML = freshList.innerHTML; }
+                if (freshList) {
+                    currentList.innerHTML = freshList.innerHTML;
+                    // The innerHTML swap just destroyed every .sci-repair-widget this page had
+                    // bound listeners to and replaced them with inert new ones (Pair/Test/Cancel
+                    // clicks silently doing nothing) — re-bind against the fresh set now that
+                    // they actually exist in the DOM.
+                    try { initSciRepairWidgets(); } catch (e) { console.error('EFT terminal re-pair widgets failed to initialise', e); }
+                }
             })
             .catch(function () { /* list simply stays as it was before the refresh attempt */ });
     }
