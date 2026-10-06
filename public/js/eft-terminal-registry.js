@@ -298,11 +298,12 @@
     // the terminal, then press Test" moment the Add Terminal wizard already has. This brings
     // that same moment to re-pairing too, scoped per terminal (a page can show more than one
     // unpaired mx51 terminal's card at once) via data attributes and querying only within each
-    // widget's own subtree, never a fixed global id. Unlike the wizard, this doesn't need its
-    // own success-state markup or a partial-list refresh: once Test actually confirms the
-    // pairing, a plain reload is enough — the card then renders paired (see
-    // eft-terminal-card.blade.php's $expandable), which was always correct, it was only ever
-    // reached one step too early.
+    // widget's own subtree, never a fixed global id. Test/Cancel finish the same way the
+    // wizard's own "Back to Terminals" does — a brief success message (Test only), then an AJAX
+    // refreshTerminalsList(), never a full-page reload. A reload here used to dump the admin
+    // back on the console's default "New Donation" pane instead of back on EFT Terminal
+    // Settings, since these buttons are plain JS actions, not a <form> submit the console's own
+    // "remember which pane was active" listener (see event-console.blade.php) could catch.
     function initSciRepairWidgets() {
         document.querySelectorAll('.sci-repair-widget').forEach(function (widget) {
             const PAIR_URL = widget.dataset.pairUrl;
@@ -321,6 +322,9 @@
             const confirmError = widget.querySelector('.sci-repair-confirm-error');
             const testBtn = widget.querySelector('.sci-repair-test-btn');
             const cancelBtn = widget.querySelector('.sci-repair-cancel-btn');
+            const confirmInstructions = widget.querySelector('.sci-repair-confirm-instructions');
+            const confirmActions = widget.querySelector('.sci-repair-confirm-actions');
+            const successStep = widget.querySelector('.sci-repair-step-success');
 
             pairBtn.addEventListener('click', function () {
                 hideError(pairError);
@@ -357,7 +361,16 @@
                             showError(confirmError, data.message || 'Could not confirm the pairing — try again.');
                             return;
                         }
-                        window.location.reload();
+                        // Same "success message, then back to the list" moment the Add Terminal
+                        // wizard already has — the refreshed list won't even include this widget
+                        // any more (a paired cba_sci terminal has no expandable panel at all, see
+                        // eft-terminal-card.blade.php's $expandable), so this naturally collapses
+                        // back into the terminal's own now-Paired row.
+                        if (confirmInstructions) { confirmInstructions.hidden = true; }
+                        confirmationCodeEl.hidden = true;
+                        if (confirmActions) { confirmActions.hidden = true; }
+                        if (successStep) { successStep.hidden = false; }
+                        setTimeout(refreshTerminalsList, 900);
                     })
                     .catch(function () {
                         setBusy(testBtn, false);
@@ -370,8 +383,8 @@
             cancelBtn.addEventListener('click', function () {
                 setBusy(cancelBtn, true, 'Cancelling…');
                 postForm(UNPAIR_URL, CSRF, { terminal_id: terminalId })
-                    .then(function () { window.location.reload(); })
-                    .catch(function () { window.location.reload(); });
+                    .then(function () { refreshTerminalsList(); })
+                    .catch(function () { refreshTerminalsList(); });
             });
         });
     }
