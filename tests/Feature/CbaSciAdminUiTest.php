@@ -76,7 +76,6 @@ class CbaSciAdminUiTest extends TestCase
         $response->assertOk();
         $response->assertSee('Paired', false);
         $response->assertSee('Front Bar', false);
-        $response->assertSee('pid_abc', false);
         $response->assertDontSee('secret</strong>', false);
     }
 

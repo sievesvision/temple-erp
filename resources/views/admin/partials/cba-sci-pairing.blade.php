@@ -8,26 +8,14 @@
 <div>
     {{-- SCIPAIRING02 — the pairing screen must clearly show mx51's own SCI branding: the
          "Simple Cloud Integration" name and the SCI logo they supply. Kept to one line — label,
-         TID, provider and mode are already on the card's summary row above, so all that
-         belongs here is the branding, the paired state, and the pairing actions. --}}
+         TID, provider and mode are already on the card's summary row above, and Unpair now
+         lives in that row's "…" menu, so once paired there's nothing left to check or do here
+         beyond showing that it's paired. --}}
     @if($isPaired)
         <div class="d-flex align-items-center flex-wrap gap-2" style="font-size:0.88rem;">
             <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:22px; height:22px; border-radius:5px; object-fit:cover;">
             <strong>Simple Cloud Integration</strong>
             <span class="badge-pill badge-ok"><i class="bi bi-check-circle-fill me-1"></i>Paired</span>
-            <span class="text-muted">Pairing ID: {{ $terminal->sci_pairing_id }}</span>
-            <div class="d-flex gap-2 ms-auto">
-                <form action="{{ route('admin.cba-sci.test') }}" method="POST">
-                    @csrf
-                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Test</button>
-                </form>
-                <form action="{{ route('admin.cba-sci.unpair') }}" method="POST" onsubmit="return confirm('Unpair this terminal? The terminal will need a fresh pairing code to reconnect.');">
-                    @csrf
-                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Unpair</button>
-                </form>
-            </div>
         </div>
     @else
         <div class="d-flex align-items-center gap-2 mb-2">
