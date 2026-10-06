@@ -1040,9 +1040,9 @@
         }
         updatePosTerminalStatus();
 
-        // The one entry point to terminal pairing that works with zero terminals paired — the
-        // normal route (pick "EFT Terminal" as the method, then "Switch") is unreachable in
-        // that exact state, since the method button itself stays disabled with nothing to pick.
+        // Always-visible entry point to terminal pairing/settings — unlike "Switch" above the
+        // Pay button, which only ever appears while "EFT Terminal" is selected (and that method
+        // stays disabled with nothing paired to pick), this one works with zero terminals paired.
         const posEftSettingsTopbarBtn = document.getElementById('posEftSettingsTopbarBtn');
         function updateEftSettingsTopbarBtn() {
             if (!posEftSettingsTopbarBtn) { return; }
@@ -1050,10 +1050,10 @@
         }
         updateEftSettingsTopbarBtn();
         if (posEftSettingsTopbarBtn) {
-            posEftSettingsTopbarBtn.addEventListener('click', function () {
-                document.getElementById('terminalModalOverlay').classList.add('active');
-                refreshTerminalPicker();
-            });
+            // Straight to pairing/settings itself — the terminal picker (Switch, above the Pay
+            // button) is the separate, optional "which terminal does this station use" list,
+            // not a required stop on the way to Settings.
+            posEftSettingsTopbarBtn.addEventListener('click', function () { openEftTerminalSettingsModal(); });
         }
 
         // Re-run whenever the picker's own live refresh updates EFT_TERMINALS (e.g. the
