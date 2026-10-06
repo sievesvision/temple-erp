@@ -533,9 +533,31 @@ class CbaSciTransactionTest extends TestCase
         ]);
 
         $response->assertStatus(422);
-        $response->assertJson(['success' => false, 'message' => 'That terminal is not currently paired.']);
+        $response->assertJson(['success' => false, 'message' => 'No active pairings found']);
         Http::assertNothingSent();
         $this->assertDatabaseMissing('sci_transactions', ['client_ref' => 'refund-ref-unpaired']);
+    }
+
+    // refund() now proactively re-checks pairing-info before starting, exactly like
+    // startPurchase() does (mx51's certification checklist, SCIPAIRING10/SCITX01) — a refund is
+    // just as much "initiating a transaction" as a purchase, so a pairing mx51 already considers
+    // revoked must be caught here too, not just when charging.
+    public function test_no_active_pairings_found_is_surfaced_when_starting_a_refund(): void
+    {
+        $admin = $this->adminUser();
+        $terminal = $this->pairedTerminal();
+        $original = $this->approvedPurchase($terminal, 40);
+
+        Http::fake(['sci-api.tenant.example/*' => Http::response(['error' => ['code' => 'no_active_pairings_found']], 401)]);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.cba-sci.charge.refund', $original->sci_transaction_id), [
+            'amount' => 40, 'client_ref' => 'refund-ref-revoked',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson(['success' => false, 'message' => 'No active pairings found']);
+        $this->assertFalse($terminal->fresh()->isSciPaired());
+        $this->assertDatabaseMissing('sci_transactions', ['client_ref' => 'refund-ref-revoked']);
     }
 
     public function test_refund_rejects_a_non_mx51_terminal(): void
@@ -745,6 +767,9 @@ class CbaSciTransactionTest extends TestCase
         ])->assertOk();
 
         Http::assertSent(function ($request) {
+            if ($request->method() !== 'POST' || !str_contains($request->url(), '/v1/transactions')) {
+                return false;
+            }
             $body = json_decode($request->body(), true);
             return array_key_exists('print_merchant_receipt', $body) && array_key_exists('pos_auto_print_signature_receipt', $body);
         });

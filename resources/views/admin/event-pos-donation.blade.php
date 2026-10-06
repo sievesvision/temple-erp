@@ -98,8 +98,10 @@
         @media (max-width: 900px) { .pos-event-motto { display: none; } }
 
         .pos-topbar-actions { grid-area: actions; display: flex; align-items: center; gap: 8px; min-width: 0; justify-content: flex-end; }
-        .pos-topbar-btn { background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 44px; height: 44px; border-radius: var(--radius-sm); font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .pos-topbar-btn { position: relative; background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 44px; height: 44px; border-radius: var(--radius-sm); font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.18); }
+        /* Flags that setup is incomplete — only ever shown when no terminal is paired yet. */
+        .pos-topbar-btn-setup::after { content: ''; position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--maroon-dark); }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
 
         /* ---------- Main entry area ---------- */
@@ -518,6 +520,12 @@
             @if($canReturnToConsole)
             <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
             @endif
+            <!-- Only ever shown when no EFT terminal is paired at all — the normal path to the
+                 picker (select "EFT Terminal" as the payment method, then "Switch") is
+                 unreachable in that state, since that method button stays disabled with nothing
+                 paired to pick. A pos-level user needs a way in regardless — see
+                 EftTerminalAccess's own docblock on why this tier is trusted to pair here. -->
+            <button type="button" class="pos-topbar-btn pos-topbar-btn-setup" id="posEftSettingsTopbarBtn" title="Set up EFT Terminal" hidden><i class="bi bi-credit-card-2-front"></i></button>
             <div class="dropdown">
                 <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
                     <i class="bi bi-person-fill"></i>
@@ -1029,6 +1037,22 @@
         }
         updatePosTerminalStatus();
 
+        // The one entry point to terminal pairing that works with zero terminals paired — the
+        // normal route (pick "EFT Terminal" as the method, then "Switch") is unreachable in
+        // that exact state, since the method button itself stays disabled with nothing to pick.
+        const posEftSettingsTopbarBtn = document.getElementById('posEftSettingsTopbarBtn');
+        function updateEftSettingsTopbarBtn() {
+            if (!posEftSettingsTopbarBtn) { return; }
+            posEftSettingsTopbarBtn.hidden = eftTerminalAvailable();
+        }
+        updateEftSettingsTopbarBtn();
+        if (posEftSettingsTopbarBtn) {
+            posEftSettingsTopbarBtn.addEventListener('click', function () {
+                document.getElementById('terminalModalOverlay').classList.add('active');
+                refreshTerminalPicker();
+            });
+        }
+
         // Re-run whenever the picker's own live refresh updates EFT_TERMINALS (e.g. the
         // previously-paired terminal was just unpaired/removed elsewhere) — switches away from
         // EFT Terminal automatically if it was selected and just became unavailable, same as it
@@ -1049,6 +1073,7 @@
                 }
             }
             updatePosTerminalStatus();
+            updateEftSettingsTopbarBtn();
         }
 
         // Payment methods that confirm money on the spot ("PAY now") versus ones that only

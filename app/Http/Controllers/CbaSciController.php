@@ -491,8 +491,14 @@ class CbaSciController extends Controller
         if (!$terminal || $terminal->provider !== 'cba_sci') {
             return response()->json(['success' => false, 'message' => 'Select a valid SCI terminal for this refund.'], 422);
         }
+        // Same live pairing-info check startPurchase() runs — a refund is just as much
+        // "initiating a transaction" per mx51's certification checklist, and relying on
+        // stale local state here would let a revoked pairing silently attempt a refund.
+        if ($terminal->isSciPaired()) {
+            CbaSciService::refreshPairingStatus($terminal);
+        }
         if (!$terminal->isSciPaired()) {
-            return response()->json(['success' => false, 'message' => 'That terminal is not currently paired.'], 422);
+            return response()->json(['success' => false, 'message' => 'No active pairings found'], 422);
         }
 
         $result = CbaSciService::createRefund($terminal, (float) $validated['amount']);

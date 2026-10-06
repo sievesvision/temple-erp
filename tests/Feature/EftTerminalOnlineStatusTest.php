@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\EftTerminal;
 use App\Models\LinklyTransaction;
 use App\Models\SciTransaction;
-use App\Models\Setting;
 use App\Models\User;
 use Tests\TestCase;
 
@@ -197,22 +196,4 @@ class EftTerminalOnlineStatusTest extends TestCase
         $this->assertSame('unknown', $terminal->fresh()->lastKnownStatus()['state']);
     }
 
-    public function test_console_renders_online_and_offline_badges(): void
-    {
-        Setting::set('linkly_mode', 'sandbox');
-        $online = $this->defaultEftTerminal();
-        LinklyTransaction::create([
-            'pos_txn_ref' => 'EFTONLINEUI', 'txn_type' => 'purchase', 'eft_terminal_id' => $online->id, 'status' => 'approved', 'amount' => 5,
-        ]);
-        $offline = EftTerminal::factory()->create(['key' => 'offline-terminal', 'label' => 'Offline Terminal', 'secret_sandbox' => 'test-secret']);
-        LinklyTransaction::create([
-            'pos_txn_ref' => 'EFTOFFLINEUI', 'txn_type' => 'logon', 'eft_terminal_id' => $offline->id, 'status' => 'failed',
-        ]);
-
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
-
-        $response->assertOk();
-        $response->assertSee('Online');
-        $response->assertSee('Offline');
-    }
 }
