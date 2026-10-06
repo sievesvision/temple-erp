@@ -371,7 +371,7 @@
                                         @php
                                             $orderLinklyTxn = $order->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$order->id] ?? null) : null;
                                             $orderSciTxn = $order->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$order->id] ?? null) : null;
-                                            $orderEftProvider = $orderLinklyTxn ? 'Linkly' : ($orderSciTxn ? 'mx51' : null);
+                                            $orderEftProvider = $orderLinklyTxn ? 'Linkly' : ($orderSciTxn ? 'SCI' : null);
                                             $orderEftTerminalLabel = $orderLinklyTxn->eftTerminal->label ?? ($orderSciTxn->eftTerminal->label ?? null);
                                             $orderCanRefund = $canManageConsole && (
                                                 ($orderLinklyTxn && $orderLinklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $orderLinklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
@@ -417,7 +417,7 @@
                                         @php
                                             $ot = $orow->txn;
                                             $oIsRefund = $ot->txn_type === 'refund';
-                                            $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'mx51';
+                                            $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'SCI';
                                             $oRef = $orow->provider === 'linkly' ? $ot->pos_txn_ref : ($ot->sci_transaction_id ?: $ot->client_ref);
                                             $oTerminalLabel = $ot->eftTerminal->label ?? null;
                                             $oStatusWord = $orow->provider === 'linkly' ? $ot->status : (($ot->result_financial_status ?: $ot->status) ?? '');
@@ -535,14 +535,14 @@
                                 <div class="fw-bold">Registered EFT Terminals</div>
                                 <button type="button" onclick="activatePane('pane-eft-settings')" class="btn btn-outline-primary btn-sm"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings</button>
                             </div>
-                            <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Adding, pairing and unpairing terminals (Linkly or mx51) all happen on the EFT Terminal Settings page.</p>
+                            <p class="text-muted small mb-3">Every terminal below is available to be assigned to a computer above. Adding, pairing and unpairing terminals (Linkly or SCI) all happen on the EFT Terminal Settings page.</p>
                             @forelse($eftTerminals as $terminal)
                             @php $lastKnown = $terminal->lastKnownStatus(); $terminalPaired = $terminal->isPairedFor($linklyMode); @endphp
                             <div class="d-flex align-items-center gap-2 flex-wrap mb-2 pb-2 border-bottom">
                                 <strong>{{ $terminal->label }}</strong>
                                 <span class="text-muted small">({{ $terminal->key }})</span>
                                 @if($terminal->is_default)<span class="badge bg-primary">Default</span>@endif
-                                <span class="badge bg-secondary">{{ $terminal->provider === 'cba_sci' ? 'mx51 Cloud' : 'Linkly Cloud' }}</span>
+                                <span class="badge bg-secondary">{{ $terminal->provider === 'cba_sci' ? 'SCI' : 'Linkly Cloud' }}</span>
                                 <span class="status-pill status-{{ $terminalPaired ? 'paid' : 'cancelled' }}">{{ $terminalPaired ? 'Paired' : 'Not paired' }}</span>
                                 @if($lastKnown['state'] === 'online')
                                 <span class="status-pill status-paid">Online</span>

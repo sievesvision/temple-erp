@@ -250,7 +250,7 @@ class CbaSciController extends Controller
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
         if (!$terminal || $terminal->provider !== 'cba_sci') {
-            return response()->json(['success' => false, 'message' => 'No mx51 Cloud terminal is configured for this station.'], 422);
+            return response()->json(['success' => false, 'message' => 'No SCI terminal is configured for this station.'], 422);
         }
         // The other of the two moments mx51's certification checklist requires a live
         // pairing-info check (see EftTerminalController::index() for the other one) — never
@@ -488,7 +488,7 @@ class CbaSciController extends Controller
             : $original->eftTerminal;
 
         if (!$terminal || $terminal->provider !== 'cba_sci') {
-            return response()->json(['success' => false, 'message' => 'Select a valid mx51 terminal for this refund.'], 422);
+            return response()->json(['success' => false, 'message' => 'Select a valid SCI terminal for this refund.'], 422);
         }
         if (!$terminal->isSciPaired()) {
             return response()->json(['success' => false, 'message' => 'That terminal is not currently paired.'], 422);

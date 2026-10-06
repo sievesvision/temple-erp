@@ -360,6 +360,12 @@
             }
 
             cfg.el.actionContainer.innerHTML = '';
+            // A fresh action_form is a fresh form, full stop — an input left over from the
+            // PREVIOUS form (e.g. the same `name` reused across a multi-step flow) must never
+            // pre-fill the new one with whatever the operator typed before. buildElementNode()
+            // below only seeds a key the first time it sees it ("if (!hasOwnProperty) ..."),
+            // so without this reset a stale value survives untouched across every re-render.
+            formValues = {};
 
             if (posInstructions) {
                 layout.forEach(function (group) {
@@ -618,7 +624,7 @@
                 .catch(function () {
                     btn.disabled = false;
                     hideModal();
-                    showToastFallback('Could not reach the mx51 Cloud service — please try again.');
+                    showToastFallback('Could not reach the SCI service — please try again.');
                 });
         }
 
@@ -653,7 +659,7 @@
                 })
                 .catch(function () {
                     if (cancelled) { return; }
-                    showToastFallback('Could not reach the mx51 Cloud service to cancel — still waiting for the terminal.');
+                    showToastFallback('Could not reach the SCI service to cancel — still waiting for the terminal.');
                 });
         });
 

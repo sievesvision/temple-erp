@@ -13,6 +13,6 @@
             <input type="number" step="0.01" min="0" class="form-control form-control-sm rounded-3" id="eftMinimumTransactionAmount" name="minimum_transaction_amount" value="{{ number_format($eftMinimumAmount, 2, '.', '') }}" style="max-width:140px;">
         </div>
         <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
-        <p class="text-muted small mb-0" style="flex-basis:100%;">Applies to starting an EFT Terminal purchase, for both mx51 and Linkly. An attempt below this amount is rejected before it ever reaches the terminal.</p>
+        <p class="text-muted small mb-0" style="flex-basis:100%;">Applies to starting an EFT Terminal purchase, for both SCI and Linkly. An attempt below this amount is rejected before it ever reaches the terminal.</p>
     </form>
 </div>
