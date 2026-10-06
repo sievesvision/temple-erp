@@ -17,9 +17,11 @@ use Illuminate\Support\Facades\Auth;
  * RolePermission resource (typically Admin/Committee only), while an event-admin coordinator
  * or ticket-admin controller already has full pairing/refund/logon rights over any terminal
  * from their own console and needs to be able to register a *new* one too — see
- * App\Services\EftTerminalAccess for exactly who that is. Only "set default" and "remove a
- * terminal" stay System-Admin-only, since those affect every other console's fallback
- * resolution, not just the caller's own event/module.
+ * App\Services\EftTerminalAccess for exactly who that is. "Set default" now shares that same
+ * broader access (anyone who can manage the registry can change it), since the destinations
+ * that rely on the default already trust those same roles for day-to-day terminal operation;
+ * only "remove a terminal" stays System-Admin-only, since that can take a terminal out from
+ * under another console entirely rather than just changing which one is preferred.
  */
 class EftTerminalController extends Controller
 {
@@ -305,7 +307,7 @@ class EftTerminalController extends Controller
 
     public function setDefault(Request $request, EftTerminal $terminal)
     {
-        if (!$this->isAdmin()) {
+        if (!$this->canManageRegistry()) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -315,6 +317,32 @@ class EftTerminalController extends Controller
         AuditLogService::log("Set '{$terminal->label}' as the default EFT terminal");
 
         return redirect()->back()->with('success', "\"{$terminal->label}\" is now the default terminal.")->with('expandTerminalId', $terminal->id);
+    }
+
+    /**
+     * Fired by a POS page's terminal picker (event-pos-donation.blade.php / ticket-pos.
+     * blade.php) the moment an operator picks a terminal there — saved here, against their
+     * own account, alongside that picker's existing browser-storage save, so the choice
+     * follows the *user* rather than the device: two staff sharing one POS computer, or one
+     * staff member moving between computers, each still land on their own terminal next time.
+     * Also the one-write fallback for EftTerminal::resolveOrDefault() (every charge-starting
+     * controller action) — this fetch is a fast path, not the only path, so even a client
+     * that skips it still gets remembered correctly the moment a charge actually starts.
+     *
+     * Deliberately canManageRegistry(), not isAdmin() — same gate as the rest of this picker
+     * (including 'pos'-level Event Coordinators and Ticket Controllers), since this only ever
+     * writes the CALLING user's own row and so carries none of setDefault()'s cross-user
+     * blast radius.
+     */
+    public function selectForMe(Request $request, EftTerminal $terminal)
+    {
+        if (!$this->canManageRegistry()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        Auth::user()->update(['preferred_eft_terminal_id' => $terminal->id]);
+
+        return response()->json(['success' => true]);
     }
 
     /**

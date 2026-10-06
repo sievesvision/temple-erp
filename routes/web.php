@@ -763,6 +763,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Ticket Contro
     Route::post('/admin/eft-terminals/transaction-limits', [\App\Http\Controllers\EftTerminalController::class, 'updateTransactionLimits'])->name('admin.eft-terminals.updateTransactionLimits');
     Route::post('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'update'])->name('admin.eft-terminals.update');
     Route::post('/admin/eft-terminals/{terminal}/default', [\App\Http\Controllers\EftTerminalController::class, 'setDefault'])->name('admin.eft-terminals.setDefault');
+    Route::post('/admin/eft-terminals/{terminal}/select-for-me', [\App\Http\Controllers\EftTerminalController::class, 'selectForMe'])->name('admin.eft-terminals.selectForMe');
     Route::post('/admin/eft-terminals/{terminal}/check-connection', [\App\Http\Controllers\EftTerminalController::class, 'checkConnection'])->name('admin.eft-terminals.checkConnection');
     Route::post('/admin/eft-terminals/{terminal}/cancel-new', [\App\Http\Controllers\EftTerminalController::class, 'cancelNewTerminal'])->name('admin.eft-terminals.cancelNew');
     Route::delete('/admin/eft-terminals/{terminal}', [\App\Http\Controllers\EftTerminalController::class, 'destroy'])->name('admin.eft-terminals.destroy');

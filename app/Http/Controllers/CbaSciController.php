@@ -192,6 +192,9 @@ class CbaSciController extends Controller
 
         $linklyMode = \App\Services\LinklyConfigService::mode();
         $terminals = EftTerminal::orderByDesc('is_default')->orderBy('label')->get();
+        // Per-operator, not the registry's raw global flag — see EftTerminal::default(), which
+        // this mirrors, so the picker pre-selects whichever terminal THIS user last picked.
+        $myDefaultTerminalId = EftTerminal::default($user)?->id;
 
         foreach ($terminals as $terminal) {
             if ($terminal->provider === 'cba_sci' && $terminal->isSciPaired()) {
@@ -199,14 +202,14 @@ class CbaSciController extends Controller
             }
         }
 
-        $result = $terminals->map(function ($t) use ($linklyMode) {
+        $result = $terminals->map(function ($t) use ($linklyMode, $myDefaultTerminalId) {
             $t->refresh();
             return [
                 'id' => $t->id,
                 'key' => $t->key,
                 'label' => $t->label,
                 'provider' => $t->provider,
-                'is_default' => (bool) $t->is_default,
+                'is_default' => $t->id === $myDefaultTerminalId,
                 'paired' => $t->isPairedFor($linklyMode),
                 // Only meaningful for mx51 — the picker shows these as the terminal's
                 // "mandatory fields" once paired, and the key for a once-paired terminal

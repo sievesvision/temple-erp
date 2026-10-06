@@ -814,6 +814,7 @@
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
         const CBA_SCI_CHARGE_CANCEL_URL_BASE = @json(url('/admin/cba-sci/charge/cancel'));
         const CBA_SCI_CHARGE_OVERRIDE_URL_BASE = @json(url('/admin/cba-sci/charge/override'));
+        const EFT_TERMINAL_SELECT_URL_BASE = @json(url('/admin/eft-terminals'));
 
         // ---------- This station's EFT terminal ----------
         // Two storage layers, deliberately: sessionStorage is scoped per TAB and always wins
@@ -839,6 +840,14 @@
         function saveSelectedTerminalId(id) {
             try { sessionStorage.setItem(TERMINAL_SESSION_KEY, id); } catch (e) {}
             try { localStorage.setItem(TERMINAL_LOCAL_KEY, id); } catch (e) {}
+            // Also remembered against the operator's own account (fire-and-forget — the
+            // browser-storage save above already made the pick take effect on this station;
+            // this just makes it follow the user to their next device/computer too), see
+            // EftTerminalController::selectForMe().
+            fetch(EFT_TERMINAL_SELECT_URL_BASE + '/' + id + '/select-for-me', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+            }).catch(function () {});
         }
         let selectedTerminalId = loadSelectedTerminalId();
         function currentTerminalLabel() {

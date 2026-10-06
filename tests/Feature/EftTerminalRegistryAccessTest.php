@@ -14,9 +14,9 @@ use Tests\TestCase;
  * App\Services\EftTerminalAccess) — deliberately broader than the main Settings page's own
  * 'settings' RolePermission: an event-admin Event Coordinator or admin-level Ticket
  * Controller already has full pairing/refund/logon rights over any terminal from their own
- * console, so they can view the registry and add a new terminal too. Only "set default" and
- * "remove a terminal" stay System-Admin-only, since those affect every other console's
- * fallback resolution.
+ * console, so they can view the registry, add a new terminal, and set the global default too.
+ * Only "remove a terminal" stays System-Admin-only, since that can take a terminal away from
+ * another console entirely rather than just changing a preference.
  */
 class EftTerminalRegistryAccessTest extends TestCase
 {
@@ -170,26 +170,84 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseHas('eft_terminals', ['key' => 'ticket-view-added']);
     }
 
-    // Set-default and remove stay System-Admin-only even for an event-admin coordinator who
-    // can otherwise fully manage the registry (view/add/pair).
-    public function test_event_admin_coordinator_cannot_set_default_or_remove_a_terminal(): void
+    // "Set default" shares the page's own broader canManageRegistry() access — anyone trusted
+    // to add/pair a terminal is trusted to say which one is preferred system-wide (it no
+    // longer needs to be System-Admin-only now that each operator's own POS terminal picker
+    // also remembers a *personal* default against their account, independently of this global
+    // one — see EftTerminal::default()/resolveOrDefault() and EftTerminalController::
+    // selectForMe()). "Remove" stays System-Admin-only below, since it can take a terminal
+    // away from another console entirely rather than just changing a preference.
+    public function test_event_admin_coordinator_can_set_default_but_cannot_remove_a_terminal(): void
     {
         $user = $this->eventAdminCoordinator();
         $terminal = EftTerminal::factory()->create(['key' => 'protected-terminal']);
 
         $this->actingAs($user)->post("/admin/eft-terminals/{$terminal->id}/default")->assertRedirect();
-        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id, 'is_default' => false]);
+        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id, 'is_default' => true]);
 
         $this->actingAs($user)->delete("/admin/eft-terminals/{$terminal->id}");
         $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
     }
 
+    // The POS terminal picker fires this the moment an operator picks a terminal (see
+    // event-pos-donation.blade.php/ticket-pos.blade.php's saveSelectedTerminalId()) — it only
+    // ever writes the CALLING user's own row, so it shares canManageRegistry()'s broader
+    // access rather than needing setDefault()'s System-Admin-only tier.
+    public function test_selecting_a_terminal_remembers_it_as_that_users_own_default(): void
+    {
+        $user = $this->eventAdminCoordinator();
+        $globalDefault = EftTerminal::default();
+        $otherTerminal = EftTerminal::factory()->create(['key' => 'second-terminal']);
+
+        $this->actingAs($user)
+            ->post("/admin/eft-terminals/{$otherTerminal->id}/select-for-me")
+            ->assertJson(['success' => true]);
+
+        $user->refresh();
+        $this->assertSame($otherTerminal->id, $user->preferred_eft_terminal_id);
+
+        // Resolving with no explicit id now gives THIS user the one they picked, not the
+        // registry's own global default.
+        $this->assertSame($otherTerminal->id, EftTerminal::default($user)->id);
+
+        // A different user who never picked anything still gets the global default.
+        $someoneElse = $this->eventAdminCoordinator();
+        $this->assertSame($globalDefault->id, EftTerminal::default($someoneElse)->id);
+    }
+
+    public function test_entry_level_coordinator_cannot_select_a_personal_default_terminal(): void
+    {
+        $user = $this->entryLevelCoordinator();
+        $terminal = EftTerminal::factory()->create(['key' => 'no-access-terminal']);
+
+        $this->actingAs($user)
+            ->post("/admin/eft-terminals/{$terminal->id}/select-for-me")
+            ->assertStatus(403);
+
+        $this->assertNull($user->fresh()->preferred_eft_terminal_id);
+    }
+
+    // The picker's own fetch (above) is a fast path, not the only path — resolveOrDefault()
+    // is the one place every EFT-starting controller action resolves "which terminal", so an
+    // explicit choice made there is remembered too, even if a client ever skipped the picker's
+    // own save.
+    public function test_starting_a_charge_with_an_explicit_terminal_remembers_it_as_the_default(): void
+    {
+        $user = $this->eventAdminCoordinator();
+        $otherTerminal = EftTerminal::factory()->create(['key' => 'picked-at-charge-time']);
+
+        $resolved = EftTerminal::resolveOrDefault($otherTerminal->id, $user);
+
+        $this->assertSame($otherTerminal->id, $resolved->id);
+        $this->assertSame($otherTerminal->id, $user->fresh()->preferred_eft_terminal_id);
+    }
+
     // Renaming a terminal's label was added after mx51's certification review flagged that
     // "mx51 Certification Terminal" had no way to be changed, and leaked into a customer-
     // facing error message that embedded it (see CbaSciController::startPurchase()'s fix).
-    // Same permission tier as adding a terminal (canManageRegistry()), not Admin-only like
-    // set-default/remove — an event-admin coordinator already fully manages their own
-    // terminals' pairing, so fixing a typo'd label is no more sensitive than that.
+    // Same permission tier as adding a terminal (canManageRegistry()) — an event-admin
+    // coordinator already fully manages their own terminals' pairing, so fixing a typo'd
+    // label is no more sensitive than that.
     public function test_event_admin_coordinator_can_rename_a_terminal(): void
     {
         $user = $this->eventAdminCoordinator();

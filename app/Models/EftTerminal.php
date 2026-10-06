@@ -60,14 +60,27 @@ class EftTerminal extends Model
     ];
 
     /**
-     * The terminal used whenever a caller doesn't specify one (an old cached POS page, a
-     * webhook-driven lookup that finds no ledger row, or a fresh install with only one
-     * terminal ever paired) — exactly one row should carry is_default=true (enforced by
-     * TerminalController's own logic, not a DB constraint, mirroring how Setting defaults
-     * work elsewhere in this app).
+     * The terminal used whenever a caller doesn't specify one. Checks the given user's own
+     * `preferred_eft_terminal_id` first (set whenever they pick a terminal in a POS page's
+     * terminal picker — see resolveOrDefault() below) — this is what makes the default
+     * genuinely per-operator rather than per-device, so two staff sharing one POS computer,
+     * or one staff member moving between computers, each still land on their own terminal.
+     * Falls back to the registry's own is_default row (an old cached POS page, a
+     * webhook-driven lookup that finds no ledger row, a user with no preference yet, or a
+     * fresh install with only one terminal ever paired) — exactly one row should carry
+     * is_default=true (enforced by EftTerminalController's own logic, not a DB constraint,
+     * mirroring how Setting defaults work elsewhere in this app).
      */
-    public static function default(): ?self
+    public static function default(?\App\Models\User $user = null): ?self
     {
+        $user = $user ?? \Illuminate\Support\Facades\Auth::user();
+        if ($user && $user->preferred_eft_terminal_id) {
+            $preferred = self::find($user->preferred_eft_terminal_id);
+            if ($preferred) {
+                return $preferred;
+            }
+        }
+
         return self::where('is_default', true)->first() ?? self::orderBy('id')->first();
     }
 
@@ -75,17 +88,31 @@ class EftTerminal extends Model
      * Resolves a terminal by id if given and valid, falling back to the default terminal —
      * the one place every EFT-starting controller action decides "which terminal", so a
      * missing/invalid id never silently 500s but always degrades to the default.
+     *
+     * When $user is given and an explicit, valid $terminalId was passed (i.e. the operator
+     * actually chose one, rather than this being a fallback resolution), that choice is
+     * remembered as their new preferred terminal — this is the one place that write happens
+     * for every charge-starting flow, so the POS terminal picker's own "save my pick" fetch
+     * (see event-pos-donation.blade.php/ticket-pos.blade.php) is a nice-to-have fast path,
+     * not the only path: even picking via an older client that skips that fetch still
+     * remembers correctly the next time a charge actually starts.
      */
-    public static function resolveOrDefault($terminalId): ?self
+    public static function resolveOrDefault($terminalId, ?\App\Models\User $user = null): ?self
     {
+        $user = $user ?? \Illuminate\Support\Facades\Auth::user();
+
         if ($terminalId) {
             $terminal = self::find($terminalId);
             if ($terminal) {
+                if ($user && $user->preferred_eft_terminal_id !== $terminal->id) {
+                    $user->update(['preferred_eft_terminal_id' => $terminal->id]);
+                }
+
                 return $terminal;
             }
         }
 
-        return self::default();
+        return self::default($user);
     }
 
     public function secret(string $mode): ?string
