@@ -74,13 +74,9 @@ class CbaSciAdminUiTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.eft-terminals.index'));
 
         $response->assertOk();
-        $response->assertSee('Paired successfully', false);
+        $response->assertSee('Paired', false);
         $response->assertSee('Front Bar', false);
         $response->assertSee('pid_abc', false);
-        // The confirmation code mx51 returns during pairing is shown back to the operator so
-        // they can cross-check it against what the terminal itself displays.
-        $response->assertSee('Confirmation Code', false);
-        $response->assertSee('2022', false);
         $response->assertDontSee('secret</strong>', false);
     }
 

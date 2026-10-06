@@ -8,6 +8,10 @@
     // specific terminal — see the various controller actions' ->with('expandTerminalId', ...)
     // — so the result of what you just did is immediately visible instead of collapsed away.
     $startExpanded = (int) session('expandTerminalId') === $terminal->id;
+    // 'New Terminal' is addAndPair()'s own placeholder label when no pairing nickname was ever
+    // given (see EftTerminalController::addAndPair()) — the TID is more useful to show in that
+    // case than a generic name nobody chose.
+    $hasRealLabel = $terminal->label && $terminal->label !== 'New Terminal';
 @endphp
 <div class="terminal-card{{ $paired ? '' : ' terminal-card-inactive' }}">
     <div class="terminal-summary-row" role="button" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}" aria-controls="{{ $detailId }}">
@@ -15,14 +19,17 @@
 
         <div class="terminal-summary-main">
             <div class="terminal-summary-name">
+                {{-- The pairing nickname IS the label now — if none was ever given, the
+                     physical terminal's own TID is more useful here than a generic name. --}}
+                @if($isMx51 && !$hasRealLabel && $terminal->sci_tid)
+                <strong>TID: {{ $terminal->sci_tid }}</strong>
+                @else
                 <strong>{{ $terminal->label }}</strong>
-                {{-- The physical terminal's own TID identifies it for SCI (no admin-typed code
-                     any more — see EftTerminalController::addAndPair()); Linkly has no such
-                     server-verified id, so its internal key is still the only thing to show. --}}
                 @if($isMx51)
-                @if($terminal->sci_tid)<span class="text-muted small">(TID: {{ $terminal->sci_tid }})</span>@endif
+                @if($hasRealLabel && $terminal->sci_tid)<span class="text-muted small">(TID: {{ $terminal->sci_tid }})</span>@endif
                 @else
                 <span class="text-muted small">({{ $terminal->key }})</span>
+                @endif
                 @endif
             </div>
             <div class="terminal-summary-meta">{{ $isMx51 ? 'TID: ' . ($terminal->sci_tid ?: '—') : 'Key: ' . $terminal->key }} &nbsp;|&nbsp; Provider: {{ $isMx51 ? 'SCI' : 'Linkly Cloud' }} &nbsp;|&nbsp; Mode: {{ strtoupper($mode) }}</div>
@@ -54,29 +61,22 @@
             </div>
         </div>
 
+        {{-- The row itself already toggles this card's details (data-bs-toggle above) — no
+             separate Settings button needed. "Set as default"/"Remove" live in the "…" menu;
+             anyone trusted to add/pair a terminal is trusted to change or remove any terminal
+             in the registry too, since it's still one shared, global list, not scoped per
+             event/Tickets (see EftTerminalAccess's own docblock). --}}
+        @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
         <div class="terminal-summary-actions" onclick="event.stopPropagation();">
-            <button type="button" class="btn-terminal-settings" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}" aria-controls="{{ $detailId }}">
-                <i class="bi bi-gear"></i> Settings
-            </button>
-            @if($canManageRegistryLevel ?? false)
             <div class="dropdown">
                 <button type="button" class="btn-terminal-more" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots"></i></button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><button type="button" class="dropdown-item" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}">Settings</button></li>
-                    {{-- "Set as default" and "Remove" both share the page's own broader
-                         canManageRegistry() access (see EftTerminalController's class docblock)
-                         — anyone trusted to add/pair a terminal is trusted to change or remove
-                         any terminal in the registry too, since it's still one shared, global
-                         list rather than scoped per event/Tickets. --}}
-                    @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
                     <li>
                         <form action="{{ route('admin.eft-terminals.setDefault', $terminal) }}" method="POST">
                             @csrf
                             <button type="submit" class="dropdown-item">Set as default</button>
                         </form>
                     </li>
-                    @endif
-                    @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('Remove this terminal?')">
@@ -84,90 +84,38 @@
                             <button type="submit" class="dropdown-item text-danger">Remove</button>
                         </form>
                     </li>
-                    @endif
                 </ul>
             </div>
-            @endif
         </div>
+        @endif
     </div>
 
+    {{-- Just the pairing controls — everything else here (label, TID/key, provider, mode) is
+         already shown on the summary row above, and Set default/Remove live in its "…" menu. --}}
     <div class="collapse{{ $startExpanded ? ' show' : '' }}" id="{{ $detailId }}">
-        <div class="terminal-detail-title"><i class="bi bi-credit-card-2-front-fill"></i> {{ $terminal->label }} <span class="text-muted fw-normal">— Settings</span></div>
         <div class="terminal-detail-body">
-
-            <div class="terminal-detail-section">
-                <div class="terminal-detail-heading">Terminal Details</div>
-                <div class="terminal-detail-grid">
-                    <div>
-                        <span class="text-muted small">Label</span>
-                        @if($canManageRegistryLevel ?? false)
-                        {{-- Renamable — a terminal's label had no way to be changed before this,
-                             which mattered in practice: "mx51 Certification Terminal" leaked
-                             mx51's own name into a customer-facing error that embedded it. --}}
-                        <form action="{{ route('admin.eft-terminals.update', $terminal) }}" method="POST" class="d-flex align-items-center gap-2 mt-1">
-                            @csrf
-                            <input type="text" name="label" value="{{ $terminal->label }}" class="form-control form-control-sm rounded-3" style="max-width: 220px;" maxlength="255" required>
-                            <button type="submit" class="btn btn-sm btn-outline-secondary rounded-3">Save</button>
-                        </form>
-                        @else
-                        <br><strong>{{ $terminal->label }}</strong>
-                        @endif
-                    </div>
-                    @if($isMx51)
-                    <div><span class="text-muted small">TID</span><br><strong>{{ $terminal->sci_tid ?: '—' }}</strong></div>
-                    @else
-                    <div><span class="text-muted small">Terminal Code</span><br><strong>{{ $terminal->key }}</strong></div>
-                    @endif
-                    <div><span class="text-muted small">Provider</span><br><strong>{{ $isMx51 ? 'SCI' : 'Linkly Cloud' }}</strong></div>
+            @if($isMx51)
+            @include('admin.partials.cba-sci-pairing', ['terminal' => $terminal])
+            @else
+            <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-3 align-items-end">
+                @csrf
+                <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                <div class="col-md-5">
+                    <label class="form-label small mb-1">Pairing Code</label>
+                    <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required>
                 </div>
-            </div>
-
-            <div class="terminal-detail-section">
-                <div class="terminal-detail-heading">Pairing</div>
-                @if($isMx51)
-                @include('admin.partials.cba-sci-pairing', ['terminal' => $terminal])
-                @else
-                <form action="{{ route('admin.eft.pair') }}" method="POST" class="row g-3 align-items-end">
-                    @csrf
-                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                    <div class="col-md-5">
-                        <label class="form-label small mb-1">Pairing Code</label>
-                        <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required>
-                    </div>
-                    <div class="col-md-3">
-                        <button type="submit" class="btn btn-outline-primary">{{ $paired ? 'Re-pair' : 'Pair' }}</button>
-                    </div>
-                </form>
-                @if($paired)
-                <form action="{{ route('admin.eft-terminals.checkConnection', $terminal) }}" method="POST" class="mt-2">
-                    @csrf
-                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Connection</button>
-                </form>
-                <p class="text-muted small mt-2 mb-0" style="font-size:0.78rem;">Sends a real Logon to the terminal — it will visibly respond.</p>
-                @endif
-                @endif
-            </div>
-
-            @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
-            <div class="terminal-detail-section">
-                <div class="terminal-detail-heading">Configuration</div>
-                <form action="{{ route('admin.eft-terminals.setDefault', $terminal) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">Set as Default</button>
-                </form>
-            </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-outline-primary">{{ $paired ? 'Re-pair' : 'Pair' }}</button>
+                </div>
+            </form>
+            @if($paired)
+            <form action="{{ route('admin.eft-terminals.checkConnection', $terminal) }}" method="POST" class="mt-2">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Connection</button>
+            </form>
+            <p class="text-muted small mt-2 mb-0" style="font-size:0.78rem;">Sends a real Logon to the terminal — it will visibly respond.</p>
             @endif
-
-            @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
-            <div class="terminal-detail-section terminal-danger-zone">
-                <div class="terminal-detail-heading text-danger">Danger Zone</div>
-                <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('Remove this terminal?')">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove Terminal</button>
-                </form>
-            </div>
             @endif
-
         </div>
     </div>
 </div>

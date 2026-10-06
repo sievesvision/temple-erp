@@ -7,48 +7,33 @@
 @php $isPaired = $terminal->isSciPaired(); @endphp
 <div>
     {{-- SCIPAIRING02 — the pairing screen must clearly show mx51's own SCI branding: the
-         "Simple Cloud Integration" name and the SCI logo they supply, not just our own
-         generic terminal icon above. Shown in both the paired and unpaired states, since this
-         is the pairing section's own identity, not something that should disappear once
-         paired. --}}
-    <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom">
-        <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:28px; height:28px; border-radius:6px; object-fit:cover;">
-        <strong style="font-size:0.92rem;">Simple Cloud Integration</strong>
-    </div>
+         "Simple Cloud Integration" name and the SCI logo they supply. Kept to one line — label,
+         TID, provider and mode are already on the card's summary row above, so all that
+         belongs here is the branding, the paired state, and the pairing actions. --}}
     @if($isPaired)
-        <div class="alert alert-success py-2 px-3 mb-2" style="font-size:0.88rem;">
-            <i class="bi bi-check-circle-fill me-1"></i>Paired successfully.
-        </div>
-        <div class="row g-2 mb-3" style="font-size:0.88rem;">
-            {{-- The terminal's own Label (shown at the top of this card) IS the nickname given
-                 at pairing time — one field, not a separate always-identical duplicate here. --}}
-            <div class="col-md-6"><span class="text-muted">Pairing ID:</span> <strong>{{ $terminal->sci_pairing_id }}</strong></div>
-            @if($terminal->sci_tid)
-            <div class="col-md-6"><span class="text-muted">TID:</span> <strong>{{ $terminal->sci_tid }}</strong></div>
-            @endif
-            @if($terminal->sci_terminal_nickname)
-            <div class="col-md-6"><span class="text-muted">Terminal Nickname:</span> <strong>{{ $terminal->sci_terminal_nickname }}</strong></div>
-            @endif
-            @if($terminal->sci_confirmation_code)
-            <div class="col-md-6"><span class="text-muted">Confirmation Code:</span> <strong>{{ $terminal->sci_confirmation_code }}</strong></div>
-            @endif
-        </div>
-        @if($terminal->sci_confirmation_code)
-        <p class="text-muted small mt-n2 mb-3" style="font-size:0.78rem;">Check this matches the confirmation code shown on the terminal itself.</p>
-        @endif
-        <div class="d-flex gap-2">
-            <form action="{{ route('admin.cba-sci.test') }}" method="POST">
-                @csrf
-                <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Test</button>
-            </form>
-            <form action="{{ route('admin.cba-sci.unpair') }}" method="POST" onsubmit="return confirm('Unpair this terminal? The terminal will need a fresh pairing code to reconnect.');">
-                @csrf
-                <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
-                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Unpair</button>
-            </form>
+        <div class="d-flex align-items-center flex-wrap gap-2" style="font-size:0.88rem;">
+            <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:22px; height:22px; border-radius:5px; object-fit:cover;">
+            <strong>Simple Cloud Integration</strong>
+            <span class="badge-pill badge-ok"><i class="bi bi-check-circle-fill me-1"></i>Paired</span>
+            <span class="text-muted">Pairing ID: {{ $terminal->sci_pairing_id }}</span>
+            <div class="d-flex gap-2 ms-auto">
+                <form action="{{ route('admin.cba-sci.test') }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Test</button>
+                </form>
+                <form action="{{ route('admin.cba-sci.unpair') }}" method="POST" onsubmit="return confirm('Unpair this terminal? The terminal will need a fresh pairing code to reconnect.');">
+                    @csrf
+                    <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Unpair</button>
+                </form>
+            </div>
         </div>
     @else
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:22px; height:22px; border-radius:5px; object-fit:cover;">
+            <strong style="font-size:0.88rem;">Simple Cloud Integration</strong>
+        </div>
         {{-- AJAX-driven (see js/eft-terminal-registry.js's initSciRepairWidgets()) so re-pairing
              an existing terminal gets the same interactive "confirm the code on the terminal,
              then press Test" moment the Add Terminal wizard has, instead of a full-page POST
