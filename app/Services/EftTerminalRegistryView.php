@@ -33,9 +33,7 @@ class EftTerminalRegistryView
     public static function groups(\Illuminate\Support\Collection $eftTerminals, string $linklyMode): array
     {
         // A terminal that isn't currently paired can't take a payment, so it's grouped apart
-        // from the terminals actually usable right now rather than mixed in with them — this
-        // is also where a retired terminal with recorded transaction history ends up once
-        // unpaired, since EftTerminalController::destroy() refuses to delete it outright.
+        // from the terminals actually usable right now rather than mixed in with them.
         $activeTerminals = $eftTerminals->filter(fn ($t) => $t->isPairedFor($linklyMode))->values();
         $inactiveTerminals = $eftTerminals->reject(fn ($t) => $t->isPairedFor($linklyMode))->values();
 

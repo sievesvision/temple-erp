@@ -276,7 +276,10 @@
             const TEST_URL = widget.dataset.testUrl;
             const UNPAIR_URL = widget.dataset.unpairUrl;
             const CSRF = widget.dataset.csrf;
-            const terminalId = widget.dataset.terminalId;
+            // Reassigned if pairing matches this physical device to a DIFFERENT, already-
+            // registered terminal (see CbaSciService::pair()'s TID matching) — Test/Cancel
+            // below must then act on that terminal, not the one this widget started on.
+            let terminalId = widget.dataset.terminalId;
 
             const pairStep = widget.querySelector('.sci-repair-step-pair');
             const confirmStep = widget.querySelector('.sci-repair-step-confirm');
@@ -303,6 +306,7 @@
                             showError(pairError, firstValidationError(data) || data.message || 'Pairing failed — please try again.');
                             return;
                         }
+                        if (data.terminal_id) { terminalId = data.terminal_id; }
                         confirmationCodeEl.textContent = data.confirmation_code || '—';
                         hideError(confirmError);
                         pairStep.hidden = true;

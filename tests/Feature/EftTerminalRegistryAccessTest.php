@@ -186,7 +186,7 @@ class EftTerminalRegistryAccessTest extends TestCase
 
         $other = EftTerminal::factory()->create(['key' => 'removable-by-coordinator']);
         $this->actingAs($user)->delete("/admin/eft-terminals/{$other->id}")->assertRedirect();
-        $this->assertSoftDeleted('eft_terminals', ['id' => $other->id]);
+        $this->assertDatabaseMissing('eft_terminals', ['id' => $other->id]);
     }
 
     public function test_entry_level_coordinator_cannot_remove_a_terminal(): void
@@ -196,7 +196,7 @@ class EftTerminalRegistryAccessTest extends TestCase
 
         $this->actingAs($user)->delete("/admin/eft-terminals/{$terminal->id}")
             ->assertSessionHas('error', 'Unauthorized access.');
-        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id, 'deleted_at' => null]);
+        $this->assertDatabaseHas('eft_terminals', ['id' => $terminal->id]);
     }
 
     // The POS terminal picker fires this the moment an operator picks a terminal (see
@@ -455,16 +455,14 @@ class EftTerminalRegistryAccessTest extends TestCase
 
         $other = EftTerminal::factory()->create(['key' => 'other-terminal']);
         $this->actingAs($admin)->delete("/admin/eft-terminals/{$other->id}")->assertRedirect();
-        // Soft-deleted (see EftTerminal's SoftDeletes trait) — not literally gone from the
-        // table, just excluded from the registry/pickers by Eloquent's own global scope.
-        $this->assertSoftDeleted('eft_terminals', ['id' => $other->id]);
+        $this->assertDatabaseMissing('eft_terminals', ['id' => $other->id]);
     }
 
     // The original complaint: a terminal that had ever recorded a transaction could never be
-    // removed at all. Soft-deleting instead of refusing outright keeps every transaction's
-    // eft_terminal_id pointing at an intact row — removed from the active registry, but still
-    // fully resolvable for history (see LinklyTransaction::eftTerminal()/SciTransaction::
-    // eftTerminal()'s withTrashed()).
+    // removed at all. A hard delete is safe here — eft_terminal_id on linkly_transactions/
+    // sci_transactions is ->nullOnDelete(), so the transaction's own data (amount, status,
+    // etc.) is untouched, it just no longer names which terminal processed it; that link was
+    // only ever a display reference.
     public function test_admin_can_remove_an_inactive_terminal_that_has_recorded_transactions(): void
     {
         $admin = User::factory()->create(['role' => 'Admin', 'mobile' => fake()->unique()->numerify('04########')]);
@@ -478,12 +476,12 @@ class EftTerminalRegistryAccessTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
-        $this->assertSoftDeleted('eft_terminals', ['id' => $terminal->id]);
+        $this->assertDatabaseMissing('eft_terminals', ['id' => $terminal->id]);
 
-        // The whole point: the transaction's own terminal reference must still resolve,
-        // label and all, even though the terminal no longer appears in the live registry.
-        $this->assertNull(EftTerminal::find($terminal->id));
-        $this->assertSame($terminal->id, $transaction->fresh()->eftTerminal->id);
-        $this->assertSame('Front Counter', $transaction->fresh()->eftTerminal->label);
+        // The transaction itself survives untouched; only its terminal reference is cleared.
+        $transaction->refresh();
+        $this->assertNull($transaction->eft_terminal_id);
+        $this->assertSame(50.0, (float) $transaction->amount);
+        $this->assertSame('FINALISED', $transaction->status);
     }
 }

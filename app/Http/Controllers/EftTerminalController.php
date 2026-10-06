@@ -189,9 +189,10 @@ class EftTerminalController extends Controller
      * details, press Pair once) rather than the older two-step create-then-separately-pair
      * flow store() above still backs for any other caller. Always responds JSON — this is a
      * new endpoint with no legacy form-POST caller to stay compatible with. On any failure the
-     * just-created row is force-deleted outright (it never succeeded at anything, so there's
-     * nothing worth a soft delete's protection), so a failed attempt never leaves a dangling
-     * terminal behind for the next retry.
+     * just-created row is deleted outright, so a failed attempt never leaves a dangling
+     * terminal behind for the next retry. If mx51's TID turns out to already belong to another
+     * registered terminal, that existing terminal is updated in place instead (see
+     * CbaSciService::pair()) and this placeholder is discarded the same way.
      */
     public function addAndPair(Request $request)
     {
@@ -209,11 +210,12 @@ class EftTerminalController extends Controller
 
         // No admin-typed "Unique Terminal Code" any more — the physical terminal itself is
         // what should identify it. For SCI, CbaSciService::pair() overwrites this placeholder
-        // with a TID-derived key the moment pairing confirms which physical device this is
-        // (and, if that TID already belongs to another row, retires that old one in favour of
-        // this one — see that method's own docblock). Linkly has no server-verified device id
-        // at pairing time, so its key stays nickname-derived (or this placeholder) — it was
-        // always just an internal label, never something Linkly itself validates.
+        // with a TID-derived key the moment pairing confirms which physical device this is (and,
+        // if that TID already belongs to another row, updates that existing row instead and
+        // this placeholder is discarded — see that method's own docblock). Linkly has no
+        // server-verified device id at pairing time, so its key stays nickname-derived (or this
+        // placeholder) — it was always just an internal label, never something Linkly itself
+        // validates.
         $placeholderKey = $pairingNickname ? \Illuminate\Support\Str::slug($pairingNickname) . '-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(6)) : 'terminal-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(8));
 
         $terminal = EftTerminal::create([
@@ -224,22 +226,32 @@ class EftTerminalController extends Controller
             'is_default' => !EftTerminal::query()->exists(),
         ]);
 
+        $placeholderId = $terminal->id;
+
         $result = $validated['provider'] === 'cba_sci'
             ? \App\Services\CbaSciService::pair($validated['pairing_code'], $pairingNickname, $terminal)
             : LinklyEftService::pair($validated['pairing_code'], $terminal);
 
         if (!$result['success']) {
-            // forceDelete(), not delete() — this row never succeeded at anything (no
-            // transaction, no completed pairing), so there's no history worth a soft delete's
-            // protection (see EftTerminal's SoftDeletes trait / EftTerminalController::
-            // destroy()'s own docblock). It also has to be a real delete: the 'key' field's
-            // unique validation above doesn't know about soft-deletes, so a merely
-            // soft-deleted row would keep blocking the exact retry this comment describes.
-            $terminal->forceDelete();
+            // This row never succeeded at anything (no transaction, no completed pairing), so
+            // it's removed outright — nothing it has is worth keeping, and the 'key' field
+            // needs to be genuinely free again for a retry.
+            $terminal->delete();
             return response()->json(['success' => false, 'message' => $result['message']]);
         }
 
-        AuditLogService::log("Added and paired EFT terminal '{$terminal->label}' ({$terminal->key})");
+        // CbaSciService::pair() may have matched mx51's TID to an already-registered terminal
+        // and updated THAT row instead of this placeholder (e.g. re-pairing the same physical
+        // device via Add Terminal rather than its own Re-pair widget) — when that happens, this
+        // placeholder never did anything and is discarded in favour of the existing row.
+        $finalTerminalId = $result['terminal_id'] ?? $placeholderId;
+        $reusedExisting = $finalTerminalId !== $placeholderId;
+        if ($reusedExisting) {
+            $terminal->delete();
+            $terminal = EftTerminal::findOrFail($finalTerminalId);
+        }
+
+        AuditLogService::log(($reusedExisting ? "Re-paired existing EFT terminal '" : "Added and paired EFT terminal '") . "{$terminal->label}' ({$terminal->key})");
 
         $terminal->refresh();
 
@@ -279,12 +291,8 @@ class EftTerminalController extends Controller
             \App\Services\CbaSciService::unpair($terminal);
         }
 
-        // forceDelete() — the guard above already proved zero recorded transactions, so unlike
-        // destroy()'s soft delete there's no history worth preserving here, and the 'key'
-        // field needs to be genuinely free again for a retry (its unique validation in
-        // addAndPair()/store() doesn't know about soft-deletes).
         $label = $terminal->label;
-        $terminal->forceDelete();
+        $terminal->delete();
 
         AuditLogService::log("Cancelled pairing and removed EFT terminal '{$label}'");
 
@@ -409,13 +417,10 @@ class EftTerminalController extends Controller
             \App\Services\CbaSciService::unpair($terminal);
         }
 
-        // A soft delete (see EftTerminal's SoftDeletes trait) — a terminal with recorded
-        // transactions used to be impossible to remove at all, which was the real complaint:
-        // its history stays fully intact (eft_terminal_id on every linkly_transactions/
-        // sci_transactions row still points at this exact row, just no longer returned by the
-        // registry/pickers/EftTerminal::default()'s normal queries), and LinklyTransaction::
-        // eftTerminal()/SciTransaction::eftTerminal() are withTrashed() specifically so that
-        // history keeps showing which physical terminal was used.
+        // A genuine, permanent delete — eft_terminal_id on linkly_transactions/sci_transactions
+        // is ->nullOnDelete(), so removing a terminal never breaks or orphans any past
+        // transaction's own data, it just stops naming which terminal processed it (a display
+        // detail only; see EftConsoleTransactionHistoryTest etc.). Nothing worth losing.
         $label = $terminal->label;
         $terminal->delete();
 
