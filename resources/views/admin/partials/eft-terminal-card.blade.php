@@ -16,9 +16,16 @@
         <div class="terminal-summary-main">
             <div class="terminal-summary-name">
                 <strong>{{ $terminal->label }}</strong>
+                {{-- The physical terminal's own TID identifies it for SCI (no admin-typed code
+                     any more — see EftTerminalController::addAndPair()); Linkly has no such
+                     server-verified id, so its internal key is still the only thing to show. --}}
+                @if($isMx51)
+                @if($terminal->sci_tid)<span class="text-muted small">(TID: {{ $terminal->sci_tid }})</span>@endif
+                @else
                 <span class="text-muted small">({{ $terminal->key }})</span>
+                @endif
             </div>
-            <div class="terminal-summary-meta">Key: {{ $terminal->key }} &nbsp;|&nbsp; Provider: {{ $isMx51 ? 'SCI' : 'Linkly Cloud' }} &nbsp;|&nbsp; Mode: {{ strtoupper($mode) }}</div>
+            <div class="terminal-summary-meta">{{ $isMx51 ? 'TID: ' . ($terminal->sci_tid ?: '—') : 'Key: ' . $terminal->key }} &nbsp;|&nbsp; Provider: {{ $isMx51 ? 'SCI' : 'Linkly Cloud' }} &nbsp;|&nbsp; Mode: {{ strtoupper($mode) }}</div>
             <div class="terminal-summary-badges">
                 <span class="badge-pill badge-provider">{{ $isMx51 ? 'SCI' : 'LINKLY CLOUD' }}</span>
                 @if($terminal->is_default)<span class="badge-pill badge-info">Default</span>@endif
@@ -106,7 +113,11 @@
                         <br><strong>{{ $terminal->label }}</strong>
                         @endif
                     </div>
-                    <div><span class="text-muted small">Unique Terminal Code</span><br><strong>{{ $terminal->key }}</strong></div>
+                    @if($isMx51)
+                    <div><span class="text-muted small">TID</span><br><strong>{{ $terminal->sci_tid ?: '—' }}</strong></div>
+                    @else
+                    <div><span class="text-muted small">Terminal Code</span><br><strong>{{ $terminal->key }}</strong></div>
+                    @endif
                     <div><span class="text-muted small">Provider</span><br><strong>{{ $isMx51 ? 'SCI' : 'Linkly Cloud' }}</strong></div>
                 </div>
             </div>

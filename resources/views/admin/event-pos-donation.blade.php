@@ -991,8 +991,14 @@
                 const isSelected = String(t.id) === String(selectedTerminalId);
                 const label = document.createElement('label');
                 label.className = 'terminal-picker-select';
+                // SCI's own TID identifies the physical device (no admin-typed code any more —
+                // see EftTerminalController::addAndPair()); Linkly has no such server-verified
+                // id, so its internal key is still what's shown for it.
+                const subLabel = t.provider === 'cba_sci'
+                    ? (t.sci_tid ? ' <span class="text-muted small">(TID: ' + escapeHtmlPos(t.sci_tid) + ')</span>' : '')
+                    : (t.key ? ' <span class="text-muted small">(' + escapeHtmlPos(t.key) + ')</span>' : '');
                 label.innerHTML = '<input type="checkbox"' + (isSelected ? ' checked' : '') + (t.paired ? '' : ' disabled') + '>' +
-                    '<span>' + escapeHtmlPos(t.label) + (t.key ? ' <span class="text-muted small">(' + escapeHtmlPos(t.key) + ')</span>' : '') + (t.is_default ? ' <span class="text-muted small">· default</span>' : '') + '</span>';
+                    '<span>' + escapeHtmlPos(t.label) + subLabel + (t.is_default ? ' <span class="text-muted small">· default</span>' : '') + '</span>';
                 const badge = document.createElement('span');
                 badge.className = 'paired-badge ' + (t.paired ? 'yes' : 'no');
                 badge.textContent = t.paired ? 'Paired' : 'Not paired';

@@ -56,17 +56,18 @@ class EftTerminalAddWizardTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.addAndPair'), [
-            'provider' => 'cba_sci', 'pairing_code' => '123456',
-            'key' => 'wizard-sci-1', 'pairing_nickname' => 'Front Counter',
+            'provider' => 'cba_sci', 'pairing_code' => '123456', 'pairing_nickname' => 'Front Counter',
         ]);
 
         $response->assertOk();
-        $response->assertJson(['success' => true, 'requires_confirmation' => true, 'confirmation_code' => '5927']);
+        $response->assertJson(['success' => true, 'requires_confirmation' => true, 'confirmation_code' => '5927', 'tid' => 'tid_wiz']);
 
-        $terminal = EftTerminal::where('key', 'wizard-sci-1')->first();
+        // No admin-typed "Unique Terminal Code" any more — mx51's own TID becomes the key.
+        $terminal = EftTerminal::find($response->json('terminal_id'));
         $this->assertNotNull($terminal);
         $this->assertSame('cba_sci', $terminal->provider);
         $this->assertSame('Front Counter', $terminal->label);
+        $this->assertSame('sci-tid_wiz', $terminal->key);
         $this->assertTrue($terminal->isSciPaired());
     }
 
@@ -78,44 +79,48 @@ class EftTerminalAddWizardTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.addAndPair'), [
-            'provider' => 'linkly', 'pairing_code' => '654321', 'key' => 'wizard-linkly-1',
+            'provider' => 'linkly', 'pairing_code' => '654321',
         ]);
 
         $response->assertOk();
         $response->assertJson(['success' => true, 'requires_confirmation' => false]);
 
-        $terminal = EftTerminal::where('key', 'wizard-linkly-1')->first();
+        // Linkly has no server-verified device id at pairing time, so its key stays an
+        // internal, auto-generated value — never shown to or typed by an admin.
+        $terminal = EftTerminal::find($response->json('terminal_id'));
         $this->assertNotNull($terminal);
         $this->assertSame('linkly', $terminal->provider);
-        // No pairing_nickname given — falls back to the unique terminal code as the label.
-        $this->assertSame('wizard-linkly-1', $terminal->label);
+        // No pairing_nickname given either — falls back to a generic label.
+        $this->assertSame('New Terminal', $terminal->label);
         $this->assertTrue($terminal->isPaired('sandbox'));
     }
 
     public function test_add_and_pair_rolls_back_the_terminal_when_pairing_fails(): void
     {
         $admin = $this->adminUser();
+        $countBefore = EftTerminal::count();
         Http::fake([
             'sci-pairing-api.integrations.mx51.io/*' => Http::response(['error' => ['code' => 'pairing_not_found']], 404),
         ]);
 
         $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.addAndPair'), [
-            'provider' => 'cba_sci', 'pairing_code' => '000000', 'key' => 'wizard-fail-1',
+            'provider' => 'cba_sci', 'pairing_code' => '000000',
         ]);
 
         $response->assertOk();
         $response->assertJson(['success' => false]);
-        $this->assertDatabaseMissing('eft_terminals', ['key' => 'wizard-fail-1']);
+        $this->assertSame($countBefore, EftTerminal::count());
     }
 
-    // The same "roll back the just-created row" path as a genuine pairing failure above, but
-    // for a different reason: mx51's TID here belongs to an ALREADY-registered terminal, so
-    // this attempt is the same physical device being added a second time, not a new one.
-    public function test_add_and_pair_refuses_a_terminal_whose_tid_is_already_registered(): void
+    // The same "roll back the just-created row" path as a genuine pairing failure above no
+    // longer applies here — mx51's TID is the terminal's real identity now, so a TID that
+    // already belongs to another row means this IS that same physical device, re-registered.
+    // The old row is retired (soft-deleted, history intact) rather than refused.
+    public function test_add_and_pair_replaces_a_terminal_whose_tid_is_already_registered(): void
     {
         $admin = $this->adminUser();
         $existing = EftTerminal::create([
-            'key' => 'already-registered', 'label' => 'Main Counter', 'provider' => 'cba_sci',
+            'key' => 'sci-tid_dupe', 'label' => 'Main Counter', 'provider' => 'cba_sci',
             'pos_id' => 'pos-existing', 'sci_tid' => 'tid_dupe',
         ]);
         Http::fake([
@@ -127,45 +132,38 @@ class EftTerminalAddWizardTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.addAndPair'), [
-            'provider' => 'cba_sci', 'pairing_code' => '999999', 'key' => 'wizard-duplicate-tid',
+            'provider' => 'cba_sci', 'pairing_code' => '999999',
         ]);
 
         $response->assertOk();
-        $response->assertJson(['success' => false]);
-        $response->assertJsonFragment(['message' => 'This terminal is already registered as "Main Counter" — use that one instead of adding a new entry.']);
-        // The just-created duplicate row is gone entirely (forceDelete() — nothing ever
-        // succeeded on it); the original registration is completely untouched.
-        $this->assertDatabaseMissing('eft_terminals', ['key' => 'wizard-duplicate-tid']);
-        $this->assertDatabaseHas('eft_terminals', ['id' => $existing->id, 'sci_tid' => 'tid_dupe']);
-    }
+        $response->assertJson(['success' => true]);
 
-    public function test_add_and_pair_rejects_a_duplicate_unique_terminal_code_without_calling_the_pairing_api(): void
-    {
-        $admin = $this->adminUser();
-        EftTerminal::factory()->create(['key' => 'already-taken']);
-        Http::fake();
+        $newTerminal = EftTerminal::find($response->json('terminal_id'));
+        $this->assertNotNull($newTerminal);
+        $this->assertSame('tid_dupe', $newTerminal->sci_tid);
+        $this->assertSame('sci-tid_dupe', $newTerminal->key);
 
-        $response = $this->actingAs($admin)->postJson(route('admin.eft-terminals.addAndPair'), [
-            'provider' => 'cba_sci', 'pairing_code' => '123456', 'key' => 'already-taken',
-        ]);
-
-        $response->assertStatus(422);
-        Http::assertNothingSent();
-        $this->assertSame(1, EftTerminal::where('key', 'already-taken')->count());
+        // The old row is retired, not deleted outright — soft-deleted and renamed so it never
+        // collides with the key the new row just claimed.
+        $this->assertNull(EftTerminal::find($existing->id));
+        $existing->refresh();
+        $this->assertNotNull($existing->deleted_at);
+        $this->assertStringStartsWith('sci-tid_dupe-retired-', $existing->key);
     }
 
     public function test_add_and_pair_requires_registry_access(): void
     {
         $user = $this->entryLevelCoordinator();
+        $countBefore = EftTerminal::count();
         Http::fake();
 
         $response = $this->actingAs($user)->postJson(route('admin.eft-terminals.addAndPair'), [
-            'provider' => 'cba_sci', 'pairing_code' => '123456', 'key' => 'should-not-exist',
+            'provider' => 'cba_sci', 'pairing_code' => '123456',
         ]);
 
         $response->assertStatus(403);
         Http::assertNothingSent();
-        $this->assertDatabaseMissing('eft_terminals', ['key' => 'should-not-exist']);
+        $this->assertSame($countBefore, EftTerminal::count());
     }
 
     public function test_cancel_new_terminal_unpairs_and_deletes_an_mx51_terminal(): void

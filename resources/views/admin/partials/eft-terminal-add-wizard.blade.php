@@ -41,11 +41,11 @@
                         <input type="text" id="wizardPairingCode" class="form-control rounded-3" placeholder="Code from the terminal" maxlength="20">
                         <div class="field-hint">You can get the pairing code from the terminal's own pairing setup.</div>
                     </div>
-                    <div class="wizard-field">
-                        <label class="form-label small fw-semibold">Unique Terminal Code</label>
-                        <input type="text" id="wizardTerminalKey" class="form-control rounded-3" placeholder="e.g. ticket-counter-2" maxlength="40">
-                        <div class="field-hint">Identifies this terminal in the system. No spaces.</div>
-                    </div>
+                    {{-- No "Unique Terminal Code" field any more — the physical terminal's own
+                         TID (for SCI) becomes its identity once pairing confirms it, rather
+                         than an admin-typed code (see EftTerminalController::addAndPair() /
+                         CbaSciService::pair()). This nickname is the only thing an admin names
+                         by hand, and it's optional even then. --}}
                     <div class="wizard-field">
                         <label class="form-label small fw-semibold">Pairing Nickname <span class="text-muted">(optional)</span></label>
                         <input type="text" id="wizardPairingNickname" class="form-control rounded-3" placeholder="e.g. Front Counter" maxlength="255">

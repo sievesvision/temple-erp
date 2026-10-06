@@ -189,8 +189,9 @@ class EftTerminalController extends Controller
      * details, press Pair once) rather than the older two-step create-then-separately-pair
      * flow store() above still backs for any other caller. Always responds JSON — this is a
      * new endpoint with no legacy form-POST caller to stay compatible with. On any failure the
-     * just-created row is deleted, so a failed pairing attempt never leaves a dangling
-     * "key already taken" terminal behind for the next retry.
+     * just-created row is force-deleted outright (it never succeeded at anything, so there's
+     * nothing worth a soft delete's protection), so a failed attempt never leaves a dangling
+     * terminal behind for the next retry.
      */
     public function addAndPair(Request $request)
     {
@@ -199,7 +200,6 @@ class EftTerminalController extends Controller
         }
 
         $validated = $request->validate([
-            'key' => 'required|string|max:40|alpha_dash|unique:eft_terminals,key',
             'pairing_nickname' => 'nullable|string|max:255',
             'provider' => 'required|in:linkly,cba_sci',
             'pairing_code' => 'required|string|max:20',
@@ -207,9 +207,18 @@ class EftTerminalController extends Controller
 
         $pairingNickname = $validated['pairing_nickname'] ?? null;
 
+        // No admin-typed "Unique Terminal Code" any more — the physical terminal itself is
+        // what should identify it. For SCI, CbaSciService::pair() overwrites this placeholder
+        // with a TID-derived key the moment pairing confirms which physical device this is
+        // (and, if that TID already belongs to another row, retires that old one in favour of
+        // this one — see that method's own docblock). Linkly has no server-verified device id
+        // at pairing time, so its key stays nickname-derived (or this placeholder) — it was
+        // always just an internal label, never something Linkly itself validates.
+        $placeholderKey = $pairingNickname ? \Illuminate\Support\Str::slug($pairingNickname) . '-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(6)) : 'terminal-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(8));
+
         $terminal = EftTerminal::create([
-            'key' => $validated['key'],
-            'label' => $pairingNickname !== null && $pairingNickname !== '' ? $pairingNickname : $validated['key'],
+            'key' => $placeholderKey,
+            'label' => $pairingNickname !== null && $pairingNickname !== '' ? $pairingNickname : 'New Terminal',
             'provider' => $validated['provider'],
             'pos_id' => EftTerminal::generatePosId(),
             'is_default' => !EftTerminal::query()->exists(),

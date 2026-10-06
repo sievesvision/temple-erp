@@ -660,8 +660,14 @@
                 const isSelected = String(t.id) === String(selectedTerminalId);
                 const label = document.createElement('label');
                 label.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:0.95rem; font-weight:700; cursor:pointer;';
+                // SCI's own TID identifies the physical device (no admin-typed code any more —
+                // see EftTerminalController::addAndPair()); Linkly has no such server-verified
+                // id, so its internal key is still what's shown for it.
+                const subLabel = t.provider === 'cba_sci'
+                    ? (t.sci_tid ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">(TID: ' + t.sci_tid + ')</span>' : '')
+                    : (t.key ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">(' + t.key + ')</span>' : '');
                 label.innerHTML = '<input type="checkbox" style="width:18px; height:18px;"' + (isSelected ? ' checked' : '') + (t.paired ? '' : ' disabled') + '>' +
-                    '<span>' + t.label + (t.key ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">(' + t.key + ')</span>' : '') + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">· default</span>' : '') + '</span>';
+                    '<span>' + t.label + subLabel + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">· default</span>' : '') + '</span>';
                 const badge = document.createElement('span');
                 badge.style.cssText = 'font-size:0.75rem; font-weight:700; flex-shrink:0; color:' + (t.paired ? 'var(--success)' : 'var(--error)') + ';';
                 badge.textContent = t.paired ? 'Paired' : 'Not paired';
