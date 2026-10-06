@@ -31,16 +31,22 @@
     </div>
 
     <div class="sci-repair-step-confirm" hidden>
-        <div class="alert alert-warning py-2 px-3 mb-2" style="font-size:0.88rem;">
+        <div class="alert alert-warning py-2 px-3 mb-2 sci-repair-confirm-instructions" style="font-size:0.88rem;">
             <i class="bi bi-exclamation-triangle-fill me-1"></i>Confirm that the following code is showing on the terminal, then press Test.
         </div>
         <div class="sci-repair-confirmation-code mb-2" style="font-size:1.7rem; font-weight:800; letter-spacing:0.05em;">&mdash;</div>
         <div class="text-danger small mb-2 sci-repair-confirm-error" hidden></div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 sci-repair-confirm-actions">
             <button type="button" class="sci-repair-cancel-btn btn btn-sm btn-outline-secondary">Cancel</button>
             <button type="button" class="sci-repair-test-btn btn btn-sm btn-outline-primary"><i class="bi bi-arrow-repeat me-1"></i>Test</button>
         </div>
     </div>
+
+    {{-- Shown briefly in place of the confirm step right after a successful Test, then the
+         widget's own card collapses back into the (now Paired) terminal list via the same
+         AJAX refresh the Add Terminal wizard's own "Back to Terminals" uses — no full-page
+         reload, so the console stays on whatever pane/tab the admin was already looking at. --}}
+    <div class="sci-repair-step-success text-success small" hidden><i class="bi bi-check-circle-fill me-1"></i>Terminal paired successfully.</div>
 </div>
 {{-- SCIPAIRING09's step-by-step instructions (mx51's own Espresso POS reference) are
      deliberately NOT repeated here — this widget is for RE-pairing a terminal already known to
