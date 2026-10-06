@@ -251,4 +251,61 @@ class EftMultiTerminalTest extends TestCase
         $this->assertSame('brand-new-secret-for-b', $terminalB->fresh()->secret_sandbox);
         $this->assertSame('secret-a', $default->fresh()->secret_sandbox);
     }
+
+    // The pairing form's own optional Label field — the only place left to rename a Linkly
+    // terminal, since the standalone rename control was dropped (see
+    // EftTerminalController::update(), now only reachable directly, not from this UI).
+    public function test_pairing_with_a_label_renames_the_terminal(): void
+    {
+        $terminalB = $this->secondTerminal(null);
+        $admin = $this->adminUser();
+        Http::fake(['*/pairing/cloudpos' => Http::response(['secret' => 'secret-for-b'], 200)]);
+
+        $this->actingAs($admin)->post('/admin/eft/pair', [
+            'pair_code' => '123456',
+            'terminal_id' => $terminalB->id,
+            'label' => 'Front Desk',
+        ]);
+
+        $this->assertSame('Front Desk', $terminalB->fresh()->label);
+    }
+
+    public function test_pairing_without_a_label_leaves_the_existing_one_untouched(): void
+    {
+        $terminalB = $this->secondTerminal(null);
+        $originalLabel = $terminalB->label;
+        $admin = $this->adminUser();
+        Http::fake(['*/pairing/cloudpos' => Http::response(['secret' => 'secret-for-b'], 200)]);
+
+        $this->actingAs($admin)->post('/admin/eft/pair', [
+            'pair_code' => '123456',
+            'terminal_id' => $terminalB->id,
+        ]);
+
+        $this->assertSame($originalLabel, $terminalB->fresh()->label);
+    }
+
+    // Linkly has no server-side "unpair" call — it's purely a local credential, so Unpair just
+    // clears the active mode's secret (see LinklyController::unpair()).
+    public function test_unpairing_a_linkly_terminal_clears_its_secret(): void
+    {
+        $terminalB = $this->secondTerminal('existing-secret');
+        $admin = $this->adminUser();
+
+        $response = $this->actingAs($admin)->post('/admin/eft/unpair', ['terminal_id' => $terminalB->id]);
+
+        $response->assertRedirect();
+        $this->assertNull($terminalB->fresh()->secret_sandbox);
+    }
+
+    public function test_unpairing_requires_registry_access(): void
+    {
+        $terminalB = $this->secondTerminal('existing-secret');
+        $devotee = User::factory()->create(['role' => 'Devotee', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $response = $this->actingAs($devotee)->post('/admin/eft/unpair', ['terminal_id' => $terminalB->id]);
+
+        $response->assertRedirect();
+        $this->assertSame('existing-secret', $terminalB->fresh()->secret_sandbox);
+    }
 }

@@ -65,6 +65,28 @@ class CbaSciPairingTest extends TestCase
         });
     }
 
+    // No nickname given and the row never had a real name (still the generic placeholder
+    // addAndPair() creates before pairing confirms anything) — the TID is more useful as a
+    // label than a name nobody actually chose.
+    public function test_pairing_without_a_nickname_labels_the_terminal_after_its_tid(): void
+    {
+        $terminal = EftTerminal::create([
+            'key' => 'terminal-placeholder-abc', 'label' => 'New Terminal', 'provider' => 'cba_sci',
+            'pos_id' => (string) Str::uuid(),
+        ]);
+        Http::fake([
+            'sci-pairing-api.integrations.mx51.io/*' => Http::response(['data' => [
+                'pairing_id' => 'pid_notag', 'key_id' => 'kid_notag', 'signing_secret_part_b' => 'secret-b',
+                'sci_api_base_url' => 'https://sci-api.tenant.example', 'tid' => 'tid_notag',
+            ]], 200),
+        ]);
+
+        $result = CbaSciService::pair('222222', null, $terminal);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('Terminal tid_notag', $terminal->fresh()->label);
+    }
+
     // The physical terminal, not the registry row, is what mx51's TID actually identifies — if
     // it's already registered under a DIFFERENT row, that existing row is updated in place
     // (new pairing credentials, name refreshed if a nickname was given) rather than creating a
@@ -446,6 +468,26 @@ class CbaSciPairingTest extends TestCase
         $this->assertNull($terminal->sci_pairing_id);
         $this->assertNull($terminal->sci_signing_secret_part_b);
         $this->assertNull($terminal->sci_last_checked_at);
+        $this->assertFalse($terminal->isSciPaired());
+    }
+
+    // sci_tid is the physical device's enduring identity, not a pairing credential — it must
+    // survive an explicit Unpair so the card keeps showing which terminal this is, and so
+    // re-pairing the same device later still finds this exact row (see pair()'s TID matching).
+    public function test_unpair_preserves_the_tid(): void
+    {
+        $terminal = $this->makeTerminal();
+        $terminal->update([
+            'sci_pairing_id' => 'pid_123', 'sci_tid' => 'tid_keep', 'key' => 'sci-tid_keep',
+            'sci_signing_secret_part_b' => 'secret-b', 'sci_api_base_url' => 'https://sci-api.tenant.example',
+        ]);
+        Http::fake(['sci-api.tenant.example/*' => Http::response(null, 204)]);
+
+        CbaSciService::unpair($terminal);
+
+        $terminal->refresh();
+        $this->assertSame('tid_keep', $terminal->sci_tid);
+        $this->assertSame('sci-tid_keep', $terminal->key);
         $this->assertFalse($terminal->isSciPaired());
     }
 

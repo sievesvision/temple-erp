@@ -99,13 +99,14 @@ class CbaSciService
         }
 
         // No nickname given and this row never had a real name of its own (still carrying
-        // addAndPair()'s generic 'New Terminal' placeholder, or blank) — the TID is more useful
-        // as a label than a name nobody actually chose.
+        // addAndPair()'s generic 'New Terminal' placeholder, blank, or an earlier auto-generated
+        // "Terminal {tid}" label from a previous pairing) — the TID is more useful as a label
+        // than a name nobody actually chose.
         $label = $target->label;
         if ($nickname !== null && $nickname !== '') {
             $label = $nickname;
-        } elseif ((!$label || $label === 'New Terminal') && $tid) {
-            $label = (string) $tid;
+        } elseif ($tid && (!$label || $label === 'New Terminal' || preg_match('/^Terminal \d+$/', $label))) {
+            $label = 'Terminal ' . $tid;
         }
 
         $updates = [
@@ -234,11 +235,17 @@ class CbaSciService
     }
 
     /**
-     * Removes a pairing on mx51's side, then clears every sci_* column locally. Called
-     * either from the merchant's own "Unpair"/"Cancel" button, or after testPairing()/
-     * refreshPairingStatus() reports the pairing is already gone externally — in that second
-     * case the mx51-side call will itself fail harmlessly (nothing to unpair), so the local
-     * cleanup still runs.
+     * Removes a pairing on mx51's side, then clears every sci_* pairing-credential column
+     * locally. Called either from the merchant's own "Unpair"/"Cancel" button, or after
+     * testPairing()/refreshPairingStatus() reports the pairing is already gone externally — in
+     * that second case the mx51-side call will itself fail harmlessly (nothing to unpair), so
+     * the local cleanup still runs.
+     *
+     * sci_tid is deliberately NOT cleared — it's the physical device's own enduring identity,
+     * not a pairing credential, and `key` ('sci-{tid}') is left pointing at it too. This is
+     * what lets pair()'s TID-matching find this exact row again when the same device is
+     * re-paired, and lets the card keep showing which physical terminal this is even while
+     * unpaired.
      *
      * @return array{success: bool, message: string}
      */
@@ -261,7 +268,6 @@ class CbaSciService
             'sci_signing_secret_part_b' => null,
             'sci_api_base_url' => null,
             'sci_confirmation_code' => null,
-            'sci_tid' => null,
             'sci_terminal_nickname' => null,
             'sci_paired_at' => null,
             'sci_last_checked_at' => null,

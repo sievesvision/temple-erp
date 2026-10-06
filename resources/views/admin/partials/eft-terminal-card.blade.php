@@ -21,31 +21,34 @@
 
         <div class="terminal-summary-main">
             <div class="terminal-summary-name">
-                {{-- CbaSciService::pair() already writes the TID straight into `label` when no
-                     pairing nickname was ever given, so there's nothing to fall back to here —
-                     only skip the "(TID: ...)" annotation when it would just repeat the label. --}}
                 <strong>{{ $terminal->label }}</strong>
+                {{-- SCIPAIRING02's branding requirement — shown right next to the name rather
+                     than behind a click, since a paired terminal has no expandable panel at all
+                     any more (see $expandable below). Linkly gets its provider badge here
+                     instead, same spot either way. --}}
                 @if($isMx51)
-                @if($terminal->sci_tid && (string) $terminal->sci_tid !== (string) $terminal->label)<span class="text-muted small">(TID: {{ $terminal->sci_tid }})</span>@endif
+                <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:16px; height:16px; border-radius:3px; object-fit:cover; vertical-align:-2px;">
+                <span class="text-muted small">Simple Cloud Integration</span>
                 @else
-                <span class="text-muted small">({{ $terminal->key }})</span>
+                <span class="badge-pill badge-provider">LINKLY CLOUD</span>
                 @endif
             </div>
-            <div class="terminal-summary-meta">{{ $isMx51 ? 'TID: ' . ($terminal->sci_tid ?: '—') : 'Key: ' . $terminal->key }} &nbsp;|&nbsp; Provider: {{ $isMx51 ? 'SCI' : 'Linkly Cloud' }} &nbsp;|&nbsp; Mode: {{ strtoupper($mode) }}</div>
-            <div class="terminal-summary-badges">
-                <span class="badge-pill badge-provider">{{ $isMx51 ? 'SCI' : 'LINKLY CLOUD' }}</span>
+            {{-- Everything a terminal is currently doing, one line, nothing repeated from the
+                 name line above: TID/Mode (+ Pairing ID/Paired time once paired) for SCI, just
+                 Mode for Linkly (it has none of those SCI-only fields) — then status, then
+                 Default if applicable. --}}
+            <div class="terminal-summary-meta">
+                @if($isMx51)
+                TID: {{ $terminal->sci_tid ?: '—' }} &nbsp;|&nbsp; Mode: {{ strtoupper($mode) }}
+                @if($paired)
+                &nbsp;|&nbsp; Pairing ID: {{ $terminal->sci_pairing_id }} &nbsp;|&nbsp; Paired: {{ $terminal->sci_paired_at ? $terminal->sci_paired_at->diffForHumans() : '—' }}
+                @endif
+                @else
+                Mode: {{ strtoupper($mode) }}
+                @endif
+                &nbsp;|&nbsp; <span class="badge-pill {{ $paired ? 'badge-ok' : 'badge-bad' }}">{{ $paired ? 'Paired' : 'Not Paired' }}</span>
                 @if($terminal->is_default)<span class="badge-pill badge-info">Default</span>@endif
-                <span class="badge-pill {{ $paired ? 'badge-ok' : 'badge-bad' }}">{{ $paired ? 'Paired' : 'Not Paired' }}</span>
             </div>
-            {{-- SCIPAIRING02's branding requirement, shown directly here rather than behind a
-                 click — a paired terminal has no expandable panel at all any more (see
-                 $expandable above), so this is the only place left for it to appear. --}}
-            @if($isMx51)
-            <div class="d-flex align-items-center gap-2 mt-1" style="font-size:0.82rem;">
-                <img src="{{ asset('images/sci-logo.jpg') }}" alt="SCI" style="width:18px; height:18px; border-radius:4px; object-fit:cover;">
-                <span class="text-muted">Simple Cloud Integration</span>
-            </div>
-            @endif
         </div>
 
         {{-- No separate Settings button, and no separate Connection/Status column either: the
@@ -102,21 +105,32 @@
             @if($isMx51)
             @include('admin.partials.cba-sci-pairing', ['terminal' => $terminal])
             @else
-            <div class="d-flex flex-wrap align-items-end gap-2">
-                <form action="{{ route('admin.eft.pair') }}" method="POST" class="d-flex align-items-end gap-2">
+            <div class="d-flex flex-column gap-2">
+                <form action="{{ route('admin.eft.pair') }}" method="POST" class="d-flex flex-wrap align-items-end gap-2">
                     @csrf
                     <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
                     <div>
                         <label class="form-label small mb-1">Pairing Code</label>
-                        <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required style="max-width:220px;">
+                        <input type="text" name="pair_code" class="form-control rounded-3" placeholder="6-digit code from the terminal" maxlength="10" required style="max-width:200px;">
+                    </div>
+                    <div>
+                        <label class="form-label small mb-1">Label <span class="text-muted">(optional)</span></label>
+                        <input type="text" name="label" class="form-control rounded-3" placeholder="e.g. Front Counter" maxlength="255" style="max-width:220px;">
                     </div>
                     <button type="submit" class="btn btn-outline-primary">{{ $paired ? 'Re-pair' : 'Pair' }}</button>
                 </form>
                 @if($paired)
-                <form action="{{ route('admin.eft-terminals.checkConnection', $terminal) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Connection</button>
-                </form>
+                <div class="d-flex gap-2">
+                    <form action="{{ route('admin.eft.unpair') }}" method="POST" onsubmit="return confirm('Unpair this terminal? The terminal will need a fresh pairing code to reconnect.');">
+                        @csrf
+                        <input type="hidden" name="terminal_id" value="{{ $terminal->id }}">
+                        <button type="submit" class="btn btn-outline-danger">Unpair</button>
+                    </form>
+                    <form action="{{ route('admin.eft-terminals.checkConnection', $terminal) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i>Check Connection</button>
+                    </form>
+                </div>
                 @endif
             </div>
             @endif

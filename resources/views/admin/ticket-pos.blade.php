@@ -476,22 +476,22 @@
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
         const CBA_SCI_CHARGE_CANCEL_URL_BASE = @json(url('/admin/cba-sci/charge/cancel'));
         const CBA_SCI_CHARGE_OVERRIDE_URL_BASE = @json(url('/admin/cba-sci/charge/override'));
-        const EFT_TERMINAL_SELECT_URL_BASE = @json(url('/admin/eft-terminals'));
 
         // ---------- This station's EFT terminal ----------
-        // Two storage layers, deliberately: sessionStorage is scoped per TAB (never shared,
-        // even between two tabs of the same browser/computer showing this same page) and
-        // always wins once this tab has explicitly picked a terminal — this is what keeps
-        // two POS tabs on ONE computer (e.g. two virtual PIN pads for testing) genuinely
-        // independent. localStorage is shared across every tab of this browser and is only
-        // ever used as the *suggested default* for a brand-new tab that hasn't picked yet
-        // (and is what the Ticket Console's "This Computer's EFT Terminal" Settings control
-        // writes to) — a tab that has made its own explicit choice never has it silently
-        // overridden by another tab picking something else. Without this split, reloading a
-        // tab after a different tab picked a different terminal would silently move THIS
-        // tab onto that other terminal too — which is what previously caused two concurrent
-        // sessions to land on the same physical/virtual terminal and get rejected by Linkly
-        // as offline/auto-cancelled.
+        // Two storage layers, deliberately, and deliberately asymmetric between read and
+        // write: sessionStorage is scoped per TAB and is both read AND written by the picker
+        // below — picking a terminal there changes this tab's own choice for as long as this
+        // browser session lasts, and a genuinely new session (new tab, new browser, or this one
+        // closed and reopened) has nothing saved, falling straight back to whatever this
+        // computer is configured for. localStorage is only ever READ here, never written by the
+        // picker — it holds this COMPUTER's configured default, set via the Ticket Console's
+        // "This Computer's EFT Terminal" control (see ticket-console.blade.php), a separate,
+        // deliberate admin action, not something an operator's in-the-moment pick should ever
+        // silently overwrite. Without the sessionStorage split, reloading a tab after a
+        // different tab picked a different terminal would silently move THIS tab onto that
+        // other terminal too — which is what previously caused two concurrent sessions to land
+        // on the same physical/virtual terminal and get rejected by Linkly as offline/
+        // auto-cancelled.
         const TERMINAL_LOCAL_KEY = 'ticketPosEftTerminalId';
         const TERMINAL_SESSION_KEY = 'ticketPosEftTerminalId_tab';
         function loadSelectedTerminalId() {
@@ -505,15 +505,6 @@
         }
         function saveSelectedTerminalId(id) {
             try { sessionStorage.setItem(TERMINAL_SESSION_KEY, id); } catch (e) {}
-            try { localStorage.setItem(TERMINAL_LOCAL_KEY, id); } catch (e) {}
-            // Also remembered against the operator's own account (fire-and-forget — the
-            // browser-storage save above already made the pick take effect on this station;
-            // this just makes it follow the user to their next device/computer too), see
-            // EftTerminalController::selectForMe().
-            fetch(EFT_TERMINAL_SELECT_URL_BASE + '/' + id + '/select-for-me', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
-            }).catch(function () {});
         }
         let selectedTerminalId = loadSelectedTerminalId();
         function currentTerminalLabel() {
@@ -533,172 +524,47 @@
         function renderTerminalPickerButton() {
             document.getElementById('terminalPickerLabel').textContent = currentTerminalLabel();
         }
-        const CBA_SCI_PAIR_URL = @json(route('admin.cba-sci.pair'));
-        const CBA_SCI_TEST_URL = @json(route('admin.cba-sci.test'));
+        const SCI_LOGO_URL = @json(asset('images/sci-logo.jpg'));
 
-        /**
-         * The inline "fix it right here" re-pairing form for an unpaired mx51 terminal — same
-         * two-step Pair-then-Test flow as cba-sci-pairing.blade.php's own sci-repair-widget
-         * (mx51's API genuinely requires confirming the code on the terminal before Test can
-         * report it active), deliberately reimplemented here rather than reused: that widget's
-         * own Test-success handler does a full window.location.reload(), which is fine on the
-         * standalone settings page but would blow away whatever's half-entered in this POS page's
-         * cart. No "Steps to pair" box — this is for a terminal already known to this registry,
-         * not a brand new one (see cba-sci-pairing.blade.php's own note); the terminal's
-         * existing name doubles as the pairing nickname, no separate field.
-         */
-        function buildInlineRepair(t) {
-            const wrap = document.createElement('div');
-            wrap.style.cssText = 'margin-top:10px; padding-left:28px;';
-
-            const pairStep = document.createElement('div');
-            pairStep.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:8px;';
-            pairStep.innerHTML = '<input type="text" class="form-control form-control-sm rounded-3" style="max-width:220px;" placeholder="Pairing code from the terminal" maxlength="20">' +
-                '<button type="button" class="btn btn-sm btn-outline-primary">Pair</button>' +
-                '<div class="text-danger small repair-error" style="width:100%;" hidden></div>';
-            const codeInput = pairStep.querySelector('input');
-            const pairBtn = pairStep.querySelector('button');
-            const errorEl = pairStep.querySelector('.repair-error');
-
-            const confirmStep = document.createElement('div');
-            confirmStep.style.cssText = 'display:flex; flex-wrap:wrap; align-items:center; gap:8px;';
-            confirmStep.hidden = true;
-            confirmStep.innerHTML = '<p class="small text-muted mb-1" style="width:100%;">Confirm this code is showing on the terminal, then press Test.</p>' +
-                '<div class="repair-confirmation-code" style="font-size:1.3rem; font-weight:800; letter-spacing:0.05em; width:100%;"></div>' +
-                '<button type="button" class="btn btn-sm btn-outline-primary">Test</button>' +
-                '<div class="text-danger small repair-confirm-error" style="width:100%;" hidden></div>';
-            const confirmCodeEl = confirmStep.querySelector('.repair-confirmation-code');
-            const testBtn = confirmStep.querySelector('button');
-            const confirmErrorEl = confirmStep.querySelector('.repair-confirm-error');
-
-            pairBtn.addEventListener('click', function () {
-                errorEl.hidden = true;
-                const code = codeInput.value.trim();
-                if (!code) { errorEl.textContent = 'Enter the pairing code from the terminal.'; errorEl.hidden = false; return; }
-                pairBtn.disabled = true;
-                pairBtn.textContent = 'Pairing…';
-                const body = new URLSearchParams();
-                body.set('terminal_id', t.id);
-                body.set('pairing_code', code);
-                body.set('pairing_nickname', t.label);
-                fetch(CBA_SCI_PAIR_URL, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body.toString(),
-                })
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) {
-                        pairBtn.disabled = false;
-                        pairBtn.textContent = 'Pair';
-                        if (!data.success) {
-                            errorEl.textContent = data.message || 'Pairing failed — please try again.';
-                            errorEl.hidden = false;
-                            return;
-                        }
-                        confirmCodeEl.textContent = data.confirmation_code || '—';
-                        pairStep.hidden = true;
-                        confirmStep.hidden = false;
-                    })
-                    .catch(function () {
-                        pairBtn.disabled = false;
-                        pairBtn.textContent = 'Pair';
-                        errorEl.textContent = 'Could not reach the server — check your connection and try again.';
-                        errorEl.hidden = false;
-                    });
-            });
-
-            testBtn.addEventListener('click', function () {
-                confirmErrorEl.hidden = true;
-                testBtn.disabled = true;
-                testBtn.textContent = 'Testing…';
-                const body = new URLSearchParams();
-                body.set('terminal_id', t.id);
-                fetch(CBA_SCI_TEST_URL, {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body.toString(),
-                })
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) {
-                        if (data.still_paired) {
-                            // Re-run the same live refresh the picker opens with, so this
-                            // terminal shows up as selectable everywhere, consistently.
-                            refreshTerminalPicker();
-                            return;
-                        }
-                        testBtn.disabled = false;
-                        testBtn.textContent = 'Test';
-                        confirmErrorEl.textContent = data.message || 'Still waiting for the pairing to be confirmed on the terminal.';
-                        confirmErrorEl.hidden = false;
-                    })
-                    .catch(function () {
-                        testBtn.disabled = false;
-                        testBtn.textContent = 'Test';
-                        confirmErrorEl.textContent = 'Could not reach the server — check your connection and try again.';
-                        confirmErrorEl.hidden = false;
-                    });
-            });
-
-            wrap.appendChild(pairStep);
-            wrap.appendChild(confirmStep);
-            return wrap;
-        }
-
+        // Only ever lists PAIRED terminals — an unpaired one can't take a payment, and pairing/
+        // repairing one is now exclusively done from the EFT Terminal Settings page, not from
+        // this picker.
         function renderTerminalModalList() {
             const list = document.getElementById('terminalModalList');
             list.innerHTML = '';
-            if (!EFT_TERMINALS.length) {
-                list.innerHTML = '<p class="text-muted small mb-0">No terminals registered yet — add one from Settings.</p>';
+            const pairedTerminals = EFT_TERMINALS.filter(function (t) { return t.paired; });
+            if (!pairedTerminals.length) {
+                list.innerHTML = '<p class="text-muted small mb-0">No paired terminals yet — pair one from Settings.</p>';
                 return;
             }
-            EFT_TERMINALS.forEach(function (t) {
+            pairedTerminals.forEach(function (t) {
                 const card = document.createElement('div');
                 card.style.cssText = 'width:100%; padding:12px 16px; border-radius:8px; border:2px solid var(--border); margin-bottom:10px;';
 
-                const top = document.createElement('div');
-                top.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:10px;';
                 const isSelected = String(t.id) === String(selectedTerminalId);
                 const label = document.createElement('label');
                 label.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:0.95rem; font-weight:700; cursor:pointer;';
-                // SCI's own TID identifies the physical device (no admin-typed code any more —
-                // see EftTerminalController::addAndPair()); Linkly has no such server-verified
-                // id, so its internal key is still what's shown for it.
-                const subLabel = t.provider === 'cba_sci'
-                    ? (t.sci_tid ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">(TID: ' + t.sci_tid + ')</span>' : '')
-                    : (t.key ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">(' + t.key + ')</span>' : '');
-                label.innerHTML = '<input type="checkbox" style="width:18px; height:18px;"' + (isSelected ? ' checked' : '') + (t.paired ? '' : ' disabled') + '>' +
-                    '<span>' + t.label + subLabel + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">· default</span>' : '') + '</span>';
-                const badge = document.createElement('span');
-                badge.style.cssText = 'font-size:0.75rem; font-weight:700; flex-shrink:0; color:' + (t.paired ? 'var(--success)' : 'var(--error)') + ';';
-                badge.textContent = t.paired ? 'Paired' : 'Not paired';
-                top.appendChild(label);
-                top.appendChild(badge);
-                card.appendChild(top);
+                const providerMark = t.provider === 'cba_sci'
+                    ? '<img src="' + SCI_LOGO_URL + '" alt="SCI" style="width:18px; height:18px; border-radius:4px; object-fit:cover; flex-shrink:0;">'
+                    : '<span class="badge-pill badge-provider">LINKLY CLOUD</span>';
+                label.innerHTML = '<input type="checkbox" style="width:18px; height:18px;"' + (isSelected ? ' checked' : '') + '>' +
+                    providerMark +
+                    '<span>' + t.label + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">· default</span>' : '') + '</span>';
+                card.appendChild(label);
 
-                // A genuinely disabled checkbox (not just a dimmed style) — mx51's own
-                // certification guidance is explicit that an unpaired terminal must not be
-                // selectable at all, not merely discouraged.
-                label.querySelector('input').addEventListener('change', function (e) {
-                    if (!t.paired) { e.target.checked = false; return; }
+                if (t.provider === 'cba_sci' && t.sci_pairing_id) {
+                    const details = document.createElement('div');
+                    details.style.cssText = 'margin-top:4px; padding-left:28px; font-size:0.78rem; color:var(--text-secondary);';
+                    details.textContent = 'Pairing ID: ' + t.sci_pairing_id;
+                    card.appendChild(details);
+                }
+
+                label.querySelector('input').addEventListener('change', function () {
                     selectedTerminalId = String(t.id);
                     saveSelectedTerminalId(selectedTerminalId);
                     renderTerminalPickerButton();
                     document.getElementById('terminalModalOverlay').classList.remove('active');
                 });
-
-                if (t.paired && t.provider === 'cba_sci' && (t.sci_pairing_id || t.sci_tid)) {
-                    const details = document.createElement('div');
-                    details.style.cssText = 'margin-top:6px; padding-left:28px; font-size:0.78rem; color:var(--text-secondary);';
-                    const parts = [];
-                    if (t.sci_pairing_id) { parts.push('Pairing ID: ' + t.sci_pairing_id); }
-                    if (t.sci_tid) { parts.push('TID: ' + t.sci_tid); }
-                    details.textContent = parts.join(' · ');
-                    card.appendChild(details);
-                }
-
-                if (!t.paired && t.provider === 'cba_sci') {
-                    card.appendChild(buildInlineRepair(t));
-                }
 
                 list.appendChild(card);
             });
