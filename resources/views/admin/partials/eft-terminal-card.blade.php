@@ -51,16 +51,16 @@
             <button type="button" class="btn-terminal-settings" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}" aria-expanded="{{ $startExpanded ? 'true' : 'false' }}" aria-controls="{{ $detailId }}">
                 <i class="bi bi-gear"></i> Settings
             </button>
-            @if($isSystemAdmin || ($canManageRegistryLevel ?? false))
+            @if($canManageRegistryLevel ?? false)
             <div class="dropdown">
                 <button type="button" class="btn-terminal-more" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots"></i></button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><button type="button" class="dropdown-item" data-bs-toggle="collapse" data-bs-target="#{{ $detailId }}">Settings</button></li>
-                    {{-- "Set as default" shares the page's own broader canManageRegistry() access
-                         (see EftTerminalController's class docblock) — anyone trusted to add/pair
-                         a terminal is trusted to say which one is preferred system-wide. "Remove"
-                         stays System-Admin-only below, since it can take a terminal away from
-                         another console entirely rather than just changing a preference. --}}
+                    {{-- "Set as default" and "Remove" both share the page's own broader
+                         canManageRegistry() access (see EftTerminalController's class docblock)
+                         — anyone trusted to add/pair a terminal is trusted to change or remove
+                         any terminal in the registry too, since it's still one shared, global
+                         list rather than scoped per event/Tickets. --}}
                     @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
                     <li>
                         <form action="{{ route('admin.eft-terminals.setDefault', $terminal) }}" method="POST">
@@ -69,7 +69,7 @@
                         </form>
                     </li>
                     @endif
-                    @if($isSystemAdmin && !$terminal->is_default)
+                    @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('Remove this terminal?')">
@@ -147,7 +147,7 @@
             </div>
             @endif
 
-            @if($isSystemAdmin && !$terminal->is_default)
+            @if(($canManageRegistryLevel ?? false) && !$terminal->is_default)
             <div class="terminal-detail-section terminal-danger-zone">
                 <div class="terminal-detail-heading text-danger">Danger Zone</div>
                 <form action="{{ route('admin.eft-terminals.destroy', $terminal) }}" method="POST" onsubmit="return confirm('Remove this terminal?')">
