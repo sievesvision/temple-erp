@@ -115,7 +115,11 @@ class EftTerminalAddWizardTest extends TestCase
     // mx51's TID is the terminal's real identity — if a physical device is already registered
     // under an existing row, Add Terminal must update THAT row in place rather than creating a
     // second one for the same device. The placeholder this request creates is discarded.
-    public function test_add_and_pair_updates_the_existing_terminal_whose_tid_is_already_registered(): void
+    // A physical device can legitimately end up registered under more than one row — adding a
+    // new terminal whose TID matches an existing, already-registered one is allowed, not merged
+    // into it. The new row gets a de-duplicated key so it doesn't collide with the existing
+    // row's 'sci-{tid}' value.
+    public function test_add_and_pair_allows_a_second_terminal_whose_tid_is_already_registered(): void
     {
         $admin = $this->adminUser();
         $existing = EftTerminal::create([
@@ -136,16 +140,22 @@ class EftTerminalAddWizardTest extends TestCase
         ]);
 
         $response->assertOk();
-        $response->assertJson(['success' => true, 'terminal_id' => $existing->id]);
+        $newTerminalId = $response->json('terminal_id');
+        $this->assertNotSame($existing->id, $newTerminalId);
 
-        // No new row was created — the existing registration was updated in place, and the
-        // placeholder this request made along the way was discarded.
-        $this->assertSame($countBefore, EftTerminal::count());
+        // A genuinely new row was created, on top of the existing one.
+        $this->assertSame($countBefore + 1, EftTerminal::count());
+        $newTerminal = EftTerminal::find($newTerminalId);
+        $this->assertSame('tid_dupe', $newTerminal->sci_tid);
+        $this->assertSame('sci-tid_dupe-' . $newTerminal->id, $newTerminal->key);
+        $this->assertSame('Reception', $newTerminal->label);
+        $this->assertTrue($newTerminal->isSciPaired());
+
+        // The existing row is untouched.
         $existing->refresh();
-        $this->assertSame('tid_dupe', $existing->sci_tid);
         $this->assertSame('sci-tid_dupe', $existing->key);
-        $this->assertSame('Reception', $existing->label);
-        $this->assertTrue($existing->isSciPaired());
+        $this->assertSame('Main Counter', $existing->label);
+        $this->assertFalse($existing->isSciPaired());
     }
 
     public function test_add_and_pair_requires_registry_access(): void

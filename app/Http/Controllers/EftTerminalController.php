@@ -190,9 +190,10 @@ class EftTerminalController extends Controller
      * flow store() above still backs for any other caller. Always responds JSON — this is a
      * new endpoint with no legacy form-POST caller to stay compatible with. On any failure the
      * just-created row is deleted outright, so a failed attempt never leaves a dangling
-     * terminal behind for the next retry. If mx51's TID turns out to already belong to another
-     * registered terminal, that existing terminal is updated in place instead (see
-     * CbaSciService::pair()) and this placeholder is discarded the same way.
+     * terminal behind for the next retry. The same physical device can end up registered under
+     * more than one row this way (re-added without noticing one already exists, testing,
+     * etc.) — that's allowed; this never merges or deletes another terminal just because its
+     * TID matches (see CbaSciService::pair()).
      */
     public function addAndPair(Request $request)
     {
@@ -210,12 +211,10 @@ class EftTerminalController extends Controller
 
         // No admin-typed "Unique Terminal Code" any more — the physical terminal itself is
         // what should identify it. For SCI, CbaSciService::pair() overwrites this placeholder
-        // with a TID-derived key the moment pairing confirms which physical device this is (and,
-        // if that TID already belongs to another row, updates that existing row instead and
-        // this placeholder is discarded — see that method's own docblock). Linkly has no
-        // server-verified device id at pairing time, so its key stays nickname-derived (or this
-        // placeholder) — it was always just an internal label, never something Linkly itself
-        // validates.
+        // with a TID-derived key the moment pairing confirms which physical device this is.
+        // Linkly has no server-verified device id at pairing time, so its key stays
+        // nickname-derived (or this placeholder) — it was always just an internal label, never
+        // something Linkly itself validates.
         $placeholderKey = $pairingNickname ? \Illuminate\Support\Str::slug($pairingNickname) . '-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(6)) : 'terminal-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(8));
 
         $terminal = EftTerminal::create([
@@ -225,8 +224,6 @@ class EftTerminalController extends Controller
             'pos_id' => EftTerminal::generatePosId(),
             'is_default' => !EftTerminal::query()->exists(),
         ]);
-
-        $placeholderId = $terminal->id;
 
         $result = $validated['provider'] === 'cba_sci'
             ? \App\Services\CbaSciService::pair($validated['pairing_code'], $pairingNickname, $terminal)
@@ -240,18 +237,7 @@ class EftTerminalController extends Controller
             return response()->json(['success' => false, 'message' => $result['message']]);
         }
 
-        // CbaSciService::pair() may have matched mx51's TID to an already-registered terminal
-        // and updated THAT row instead of this placeholder (e.g. re-pairing the same physical
-        // device via Add Terminal rather than its own Re-pair widget) — when that happens, this
-        // placeholder never did anything and is discarded in favour of the existing row.
-        $finalTerminalId = $result['terminal_id'] ?? $placeholderId;
-        $reusedExisting = $finalTerminalId !== $placeholderId;
-        if ($reusedExisting) {
-            $terminal->delete();
-            $terminal = EftTerminal::findOrFail($finalTerminalId);
-        }
-
-        AuditLogService::log(($reusedExisting ? "Re-paired existing EFT terminal '" : "Added and paired EFT terminal '") . "{$terminal->label}' ({$terminal->key})");
+        AuditLogService::log("Added and paired EFT terminal '{$terminal->label}' ({$terminal->key})");
 
         $terminal->refresh();
 
@@ -272,16 +258,15 @@ class EftTerminalController extends Controller
      * Cancel button on the new Add Terminal wizard's mx51 confirmation screen — calls Unpair
      * (per mx51's own certification checklist, SCIPAIRING07, cancelling a pairing attempt must
      * call Unpair too) then deletes the terminal entirely, since this row only exists as part
-     * of this one still-unconfirmed wizard run. Uses the broader canManageRegistry() tier
-     * rather than destroy()'s System-Admin-only gate, since anyone who could start this wizard
-     * should be able to back out of it.
+     * of this one still-unconfirmed wizard run and is a genuinely new row with zero history by
+     * construction. Uses the broader canManageRegistry() tier rather than destroy()'s
+     * System-Admin-only gate, since anyone who could start this wizard should be able to back
+     * out of it.
      *
-     * That "brand new row" assumption doesn't always hold any more: CbaSciService::pair()'s
-     * TID matching can resolve this same pairing attempt onto a DIFFERENT, already-registered
-     * terminal with real history instead of the placeholder addAndPair() just created (see its
-     * own docblock) — deleting that would destroy a real terminal, not undo this wizard run. In
-     * that case Cancel just unpairs it instead, reverting the pairing this attempt just made
-     * while leaving the terminal and its history exactly as they were before.
+     * The "has recorded activity" branch below is purely defensive — nothing in the normal
+     * wizard flow should ever reach it — but if it's somehow called against a terminal that
+     * isn't actually this fresh placeholder, unpairing instead of deleting at least avoids
+     * destroying a real terminal's history.
      */
     public function cancelNewTerminal(Request $request, EftTerminal $terminal)
     {

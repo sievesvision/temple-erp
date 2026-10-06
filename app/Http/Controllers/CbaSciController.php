@@ -79,14 +79,6 @@ class CbaSciController extends Controller
         $terminal = EftTerminal::findOrFail($validated['terminal_id']);
         $result = CbaSciService::pair($validated['pairing_code'], $validated['pairing_nickname'] ?? null, $terminal);
 
-        // CbaSciService::pair() may have matched mx51's TID to a DIFFERENT, already-registered
-        // terminal and updated that row instead (e.g. this physical device was already
-        // registered under another entry) — reload whichever row actually ended up paired so
-        // the audit log, confirmation code and expanded card all reflect the real result.
-        if ($result['success'] && isset($result['terminal_id']) && $result['terminal_id'] !== $terminal->id) {
-            $terminal = EftTerminal::findOrFail($result['terminal_id']);
-        }
-
         if ($result['success']) {
             AuditLogService::log("Paired mx51 Cloud terminal '{$terminal->label}' ({$terminal->key})");
         }
