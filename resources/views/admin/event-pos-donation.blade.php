@@ -167,19 +167,23 @@
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
-           shown right above the action buttons only while that method is selected, not buried
-           in the topbar as just another icon indistinguishable from Settings/Account (the
-           previous design). An accent border + icon badge, not another plain white card, so it
-           reads as "the thing in front of the donor," not one more section of the form. */
-        .pos-terminal-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--cream); border: 1.5px solid var(--gold); border-radius: var(--radius-sm); padding: 12px 16px; }
-        .pos-terminal-status-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
-        .pos-terminal-status-icon { width: 38px; height: 38px; border-radius: 50%; background: var(--white); border: 1.5px solid var(--gold); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .pos-terminal-status-icon i { font-size: 1.1rem; color: var(--gold-hover); }
-        .pos-terminal-status-text { min-width: 0; }
-        .pos-terminal-status-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
-        .pos-terminal-status-name { font-size: 1rem; font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pos-terminal-switch-btn { flex-shrink: 0; padding: 9px 18px; border-radius: var(--radius-sm); border: 1.5px solid var(--maroon); background: transparent; color: var(--maroon); font-weight: 700; font-size: 0.85rem; white-space: nowrap; transition: background-color .15s ease, color .15s ease; }
-        .pos-terminal-switch-btn:hover { background: var(--maroon); color: #fff; }
+           a compact icon sitting right next to Save, only while that method is selected, not a
+           whole extra row above the action buttons (the previous design) and not buried in the
+           topbar as just another icon indistinguishable from Settings/Account either. The
+           terminal's name is available via its title tooltip and in the picker it opens, not
+           printed here — there isn't room for it on the same line as Save without crowding it. */
+        .pos-actions-main-row { display: flex; gap: 10px; align-items: stretch; }
+        .pos-actions-main-row .pos-save-btn { flex: 1 1 auto; width: auto; }
+        .pos-terminal-mini-btn {
+            position: relative; flex-shrink: 0; width: 58px; min-height: 68px;
+            border-radius: var(--radius-md); border: 1.5px solid var(--gold);
+            background: var(--cream); color: var(--gold-hover); font-size: 1.3rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .pos-terminal-mini-btn:active { background: #F2E4C4; }
+        {{-- A small dot, not more text — just enough to say "a terminal is selected", matching
+             the same dot language used by the topbar's own setup-needed indicator. --}}
+        .pos-terminal-mini-btn::after { content: ''; position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--success); border: 1.5px solid var(--white); }
 
         .pos-actions-row { display: flex; flex-direction: column; gap: 10px; }
         .pos-clear-btn { width: 100%; padding: 0 20px; min-height: 54px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--white); color: var(--text-primary); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -680,22 +684,16 @@
                     <div class="pos-method-row" id="posMethodRow"></div>
                 </div>
 
-                {{-- Only relevant while "EFT Terminal" is the selected method — see
-                     updatePosTerminalStatus() in the script below, which shows/hides this and
-                     keeps the name in sync with the picker. --}}
-                <div class="pos-terminal-status" id="posTerminalStatus" hidden>
-                    <div class="pos-terminal-status-info">
-                        <span class="pos-terminal-status-icon"><i class="bi bi-pc-display"></i></span>
-                        <div class="pos-terminal-status-text">
-                            <div class="pos-terminal-status-label">Current Terminal</div>
-                            <div class="pos-terminal-status-name" id="posTerminalStatusName">—</div>
-                        </div>
-                    </div>
-                    <button type="button" class="pos-terminal-switch-btn" id="posTerminalSwitchBtn">Switch</button>
-                </div>
-
                 <div class="pos-actions-row">
-                    <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
+                    <div class="pos-actions-main-row">
+                        {{-- Only relevant while "EFT Terminal" is the selected method — see
+                             updatePosTerminalStatus() in the script below, which shows/hides
+                             this and keeps its title tooltip in sync with the picker. --}}
+                        <button type="button" class="pos-terminal-mini-btn" id="posTerminalSwitchBtn" title="Switch EFT terminal" hidden>
+                            <i class="bi bi-pc-display"></i>
+                        </button>
+                        <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
+                    </div>
                     <button type="button" class="pos-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear Form</button>
                 </div>
             </div>
@@ -926,14 +924,15 @@
             const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
             return t ? t.label : 'No terminal';
         }
-        // Keeps the "Current Terminal" name in sync wherever it's shown — the status strip just
-        // above the action buttons now, not a topbar icon easily mistaken for Settings/Account
-        // (the previous design). Whether that strip shows AT ALL depends on "EFT Terminal"
-        // actually being the selected payment method — see updatePosTerminalStatus() below,
-        // defined once `selectedMethod` exists further down.
+        // Keeps the terminal-switch icon's tooltip in sync with whichever terminal is actually
+        // selected — there's no room to print the name on the same line as Save, so the icon
+        // itself just signals "a terminal is selected", with the name a tap (picker) or hover
+        // (title) away. Whether the icon shows AT ALL depends on "EFT Terminal" actually being
+        // the selected payment method — see updatePosTerminalStatus() below, defined once
+        // `selectedMethod` exists further down.
         function updateTerminalStatusName() {
-            const el = document.getElementById('posTerminalStatusName');
-            if (el) { el.textContent = currentTerminalLabel(); }
+            const el = document.getElementById('posTerminalSwitchBtn');
+            if (el) { el.title = 'Current terminal: ' + currentTerminalLabel() + ' — tap to switch'; }
         }
         const SCI_LOGO_URL = @json(asset('images/sci-logo.jpg'));
 
@@ -1087,10 +1086,10 @@
             if (m === posDefaultMethod) { selectedMethod = m; }
         });
 
-        // Only relevant while "EFT Terminal" is the selected method — a plain label/Switch
-        // button sitting right above the action buttons, not a topbar icon easily mistaken for
-        // Settings/Account (the previous design).
-        const posTerminalStatus = document.getElementById('posTerminalStatus');
+        // Only relevant while "EFT Terminal" is the selected method — a compact icon sitting
+        // right next to Save, not a whole extra row above the action buttons, and not a topbar
+        // icon easily mistaken for Settings/Account either (both previous designs).
+        const posTerminalStatus = document.getElementById('posTerminalSwitchBtn');
         function updatePosTerminalStatus() {
             if (!posTerminalStatus) { return; }
             posTerminalStatus.hidden = selectedMethod !== 'EFT Terminal';
@@ -1339,16 +1338,16 @@
             document.getElementById('posWarningOverlay').classList.remove('active');
         });
 
-        let posConfirmHideTimer = null;
         function hidePosConfirm() {
-            if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
             document.getElementById('posConfirmOverlay').classList.remove('active');
         }
         // Builds the message as HTML (not textContent) so the amount/email can be highlighted —
         // both still come from the same dynamic values the caller already had, just escaped
         // before going into innerHTML since the email is donor-entered input.
+        // Stays open until the operator dismisses it (OK, or tapping anywhere on the overlay) —
+        // no auto-hide timer, since a clerk glancing away for a moment shouldn't come back to
+        // find the confirmation already gone.
         function showPosConfirm(opts) {
-            if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
             const amountHtml = '<span class="pos-confirm-amount">' + escapeHtmlPos(opts.currency + ' ' + opts.amount.toFixed(2)) + '</span>';
             let html = 'Donation of ' + amountHtml + (opts.pending ? ' recorded as pending bank transfer.' : ' recorded.');
             if (opts.email) {
@@ -1356,7 +1355,6 @@
             }
             document.getElementById('posConfirmMessage').innerHTML = html;
             document.getElementById('posConfirmOverlay').classList.add('active');
-            posConfirmHideTimer = setTimeout(hidePosConfirm, 5000);
         }
         // A click anywhere on the overlay dismisses it — the OK button's own click bubbles up
         // to this same listener, so one handler covers both "press OK" and "tap anywhere".
