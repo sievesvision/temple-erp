@@ -240,7 +240,7 @@
                 })
                 .catch(function () {
                     setBusy(testBtn, false);
-                    showError(step2Error, 'Could not reach the server — check your connection and try again.');
+                    showError(step2Error, 'Please check network and terminal connections and try again.');
                 });
         });
 
@@ -374,7 +374,7 @@
                     })
                     .catch(function () {
                         setBusy(testBtn, false);
-                        showError(confirmError, 'Could not reach the server — check your connection and try again.');
+                        showError(confirmError, 'Please check network and terminal connections and try again.');
                     });
             });
 

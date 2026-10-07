@@ -124,7 +124,7 @@ class CbaSciService
             'api_key_missing' => 'This server\'s SCI credentials are missing — contact whoever manages the integration.',
             'pairing_route_forbidden' => 'This terminal is not in an authorised environment for these credentials.',
             'test_api_key_forbidden_for_live_pairing' => 'A test (sandbox) key cannot pair a live terminal — switch this integration to live mode first.',
-            'pairing_not_found' => 'That pairing code was not recognised — double-check it on the terminal and try again.',
+            'pairing_not_found' => 'Pairing not found: Pairing not found',
             'pairing_not_initial' => 'That pairing code has already been used or has expired — generate a fresh one on the terminal and try again.',
         ];
 

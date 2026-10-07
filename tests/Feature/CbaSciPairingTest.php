@@ -193,7 +193,7 @@ class CbaSciPairingTest extends TestCase
         $result = CbaSciService::pair('000000', null, $this->makeTerminal());
 
         $this->assertFalse($result['success']);
-        $this->assertStringContainsString('not recognised', $result['message']);
+        $this->assertSame('Pairing not found: Pairing not found', $result['message']);
     }
 
     public function test_expired_pairing_code_returns_a_clear_error(): void
