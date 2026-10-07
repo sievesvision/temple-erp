@@ -920,7 +920,7 @@
                 <i class="bi bi-credit-card-2-front-fill me-2 eft-modal-header-icon-default"></i>
                 <i class="bi bi-credit-card-2-front-fill me-2 eft-modal-header-icon-error"></i>
                 <span class="eft-modal-header-title-default">Card Payment</span>
-                <span class="eft-modal-header-title-error">Payment Declined</span>
+                <span class="eft-modal-header-title-error" id="eftModalHeaderTitleError">Payment Declined</span>
             </div>
             <div class="eft-modal-body">
                 <div class="eft-modal-body-icon-wrap">
@@ -1603,6 +1603,7 @@
                 overrideSaving: document.getElementById('eftModalOverrideSaving'),
                 countdown: document.getElementById('eftModalCountdown'),
                 printNotice: document.getElementById('eftModalPrintNotice'),
+                headerTitleError: document.getElementById('eftModalHeaderTitleError'),
             },
             buildStartBody: function (attempt) {
                 return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };
@@ -1618,12 +1619,20 @@
             },
             // No extra warning popup here — the modal's own status box already shows this exact
             // message (setStatus() sets it right before calling onDeclined/onUnresolved), so a
-            // second popup on top of it was pure duplication, not new information.
+            // second popup on top of it was pure duplication, not new information. The form
+            // still resets here exactly as it does on approval — by the time either of these
+            // fires the transaction is genuinely finished (unlike start()'s own "never even
+            // reached the terminal" failure path, which deliberately leaves the form alone so
+            // the operator can just retry the same entry), and the modal stays on screen with
+            // its own Done/Retry buttons until the operator is ready to move on anyway, so
+            // clearing the form underneath it now is invisible until that moment.
             onDeclined: function () {
                 activeEftProvider = null;
+                resetPosForm();
             },
             onUnresolved: function () {
                 activeEftProvider = null;
+                resetPosForm();
             },
             onLocalCancel: function () {
                 activeEftProvider = null;

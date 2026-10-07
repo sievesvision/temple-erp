@@ -150,6 +150,17 @@
         // is the only signal available; if mx51 ever rewords it, this simply stops firing
         // rather than misfiring on a message it doesn't recognise.
         var NEVER_ACCEPTED_MESSAGE = 'Waiting for terminal to accept transaction';
+        // The header used to say "Payment Declined" for every non-approved outcome, including
+        // ones that have nothing to do with the card being declined (the operator cancelling,
+        // the terminal losing its connection, giving up on an unreachable terminal) — all
+        // driven by one hardcoded string instead of what actually happened. finishDeclined()
+        // looks the real resultStatus up here; anything not listed (an actual card decline)
+        // falls back to "Payment Declined", which is the one case that word is accurate for.
+        var DECLINE_HEADER_LABELS = {
+            CANCELLED: 'Transaction Cancelled',
+            DEVICE_NOT_CONNECTED: 'Terminal Not Connected',
+            NOT_REACHABLE: 'Terminal Not Reachable',
+        };
         // Set the moment a real Cancel Transaction call is made — per mx51's own transaction-
         // recovery guidance, a cancel gets its own (shorter) no-response deadline before
         // falling back to the manual override dialog, distinct from an ordinary transaction's.
@@ -476,6 +487,7 @@
         function finishSuccess(donationId, resultAmounts, resultMessage) {
             clearAttempt();
             stopOverrideWatch();
+            if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
             setStatus([resultMessage || 'PAYMENT APPROVED', 'Saving…'], 'success');
             if (cfg.el.printNotice) { cfg.el.printNotice.hidden = !merchantReceiptAutoPrinted; }
             // The transaction is finished — Cancel Payment has nothing left to cancel. Only
@@ -489,14 +501,20 @@
         function finishDeclined(message, resultStatus) {
             clearAttempt();
             stopOverrideWatch();
+            // The countdown caption belongs to the override's "still watching" state — once a
+            // final outcome is known, leaving its last value on screen read as a leftover,
+            // unrelated warning sitting underneath an already-resolved result.
+            if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
+            var headerLabel = DECLINE_HEADER_LABELS[resultStatus] || 'Payment Declined';
+            if (cfg.el.headerTitleError) { cfg.el.headerTitleError.textContent = headerLabel; }
+            cfg.el.statusBox.classList.toggle('status-cancelled', resultStatus === 'CANCELLED');
             // mx51 already supplies a complete, specific message (e.g. "(TRANSACTION_CANCELLED)
             // Transaction timed out") — showing it alone matches mx51's own reference UI
             // exactly, rather than appending an invented second line that just restates the
             // same outcome in different words. The fallback title only appears on the rare
-            // response with no message at all.
-            var isCancelled = resultStatus === 'CANCELLED';
-            cfg.el.statusBox.classList.toggle('status-cancelled', isCancelled);
-            setStatus(message ? [message] : [isCancelled ? 'PAYMENT CANCELLED' : 'PAYMENT DECLINED'], 'error');
+            // response with no message at all, and reuses the same real-outcome label as the
+            // header rather than a second, independently hardcoded string.
+            setStatus(message ? [message] : [headerLabel.toUpperCase()], 'error');
             cfg.el.cancelBtn.hidden = true;
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onDeclined(message);
@@ -513,6 +531,7 @@
             // has to stop trying to resume the same dead attempt too.
             clearAttempt();
             stopOverrideWatch();
+            if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
             setStatus(['RESULT UNKNOWN', message || 'Check the terminal before retrying'], 'error');
             cfg.el.cancelBtn.hidden = true;
             setTimeout(hideModal, 2200);
@@ -598,11 +617,7 @@
             // making the operator wait through the slower "did it go through?" override flow.
             if (lastKnownMessage === NEVER_ACCEPTED_MESSAGE
                 && !cancelRequestedAt && Date.now() - startedAt > 20000) {
-                clearAttempt();
-                setStatus(['TERMINAL NOT REACHABLE', 'Please check network and terminal connections and try again.'], 'error');
-                setTimeout(hideModal, 2200);
-                if (activeBtn) { activeBtn.disabled = false; }
-                cfg.onDeclined('Please check network and terminal connections and try again.');
+                finishDeclined('Please check network and terminal connections and try again.', 'NOT_REACHABLE');
                 return;
             }
 
@@ -646,11 +661,7 @@
                     autoActions.forEach(function (a) { handleBuiltinAction(typeof a === 'string' ? a : (a && a.action), true); });
 
                     if (data.status === 'DEVICE_NOT_CONNECTED') {
-                        clearAttempt();
-                        setStatus(['TERMINAL NOT CONNECTED', data.message || 'Please check network and terminal connections and try again.'], 'error');
-                        setTimeout(hideModal, 2200);
-                        if (activeBtn) { activeBtn.disabled = false; }
-                        cfg.onDeclined(data.message || 'Please check network and terminal connections and try again.');
+                        finishDeclined(data.message || 'Please check network and terminal connections and try again.', 'DEVICE_NOT_CONNECTED');
                         return;
                     }
 
