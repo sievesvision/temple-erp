@@ -129,6 +129,12 @@
         // connection" scenario, where the terminal may have already finished the transaction
         // with no way for the POS to find out except asking the operator.
         var lastProgressAt = null;
+        // How long a single /status call is given to answer before poll() gives up on it and
+        // issues a fresh one — see poll()'s own fetch call. Kept well under either override
+        // deadline so a genuinely silent link gets several abort-and-retry cycles (real
+        // evidence of a problem) long before 60s/20s, rather than one single still-in-flight
+        // call being mistaken for silence just because it happens to be slow.
+        var POLL_ABORT_MS = 10000;
         // mx51's own literal wording for "the terminal hasn't even acknowledged the request
         // yet" — verified against real production traffic, not guessed. Unlike a mid-
         // transaction stall (e.g. "Waiting for customer to present card", which means the
@@ -534,12 +540,22 @@
             setStatus([lastKnownMessage || 'Please wait…'], 'pending');
             // A separate, small caption element — not a second line inside the main status
             // box, which made the countdown read as if it were part of the terminal's own
-            // message rather than the app's own "still watching" indicator.
+            // message rather than the app's own "still watching" indicator. Left blank for the
+            // first stretch of every transaction on purpose: poll()'s own per-call patience
+            // (POLL_ABORT_MS below) means a response is expected within that window on any
+            // healthy link, so showing a ticking countdown from second one would read as a
+            // constant low-level warning on every normal transaction. It only appears once
+            // we're past that window with nothing back yet — the point where there's actually
+            // something worth telling the operator about.
             if (cfg.el.countdown) {
-                var remaining = Math.max(1, Math.ceil((deadline - elapsed) / 1000));
-                cfg.el.countdown.textContent = cancelRequestedAt
-                    ? ('Cancelling — confirming in ' + remaining + 's if no response')
-                    : ('Checking again in ' + remaining + 's if no response');
+                if (elapsed < POLL_ABORT_MS) {
+                    cfg.el.countdown.textContent = '';
+                } else {
+                    var remaining = Math.max(1, Math.ceil((deadline - elapsed) / 1000));
+                    cfg.el.countdown.textContent = cancelRequestedAt
+                        ? ('Cancelling — confirming in ' + remaining + 's if no response')
+                        : ('Checking again in ' + remaining + 's if no response');
+                }
             }
         }
 
@@ -560,8 +576,20 @@
                 return;
             }
 
-            fetch(cfg.statusUrlBase + '/' + encodeURIComponent(transactionId) + qs(), { headers: { 'Accept': 'application/json' } })
-                .then(function (res) { return res.json(); })
+            // mx51's /status endpoint is a genuine long-poll that can legitimately hold the
+            // connection open for a long time — on its own, that looks indistinguishable from
+            // silence to the override clock below, since lastProgressAt only moves once a call
+            // actually resolves. A single still-in-flight call, however slow, is not silence:
+            // nothing has failed, it just hasn't answered yet. So each call gets its own patience
+            // budget, well under either override deadline; if it runs past that we abandon THAT
+            // call and immediately issue a fresh one — a bookkeeping move, not a sign of trouble,
+            // so it skips nextDelay()'s backoff entirely and never touches lastProgressAt. Only
+            // genuine silence — this abandon-and-retry cycle repeating because nothing is coming
+            // back at all — ever accumulates toward an actual override.
+            var abortController = new AbortController();
+            var abortTimer = setTimeout(function () { abortController.abort(); }, POLL_ABORT_MS);
+            fetch(cfg.statusUrlBase + '/' + encodeURIComponent(transactionId) + qs(), { headers: { 'Accept': 'application/json' }, signal: abortController.signal })
+                .then(function (res) { clearTimeout(abortTimer); return res.json(); })
                 .then(function (data) {
                     if (cancelled) { return; }
 
@@ -651,9 +679,13 @@
                     }
                     finishUnresolved(data.message);
                 })
-                .catch(function () {
+                .catch(function (err) {
+                    clearTimeout(abortTimer);
                     if (cancelled) { return; }
-                    setTimeout(poll, nextDelay(true));
+                    // Our own abort is a deliberate retry, not evidence of a problem — go again
+                    // right away. Anything else (a real network failure) still backs off.
+                    var ourOwnAbort = err && err.name === 'AbortError';
+                    setTimeout(poll, ourOwnAbort ? 150 : nextDelay(true));
                 });
         }
 
