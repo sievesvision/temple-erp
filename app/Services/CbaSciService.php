@@ -371,11 +371,19 @@ class CbaSciService
         ];
 
         try {
+            // A deliberately shorter timeout than signedRequest()'s usual 30s default: the
+            // frontend's own override flow gives a cancel just a fixed 20s, start to finish, to
+            // see a FINALISED result (mx51's own wording: "not reset by interim chatter" — see
+            // sci-action-framework.js's updateWaitingStatus()). A single poll call still taking
+            // close to 30s would, on its own, already burn past that entire window before the
+            // frontend even gets an answer back — so this has to sit safely under 20s, leaving
+            // room for at least one full poll cycle inside it.
             $response = self::signedRequest(
                 'GET',
                 $terminal->sci_api_base_url . '/v1/transactions/' . $transactionId . '?min_version=' . $minVersion,
                 null,
-                $terminal
+                $terminal,
+                15
             );
         } catch (ConnectionException $e) {
             Log::warning('CBA SCI poll could not reach mx51', ['terminal' => $terminal->key, 'transaction_id' => $transactionId, 'error' => $e->getMessage()]);
@@ -535,7 +543,7 @@ class CbaSciService
      * This is the one piece with zero tolerance for approximation — every string below is
      * built to match the documented format character-for-character, not paraphrased from it.
      */
-    private static function signedRequest(string $method, string $url, ?array $body, EftTerminal $terminal)
+    private static function signedRequest(string $method, string $url, ?array $body, EftTerminal $terminal, int $timeoutSeconds = 30)
     {
         $method = strtoupper($method);
         $host = parse_url($url, PHP_URL_HOST);
@@ -584,7 +592,7 @@ class CbaSciService
         // slightly different bytes (key order, escaping) than what was actually hashed for
         // Content-Digest above, which would make the signature fail verification server-side
         // despite being computed "correctly" against a body that was never actually sent.
-        return Http::timeout(30)
+        return Http::timeout($timeoutSeconds)
             ->withHeaders($headers)
             ->send($method, $url, $isBodyMethod ? ['body' => $rawBody] : []);
     }
