@@ -476,20 +476,17 @@
              used to push the whole modal past the viewport instead of scrolling internally. --}}
         .eft-modal-body { padding: 22px 22px 20px; overflow-y: auto; min-height: 0; }
         {{-- Large status icon above the amount — matches the Donation Recorded popup's own
-             halo-and-checkmark treatment, shown once the transaction actually resolves (not
-             during the plain "Starting…" pending state, which has nothing to illustrate yet). --}}
+             halo-and-checkmark treatment, shown once the transaction is actually approved (not
+             during the plain "Starting…" pending state, which has nothing to illustrate yet).
+             Declined/cancelled deliberately does NOT get this big badge — mx51's own reference
+             UI for that case is a plain inline mark next to the message, not a large circular
+             icon, and matching that reads as calmer and more in line with their certified look. --}}
         .eft-modal-body-icon-wrap { display: none; position: relative; width: 84px; height: 84px; margin: 0 auto 14px; align-items: center; justify-content: center; }
-        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-wrap,
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-wrap { display: flex; }
+        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-wrap { display: flex; }
         .eft-modal-body-icon-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,148,85,0.12); }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-halo { background: #FEE4E2; }
         .eft-modal-body-icon-circle { position: relative; width: 60px; height: 60px; border-radius: 50%; background: #12b76a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; box-shadow: 0 6px 16px rgba(18,183,106,0.35); }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-circle { background: linear-gradient(135deg, #F04438, #D92D20); box-shadow: 0 6px 16px rgba(217,45,32,0.35); }
-        .eft-modal-body-icon-success, .eft-modal-body-icon-error { display: none; }
-        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-success { display: block; }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-error { display: block; }
+        .eft-modal-body-icon-success { display: block; }
         .eft-modal-body-icon-accent { position: absolute; width: 9px; height: 2px; border-radius: 1px; background: #12b76a; opacity: 0.6; }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-accent { background: #F04438; }
         .eft-modal-body-icon-accent.a-tl { top: 4px; left: 4px; transform: rotate(45deg); }
         .eft-modal-body-icon-accent.a-tr { top: 4px; right: 4px; transform: rotate(-45deg); }
         .eft-modal-body-icon-accent.a-bl { bottom: 4px; left: 4px; transform: rotate(-45deg); }
@@ -535,9 +532,12 @@
         .eft-modal-print-notice { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--success); margin: 8px 0 0; }
         {{-- Always the same wording, deliberately separate from statusLine1/2 above (which keep
              showing mx51's own real decline reason, untouched) — a fixed, generic next-step hint
-             rather than a second attempt at explaining what went wrong. --}}
+             rather than a second attempt at explaining what went wrong. Suppressed specifically
+             for a CANCELLED result (status-cancelled, set by finishDeclined()) — "check your
+             card details" doesn't apply to a terminal timeout/cancellation, only to an actual
+             card decline, and mx51's own reference UI for a cancellation shows no such hint. --}}
         .eft-modal-decline-hint { display: none; color: #667085; font-size: 0.92rem; line-height: 1.5; margin: 14px 0 0; }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-decline-hint { display: block; }
+        .eft-modal:has(.eft-modal-status-box.error):not(:has(.eft-modal-status-box.status-cancelled)) .eft-modal-decline-hint { display: block; }
         .eft-modal-cancel-btn {
             width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border);
             background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
@@ -931,7 +931,6 @@
                     <span class="eft-modal-body-icon-accent a-br"></span>
                     <span class="eft-modal-body-icon-circle">
                         <i class="bi bi-check-lg eft-modal-body-icon-success"></i>
-                        <i class="bi bi-x-lg eft-modal-body-icon-error"></i>
                     </span>
                 </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>

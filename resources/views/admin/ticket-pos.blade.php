@@ -236,16 +236,11 @@
         .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-icon-default, .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-title-default { display: none; }
         .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-icon-error, .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-title-error { display: inline-block; }
         .eft-modal-body-icon-wrap { display: none; position: relative; width: 76px; height: 76px; margin: 0 auto 12px; align-items: center; justify-content: center; }
-        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-wrap, .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-wrap { display: flex; }
+        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-wrap { display: flex; }
         .eft-modal-body-icon-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,148,85,0.12); }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-halo { background: #FEE4E2; }
         .eft-modal-body-icon-circle { position: relative; width: 54px; height: 54px; border-radius: 50%; background: #12b76a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 6px 16px rgba(18,183,106,0.35); }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-circle { background: linear-gradient(135deg, #F04438, #D92D20); box-shadow: 0 6px 16px rgba(217,45,32,0.35); }
-        .eft-modal-body-icon-success, .eft-modal-body-icon-error { display: none; }
-        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-success { display: block; }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-error { display: block; }
+        .eft-modal-body-icon-success { display: block; }
         .eft-modal-body-icon-accent { position: absolute; width: 8px; height: 2px; border-radius: 1px; background: #12b76a; opacity: 0.6; }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-accent { background: #F04438; }
         .eft-modal-body-icon-accent.a-tl { top: 3px; left: 3px; transform: rotate(45deg); }
         .eft-modal-body-icon-accent.a-tr { top: 3px; right: 3px; transform: rotate(-45deg); }
         .eft-modal-body-icon-accent.a-bl { bottom: 3px; left: 3px; transform: rotate(-45deg); }
@@ -281,7 +276,7 @@
         .eft-modal-status-box.error .eft-modal-status-line { text-align: left; color: #D92D20; }
         .eft-modal-print-notice { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--success); margin: 8px 0 0; }
         .eft-modal-decline-hint { display: none; color: #667085; font-size: 0.88rem; line-height: 1.5; margin: 12px 0 0; }
-        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-decline-hint { display: block; }
+        .eft-modal:has(.eft-modal-status-box.error):not(:has(.eft-modal-status-box.status-cancelled)) .eft-modal-decline-hint { display: block; }
         .eft-modal-cancel-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem; }
         .eft-modal-cancel-btn:active { background: var(--cream); }
         .eft-modal-cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -522,7 +517,6 @@
                     <span class="eft-modal-body-icon-accent a-br"></span>
                     <span class="eft-modal-body-icon-circle">
                         <i class="bi bi-check-lg eft-modal-body-icon-success"></i>
-                        <i class="bi bi-x-lg eft-modal-body-icon-error"></i>
                     </span>
                 </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>

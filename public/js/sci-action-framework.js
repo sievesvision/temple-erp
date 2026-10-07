@@ -210,6 +210,7 @@
             cfg.el.amount.textContent = cfg.currencyCode + ' ' + Number(amount).toFixed(2);
             lastStatusSignature = null;
             lastKnownMessage = null;
+            cfg.el.statusBox.classList.remove('status-cancelled');
             setStatus(['Starting…'], 'pending');
             if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
             merchantReceiptAutoPrinted = false;
@@ -488,9 +489,14 @@
         function finishDeclined(message, resultStatus) {
             clearAttempt();
             stopOverrideWatch();
-            var fallback = resultStatus === 'CANCELLED' ? 'PAYMENT CANCELLED' : 'PAYMENT DECLINED';
-            var subline = resultStatus === 'CANCELLED' ? 'Transaction cancelled' : 'Transaction declined';
-            setStatus([message || fallback, subline], 'error');
+            // mx51 already supplies a complete, specific message (e.g. "(TRANSACTION_CANCELLED)
+            // Transaction timed out") — showing it alone matches mx51's own reference UI
+            // exactly, rather than appending an invented second line that just restates the
+            // same outcome in different words. The fallback title only appears on the rare
+            // response with no message at all.
+            var isCancelled = resultStatus === 'CANCELLED';
+            cfg.el.statusBox.classList.toggle('status-cancelled', isCancelled);
+            setStatus(message ? [message] : [isCancelled ? 'PAYMENT CANCELLED' : 'PAYMENT DECLINED'], 'error');
             cfg.el.cancelBtn.hidden = true;
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onDeclined(message);
