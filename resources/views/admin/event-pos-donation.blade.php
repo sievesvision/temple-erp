@@ -486,12 +486,14 @@
              status-text is `display:contents` by default so wrapping statusLine1/2 in it doesn't
              change anything for those two states; only .error turns it into its own column. --}}
         .eft-modal-status-box.error { background: #FEF3F2; border-color: #FEE4E2; flex-direction: row; justify-content: flex-start; text-align: left; }
-        .eft-modal-spinner {
-            width: 26px; height: 26px; border-radius: 50%;
-            border: 3px solid rgba(200,155,60,0.25); border-top-color: var(--gold);
-            animation: eftSpin 0.8s linear infinite; margin-bottom: 4px; display: none;
-        }
-        .eft-modal-status-box.pending .eft-modal-spinner { display: block; }
+        {{-- A pulsing card icon (like a contactless tap) instead of a plain spinning ring — this
+             is specifically a payment being processed, not a generic "loading" moment. --}}
+        .eft-modal-payment-anim { position: relative; width: 44px; height: 44px; margin: 0 auto 4px; display: none; align-items: center; justify-content: center; }
+        .eft-modal-status-box.pending .eft-modal-payment-anim { display: flex; }
+        .eft-modal-payment-anim i { font-size: 1.35rem; color: var(--gold-hover); position: relative; z-index: 1; }
+        .eft-modal-payment-anim-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--gold); opacity: 0; animation: eftPaymentPulse 1.8s ease-out infinite; }
+        .eft-modal-payment-anim-ring.ring2 { animation-delay: 0.9s; }
+        @keyframes eftPaymentPulse { 0% { transform: scale(0.55); opacity: 0.75; } 100% { transform: scale(1.7); opacity: 0; } }
         .eft-modal-status-icon { font-size: 2rem; margin-bottom: 2px; display: none; }
         .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-icon.icon-error {
@@ -510,7 +512,6 @@
              rather than a second attempt at explaining what went wrong. --}}
         .eft-modal-decline-hint { display: none; color: #667085; font-size: 0.92rem; line-height: 1.5; margin: 14px 0 0; }
         .eft-modal:has(.eft-modal-status-box.error) .eft-modal-decline-hint { display: block; }
-        @keyframes eftSpin { to { transform: rotate(360deg); } }
         .eft-modal-cancel-btn {
             width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border);
             background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
@@ -601,6 +602,13 @@
         .eft-modal-override-actions { display: flex; gap: 10px; margin-bottom: 10px; justify-content: center; }
         .eft-override-btn { flex: 0 1 120px; padding: 12px 10px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
         .eft-override-btn:active { background: var(--cream); }
+        .eft-override-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .eft-modal-override-saving { font-weight: 700; font-size: 1.05rem; color: var(--text-secondary); margin: 10px 0; }
+        {{-- Tiny and muted, not part of the status box — a quiet "still watching" caption, not
+             a claim from the terminal itself. Hidden once the override takes over, same as the
+             status box it used to live inside. --}}
+        .eft-modal-countdown { font-size: 0.72rem; color: var(--text-secondary); margin: 10px 0 0; text-align: center; }
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-countdown { display: none; }
         {{-- The override is a genuinely different moment from a decline (mx51's own prompt
              literally asks whether it went through — the outcome is unknown, not negative), so
              none of the "Payment Declined" branding (header text/icon swap, big X, decline hint)
@@ -902,7 +910,11 @@
                 </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
-                    <div class="eft-modal-spinner"></div>
+                    <div class="eft-modal-payment-anim">
+                        <span class="eft-modal-payment-anim-ring"></span>
+                        <span class="eft-modal-payment-anim-ring ring2"></span>
+                        <i class="bi bi-credit-card-2-front-fill"></i>
+                    </div>
                     <i class="bi bi-check-circle-fill eft-modal-status-icon icon-success"></i>
                     <i class="bi bi-x-circle-fill eft-modal-status-icon icon-error"></i>
                     <span class="eft-modal-status-divider"></span>
@@ -922,18 +934,27 @@
                      whichever step the terminal is currently on (text/button/input/image). -->
                 <div id="eftModalActionFramework" hidden></div>
                 <div class="eft-modal-override" id="eftModalOverride" hidden>
-                    <div class="eft-modal-override-icon"><i class="bi bi-exclamation-lg"></i></div>
-                    <div class="eft-modal-override-title">Unknown transaction status</div>
-                    <p class="eft-modal-override-subtitle">Was the transaction successful on the Eftpos terminal?</p>
-                    <div class="eft-modal-override-actions">
-                        <button type="button" class="eft-override-btn eft-override-yes" id="eftModalOverrideYes">Yes</button>
-                        <button type="button" class="eft-override-btn eft-override-no" id="eftModalOverrideNo">No</button>
+                    <div id="eftModalOverrideQuestion">
+                        <div class="eft-modal-override-icon"><i class="bi bi-exclamation-lg"></i></div>
+                        <div class="eft-modal-override-title">Unknown transaction status</div>
+                        <p class="eft-modal-override-subtitle">Was the transaction successful on the Eftpos terminal?</p>
+                        <div class="eft-modal-override-actions">
+                            <button type="button" class="eft-override-btn eft-override-yes" id="eftModalOverrideYes">Yes</button>
+                            <button type="button" class="eft-override-btn eft-override-no" id="eftModalOverrideNo">No</button>
+                        </div>
                     </div>
+                    {{-- Replaces the question above the instant Yes/No is tapped — disabling the
+                         buttons alone gave no visible sign the tap had registered. --}}
+                    <p class="eft-modal-override-saving" id="eftModalOverrideSaving" hidden>Saving…</p>
                     {{-- Kept in the DOM (JS still references it) but not part of this simplified
                          prompt — a forced Yes/No decision, not an option to keep deferring it. --}}
                     <button type="button" class="eft-modal-cancel-btn" id="eftModalOverrideKeepWaiting" hidden>Keep Waiting</button>
                 </div>
                 <button type="button" class="eft-modal-cancel-btn" id="eftModalCancelBtn">Cancel Payment</button>
+                {{-- Tiny caption, not a second line inside the status box above — a plain "still
+                     watching" indicator, not something that reads as part of the terminal's own
+                     message. --}}
+                <p class="eft-modal-countdown" id="eftModalCountdown"></p>
             </div>
         </div>
     </div>
@@ -1549,6 +1570,9 @@
                 overrideYesBtn: document.getElementById('eftModalOverrideYes'),
                 overrideNoBtn: document.getElementById('eftModalOverrideNo'),
                 overrideKeepWaitingBtn: document.getElementById('eftModalOverrideKeepWaiting'),
+                overrideQuestion: document.getElementById('eftModalOverrideQuestion'),
+                overrideSaving: document.getElementById('eftModalOverrideSaving'),
+                countdown: document.getElementById('eftModalCountdown'),
             },
             buildStartBody: function (attempt) {
                 return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };
