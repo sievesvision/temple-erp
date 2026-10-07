@@ -397,16 +397,21 @@
         .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
-            padding: 14px 16px; min-height: 72px; display: flex; flex-direction: column;
+            padding: 16px; min-height: 72px; display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px;
+            transition: background-color .15s, border-color .15s;
         }
+        {{-- Tinted per state (not just the icon/text) so approve/decline reads at a glance
+             instead of blending into the same neutral box the whole flow sits in. --}}
+        .eft-modal-status-box.success { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.4); }
+        .eft-modal-status-box.error { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.4); }
         .eft-modal-spinner {
             width: 26px; height: 26px; border-radius: 50%;
             border: 3px solid rgba(200,155,60,0.25); border-top-color: var(--gold);
             animation: eftSpin 0.8s linear infinite; margin-bottom: 4px; display: none;
         }
         .eft-modal-status-box.pending .eft-modal-spinner { display: block; }
-        .eft-modal-status-icon { font-size: 1.6rem; margin-bottom: 2px; display: none; }
+        .eft-modal-status-icon { font-size: 2rem; margin-bottom: 2px; display: none; }
         .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-icon.icon-error { display: block; color: var(--error); }
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
@@ -425,8 +430,10 @@
         .sci-af-row { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
         .sci-af-row:last-child { margin-bottom: 0; }
         .sci-af-text { font-size: 0.88rem; color: var(--text-secondary); text-align: left; }
-        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.88rem; color: #fff; background: var(--maroon); }
-        .sci-af-btn:active { filter: brightness(0.92); }
+        {{-- Outlined, not a solid maroon fill — the header above is already that same solid
+             maroon, and a button identical to it reads as one flat block with no hierarchy. --}}
+        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid var(--maroon); font-weight: 700; font-size: 0.88rem; color: var(--maroon); background: var(--white); }
+        .sci-af-btn:active { background: var(--cream); }
         {{-- flex-wrap lets a long label (mx51's own test fields can be verbose, e.g.
              "Input 1 (input_name_1_...)") drop to its own line above the input instead of
              forcing the row wider than the modal. --}}
@@ -438,7 +445,6 @@
              it could render at an arbitrarily large natural size. --}}
         .sci-af-image { max-width: 100%; max-height: 64px; display: block; margin: 6px auto; border-radius: var(--radius-sm); }
         .sci-af-details { text-align: left; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.45; }
-        .sci-af-test-payload { text-align: left; font-family: 'Courier New', ui-monospace, monospace; font-size: 0.74rem; line-height: 1.4; white-space: pre-wrap; word-break: break-word; background: var(--cream); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; }
         #eftModalActionFramework { margin-bottom: 10px; }
 
         /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has

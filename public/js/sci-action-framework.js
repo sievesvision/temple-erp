@@ -227,15 +227,11 @@
             // TEST_ACTION has no submit_url — mx51's own cert guidance is that clicking it
             // should "call an internal function", and that displaying the JSON payload a real
             // Submit to API button would have sent (same input values, keyed by name) is an
-            // acceptable stand-in for that function during certification. Appended rather than
-            // replacing the current form, since the operator may still need those same inputs
-            // visible/editable afterward.
+            // acceptable stand-in for that function during certification. A popup rather than
+            // appending to the form itself, since appending left it looking like a permanent,
+            // growing part of the transaction UI instead of a one-off internal check.
             if (action === 'TEST_ACTION') {
-                var pre = document.createElement('pre');
-                pre.className = 'sci-af-test-payload';
-                pre.textContent = JSON.stringify(formValues, null, 2);
-                cfg.el.actionContainer.appendChild(pre);
-                cfg.el.actionContainer.hidden = false;
+                alert('TEST_ACTION — internal function payload:\n\n' + JSON.stringify(formValues, null, 2));
                 return;
             }
         }
