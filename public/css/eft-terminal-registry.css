@@ -110,6 +110,17 @@
 
 .wizard-alert { border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; margin-bottom: 14px; }
 .wizard-alert-error { background: #FEF2F2; color: #B91C1C; border: 1px solid #FCA5A5; }
+/* mx51's own reference UI for "pairing not yet confirmed" on the Test button — a neutral
+   card (not the red-tinted .wizard-alert-error box above) with a red icon-circle and a bold
+   title + lighter subtext, rather than a single line of red text. A modifier on the same
+   element showError() normally uses, so hideError()/showError() can freely switch it back.
+   Self-contained (padding/border-radius included here, not just inherited from .wizard-alert)
+   since the repair widget's own error element doesn't carry that base class. */
+.wizard-alert-card { background: #F3F4F6; border: none; color: inherit; display: flex; align-items: flex-start; gap: 14px; font-weight: 400; border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; font-size: 0.85rem; }
+.wizard-alert-card-icon { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #F04438; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+.wizard-alert-card-text { display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
+.wizard-alert-card-title { font-weight: 700; color: #111827; font-size: 0.92rem; }
+.wizard-alert-card-subtext { font-weight: 400; color: #4B5563; font-size: 0.82rem; }
 
 .wizard-steps-col { background: #F9FAFB; border: 1px solid var(--eftr-border); border-radius: 10px; padding: 16px 18px; font-size: 0.84rem; }
 .wizard-steps-heading { font-weight: 800; color: var(--eftr-text-primary); margin-bottom: 10px; }

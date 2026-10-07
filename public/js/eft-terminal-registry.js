@@ -62,8 +62,33 @@
         else if (btn.dataset.originalText) { btn.innerHTML = btn.dataset.originalText; }
     }
 
-    function hideError(el) { el.hidden = true; el.textContent = ''; }
-    function showError(el, message) { el.textContent = message; el.hidden = false; }
+    function hideError(el) { el.hidden = true; el.textContent = ''; el.classList.remove('wizard-alert-card'); }
+    function showError(el, message) { el.classList.remove('wizard-alert-card'); el.textContent = message; el.hidden = false; }
+
+    // mx51's own reference UI for the Test button's "pairing not yet confirmed" response
+    // (a real pairing-info reply reporting no active pairing, not a network-level failure,
+    // which keeps the plain showError() text) — an icon-circle plus a bold title and a
+    // lighter subtext line, built with textContent throughout since nothing here needs markup.
+    function showErrorCard(el, title, subtext) {
+        el.classList.add('wizard-alert-card');
+        el.innerHTML = '';
+        var icon = document.createElement('span');
+        icon.className = 'wizard-alert-card-icon';
+        icon.innerHTML = '<i class="bi bi-x-lg"></i>';
+        var text = document.createElement('span');
+        text.className = 'wizard-alert-card-text';
+        var titleEl = document.createElement('span');
+        titleEl.className = 'wizard-alert-card-title';
+        titleEl.textContent = title;
+        var subtextEl = document.createElement('span');
+        subtextEl.className = 'wizard-alert-card-subtext';
+        subtextEl.textContent = subtext;
+        text.appendChild(titleEl);
+        text.appendChild(subtextEl);
+        el.appendChild(icon);
+        el.appendChild(text);
+        el.hidden = false;
+    }
 
     // A 422 from Laravel's own validate() comes back as {message, errors: {field: [...]}}
     // rather than this app's usual {success:false, message} shape — pull the specific field
@@ -233,7 +258,16 @@
                 .then(function (data) {
                     setBusy(testBtn, false);
                     if (!data.success) {
-                        showError(step2Error, data.message || 'Could not confirm the pairing — try again.');
+                        // still_paired:false means mx51 genuinely has no active pairing right
+                        // now (never confirmed yet, or gone) — mx51's own reference UI for
+                        // exactly that. still_paired:true means something else went wrong (a
+                        // connectivity blip reaching mx51, say) while the pairing itself is
+                        // presumably still fine, so that keeps the plain message instead.
+                        if (data.still_paired === false) {
+                            showErrorCard(step2Error, 'Pairing not active', 'Check the terminal, confirm that the pairing code matches then try again.');
+                        } else {
+                            showError(step2Error, data.message || 'Could not confirm the pairing — try again.');
+                        }
                         return;
                     }
                     showStep(success);
@@ -358,7 +392,11 @@
                     .then(function (data) {
                         if (!data.success) {
                             setBusy(testBtn, false);
-                            showError(confirmError, data.message || 'Could not confirm the pairing — try again.');
+                            if (data.still_paired === false) {
+                                showErrorCard(confirmError, 'Pairing not active', 'Check the terminal, confirm that the pairing code matches then try again.');
+                            } else {
+                                showError(confirmError, data.message || 'Could not confirm the pairing — try again.');
+                            }
                             return;
                         }
                         // Same "success message, then back to the list" moment the Add Terminal
