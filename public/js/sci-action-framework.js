@@ -126,6 +126,12 @@
         // recovery guidance, a cancel gets its own (shorter) no-response deadline before
         // falling back to the manual override dialog, distinct from an ordinary transaction's.
         var cancelRequestedAt = null;
+        // Checks the override deadline on its own clock, independent of poll()'s own schedule —
+        // mx51's /status endpoint is a long-poll that can hold the connection well past 20s
+        // before responding, so a deadline check that only ran inside poll()'s response handler
+        // (the original approach) could land 60s+ after Cancel instead of the intended 20s,
+        // simply because that's how long the already-in-flight request happened to take.
+        var overrideCheckInterval = null;
         var activeBtn = null;
         var currentAttempt = null;
         // Guards the shared modal's cancel/override buttons — this module and the caller's
@@ -190,6 +196,7 @@
             cfg.el.overlay.classList.remove('active');
             cfg.el.actionContainer.innerHTML = '';
             hideOverride();
+            if (overrideCheckInterval) { clearInterval(overrideCheckInterval); overrideCheckInterval = null; }
             if (typeof cfg.onModalClosed === 'function') { cfg.onModalClosed(); }
         }
 
@@ -444,27 +451,37 @@
             cfg.onUnresolved(message);
         }
 
-        function poll() {
-            if (cancelled || !transactionId) { return; }
-
-            // mx51's own documented recovery flow calls for a shorter deadline once a cancel
-            // has been requested than for an ordinary transaction — their reference POS
-            // (Espresso) uses 1 minute since the last successful response / 20 seconds after
-            // a cancel, explicitly as an indicative starting point rather than a mandated
-            // value, which is what these mirror.
-            // Cancellation uses a fixed deadline from the moment cancel was requested (mx51's
-            // wording: "no FINALISED response... within a defined period", not reset by
-            // interim chatter); the ordinary case resets whenever the terminal actually reports
-            // something new, per "no response for a defined period" — a genuinely progressing
-            // PENDING transaction never trips it, but one stuck repeating the same message
-            // forever (e.g. the terminal itself has gone offline) now correctly does.
+        // mx51's own documented recovery flow calls for a shorter deadline once a cancel has
+        // been requested than for an ordinary transaction — their reference POS (Espresso) uses
+        // 1 minute since the last successful response / 20 seconds after a cancel, explicitly as
+        // an indicative starting point rather than a mandated value, which is what these mirror.
+        // Cancellation uses a fixed deadline from the moment cancel was requested (mx51's
+        // wording: "no FINALISED response... within a defined period", not reset by interim
+        // chatter); the ordinary case resets whenever the terminal actually reports something
+        // new, per "no response for a defined period" — a genuinely progressing PENDING
+        // transaction never trips it, but one stuck repeating the same message forever (e.g. the
+        // terminal itself has gone offline) now correctly does.
+        //
+        // Called both from poll()'s own response handler AND from a dedicated setInterval (see
+        // start()) that checks every second on its own clock — relying on poll() alone meant
+        // this deadline was only ever actually evaluated whenever the current long-poll request
+        // happened to resolve, which could run well past the intended 20s if mx51 held that
+        // request open for its own full long-poll duration.
+        function maybeShowOverride() {
+            if (cancelled || overrideOfferedAt) { return; }
             var overrideBaseline = cancelRequestedAt || lastProgressAt || startedAt;
             var overrideDeadline = cancelRequestedAt ? 20000 : 60000;
-            if (overrideBaseline && Date.now() - overrideBaseline > overrideDeadline && !overrideOfferedAt) {
+            if (overrideBaseline && Date.now() - overrideBaseline > overrideDeadline) {
                 overrideOfferedAt = Date.now();
                 setStatus(['No response from the terminal yet', 'Confirm the outcome below, or keep waiting'], 'error');
                 showOverride();
             }
+        }
+
+        function poll() {
+            if (cancelled || !transactionId) { return; }
+
+            maybeShowOverride();
 
             // If the terminal has never even acknowledged this transaction, there's nothing
             // ambiguous to resolve — no card was ever touched, so unlike a mid-transaction
@@ -578,6 +595,10 @@
             currentAttempt = attempt;
             saveAttempt(attempt);
             showModal(attempt.amount);
+            // Re-armed on every start() — including a Retry, which calls start() again without
+            // going through hideModal() first — so there's never more than one of these running.
+            if (overrideCheckInterval) { clearInterval(overrideCheckInterval); }
+            overrideCheckInterval = setInterval(maybeShowOverride, 1000);
 
             var body = new URLSearchParams();
             if (cfg.eventId !== undefined && cfg.eventId !== null) { body.set('event_id', cfg.eventId); }
