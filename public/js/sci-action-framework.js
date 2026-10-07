@@ -99,6 +99,7 @@
         // poll happens not to repeat it.
         var lastKnownMessage = null;
         var overrideOfferedAt = null;
+        var overrideSubmitted = false;
         var startedAt = null;
         // mx51's own reference timeout is measured "since the last successful response", not
         // since the transaction started — a long but healthy run (steady PENDING updates)
@@ -183,6 +184,7 @@
             lastStatusSignature = null;
             lastKnownMessage = null;
             setStatus(['Starting…'], 'pending');
+            if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
             cfg.el.actionContainer.innerHTML = '';
             cfg.el.actionContainer.hidden = true;
             hideOverride();
@@ -299,10 +301,17 @@
                 return div;
             }
             if (type === 'button') {
+                var btnLabel = label || (prop.action ? prop.action.replace(/_/g, ' ') : 'Continue');
+                // Our own Cancel Payment button already covers this, correctly wired to the
+                // shortened 20s post-cancel override deadline — mx51's own button has no
+                // equivalent for that (its submit_url/action here is whatever mx51 sent, not
+                // necessarily the real Cancel Transaction call), so rendering it too just showed
+                // a second, differently-behaved "Cancel" alongside the one that actually works.
+                if (/^cancel\b/i.test(btnLabel.trim())) { return null; }
                 var btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'sci-af-btn';
-                btn.textContent = label || (prop.action ? prop.action.replace(/_/g, ' ') : 'Continue');
+                btn.textContent = btnLabel;
                 btn.addEventListener('click', function () {
                     if (prop.submit_url) { submitElementAction(prop.submit_url); return; }
                     if (prop.action) { handleBuiltinAction(prop.action); return; }
@@ -494,11 +503,16 @@
                 showOverride();
                 return;
             }
-            var remaining = Math.max(1, Math.ceil((deadline - elapsed) / 1000));
-            var line2 = cancelRequestedAt
-                ? ('Cancelling — confirming in ' + remaining + 's if no response')
-                : ('Checking again in ' + remaining + 's if no response');
-            setStatus([lastKnownMessage || 'Please wait…', line2], 'pending');
+            setStatus([lastKnownMessage || 'Please wait…'], 'pending');
+            // A separate, small caption element — not a second line inside the main status
+            // box, which made the countdown read as if it were part of the terminal's own
+            // message rather than the app's own "still watching" indicator.
+            if (cfg.el.countdown) {
+                var remaining = Math.max(1, Math.ceil((deadline - elapsed) / 1000));
+                cfg.el.countdown.textContent = cancelRequestedAt
+                    ? ('Cancelling — confirming in ' + remaining + 's if no response')
+                    : ('Checking again in ' + remaining + 's if no response');
+            }
         }
 
         function poll() {
@@ -619,6 +633,7 @@
             transactionId = null;
             consecutiveTransientErrors = 0;
             overrideOfferedAt = null;
+            overrideSubmitted = false;
             lastProgressAt = null;
             lastProgressSignature = null;
             cancelRequestedAt = null;
@@ -731,8 +746,19 @@
         });
 
         function submitOverride(outcome) {
+            // Guards against a second click landing before the synchronous .disabled = true
+            // below actually takes effect (disabled form controls don't fire click events, but
+            // a click already queued the instant before this runs still would) — without this,
+            // a fast double-tap on Yes/No could submit the outcome twice.
+            if (overrideSubmitted) { return; }
+            overrideSubmitted = true;
             cfg.el.overrideYesBtn.disabled = true;
             cfg.el.overrideNoBtn.disabled = true;
+            // Swap the question out for a plain "Saving…" line immediately — disabling the
+            // buttons alone gave no visible confirmation the tap had registered, which is
+            // exactly what prompted a second tap on what looked like an unresponsive button.
+            if (cfg.el.overrideQuestion) { cfg.el.overrideQuestion.hidden = true; }
+            if (cfg.el.overrideSaving) { cfg.el.overrideSaving.hidden = false; }
             fetch(cfg.overrideUrlBase + '/' + encodeURIComponent(transactionId) + qs(), {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': cfg.csrfToken, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -740,9 +766,12 @@
             })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
+                    overrideSubmitted = false;
                     cfg.el.overrideYesBtn.disabled = false;
                     cfg.el.overrideNoBtn.disabled = false;
                     if (!data.success) {
+                        if (cfg.el.overrideQuestion) { cfg.el.overrideQuestion.hidden = false; }
+                        if (cfg.el.overrideSaving) { cfg.el.overrideSaving.hidden = true; }
                         showToastFallback(data.message || 'Could not record the outcome — please try again.');
                         return;
                     }
@@ -771,8 +800,11 @@
                     finishUnresolved('Marked unresolved — please verify against the terminal/bank statement.');
                 })
                 .catch(function () {
+                    overrideSubmitted = false;
                     cfg.el.overrideYesBtn.disabled = false;
                     cfg.el.overrideNoBtn.disabled = false;
+                    if (cfg.el.overrideQuestion) { cfg.el.overrideQuestion.hidden = false; }
+                    if (cfg.el.overrideSaving) { cfg.el.overrideSaving.hidden = true; }
                     showToastFallback('Network error recording the outcome — please try again.');
                 });
         }
