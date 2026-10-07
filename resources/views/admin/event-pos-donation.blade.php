@@ -102,6 +102,10 @@
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.18); }
         /* Flags that setup is incomplete — only ever shown when no terminal is paired yet. */
         .pos-topbar-btn-setup::after { content: ''; position: absolute; top: 2px; right: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--maroon-dark); }
+        {{-- The real terminal product photo, not a generic monitor glyph — sized a touch larger
+             than a plain icon font would need, since a photo this detailed reads as a blurry
+             smudge at the ~17px an icon glyph normally renders at. --}}
+        .pos-topbar-btn-icon-img { width: 28px; height: auto; display: block; }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
 
         /* ---------- Main entry area ---------- */
@@ -645,7 +649,7 @@
                  docblock on why this tier is trusted to pair here. The gold dot flags that setup
                  still needs attention (nothing paired yet); it clears once a terminal is paired,
                  but the button itself never disappears. -->
-            <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><i class="bi bi-pc-display"></i></button>
+            <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="" class="pos-topbar-btn-icon-img"></button>
             <div class="dropdown">
                 <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
                     <i class="bi bi-person-fill"></i>

@@ -22,7 +22,8 @@
         h1, h2 { font-family: var(--serif); }
 
         .topbar { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 16px 24px; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 18px rgba(74,10,18,0.25); }
-        .topbar h1 { font-size: 1.3rem; font-weight: 800; color: var(--gold); margin: 0; flex: 1; }
+        .topbar h1 { font-size: 1.3rem; font-weight: 800; color: var(--gold); margin: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
+        .topbar h1 img { width: 30px; height: auto; display: block; }
         .topbar-btn { background: rgba(255,255,255,0.12); border: none; color: white; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
         .topbar-btn:hover { background: rgba(255,255,255,0.22); color: white; }
 
@@ -37,7 +38,7 @@
     @if(!$embedded)
     @include('partials.test-banner')
     <header class="topbar">
-        <h1><i class="bi bi-pc-display me-2"></i>EFT Terminal Settings</h1>
+        <h1><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="">EFT Terminal Settings</h1>
         <a href="{{ $isSystemAdmin ? route('admin.settings') : route('admin.dashboard') }}" class="topbar-btn"><i class="bi bi-arrow-left"></i>Back</a>
         <a href="{{ route('logout') }}" class="topbar-btn"><i class="bi bi-box-arrow-right"></i>Logout</a>
     </header>

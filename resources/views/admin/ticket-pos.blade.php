@@ -38,6 +38,7 @@
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.22); }
         /* Flags that setup is incomplete — only ever shown when no terminal is paired yet. */
         .pos-topbar-btn-setup::after { content: ''; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--maroon-dark); }
+        .pos-topbar-btn-icon-img { width: 26px; height: auto; display: block; }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
            styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
@@ -319,7 +320,7 @@
              tier is trusted to pair a terminal from here. The gold dot flags that setup still
              needs attention (nothing paired yet); it clears once a terminal is paired, but the
              button itself never disappears. -->
-        <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><i class="bi bi-pc-display"></i></button>
+        <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="" class="pos-topbar-btn-icon-img"></button>
         <div class="dropdown">
             <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
                 <i class="bi bi-person-fill"></i>
