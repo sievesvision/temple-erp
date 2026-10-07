@@ -147,12 +147,19 @@
             max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
             overflow: hidden; text-align: center; display: flex; flex-direction: column;
         }
-        {{-- Same green used by the Donation Recorded popup's header — one shared payment-flow
-             identity instead of two differently-coloured dialogs. --}}
+        {{-- Header colour reacts to the refund flow's own status-box state class (already
+             toggled by the existing, untouched polling JS) via :has() — blue while in progress,
+             green once approved, red once declined/failed. Zero JS changes needed. --}}
         .eft-modal-header {
-            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #12b76a 0%, #039855 100%);
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #1570EF 0%, #0560D8 100%);
             color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
             font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0;
+        }
+        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-header {
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #12b76a 0%, #039855 100%);
+        }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header {
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.14), transparent 60%), linear-gradient(135deg, #F04438 0%, #D92D20 55%, #B42318 100%);
         }
         {{-- min-height:0 is the flexbox gotcha fix — without it a flex child never actually
              shrinks to scroll, it just overflows its parent instead. --}}
