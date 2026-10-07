@@ -40,21 +40,22 @@
         .pos-topbar-btn-setup::after { content: ''; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--maroon-dark); }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
-           a compact icon sitting right next to Complete Sale, only while that method is
-           selected, not a whole extra row above it (the previous design) and not a topbar icon
-           indistinguishable from Settings/Account either. The terminal's name lives in its
-           title tooltip and in the picker it opens — there's no room to print it on the same
-           line as the sale button. */
+           shares one line with Complete Sale roughly half-and-half, only while that method is
+           selected, rather than a whole extra row above it (the previous design) or a topbar
+           icon indistinguishable from Settings/Account (the design before that). The terminal's
+           name is printed right on the button — a clerk needs to see which terminal is live at
+           a glance, not discover it on hover. */
         .pos-actions-main-row { display: flex; gap: 10px; align-items: stretch; }
-        .pos-actions-main-row .pos-save-btn { flex: 1 1 auto; width: auto; }
+        .pos-actions-main-row .pos-save-btn { flex: 1 1 0; width: auto; }
         .pos-terminal-mini-btn {
-            position: relative; flex-shrink: 0; width: 54px; min-height: 56px;
+            flex: 1 1 0; min-width: 0; min-height: 56px; padding: 0 10px;
             border-radius: var(--radius-md); border: 1.5px solid var(--gold);
-            background: var(--cream); color: var(--gold-hover); font-size: 1.2rem;
-            display: flex; align-items: center; justify-content: center;
+            background: var(--cream); color: var(--text-primary); font-weight: 700; font-size: 0.88rem;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
         }
+        .pos-terminal-mini-btn i { font-size: 1.05rem; color: var(--gold-hover); flex-shrink: 0; }
+        .pos-terminal-mini-btn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
         .pos-terminal-mini-btn:active { background: #F2E4C4; }
-        .pos-terminal-mini-btn::after { content: ''; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--success); border: 1.5px solid var(--white); }
         .pos-terminal-switch-btn { flex-shrink: 0; padding: 7px 14px; border-radius: var(--radius-sm); border: 1.5px solid var(--maroon); background: transparent; color: var(--maroon); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
         .pos-terminal-switch-btn:hover { background: var(--maroon); color: #fff; }
 
@@ -353,9 +354,10 @@
                 <div class="pos-actions-main-row">
                     {{-- Only relevant while "EFT Terminal" is the selected method — see
                          updatePosTerminalStatus() in the script below, which shows/hides this
-                         and keeps its title tooltip in sync with the picker. --}}
-                    <button type="button" class="pos-terminal-mini-btn" id="posTerminalSwitchBtn" title="Switch EFT terminal" hidden>
+                         and keeps the name in sync with the picker. --}}
+                    <button type="button" class="pos-terminal-mini-btn" id="posTerminalSwitchBtn" title="Tap to switch terminal" hidden>
                         <i class="bi bi-pc-display"></i>
+                        <span class="pos-terminal-mini-btn-name" id="posTerminalMiniName">—</span>
                     </button>
                     @if($canSell)
                     <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-printer-fill me-2"></i>Complete Sale &amp; Print</button>
@@ -541,14 +543,16 @@
             return t ? t.label : 'No terminal';
         }
         // Keeps the terminal-switch icon's tooltip in sync with whichever terminal is actually
-        // selected — there's no room to print the name next to Complete Sale, so the icon itself
-        // just signals "a terminal is selected", with the name a tap (picker) or hover (title)
-        // away. Whether the icon shows AT ALL depends on "EFT Terminal" actually being the
-        // selected payment method — see updatePosTerminalStatus() below, defined once
-        // `selectedMethod` exists further down.
+        // selected — printed right on the button (truncated with an ellipsis if it's long; the
+        // full name is still in the title tooltip and in the picker this button opens). Whether
+        // it shows AT ALL depends on "EFT Terminal" actually being the selected payment method —
+        // see updatePosTerminalStatus() below, defined once `selectedMethod` exists further down.
         function updateTerminalStatusName() {
-            const el = document.getElementById('posTerminalSwitchBtn');
-            if (el) { el.title = 'Current terminal: ' + currentTerminalLabel() + ' — tap to switch'; }
+            const label = currentTerminalLabel();
+            const nameEl = document.getElementById('posTerminalMiniName');
+            if (nameEl) { nameEl.textContent = label; }
+            const btn = document.getElementById('posTerminalSwitchBtn');
+            if (btn) { btn.title = 'Current terminal: ' + label + ' — tap to switch'; }
         }
         const SCI_LOGO_URL = @json(asset('images/sci-logo.jpg'));
 
