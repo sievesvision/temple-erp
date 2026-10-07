@@ -115,20 +115,22 @@
         var overrideOfferedAt = null;
         var overrideSubmitted = false;
         var startedAt = null;
-        // mx51's own reference timeout is measured "since the last successful response", not
-        // since the transaction started — a long but healthy run (steady PENDING updates, even
-        // repeating the exact same message while the customer takes their time on the terminal)
-        // must not trip the override just because it's been going a while; only actual silence
-        // should. Per mx51's own documented failure modes, a terminal that's genuinely gone
-        // offline gets its own explicit SCI API error (DEVICE_NOT_CONNECTED, handled separately
-        // below as an immediate error, never via override) rather than the API silently
-        // repeating stale status — so any response at all from the SCI API, unchanged or not,
-        // is real proof of life. Only a genuine network-level failure reaching the SCI API
-        // itself (the .catch() branch below, which deliberately never touches this) is the
-        // silence the override exists to catch — exactly mx51's "POS loses its own network
-        // connection" scenario, where the terminal may have already finished the transaction
-        // with no way for the POS to find out except asking the operator.
+        // mx51's own reference timeout is measured "since the last PROGRESS", not since the
+        // transaction started. In principle a genuinely offline terminal gets its own explicit
+        // SCI API error (DEVICE_NOT_CONNECTED, handled separately below as an immediate error,
+        // never via override) rather than the API silently repeating stale status — but in
+        // practice, confirmed against real traffic, mx51's cloud does NOT reliably surface that:
+        // a terminal switched off mid-transaction can just keep getting 200 OK with the exact
+        // same unchanged PENDING message forever, indistinguishable from a healthy link waiting
+        // on a slow customer. So "progress" means the message or status actually changing, not
+        // merely an HTTP response arriving — the accepted tradeoff being a customer who's
+        // genuinely slow on one step for the full 60s/20s can also trip this, same as a dead
+        // terminal would. transient_error (our own backend couldn't reach the SCI API within
+        // its budget) never counts as progress either way. Only a genuine network-level failure
+        // reaching the SCI API at all (the .catch() branch below) is handled separately — that's
+        // never proof of anything either, but it's also never mistaken for progress here.
         var lastProgressAt = null;
+        var lastProgressSignature = null;
         // How long a single /status call is given to answer before poll() gives up on it and
         // issues a fresh one — see poll()'s own fetch call. Our OWN backend's call to mx51
         // (CbaSciController::poll() -> CbaSciService::pollTransaction()) is itself capped at a
@@ -651,19 +653,19 @@
                 .then(function (data) {
                     if (cancelled) { return; }
 
-                    // Any real response from the SCI API — even a repeated, unchanged "still
-                    // PENDING" — proves the POS-to-API link is up, which is all the override
-                    // flow exists to question. mx51's own failure-mode guidance gives the
-                    // terminal itself a distinct, explicit error (DEVICE_NOT_CONNECTED, handled
-                    // separately below) rather than silently echoing stale status, so there's
-                    // no need to second-guess an API response by requiring its content to
-                    // change too. transient_error is the one exception: it means our OWN
-                    // backend could not reach the SCI API at all within its own budget
-                    // (CbaSciService::pollTransaction()'s ConnectionException path) — that's
-                    // the literal "no response received from the SCI API" case the override
-                    // exists to catch, not proof of anything, so it must not reset the clock.
+                    // Progress means the status or message actually changing — a repeated,
+                    // unchanged "still PENDING" is NOT treated as proof of life, since mx51's
+                    // cloud can keep answering that way even after the physical terminal has
+                    // gone offline (see this closure's own lastProgressAt docblock for why the
+                    // simpler "any response counts" rule was tried and reverted). transient_error
+                    // (our OWN backend couldn't reach the SCI API within its own budget) never
+                    // counts as a change either way, real or not.
                     if (!data.transient_error) {
-                        lastProgressAt = Date.now();
+                        var progressSignature = (data.status || '') + '|' + (data.message || '');
+                        if (progressSignature !== lastProgressSignature) {
+                            lastProgressSignature = progressSignature;
+                            lastProgressAt = Date.now();
+                        }
                     }
 
                     merchantReceipt = data.merchant_receipt || merchantReceipt;
