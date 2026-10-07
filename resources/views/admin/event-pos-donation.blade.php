@@ -424,7 +424,26 @@
             background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px;
             max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
             overflow: hidden; text-align: center; display: flex; flex-direction: column;
+            position: relative;
         }
+        {{-- A thin light chases around the modal's own border while a payment is in flight —
+             only during .pending, via :has(), so it stops the instant success/error/override
+             land. Built from a conic-gradient ring masked down to just the border using the
+             padding-box/content-box dual-mask trick, then simply rotated (cheaper than
+             animating the gradient's own angle, and works in every current browser). --}}
+        .eft-modal::before {
+            content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 3px;
+            background: conic-gradient(from 0deg, transparent 0deg, var(--gold) 70deg, transparent 150deg, transparent 360deg);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
+            opacity: 0; pointer-events: none; z-index: 5;
+        }
+        .eft-modal:has(.eft-modal-status-box.pending)::before {
+            opacity: 1; animation: eftBorderChase 2.4s linear infinite;
+        }
+        @keyframes eftBorderChase { to { transform: rotate(360deg); } }
         {{-- Header colour reacts to #eftModalStatusBox's own state class (already toggled by
              the existing, untouched polling JS) via :has() — the app's own maroon brand while
              the transaction is still in progress, green once approved, red once declined. Zero
@@ -507,6 +526,7 @@
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
         .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-line { text-align: left; color: #D92D20; }
+        .eft-modal-print-notice { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--success); margin: 8px 0 0; }
         {{-- Always the same wording, deliberately separate from statusLine1/2 above (which keep
              showing mx51's own real decline reason, untouched) — a fixed, generic next-step hint
              rather than a second attempt at explaining what went wrong. --}}
@@ -923,6 +943,7 @@
                         <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
                     </div>
                 </div>
+                <p class="eft-modal-print-notice" id="eftModalPrintNotice" hidden><i class="bi bi-printer-fill"></i> Merchant copy printed automatically</p>
                 <p class="eft-modal-decline-hint">Please check your card details and try again, or use a different payment method.</p>
                 <div class="eft-modal-keys" id="eftModalKeys">
                     <button type="button" class="eft-modal-key-btn key-yes" data-key="yes" id="eftModalKeyYes">Yes</button>
@@ -945,7 +966,7 @@
                     </div>
                     {{-- Replaces the question above the instant Yes/No is tapped — disabling the
                          buttons alone gave no visible sign the tap had registered. --}}
-                    <p class="eft-modal-override-saving" id="eftModalOverrideSaving" hidden>Saving…</p>
+                    <p class="eft-modal-override-saving" id="eftModalOverrideSaving" hidden>Recording the transaction…</p>
                     {{-- Kept in the DOM (JS still references it) but not part of this simplified
                          prompt — a forced Yes/No decision, not an option to keep deferring it. --}}
                     <button type="button" class="eft-modal-cancel-btn" id="eftModalOverrideKeepWaiting" hidden>Keep Waiting</button>
@@ -1573,6 +1594,7 @@
                 overrideQuestion: document.getElementById('eftModalOverrideQuestion'),
                 overrideSaving: document.getElementById('eftModalOverrideSaving'),
                 countdown: document.getElementById('eftModalCountdown'),
+                printNotice: document.getElementById('eftModalPrintNotice'),
             },
             buildStartBody: function (attempt) {
                 return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };

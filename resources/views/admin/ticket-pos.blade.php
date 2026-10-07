@@ -211,7 +211,20 @@
 
         .eft-modal-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .eft-modal-overlay.active { display: flex; }
-        .eft-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px; max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; display: flex; flex-direction: column; }
+        .eft-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px; max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; display: flex; flex-direction: column; position: relative; }
+        .eft-modal::before {
+            content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 3px;
+            background: conic-gradient(from 0deg, transparent 0deg, var(--gold) 70deg, transparent 150deg, transparent 360deg);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
+            opacity: 0; pointer-events: none; z-index: 5;
+        }
+        .eft-modal:has(.eft-modal-status-box.pending)::before {
+            opacity: 1; animation: eftBorderChase 2.4s linear infinite;
+        }
+        @keyframes eftBorderChase { to { transform: rotate(360deg); } }
         {{-- Header colour reacts to #eftModalStatusBox's own state class (already toggled by the
              existing, untouched polling JS) via :has() — blue while in progress, green once
              approved, red once declined. Zero JS changes needed. --}}
@@ -263,6 +276,7 @@
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
         .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-line { text-align: left; color: #D92D20; }
+        .eft-modal-print-notice { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--success); margin: 8px 0 0; }
         .eft-modal-decline-hint { display: none; color: #667085; font-size: 0.88rem; line-height: 1.5; margin: 12px 0 0; }
         .eft-modal:has(.eft-modal-status-box.error) .eft-modal-decline-hint { display: block; }
         .eft-modal-cancel-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem; }
@@ -523,6 +537,7 @@
                         <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
                     </div>
                 </div>
+                <p class="eft-modal-print-notice" id="eftModalPrintNotice" hidden><i class="bi bi-printer-fill"></i> Merchant copy printed automatically</p>
                 <p class="eft-modal-decline-hint">Please check your card details and try again, or use a different payment method.</p>
                 <div class="eft-modal-keys" id="eftModalKeys">
                     <button type="button" class="eft-modal-key-btn key-yes" id="eftModalKeyYes">Yes</button>
@@ -545,7 +560,7 @@
                     </div>
                     {{-- Replaces the question above the instant Yes/No is tapped — disabling the
                          buttons alone gave no visible sign the tap had registered. --}}
-                    <p class="eft-modal-override-saving" id="eftModalOverrideSaving" hidden>Saving…</p>
+                    <p class="eft-modal-override-saving" id="eftModalOverrideSaving" hidden>Recording the transaction…</p>
                     {{-- Kept in the DOM (JS still references it) but not part of this simplified
                          prompt — a forced Yes/No decision, not an option to keep deferring it. --}}
                     <button type="button" class="eft-modal-cancel-btn" id="eftModalOverrideKeepWaiting" hidden>Keep Waiting</button>
@@ -1104,6 +1119,7 @@
                 overrideQuestion: document.getElementById('eftModalOverrideQuestion'),
                 overrideSaving: document.getElementById('eftModalOverrideSaving'),
                 countdown: document.getElementById('eftModalCountdown'),
+                printNotice: document.getElementById('eftModalPrintNotice'),
             },
             buildStartBody: function (attempt) {
                 return { record_type: 'ticket_order', cart_json: JSON.stringify(attempt.cart || []) };
