@@ -174,12 +174,16 @@
            Settings/Account (the design before that). The terminal's name is printed right on the
            control, not hidden behind a tooltip — a clerk needs to see which terminal is live at
            a glance, not discover it on hover. */
-        .pos-actions-main-row { display: flex; gap: 10px; align-items: stretch; }
+        {{-- flex-end, not stretch — the label sits above the box on its own, so the box and
+             Save button end up exactly the same height (both min-height: 68px) with their
+             bottom edges aligned, rather than Save being stretched taller to match the label's
+             extra space above the box. --}}
+        .pos-actions-main-row { display: flex; gap: 10px; align-items: flex-end; }
         .pos-actions-main-row .pos-save-btn { flex: 1 1 0; width: auto; }
         .pos-terminal-mini-wrap { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-        .pos-terminal-mini-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold-hover); }
+        .pos-terminal-mini-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-primary); }
         .pos-terminal-mini-btn {
-            flex: 1; min-width: 0; min-height: 50px; padding: 0 12px;
+            flex: 1; min-width: 0; min-height: 68px; padding: 0 12px;
             border-radius: var(--radius-md); border: 1.5px solid var(--gold);
             background: var(--cream); color: var(--text-primary); font-weight: 700; font-size: 0.92rem;
             display: flex; align-items: center; gap: 8px; width: 100%;
@@ -418,10 +422,11 @@
             overflow: hidden; text-align: center; display: flex; flex-direction: column;
         }
         {{-- Header colour reacts to #eftModalStatusBox's own state class (already toggled by
-             the existing, untouched polling JS) via :has() — blue while the transaction is still
-             in progress, green once approved, red once declined. Zero JS changes needed. --}}
+             the existing, untouched polling JS) via :has() — the app's own maroon brand while
+             the transaction is still in progress, green once approved, red once declined. Zero
+             JS changes needed. --}}
         .eft-modal-header {
-            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #1570EF 0%, #0560D8 100%);
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #a70918 0%, #d95f6b 100%);
             color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
             font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0;
         }
@@ -1527,13 +1532,14 @@
                 resetPosForm();
                 document.getElementById('posGuestName').focus();
             },
-            onDeclined: function (message) {
+            // No extra warning popup here — the modal's own status box already shows this exact
+            // message (setStatus() sets it right before calling onDeclined/onUnresolved), so a
+            // second popup on top of it was pure duplication, not new information.
+            onDeclined: function () {
                 activeEftProvider = null;
-                showToast(message || 'Card declined.', true);
             },
-            onUnresolved: function (message) {
+            onUnresolved: function () {
                 activeEftProvider = null;
-                showToast(message || 'No final result was received — check before retrying.', true);
             },
             onLocalCancel: function () {
                 activeEftProvider = null;
