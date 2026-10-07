@@ -645,7 +645,7 @@
                  docblock on why this tier is trusted to pair here. The gold dot flags that setup
                  still needs attention (nothing paired yet); it clears once a terminal is paired,
                  but the button itself never disappears. -->
-            <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><i class="bi bi-credit-card-2-front"></i></button>
+            <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><i class="bi bi-pc-display"></i></button>
             <div class="dropdown">
                 <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
                     <i class="bi bi-person-fill"></i>

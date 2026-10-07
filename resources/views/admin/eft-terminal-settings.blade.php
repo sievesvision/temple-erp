@@ -30,13 +30,14 @@
     </style>
 </head>
 <body>
-    @include('partials.test-banner')
     {{-- Only a genuine standalone visit (not the POS-page popup, see EftTerminalController::
-         index()'s own docblock on $embedded) gets this page's own topbar — showing it inside
-         that small popup duplicated the popup's own title bar above it for no reason. --}}
+         index()'s own docblock on $embedded) gets the test-environment banner and this page's
+         own topbar — the embedding page already shows its own copy of both, so showing them
+         again inside that small popup was pure duplication. --}}
     @if(!$embedded)
+    @include('partials.test-banner')
     <header class="topbar">
-        <h1><i class="bi bi-credit-card-2-front-fill me-2"></i>EFT Terminal Settings</h1>
+        <h1><i class="bi bi-pc-display me-2"></i>EFT Terminal Settings</h1>
         <a href="{{ $isSystemAdmin ? route('admin.settings') : route('admin.dashboard') }}" class="topbar-btn"><i class="bi bi-arrow-left"></i>Back</a>
         <a href="{{ route('logout') }}" class="topbar-btn"><i class="bi bi-box-arrow-right"></i>Logout</a>
     </header>
