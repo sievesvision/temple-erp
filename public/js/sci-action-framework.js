@@ -48,11 +48,21 @@
         return 'retry-' + Date.now() + '-' + Math.random().toString(36).slice(2);
     }
 
+    // Same 80mm thermal-roll formatting as ticket-print.blade.php's own stub (@page sizing +
+    // monospace + no margin) so this prints at actual receipt width instead of a shrunk-down
+    // A4 page — the receipt text itself comes verbatim from mx51 (already laid out/aligned on
+    // its end), this only supplies the paper dimensions it was written to fit.
     function printText(title, text) {
         if (!text) { return; }
         var win = window.open('', '_blank', 'width=380,height=600');
         if (!win) { return; }
-        win.document.write('<html><head><title>' + escapeHtml(title) + '</title></head><body style="font-family: monospace; white-space: pre-wrap; padding: 16px; font-size: 13px;">' + escapeHtml(text) + '</body></html>');
+        win.document.write(
+            '<html><head><title>' + escapeHtml(title) + '</title>' +
+            '<style>' +
+            '@page { size: 80mm auto; margin: 0; }' +
+            'body { margin: 0; padding: 4mm 3mm; font-family: "Consolas", "Courier New", monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; }' +
+            '</style></head><body>' + escapeHtml(text) + '</body></html>'
+        );
         win.document.close();
         win.focus();
         setTimeout(function () { try { win.print(); } catch (e) {} }, 300);
@@ -93,6 +103,10 @@
         var lastStatusSignature = null;
         var merchantReceipt = null;
         var customerReceipt = null;
+        // Set only when PRINT_MERCHANT_RECEIPT fires via mx51's own auto_actions (i.e. the
+        // "Auto-print signature receipt from POS" setting), never for the same action clicked
+        // manually off an Action Framework button — see handleBuiltinAction()'s isAuto param.
+        var merchantReceiptAutoPrinted = false;
         // The most recent REAL message mx51 actually sent (e.g. "Waiting for card") — a poll
         // with no message field must never blank this out or fall back to a generic word, or
         // a specific in-progress message gets replaced by nothing every time an intermediate
@@ -185,6 +199,8 @@
             lastKnownMessage = null;
             setStatus(['Starting…'], 'pending');
             if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
+            merchantReceiptAutoPrinted = false;
+            if (cfg.el.printNotice) { cfg.el.printNotice.hidden = true; }
             cfg.el.actionContainer.innerHTML = '';
             cfg.el.actionContainer.hidden = true;
             hideOverride();
@@ -215,8 +231,12 @@
             return Math.min(1200 * Math.pow(2, consecutiveTransientErrors), 30000);
         }
 
-        function handleBuiltinAction(action) {
-            if (action === 'PRINT_MERCHANT_RECEIPT') { printText('Merchant Receipt', merchantReceipt); return; }
+        function handleBuiltinAction(action, isAuto) {
+            if (action === 'PRINT_MERCHANT_RECEIPT') {
+                printText('Merchant Receipt', merchantReceipt);
+                if (isAuto) { merchantReceiptAutoPrinted = true; }
+                return;
+            }
             if (action === 'PRINT_CUSTOMER_RECEIPT') { printText('Customer Receipt', customerReceipt); return; }
             if (action === 'TRANSACTION_COMPLETE' || action === 'SETTLEMENT_COMPLETE') { hideModal(); return; }
             // mx51's own button-action table: "Re-submit the same transaction with identical
@@ -429,6 +449,7 @@
         function finishSuccess(donationId, resultAmounts, resultMessage) {
             clearAttempt();
             setStatus([resultMessage || 'PAYMENT APPROVED', 'Saving…'], 'success');
+            if (cfg.el.printNotice) { cfg.el.printNotice.hidden = !merchantReceiptAutoPrinted; }
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onApproved(donationId, resultAmounts, currentAttempt);
             if (cfg.el.actionContainer.hidden) { setTimeout(hideModal, 1200); }
@@ -551,7 +572,7 @@
 
                     var pos = data.pos_instructions || null;
                     var autoActions = (pos && pos.auto_actions) || [];
-                    autoActions.forEach(function (a) { handleBuiltinAction(typeof a === 'string' ? a : (a && a.action)); });
+                    autoActions.forEach(function (a) { handleBuiltinAction(typeof a === 'string' ? a : (a && a.action), true); });
 
                     if (data.status === 'DEVICE_NOT_CONNECTED') {
                         clearAttempt();
