@@ -116,17 +116,19 @@
         var overrideSubmitted = false;
         var startedAt = null;
         // mx51's own reference timeout is measured "since the last successful response", not
-        // since the transaction started — a long but healthy run (steady PENDING updates)
-        // must not trip the override just because it's been going a while; only actual
-        // silence should. But "successful response" has to mean genuinely new content, not
-        // merely an HTTP 200 — a terminal-side network failure often looks, from mx51 cloud's
-        // side, like an ordinary healthy long-poll: it keeps returning 200 OK with the SAME
-        // "still PENDING" message/status forever because it's also still waiting to hear from
-        // the terminal. Only moves when the message or status actually changes; a genuine
-        // network-level failure (the .catch() branch below) is real silence and must NOT
-        // reset it either.
+        // since the transaction started — a long but healthy run (steady PENDING updates, even
+        // repeating the exact same message while the customer takes their time on the terminal)
+        // must not trip the override just because it's been going a while; only actual silence
+        // should. Per mx51's own documented failure modes, a terminal that's genuinely gone
+        // offline gets its own explicit SCI API error (DEVICE_NOT_CONNECTED, handled separately
+        // below as an immediate error, never via override) rather than the API silently
+        // repeating stale status — so any response at all from the SCI API, unchanged or not,
+        // is real proof of life. Only a genuine network-level failure reaching the SCI API
+        // itself (the .catch() branch below, which deliberately never touches this) is the
+        // silence the override exists to catch — exactly mx51's "POS loses its own network
+        // connection" scenario, where the terminal may have already finished the transaction
+        // with no way for the POS to find out except asking the operator.
         var lastProgressAt = null;
-        var lastProgressSignature = null;
         // mx51's own literal wording for "the terminal hasn't even acknowledged the request
         // yet" — verified against real production traffic, not guessed. Unlike a mid-
         // transaction stall (e.g. "Waiting for customer to present card", which means the
@@ -551,10 +553,10 @@
             if (lastKnownMessage === NEVER_ACCEPTED_MESSAGE
                 && !cancelRequestedAt && Date.now() - startedAt > 20000) {
                 clearAttempt();
-                setStatus(['TERMINAL NOT REACHABLE', 'Check the network/terminal connection and try again'], 'error');
+                setStatus(['TERMINAL NOT REACHABLE', 'Please check network and terminal connections and try again.'], 'error');
                 setTimeout(hideModal, 2200);
                 if (activeBtn) { activeBtn.disabled = false; }
-                cfg.onDeclined('Terminal did not respond — check network and terminal connections.');
+                cfg.onDeclined('Please check network and terminal connections and try again.');
                 return;
             }
 
@@ -563,14 +565,16 @@
                 .then(function (data) {
                     if (cancelled) { return; }
 
-                    // Real progress only — a poll that repeats the exact same status/message
-                    // the terminal already reported isn't evidence anything is still moving,
-                    // even though the HTTP call itself succeeded.
-                    var progressSignature = (data.status || '') + '|' + (data.message || '');
-                    if (progressSignature !== lastProgressSignature) {
-                        lastProgressSignature = progressSignature;
-                        lastProgressAt = Date.now();
-                    }
+                    // Any response from the SCI API — even a repeated, unchanged "still
+                    // PENDING" — proves the POS-to-API link is up, which is all the override
+                    // flow exists to question. mx51's own failure-mode guidance gives the
+                    // terminal itself a distinct, explicit error (DEVICE_NOT_CONNECTED, handled
+                    // separately below) rather than silently echoing stale status, so there's
+                    // no need to second-guess an API response by requiring its content to
+                    // change too. Only a genuine network-level failure reaching the SCI API at
+                    // all (the .catch() below, which deliberately does NOT touch this) should
+                    // ever count as silence toward the override deadline.
+                    lastProgressAt = Date.now();
 
                     merchantReceipt = data.merchant_receipt || merchantReceipt;
                     customerReceipt = data.customer_receipt || customerReceipt;
@@ -581,10 +585,10 @@
 
                     if (data.status === 'DEVICE_NOT_CONNECTED') {
                         clearAttempt();
-                        setStatus(['TERMINAL NOT CONNECTED', data.message || 'Check the network/terminal and try again'], 'error');
+                        setStatus(['TERMINAL NOT CONNECTED', data.message || 'Please check network and terminal connections and try again.'], 'error');
                         setTimeout(hideModal, 2200);
                         if (activeBtn) { activeBtn.disabled = false; }
-                        cfg.onDeclined(data.message || 'Terminal not connected.');
+                        cfg.onDeclined(data.message || 'Please check network and terminal connections and try again.');
                         return;
                     }
 
@@ -661,7 +665,6 @@
             overrideOfferedAt = null;
             overrideSubmitted = false;
             lastProgressAt = null;
-            lastProgressSignature = null;
             cancelRequestedAt = null;
             formValues = {};
             cfg.el.cancelBtn.disabled = false;
@@ -702,7 +705,6 @@
                     transactionId = result.data.transaction_id;
                     startedAt = Date.now();
                     lastProgressAt = startedAt;
-                    lastProgressSignature = (result.data.status || '') + '|' + (result.data.message || '');
                     // mx51's own create response carries a real message too (their docs'
                     // example: "Waiting for terminal to accept transaction") — show it now
                     // rather than leaving the generic "Starting…" placeholder up until the
