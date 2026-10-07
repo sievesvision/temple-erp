@@ -450,6 +450,9 @@
             clearAttempt();
             setStatus([resultMessage || 'PAYMENT APPROVED', 'Saving…'], 'success');
             if (cfg.el.printNotice) { cfg.el.printNotice.hidden = !merchantReceiptAutoPrinted; }
+            // The transaction is finished — Cancel Payment has nothing left to cancel. Only
+            // start()/showModal() (a fresh attempt, including Retry) ever shows it again.
+            cfg.el.cancelBtn.hidden = true;
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onApproved(donationId, resultAmounts, currentAttempt);
             if (cfg.el.actionContainer.hidden) { setTimeout(hideModal, 1200); }
@@ -460,6 +463,7 @@
             var fallback = resultStatus === 'CANCELLED' ? 'PAYMENT CANCELLED' : 'PAYMENT DECLINED';
             var subline = resultStatus === 'CANCELLED' ? 'Transaction cancelled' : 'Transaction declined';
             setStatus([message || fallback, subline], 'error');
+            cfg.el.cancelBtn.hidden = true;
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onDeclined(message);
             if (cfg.el.actionContainer.hidden) { setTimeout(hideModal, 1800); }
@@ -475,6 +479,7 @@
             // has to stop trying to resume the same dead attempt too.
             clearAttempt();
             setStatus(['RESULT UNKNOWN', message || 'Check the terminal before retrying'], 'error');
+            cfg.el.cancelBtn.hidden = true;
             setTimeout(hideModal, 2200);
             if (activeBtn) { activeBtn.disabled = false; }
             cfg.onUnresolved(message);

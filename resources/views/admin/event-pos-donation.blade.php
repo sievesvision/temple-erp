@@ -429,11 +429,15 @@
         {{-- A thin light chases around the modal's own border while a payment is in flight —
              only during .pending, via :has(), so it stops the instant success/error/override
              land. Built from a conic-gradient ring masked down to just the border using the
-             padding-box/content-box dual-mask trick, then simply rotated (cheaper than
-             animating the gradient's own angle, and works in every current browser). --}}
+             padding-box/content-box dual-mask trick. The bright segment's angle is animated
+             directly via an @property custom property — NOT by rotating the masked element
+             itself, which was the earlier bug: rotating a rectangular ring as a rigid shape
+             spins the rectangle away from the modal's own bounds, showing as a diagonal bar
+             sweeping across the card instead of a light following its fixed border path. --}}
+        @property --eft-chase-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
         .eft-modal::before {
             content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 3px;
-            background: conic-gradient(from 0deg, transparent 0deg, var(--gold) 70deg, transparent 150deg, transparent 360deg);
+            background: conic-gradient(from var(--eft-chase-angle, 0deg), transparent 0deg, var(--gold) 70deg, transparent 150deg, transparent 360deg);
             -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             -webkit-mask-composite: xor;
             mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -443,7 +447,7 @@
         .eft-modal:has(.eft-modal-status-box.pending)::before {
             opacity: 1; animation: eftBorderChase 2.4s linear infinite;
         }
-        @keyframes eftBorderChase { to { transform: rotate(360deg); } }
+        @keyframes eftBorderChase { to { --eft-chase-angle: 360deg; } }
         {{-- Header colour reacts to #eftModalStatusBox's own state class (already toggled by
              the existing, untouched polling JS) via :has() — the app's own maroon brand while
              the transaction is still in progress, green once approved, red once declined. Zero
@@ -505,14 +509,16 @@
              status-text is `display:contents` by default so wrapping statusLine1/2 in it doesn't
              change anything for those two states; only .error turns it into its own column. --}}
         .eft-modal-status-box.error { background: #FEF3F2; border-color: #FEE4E2; flex-direction: row; justify-content: flex-start; text-align: left; }
-        {{-- A pulsing card icon (like a contactless tap) instead of a plain spinning ring — this
-             is specifically a payment being processed, not a generic "loading" moment. --}}
-        .eft-modal-payment-anim { position: relative; width: 44px; height: 44px; margin: 0 auto 4px; display: none; align-items: center; justify-content: center; }
+        {{-- A static card icon with three pulsing dots beneath it, instead of the earlier
+             expanding "waving circle" rings — a payment-themed but calmer processing cue. --}}
+        .eft-modal-payment-anim { display: none; flex-direction: column; align-items: center; gap: 7px; margin: 0 auto 4px; }
         .eft-modal-status-box.pending .eft-modal-payment-anim { display: flex; }
-        .eft-modal-payment-anim i { font-size: 1.35rem; color: var(--gold-hover); position: relative; z-index: 1; }
-        .eft-modal-payment-anim-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--gold); opacity: 0; animation: eftPaymentPulse 1.8s ease-out infinite; }
-        .eft-modal-payment-anim-ring.ring2 { animation-delay: 0.9s; }
-        @keyframes eftPaymentPulse { 0% { transform: scale(0.55); opacity: 0.75; } 100% { transform: scale(1.7); opacity: 0; } }
+        .eft-modal-payment-anim i { font-size: 1.5rem; color: var(--gold-hover); }
+        .eft-modal-payment-anim-dots { display: flex; gap: 5px; }
+        .eft-modal-payment-anim-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold-hover); opacity: 0.3; animation: eftDotPulse 1.2s ease-in-out infinite; }
+        .eft-modal-payment-anim-dot:nth-child(2) { animation-delay: 0.2s; }
+        .eft-modal-payment-anim-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes eftDotPulse { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
         .eft-modal-status-icon { font-size: 2rem; margin-bottom: 2px; display: none; }
         .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-icon.icon-error {
@@ -931,9 +937,12 @@
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
                     <div class="eft-modal-payment-anim">
-                        <span class="eft-modal-payment-anim-ring"></span>
-                        <span class="eft-modal-payment-anim-ring ring2"></span>
                         <i class="bi bi-credit-card-2-front-fill"></i>
+                        <div class="eft-modal-payment-anim-dots">
+                            <span class="eft-modal-payment-anim-dot"></span>
+                            <span class="eft-modal-payment-anim-dot"></span>
+                            <span class="eft-modal-payment-anim-dot"></span>
+                        </div>
                     </div>
                     <i class="bi bi-check-circle-fill eft-modal-status-icon icon-success"></i>
                     <i class="bi bi-x-circle-fill eft-modal-status-icon icon-error"></i>

@@ -212,9 +212,10 @@
         .eft-modal-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .eft-modal-overlay.active { display: flex; }
         .eft-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px; max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; display: flex; flex-direction: column; position: relative; }
+        @property --eft-chase-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
         .eft-modal::before {
             content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 3px;
-            background: conic-gradient(from 0deg, transparent 0deg, var(--gold) 70deg, transparent 150deg, transparent 360deg);
+            background: conic-gradient(from var(--eft-chase-angle, 0deg), transparent 0deg, var(--gold) 70deg, transparent 150deg, transparent 360deg);
             -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             -webkit-mask-composite: xor;
             mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -224,7 +225,7 @@
         .eft-modal:has(.eft-modal-status-box.pending)::before {
             opacity: 1; animation: eftBorderChase 2.4s linear infinite;
         }
-        @keyframes eftBorderChase { to { transform: rotate(360deg); } }
+        @keyframes eftBorderChase { to { --eft-chase-angle: 360deg; } }
         {{-- Header colour reacts to #eftModalStatusBox's own state class (already toggled by the
              existing, untouched polling JS) via :has() — blue while in progress, green once
              approved, red once declined. Zero JS changes needed. --}}
@@ -260,12 +261,14 @@
         .eft-modal-status-box.error { background: #FEF3F2; border-color: #FEE4E2; flex-direction: row; justify-content: flex-start; text-align: left; }
         {{-- A pulsing card icon (like a contactless tap) instead of a plain spinning ring — this
              is specifically a payment being processed, not a generic "loading" moment. --}}
-        .eft-modal-payment-anim { position: relative; width: 40px; height: 40px; margin: 0 auto 4px; display: none; align-items: center; justify-content: center; }
+        .eft-modal-payment-anim { display: none; flex-direction: column; align-items: center; gap: 6px; margin: 0 auto 4px; }
         .eft-modal-status-box.pending .eft-modal-payment-anim { display: flex; }
-        .eft-modal-payment-anim i { font-size: 1.2rem; color: var(--gold-hover); position: relative; z-index: 1; }
-        .eft-modal-payment-anim-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--gold); opacity: 0; animation: eftPaymentPulse 1.8s ease-out infinite; }
-        .eft-modal-payment-anim-ring.ring2 { animation-delay: 0.9s; }
-        @keyframes eftPaymentPulse { 0% { transform: scale(0.55); opacity: 0.75; } 100% { transform: scale(1.7); opacity: 0; } }
+        .eft-modal-payment-anim i { font-size: 1.3rem; color: var(--gold-hover); }
+        .eft-modal-payment-anim-dots { display: flex; gap: 5px; }
+        .eft-modal-payment-anim-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold-hover); opacity: 0.3; animation: eftDotPulse 1.2s ease-in-out infinite; }
+        .eft-modal-payment-anim-dot:nth-child(2) { animation-delay: 0.2s; }
+        .eft-modal-payment-anim-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes eftDotPulse { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
         .eft-modal-status-icon { font-size: 2rem; margin-bottom: 2px; display: none; }
         .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-icon.icon-error { display: flex; align-items: center; justify-content: center; margin: 0; flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; background: #F04438; color: #fff; font-size: 1.05rem; }
@@ -525,9 +528,12 @@
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
                     <div class="eft-modal-payment-anim">
-                        <span class="eft-modal-payment-anim-ring"></span>
-                        <span class="eft-modal-payment-anim-ring ring2"></span>
                         <i class="bi bi-credit-card-2-front-fill"></i>
+                        <div class="eft-modal-payment-anim-dots">
+                            <span class="eft-modal-payment-anim-dot"></span>
+                            <span class="eft-modal-payment-anim-dot"></span>
+                            <span class="eft-modal-payment-anim-dot"></span>
+                        </div>
                     </div>
                     <i class="bi bi-check-circle-fill eft-modal-status-icon icon-success"></i>
                     <i class="bi bi-x-circle-fill eft-modal-status-icon icon-error"></i>
