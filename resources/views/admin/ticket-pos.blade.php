@@ -195,7 +195,7 @@
         .eft-modal-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
         .eft-modal-overlay.active { display: flex; }
         .eft-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 460px; max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; display: flex; flex-direction: column; }
-        .eft-modal-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em; font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0; }
+        .eft-modal-header { background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #12b76a 0%, #039855 100%); color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em; font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0; }
         {{-- min-height:0 is the flexbox gotcha fix — without it a flex child never actually
              shrinks to scroll, it just overflows its parent instead, which is exactly how a
              long Action Framework response (mx51's "13.37" full-element test case among them)
@@ -229,8 +229,8 @@
         .sci-af-row { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
         .sci-af-row:last-child { margin-bottom: 0; }
         .sci-af-text { font-size: 0.88rem; color: var(--text-secondary); text-align: left; }
-        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid var(--maroon); font-weight: 700; font-size: 0.88rem; color: var(--maroon); background: var(--white); }
-        .sci-af-btn:active { background: var(--cream); }
+        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid #1570EF; font-weight: 700; font-size: 0.88rem; color: #1570EF; background: var(--white); }
+        .sci-af-btn:active { background: #EFF6FF; }
         {{-- flex-wrap lets a long label (mx51's own test fields can be verbose, e.g.
              "Input 1 (input_name_1_...)") drop to its own line above the input instead of
              forcing the row wider than the modal. --}}
