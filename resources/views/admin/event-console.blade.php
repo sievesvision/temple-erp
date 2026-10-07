@@ -387,10 +387,11 @@
             overflow: hidden; text-align: center; display: flex; flex-direction: column;
         }
         {{-- Header colour reacts to the refund flow's own status-box state class (already
-             toggled by the existing, untouched polling JS) via :has() — blue while in progress,
-             green once approved, red once declined/failed. Zero JS changes needed. --}}
+             toggled by the existing, untouched polling JS) via :has() — the app's own maroon
+             brand while in progress, green once approved, red once declined/failed. Zero JS
+             changes needed. --}}
         .eft-modal-header {
-            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #1570EF 0%, #0560D8 100%);
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #a70918 0%, #d95f6b 100%);
             color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
             font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0;
         }
