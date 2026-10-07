@@ -887,12 +887,21 @@
             // exactly what prompted a second tap on what looked like an unresponsive button.
             if (cfg.el.overrideQuestion) { cfg.el.overrideQuestion.hidden = true; }
             if (cfg.el.overrideSaving) { cfg.el.overrideSaving.hidden = false; }
+            // Without its own timeout, "Recording the transaction…" could sit there forever if
+            // this one request simply never answers (a hung server, not just a network-level
+            // failure the .catch() below already handles) — with the question hidden and no
+            // Cancel button showing underneath it (showOverride() hides it), there would be
+            // nothing left on screen to click at all. 20s mirrors poll()'s own per-call
+            // patience; past that this is treated exactly like the .catch() below.
+            var overrideAbort = new AbortController();
+            var overrideAbortTimer = setTimeout(function () { overrideAbort.abort(); }, 20000);
             fetch(cfg.overrideUrlBase + '/' + encodeURIComponent(transactionId) + qs(), {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': cfg.csrfToken, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'outcome=' + encodeURIComponent(outcome),
+                signal: overrideAbort.signal,
             })
-                .then(function (res) { return res.json(); })
+                .then(function (res) { clearTimeout(overrideAbortTimer); return res.json(); })
                 .then(function (data) {
                     overrideSubmitted = false;
                     cfg.el.overrideYesBtn.disabled = false;
@@ -928,6 +937,7 @@
                     finishUnresolved('Marked unresolved — please verify against the terminal/bank statement.');
                 })
                 .catch(function () {
+                    clearTimeout(overrideAbortTimer);
                     overrideSubmitted = false;
                     cfg.el.overrideYesBtn.disabled = false;
                     cfg.el.overrideNoBtn.disabled = false;
