@@ -267,8 +267,8 @@
                         return;
                     }
                     if (data.message) { lastKnownMessage = data.message; }
-                    if (data.pos_instructions) {
-                        setStatus([lastKnownMessage || 'Please wait…', data.status || ''], 'pending');
+                    if (data.pos_instructions && !overrideOfferedAt) {
+                        updateWaitingStatus();
                         renderInstructions(data.pos_instructions);
                     }
                     // This response alone never carries a final result_financial_status/
@@ -462,26 +462,42 @@
         // transaction never trips it, but one stuck repeating the same message forever (e.g. the
         // terminal itself has gone offline) now correctly does.
         //
-        // Called both from poll()'s own response handler AND from a dedicated setInterval (see
-        // start()) that checks every second on its own clock — relying on poll() alone meant
-        // this deadline was only ever actually evaluated whenever the current long-poll request
-        // happened to resolve, which could run well past the intended 20s if mx51 held that
-        // request open for its own full long-poll duration.
-        function maybeShowOverride() {
+        // Runs every second from a dedicated setInterval (see start()), independent of poll()'s
+        // own response cycle — relying on poll() alone to evaluate this meant the deadline was
+        // only ever actually checked whenever the current long-poll request happened to resolve,
+        // which could run well past the intended 20s if mx51 held that request open for its own
+        // full long-poll duration.
+        //
+        // This is also the ONLY place that writes the operator-facing status line while a
+        // transaction is merely pending (poll()'s own response handler no longer does — see
+        // below) — having both poll() and this ticker write to the same line fought with each
+        // other, whichever ran last winning, which is what produced the real message and a bare
+        // "PENDING" word flipping back and forth with no obvious pattern. While counting down it
+        // shows a live countdown instead of the raw status word, so the operator always knows
+        // how much longer until a response is needed; once the override has actually been
+        // offered, it leaves that message alone — a very late response from an already-abandoned
+        // long-poll must never silently replace it with "pending" again a few seconds later.
+        function updateWaitingStatus() {
             if (cancelled || overrideOfferedAt) { return; }
-            var overrideBaseline = cancelRequestedAt || lastProgressAt || startedAt;
-            var overrideDeadline = cancelRequestedAt ? 20000 : 60000;
-            if (overrideBaseline && Date.now() - overrideBaseline > overrideDeadline) {
+            var baseline = cancelRequestedAt || lastProgressAt || startedAt;
+            if (!baseline) { return; }
+            var deadline = cancelRequestedAt ? 20000 : 60000;
+            var elapsed = Date.now() - baseline;
+            if (elapsed >= deadline) {
                 overrideOfferedAt = Date.now();
                 setStatus(['No response from the terminal yet', 'Confirm the outcome below, or keep waiting'], 'error');
                 showOverride();
+                return;
             }
+            var remaining = Math.max(1, Math.ceil((deadline - elapsed) / 1000));
+            var line2 = cancelRequestedAt
+                ? ('Cancelling — confirming in ' + remaining + 's if no response')
+                : ('Checking again in ' + remaining + 's if no response');
+            setStatus([lastKnownMessage || 'Please wait…', line2], 'pending');
         }
 
         function poll() {
             if (cancelled || !transactionId) { return; }
-
-            maybeShowOverride();
 
             // If the terminal has never even acknowledged this transaction, there's nothing
             // ambiguous to resolve — no card was ever touched, so unlike a mid-transaction
@@ -534,8 +550,20 @@
                     // one or fall back to a generic placeholder while nothing has actually
                     // changed. Only ever replace it with a genuinely new message.
                     if (data.message) { lastKnownMessage = data.message; }
-                    setStatus([lastKnownMessage || 'Please wait…', data.status || ''], 'pending');
-                    renderInstructions(pos);
+                    // Once the override has actually been offered, leave it exactly as shown —
+                    // updateWaitingStatus() owns the visible status line now (see its own
+                    // docblock on why this must be the only writer), and the dynamic buttons it
+                    // might render here have no useful place to go once the operator's already
+                    // been asked to confirm the outcome manually. This is what used to show the
+                    // override's own "no response" box sitting directly on top of a status box
+                    // still saying "Waiting for customer…/PENDING" with its spinner still
+                    // spinning — a very late response from an already-abandoned long-poll
+                    // silently overwriting the override a few seconds after it appeared, with no
+                    // visible cause.
+                    if (!overrideOfferedAt) {
+                        updateWaitingStatus();
+                        renderInstructions(pos);
+                    }
 
                     if (!data.done) {
                         setTimeout(poll, nextDelay(!!data.transient_error));
@@ -598,7 +626,7 @@
             // Re-armed on every start() — including a Retry, which calls start() again without
             // going through hideModal() first — so there's never more than one of these running.
             if (overrideCheckInterval) { clearInterval(overrideCheckInterval); }
-            overrideCheckInterval = setInterval(maybeShowOverride, 1000);
+            overrideCheckInterval = setInterval(updateWaitingStatus, 1000);
 
             var body = new URLSearchParams();
             if (cfg.eventId !== undefined && cfg.eventId !== null) { body.set('event_id', cfg.eventId); }
@@ -632,9 +660,11 @@
                     // mx51's own create response carries a real message too (their docs'
                     // example: "Waiting for terminal to accept transaction") — show it now
                     // rather than leaving the generic "Starting…" placeholder up until the
-                    // first poll response comes back.
+                    // first poll response comes back. updateWaitingStatus() (not a direct
+                    // setStatus() call) so the countdown appears immediately too, rather than
+                    // leaving the raw status word up for the ~1s until the next interval tick.
                     if (result.data.message) { lastKnownMessage = result.data.message; }
-                    setStatus([lastKnownMessage || 'Please wait…', result.data.status || ''], 'pending');
+                    updateWaitingStatus();
                     renderInstructions(result.data.pos_instructions || null);
                     poll();
                 })
