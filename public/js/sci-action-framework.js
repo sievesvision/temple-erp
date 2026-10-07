@@ -398,13 +398,12 @@
             }
 
             cfg.el.actionContainer.hidden = cfg.el.actionContainer.children.length === 0;
-            // Avoid two "cancel"-ish affordances competing for attention at once — once mx51's
-            // own Action Framework is presenting real buttons/inputs for the operator to use,
-            // the generic Cancel Payment button steps aside. The override dialog (once shown)
-            // owns cancelBtn's spot instead — never fight it back into view over that.
-            if (!overrideOfferedAt) {
-                cfg.el.cancelBtn.hidden = !cfg.el.actionContainer.hidden;
-            }
+            // Cancel Payment used to step aside whenever mx51's own Action Framework had any
+            // content at all — but mx51 doesn't always include an equivalent cancel affordance
+            // of its own (an interim "enter tip amount" form, say, has none), which left the
+            // operator with no way to reach the one button that actually sets cancelRequestedAt
+            // and shortens the override deadline to 20s. It now stays put throughout — showOverride()/
+            // hideOverride() are the only things that ever hide it.
         }
 
         // mx51's certification requirements are explicit: "Approved/Declined message and
@@ -485,7 +484,13 @@
             var elapsed = Date.now() - baseline;
             if (elapsed >= deadline) {
                 overrideOfferedAt = Date.now();
-                setStatus(['No response from the terminal yet', 'Confirm the outcome below, or keep waiting'], 'error');
+                // Clears whatever mx51's own Action Framework had last rendered (buttons, the
+                // Pairing ID/TID details line, anything) — left in place, this is what put a
+                // stale, now-meaningless "Cancel" button and transaction details directly above
+                // the override's own prompt, none of which still means anything once the
+                // outcome has become genuinely unknown.
+                cfg.el.actionContainer.innerHTML = '';
+                cfg.el.actionContainer.hidden = true;
                 showOverride();
                 return;
             }

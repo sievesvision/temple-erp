@@ -516,6 +516,10 @@
             background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
         }
         .eft-modal-cancel-btn:active { background: var(--cream); }
+        {{-- Visibly greyed out the instant it's clicked (cancelBtn.disabled = true happens
+             synchronously in the click handler) — without this it kept its normal look, so
+             nothing on screen confirmed the tap had actually registered. --}}
+        .eft-modal-cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         {{-- Once declined, this same button (still "Cancel Payment" — nothing left to cancel,
              so it's the dismiss action) becomes the blue primary treatment the design calls for,
              matching the OK button on Donation Recorded. --}}
@@ -588,12 +592,30 @@
 
         /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
            actually started, "Cancel" is replaced by an honest "confirm the real outcome"
-           prompt instead of pretending the payment can be stopped mid-flight. */
-        .eft-modal-override p { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 14px; }
-        .eft-modal-override-actions { display: flex; gap: 10px; margin-bottom: 10px; }
-        .eft-override-btn { flex: 1 1 auto; padding: 13px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.9rem; color: #fff; }
-        .eft-override-btn.eft-override-yes { background: var(--success); }
-        .eft-override-btn.eft-override-no { background: var(--error); }
+           prompt instead of pretending the payment can be stopped mid-flight. Deliberately
+           plain — an amber "unknown" icon, a question, Yes/No — not styled as a decline (it
+           isn't one: the whole point is that the real outcome is still unknown). */
+        .eft-modal-override-icon { width: 52px; height: 52px; border-radius: 50%; background: #F2A900; color: #fff; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; margin: 4px auto 14px; }
+        .eft-modal-override-title { font-weight: 800; font-size: 1.2rem; color: var(--text-primary); margin-bottom: 8px; }
+        .eft-modal-override-subtitle { font-size: 0.92rem; color: var(--text-secondary); margin-bottom: 18px; }
+        .eft-modal-override-actions { display: flex; gap: 10px; margin-bottom: 10px; justify-content: center; }
+        .eft-override-btn { flex: 0 1 120px; padding: 12px 10px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--white); font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
+        .eft-override-btn:active { background: var(--cream); }
+        {{-- The override is a genuinely different moment from a decline (mx51's own prompt
+             literally asks whether it went through — the outcome is unknown, not negative), so
+             none of the "Payment Declined" branding (header text/icon swap, big X, decline hint)
+             applies here even though the status box also uses the 'error' tint for both. These
+             rules win over the .error-driven ones above whenever the override is visible. --}}
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header {
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #a70918 0%, #d95f6b 100%);
+        }
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-title-error,
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-icon-error { display: none; }
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-title-default,
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-icon-default { display: inline-block; }
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-body-icon-wrap,
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-status-box,
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-decline-hint { display: none; }
 
         @media (max-width: 600px) {
             .pos-method-btn { flex: 1 1 calc(50% - 5px); }
@@ -900,12 +922,16 @@
                      whichever step the terminal is currently on (text/button/input/image). -->
                 <div id="eftModalActionFramework" hidden></div>
                 <div class="eft-modal-override" id="eftModalOverride" hidden>
-                    <p>We couldn't get a final answer from the terminal. Did the payment go through?</p>
+                    <div class="eft-modal-override-icon"><i class="bi bi-exclamation-lg"></i></div>
+                    <div class="eft-modal-override-title">Unknown transaction status</div>
+                    <p class="eft-modal-override-subtitle">Was the transaction successful on the Eftpos terminal?</p>
                     <div class="eft-modal-override-actions">
-                        <button type="button" class="eft-override-btn eft-override-yes" id="eftModalOverrideYes">Yes, it went through</button>
-                        <button type="button" class="eft-override-btn eft-override-no" id="eftModalOverrideNo">No / not sure</button>
+                        <button type="button" class="eft-override-btn eft-override-yes" id="eftModalOverrideYes">Yes</button>
+                        <button type="button" class="eft-override-btn eft-override-no" id="eftModalOverrideNo">No</button>
                     </div>
-                    <button type="button" class="eft-modal-cancel-btn" id="eftModalOverrideKeepWaiting">Keep Waiting</button>
+                    {{-- Kept in the DOM (JS still references it) but not part of this simplified
+                         prompt — a forced Yes/No decision, not an option to keep deferring it. --}}
+                    <button type="button" class="eft-modal-cancel-btn" id="eftModalOverrideKeepWaiting" hidden>Keep Waiting</button>
                 </div>
                 <button type="button" class="eft-modal-cancel-btn" id="eftModalCancelBtn">Cancel Payment</button>
             </div>
