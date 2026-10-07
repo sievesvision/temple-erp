@@ -130,11 +130,16 @@
         // with no way for the POS to find out except asking the operator.
         var lastProgressAt = null;
         // How long a single /status call is given to answer before poll() gives up on it and
-        // issues a fresh one — see poll()'s own fetch call. Kept well under either override
-        // deadline so a genuinely silent link gets several abort-and-retry cycles (real
-        // evidence of a problem) long before 60s/20s, rather than one single still-in-flight
-        // call being mistaken for silence just because it happens to be slow.
-        var POLL_ABORT_MS = 10000;
+        // issues a fresh one — see poll()'s own fetch call. Our OWN backend's call to mx51
+        // (CbaSciController::poll() -> CbaSciService::pollTransaction()) is itself capped at a
+        // dedicated 15s timeout — deliberately short so even a poll in flight at the exact
+        // moment Cancel is clicked still resolves well inside the cancel override's fixed 20s
+        // window (see updateWaitingStatus()'s docblock on why that deadline isn't reset by
+        // interim responses). This has to sit safely above that 15s backend ceiling, or it
+        // aborts every single healthy call before our own backend ever gets the chance to
+        // answer — which is exactly what a too-short value here previously did, permanently
+        // preventing the clock from ever resetting even on a perfectly healthy transaction.
+        var POLL_ABORT_MS = 18000;
         // mx51's own literal wording for "the terminal hasn't even acknowledged the request
         // yet" — verified against real production traffic, not guessed. Unlike a mid-
         // transaction stall (e.g. "Waiting for customer to present card", which means the
@@ -217,12 +222,25 @@
             cfg.el.overlay.classList.add('active');
         }
 
+        // A final outcome (approved, declined, unresolved) means there's nothing left to ask
+        // "did it go through?" about — called from finishSuccess()/finishDeclined()/
+        // finishUnresolved() the instant each fires, not just from hideModal(). Those three
+        // don't always close the modal right away (mx51's certification-required Print/Done/
+        // Retry buttons can sit on screen indefinitely, waiting on the operator), and the gap
+        // between "we already know the outcome" and "the modal actually closes" was exactly
+        // when this 1-second ticker kept running — with cancelRequestedAt still set from an
+        // earlier Cancel click, it could cross the 20s mark and pop the override dialog on top
+        // of an already-finalised result the operator was simply looking at.
+        function stopOverrideWatch() {
+            if (overrideCheckInterval) { clearInterval(overrideCheckInterval); overrideCheckInterval = null; }
+        }
+
         function hideModal() {
             flowStarted = false;
             cfg.el.overlay.classList.remove('active');
             cfg.el.actionContainer.innerHTML = '';
             hideOverride();
-            if (overrideCheckInterval) { clearInterval(overrideCheckInterval); overrideCheckInterval = null; }
+            stopOverrideWatch();
             if (typeof cfg.onModalClosed === 'function') { cfg.onModalClosed(); }
         }
 
@@ -456,6 +474,7 @@
         // sent anything to wait for; only auto-close when it didn't.
         function finishSuccess(donationId, resultAmounts, resultMessage) {
             clearAttempt();
+            stopOverrideWatch();
             setStatus([resultMessage || 'PAYMENT APPROVED', 'Saving…'], 'success');
             if (cfg.el.printNotice) { cfg.el.printNotice.hidden = !merchantReceiptAutoPrinted; }
             // The transaction is finished — Cancel Payment has nothing left to cancel. Only
@@ -468,6 +487,7 @@
 
         function finishDeclined(message, resultStatus) {
             clearAttempt();
+            stopOverrideWatch();
             var fallback = resultStatus === 'CANCELLED' ? 'PAYMENT CANCELLED' : 'PAYMENT DECLINED';
             var subline = resultStatus === 'CANCELLED' ? 'Transaction cancelled' : 'Transaction declined';
             setStatus([message || fallback, subline], 'error');
@@ -486,6 +506,7 @@
             // treats this outcome as final (see CbaSciController::override()), but the client
             // has to stop trying to resume the same dead attempt too.
             clearAttempt();
+            stopOverrideWatch();
             setStatus(['RESULT UNKNOWN', message || 'Check the terminal before retrying'], 'error');
             cfg.el.cancelBtn.hidden = true;
             setTimeout(hideModal, 2200);
@@ -541,14 +562,17 @@
             // A separate, small caption element — not a second line inside the main status
             // box, which made the countdown read as if it were part of the terminal's own
             // message rather than the app's own "still watching" indicator. Left blank for the
-            // first stretch of every transaction on purpose: poll()'s own per-call patience
-            // (POLL_ABORT_MS below) means a response is expected within that window on any
-            // healthy link, so showing a ticking countdown from second one would read as a
+            // first stretch of an ORDINARY transaction on purpose: poll()'s own per-call
+            // patience (POLL_ABORT_MS below) means a response is expected within that window on
+            // any healthy link, so showing a ticking countdown from second one would read as a
             // constant low-level warning on every normal transaction. It only appears once
             // we're past that window with nothing back yet — the point where there's actually
-            // something worth telling the operator about.
+            // something worth telling the operator about. The post-cancel countdown is exempt —
+            // its whole 20s deadline is already shorter than POLL_ABORT_MS, so gating it the
+            // same way would mean it never shows at all; a cancel is meant to resolve quickly,
+            // so counting down immediately is the right feedback there.
             if (cfg.el.countdown) {
-                if (elapsed < POLL_ABORT_MS) {
+                if (!cancelRequestedAt && elapsed < POLL_ABORT_MS) {
                     cfg.el.countdown.textContent = '';
                 } else {
                     var remaining = Math.max(1, Math.ceil((deadline - elapsed) / 1000));
@@ -593,16 +617,20 @@
                 .then(function (data) {
                     if (cancelled) { return; }
 
-                    // Any response from the SCI API — even a repeated, unchanged "still
+                    // Any real response from the SCI API — even a repeated, unchanged "still
                     // PENDING" — proves the POS-to-API link is up, which is all the override
                     // flow exists to question. mx51's own failure-mode guidance gives the
                     // terminal itself a distinct, explicit error (DEVICE_NOT_CONNECTED, handled
                     // separately below) rather than silently echoing stale status, so there's
                     // no need to second-guess an API response by requiring its content to
-                    // change too. Only a genuine network-level failure reaching the SCI API at
-                    // all (the .catch() below, which deliberately does NOT touch this) should
-                    // ever count as silence toward the override deadline.
-                    lastProgressAt = Date.now();
+                    // change too. transient_error is the one exception: it means our OWN
+                    // backend could not reach the SCI API at all within its own budget
+                    // (CbaSciService::pollTransaction()'s ConnectionException path) — that's
+                    // the literal "no response received from the SCI API" case the override
+                    // exists to catch, not proof of anything, so it must not reset the clock.
+                    if (!data.transient_error) {
+                        lastProgressAt = Date.now();
+                    }
 
                     merchantReceipt = data.merchant_receipt || merchantReceipt;
                     customerReceipt = data.customer_receipt || customerReceipt;
