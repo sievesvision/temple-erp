@@ -128,6 +128,9 @@
            temple branding up in the topbar instead. */
         .pos-card-title { display: flex; align-items: center; gap: 10px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 700; font-size: 1.08rem; color: var(--text-primary); margin: 0; letter-spacing: -0.01em; }
         .pos-card-title i { font-size: 1.05rem; color: var(--gold-hover); }
+        {{-- Only for a title with no .pos-card-subtitle under it (card 3's "Details" step) —
+             without either one, its content sat flush against the title with zero gap. --}}
+        .pos-card-title-spaced { margin-bottom: 12px; }
         .pos-card-subtitle { margin: 4px 0 16px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
         {{-- Numbered steps instead of generic icons for the three cards that make up the
              actual donor->amount->details sequence — a plain icon doesn't communicate "do
@@ -244,8 +247,10 @@
         .pos-amount-input-wrap input { border: none; flex: 1; min-width: 0; min-height: 52px; padding: 12px 14px; font-size: 1.15rem; font-weight: 600; color: var(--text-primary); background: transparent; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
         .pos-amount-input-wrap input:focus { outline: none; box-shadow: none; }
         .pos-amount-input-stack { display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0; }
-        .pos-amount-input-stack input { padding: 10px 14px 0; min-height: auto; }
-        .pos-amount-hint { padding: 0 16px 10px; font-size: 0.8rem; color: var(--text-secondary); }
+        .pos-amount-input-stack input { padding: 0 14px 10px; min-height: auto; }
+        {{-- Above the field, not below it — a hint reading "Any amount" under the input looked
+             like it was describing a value just entered, rather than guiding what to type. --}}
+        .pos-amount-hint { padding: 10px 16px 0; font-size: 0.8rem; color: var(--text-secondary); }
 
         .pos-section-title { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.95rem; color: var(--text-primary); margin: 20px 0 10px; }
         .pos-section-title:first-child { margin-top: 0; }
@@ -383,16 +388,21 @@
         .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
-            padding: 14px 16px; min-height: 72px; display: flex; flex-direction: column;
+            padding: 16px; min-height: 72px; display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px;
+            transition: background-color .15s, border-color .15s;
         }
+        {{-- Tinted per state (not just the icon/text) so approve/decline reads at a glance
+             instead of blending into the same neutral box the whole flow sits in. --}}
+        .eft-modal-status-box.success { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.4); }
+        .eft-modal-status-box.error { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.4); }
         .eft-modal-spinner {
             width: 26px; height: 26px; border-radius: 50%;
             border: 3px solid rgba(200,155,60,0.25); border-top-color: var(--gold);
             animation: eftSpin 0.8s linear infinite; margin-bottom: 4px; display: none;
         }
         .eft-modal-status-box.pending .eft-modal-spinner { display: block; }
-        .eft-modal-status-icon { font-size: 1.6rem; margin-bottom: 2px; display: none; }
+        .eft-modal-status-icon { font-size: 2rem; margin-bottom: 2px; display: none; }
         .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-icon.icon-error { display: block; color: var(--error); }
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
@@ -447,8 +457,10 @@
              entirely. A text element alone in its own row still reads fine at its natural
              width. --}}
         .sci-af-text { font-size: 0.88rem; color: var(--text-secondary); text-align: left; }
-        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid transparent; font-weight: 700; font-size: 0.88rem; color: #fff; background: var(--maroon); }
-        .sci-af-btn:active { filter: brightness(0.92); }
+        {{-- Outlined, not a solid maroon fill — the header above is already that same solid
+             maroon, and a button identical to it reads as one flat block with no hierarchy. --}}
+        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid var(--maroon); font-weight: 700; font-size: 0.88rem; color: var(--maroon); background: var(--white); }
+        .sci-af-btn:active { background: var(--cream); }
         {{-- flex-wrap lets a long label (mx51's own test fields can be verbose, e.g.
              "Input 1 (input_name_1_...)") drop to its own line above the input instead of
              forcing the row wider than the modal — that horizontal overflow was the other
@@ -462,7 +474,6 @@
              natural size and dominate the whole modal. --}}
         .sci-af-image { max-width: 100%; max-height: 64px; display: block; margin: 6px auto; border-radius: var(--radius-sm); }
         .sci-af-details { text-align: left; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.45; }
-        .sci-af-test-payload { text-align: left; font-family: 'Courier New', ui-monospace, monospace; font-size: 0.74rem; line-height: 1.4; white-space: pre-wrap; word-break: break-word; background: var(--cream); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; }
         #eftModalActionFramework { margin-bottom: 10px; }
 
         /* Manual recovery override — CBA SCI has no cancel API, so once a transaction has
@@ -593,15 +604,15 @@
                         <div class="pos-amount-input-wrap">
                             <span class="pos-amount-prefix">{{ $temple['currency'] ?? '$' }}</span>
                             <div class="pos-amount-input-stack">
-                                <input type="text" inputmode="decimal" id="posAmount" placeholder="Enter amount">
                                 <span class="pos-amount-hint">Any amount</span>
+                                <input type="text" inputmode="decimal" id="posAmount" placeholder="Enter amount">
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="pos-card">
-                    <div class="pos-card-title"><span class="pos-step-badge">3</span>Details (optional)</div>
+                    <div class="pos-card-title pos-card-title-spaced"><span class="pos-step-badge">3</span>Details (optional)</div>
                     <textarea class="pos-input pos-textarea" id="posDetails" rows="2" placeholder="e.g. In memory of..., family name, special request..."></textarea>
                 </div>
             </div>
@@ -1152,7 +1163,7 @@
                         : '<div class="pos-tier-free-block">'
                             + '<div class="pos-tier-free-quick-amounts"></div>'
                             + '<div class="pos-amount-input-wrap"><span class="pos-amount-prefix">' + CURRENCY_CODE + '</span>'
-                            + '<div class="pos-amount-input-stack"><input type="text" inputmode="decimal" placeholder="Enter amount" class="pos-tier-free"><span class="pos-amount-hint">Any amount</span></div></div></div>')
+                            + '<div class="pos-amount-input-stack"><span class="pos-amount-hint">Any amount</span><input type="text" inputmode="decimal" placeholder="Enter amount" class="pos-tier-free"></div></div></div>')
                     + '</div>';
             });
             tierPillsContainer.innerHTML = pillsHtml;
