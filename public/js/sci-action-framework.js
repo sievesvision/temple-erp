@@ -210,6 +210,17 @@
         function hideOverride() {
             cfg.el.overrideBox.hidden = true;
             cfg.el.cancelBtn.hidden = false;
+            // submitOverride()'s success path never restores these — it moves straight on to
+            // finishSuccess()/finishDeclined()/finishUnresolved(), with no reason to touch an
+            // override box that's about to be hidden anyway. But the override box and its
+            // Yes/No question don't just disappear with the old transaction; they get reused
+            // for the next one, and without this reset a LATER transaction that also reaches
+            // the override (even immediately, if something else — like the startedAt race
+            // fixed alongside this — bypasses the usual wait first) would show the one that
+            // just finished's leftover "Recording the transaction…" instead of ever asking
+            // Yes/No at all.
+            if (cfg.el.overrideQuestion) { cfg.el.overrideQuestion.hidden = false; }
+            if (cfg.el.overrideSaving) { cfg.el.overrideSaving.hidden = true; }
         }
 
         function showOverride() {
@@ -592,12 +603,14 @@
             // any healthy link, so showing a ticking countdown from second one would read as a
             // constant low-level warning on every normal transaction. It only appears once
             // we're past that window with nothing back yet — the point where there's actually
-            // something worth telling the operator about. The post-cancel countdown is exempt —
-            // its whole 20s deadline is already shorter than POLL_ABORT_MS, so gating it the
-            // same way would mean it never shows at all; a cancel is meant to resolve quickly,
-            // so counting down immediately is the right feedback there.
+            // something worth telling the operator about. Applies the same way after a Cancel
+            // click — it used to show its countdown immediately there on the reasoning that a
+            // cancel should resolve quickly, but that meant clicking Cancel always produced an
+            // instant "confirming in 20s" message even when the terminal was about to confirm
+            // within the next second or two, which read as a false alarm exactly like the
+            // un-gated version did for an ordinary transaction.
             if (cfg.el.countdown) {
-                if (!cancelRequestedAt && elapsed < POLL_ABORT_MS) {
+                if (elapsed < POLL_ABORT_MS) {
                     cfg.el.countdown.textContent = '';
                 } else {
                     var remaining = Math.max(1, Math.ceil((deadline - elapsed) / 1000));
@@ -741,6 +754,16 @@
             consecutiveTransientErrors = 0;
             overrideOfferedAt = null;
             overrideSubmitted = false;
+            // Reset together, deliberately — the override-check interval below is armed
+            // synchronously, before the /start request has even been sent, let alone answered.
+            // If startedAt were left holding its value from a PREVIOUS transaction in this same
+            // page session (it was only ever reassigned once that response came back, never
+            // reset here), an interval tick landing in that gap would fall through to it as
+            // updateWaitingStatus()'s baseline and compute elapsed against a stale, possibly
+            // very old timestamp — flashing a bogus countdown for one tick before the real
+            // value from THIS attempt took over a moment later. With both null, baseline is
+            // null too and updateWaitingStatus() does nothing until there's a real one to use.
+            startedAt = null;
             lastProgressAt = null;
             cancelRequestedAt = null;
             formValues = {};
