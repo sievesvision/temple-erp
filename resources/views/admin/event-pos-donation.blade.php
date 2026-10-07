@@ -167,21 +167,27 @@
         .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
-           shares one line with Save roughly half-and-half, only while that method is selected,
-           rather than a whole extra row above the action buttons (the previous design) or a
-           topbar icon indistinguishable from Settings/Account (the design before that). The
-           terminal's name is printed right on the button, not hidden behind a tooltip — a
-           clerk needs to see which terminal is live at a glance, not discover it on hover. */
+           styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
+           opens a list of terminals to choose from, sharing one line with Save roughly
+           half-and-half, only while that method is selected, rather than a whole extra row above
+           the action buttons (an earlier design) or a topbar icon indistinguishable from
+           Settings/Account (the design before that). The terminal's name is printed right on the
+           control, not hidden behind a tooltip — a clerk needs to see which terminal is live at
+           a glance, not discover it on hover. */
         .pos-actions-main-row { display: flex; gap: 10px; align-items: stretch; }
         .pos-actions-main-row .pos-save-btn { flex: 1 1 0; width: auto; }
+        .pos-terminal-mini-wrap { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+        .pos-terminal-mini-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold-hover); }
         .pos-terminal-mini-btn {
-            flex: 1 1 0; min-width: 0; min-height: 68px; padding: 0 12px;
+            flex: 1; min-width: 0; min-height: 50px; padding: 0 12px;
             border-radius: var(--radius-md); border: 1.5px solid var(--gold);
             background: var(--cream); color: var(--text-primary); font-weight: 700; font-size: 0.92rem;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            display: flex; align-items: center; gap: 8px; width: 100%;
         }
-        .pos-terminal-mini-btn i { font-size: 1.15rem; color: var(--gold-hover); flex-shrink: 0; }
-        .pos-terminal-mini-btn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+        .pos-terminal-mini-btn i.bi-pc-display { font-size: 1.15rem; color: var(--gold-hover); flex-shrink: 0; }
+        .pos-terminal-mini-divider { width: 1.5px; align-self: stretch; background: rgba(201,149,46,0.4); flex-shrink: 0; }
+        .pos-terminal-mini-btn-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; text-align: left; }
+        .pos-terminal-mini-chevron { flex-shrink: 0; color: var(--text-secondary); font-size: 0.85rem; }
         .pos-terminal-mini-btn:active { background: #F2E4C4; }
 
         .pos-actions-row { display: flex; flex-direction: column; gap: 10px; }
@@ -411,18 +417,51 @@
             max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
             overflow: hidden; text-align: center; display: flex; flex-direction: column;
         }
-        {{-- Same green used by the Donation Recorded popup's header — one shared payment-flow
-             identity instead of two differently-coloured dialogs. --}}
+        {{-- Header colour reacts to #eftModalStatusBox's own state class (already toggled by
+             the existing, untouched polling JS) via :has() — blue while the transaction is still
+             in progress, green once approved, red once declined. Zero JS changes needed. --}}
         .eft-modal-header {
-            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #12b76a 0%, #039855 100%);
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #1570EF 0%, #0560D8 100%);
             color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
             font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0;
         }
+        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-header {
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #12b76a 0%, #039855 100%);
+        }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header {
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.14), transparent 60%), linear-gradient(135deg, #F04438 0%, #D92D20 55%, #B42318 100%);
+        }
+        {{-- Same :has() trick swaps the header's own title/icon text for the declined state —
+             both variants are always in the DOM, CSS just shows one or the other. --}}
+        .eft-modal-header-icon-error, .eft-modal-header-title-error { display: none; }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-icon-default,
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-title-default { display: none; }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-icon-error,
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-title-error { display: inline-block; }
         {{-- min-height:0 is the flexbox gotcha fix — without it a flex child never actually
              shrinks to scroll, it just overflows its parent instead, which is exactly how a
              long Action Framework response (mx51's "13.37" full-element test case among them)
              used to push the whole modal past the viewport instead of scrolling internally. --}}
         .eft-modal-body { padding: 22px 22px 20px; overflow-y: auto; min-height: 0; }
+        {{-- Large status icon above the amount — matches the Donation Recorded popup's own
+             halo-and-checkmark treatment, shown once the transaction actually resolves (not
+             during the plain "Starting…" pending state, which has nothing to illustrate yet). --}}
+        .eft-modal-body-icon-wrap { display: none; position: relative; width: 84px; height: 84px; margin: 0 auto 14px; align-items: center; justify-content: center; }
+        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-wrap,
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-wrap { display: flex; }
+        .eft-modal-body-icon-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,148,85,0.12); }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-halo { background: #FEE4E2; }
+        .eft-modal-body-icon-circle { position: relative; width: 60px; height: 60px; border-radius: 50%; background: #12b76a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; box-shadow: 0 6px 16px rgba(18,183,106,0.35); }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-circle { background: linear-gradient(135deg, #F04438, #D92D20); box-shadow: 0 6px 16px rgba(217,45,32,0.35); }
+        .eft-modal-body-icon-success, .eft-modal-body-icon-error { display: none; }
+        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-success { display: block; }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-error { display: block; }
+        .eft-modal-body-icon-accent { position: absolute; width: 9px; height: 2px; border-radius: 1px; background: #12b76a; opacity: 0.6; }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-body-icon-accent { background: #F04438; }
+        .eft-modal-body-icon-accent.a-tl { top: 4px; left: 4px; transform: rotate(45deg); }
+        .eft-modal-body-icon-accent.a-tr { top: 4px; right: 4px; transform: rotate(-45deg); }
+        .eft-modal-body-icon-accent.a-bl { bottom: 4px; left: 4px; transform: rotate(-45deg); }
+        .eft-modal-body-icon-accent.a-br { bottom: 4px; right: 4px; transform: rotate(45deg); }
         .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
@@ -433,7 +472,11 @@
         {{-- Tinted per state (not just the icon/text) so approve/decline reads at a glance
              instead of blending into the same neutral box the whole flow sits in. --}}
         .eft-modal-status-box.success { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.4); }
-        .eft-modal-status-box.error { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.4); }
+        {{-- Declined specifically switches to a horizontal icon+divider+message row (per the
+             supplied design) rather than the stacked layout pending/success keep — .eft-modal-
+             status-text is `display:contents` by default so wrapping statusLine1/2 in it doesn't
+             change anything for those two states; only .error turns it into its own column. --}}
+        .eft-modal-status-box.error { background: #FEF3F2; border-color: #FEE4E2; flex-direction: row; justify-content: flex-start; text-align: left; }
         .eft-modal-spinner {
             width: 26px; height: 26px; border-radius: 50%;
             border: 3px solid rgba(200,155,60,0.25); border-top-color: var(--gold);
@@ -442,16 +485,35 @@
         .eft-modal-status-box.pending .eft-modal-spinner { display: block; }
         .eft-modal-status-icon { font-size: 2rem; margin-bottom: 2px; display: none; }
         .eft-modal-status-box.success .eft-modal-status-icon.icon-success { display: block; color: var(--success); }
-        .eft-modal-status-box.error .eft-modal-status-icon.icon-error { display: block; color: var(--error); }
+        .eft-modal-status-box.error .eft-modal-status-icon.icon-error {
+            display: flex; align-items: center; justify-content: center; margin: 0; flex-shrink: 0;
+            width: 40px; height: 40px; border-radius: 50%; background: #F04438; color: #fff; font-size: 1.1rem;
+        }
+        .eft-modal-status-divider { display: none; width: 2px; align-self: stretch; background: #FECDCA; margin: 0 14px; flex-shrink: 0; }
+        .eft-modal-status-box.error .eft-modal-status-divider { display: block; }
+        .eft-modal-status-text { display: contents; }
+        .eft-modal-status-box.error .eft-modal-status-text { display: flex; flex-direction: column; gap: 2px; }
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
         .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
-        .eft-modal-status-box.error .eft-modal-status-line { color: var(--error); }
+        .eft-modal-status-box.error .eft-modal-status-line { text-align: left; color: #D92D20; }
+        {{-- Always the same wording, deliberately separate from statusLine1/2 above (which keep
+             showing mx51's own real decline reason, untouched) — a fixed, generic next-step hint
+             rather than a second attempt at explaining what went wrong. --}}
+        .eft-modal-decline-hint { display: none; color: #667085; font-size: 0.92rem; line-height: 1.5; margin: 14px 0 0; }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-decline-hint { display: block; }
         @keyframes eftSpin { to { transform: rotate(360deg); } }
         .eft-modal-cancel-btn {
             width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border);
             background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem;
         }
         .eft-modal-cancel-btn:active { background: var(--cream); }
+        {{-- Once declined, this same button (still "Cancel Payment" — nothing left to cancel,
+             so it's the dismiss action) becomes the blue primary treatment the design calls for,
+             matching the OK button on Donation Recorded. --}}
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-cancel-btn {
+            background: linear-gradient(135deg, #1570EF, #0560D8); color: #fff; border: none;
+        }
+        .eft-modal:has(.eft-modal-status-box.error) .eft-modal-cancel-btn:active { filter: brightness(0.92); }
 
         /* This station's EFT terminal picker — same modal box styling as the EFT status
            popup, since it's the same visual family. Only paired terminals ever appear here
@@ -688,10 +750,15 @@
                         {{-- Only relevant while "EFT Terminal" is the selected method — see
                              updatePosTerminalStatus() in the script below, which shows/hides
                              this and keeps the name in sync with the picker. --}}
-                        <button type="button" class="pos-terminal-mini-btn" id="posTerminalSwitchBtn" title="Tap to switch terminal" hidden>
-                            <i class="bi bi-pc-display"></i>
-                            <span class="pos-terminal-mini-btn-name" id="posTerminalMiniName">—</span>
-                        </button>
+                        <div class="pos-terminal-mini-wrap" id="posTerminalMiniWrap" hidden>
+                            <span class="pos-terminal-mini-label">EFT Terminal</span>
+                            <button type="button" class="pos-terminal-mini-btn" id="posTerminalSwitchBtn" title="Tap to switch terminal">
+                                <i class="bi bi-pc-display"></i>
+                                <span class="pos-terminal-mini-divider"></span>
+                                <span class="pos-terminal-mini-btn-name" id="posTerminalMiniName">—</span>
+                                <i class="bi bi-chevron-down pos-terminal-mini-chevron"></i>
+                            </button>
+                        </div>
                         <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
                     </div>
                     <button type="button" class="pos-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear Form</button>
@@ -783,17 +850,37 @@
     </div>
 
     <div class="eft-modal-overlay" id="eftModalOverlay">
-        <div class="eft-modal">
-            <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>Card Payment</div>
+        <div class="eft-modal" role="dialog" aria-modal="true" aria-labelledby="eftModalHeaderTitle">
+            <div class="eft-modal-header" id="eftModalHeaderTitle">
+                <i class="bi bi-credit-card-2-front-fill me-2 eft-modal-header-icon-default"></i>
+                <i class="bi bi-credit-card-2-front-fill me-2 eft-modal-header-icon-error"></i>
+                <span class="eft-modal-header-title-default">Card Payment</span>
+                <span class="eft-modal-header-title-error">Payment Declined</span>
+            </div>
             <div class="eft-modal-body">
+                <div class="eft-modal-body-icon-wrap">
+                    <span class="eft-modal-body-icon-halo"></span>
+                    <span class="eft-modal-body-icon-accent a-tl"></span>
+                    <span class="eft-modal-body-icon-accent a-tr"></span>
+                    <span class="eft-modal-body-icon-accent a-bl"></span>
+                    <span class="eft-modal-body-icon-accent a-br"></span>
+                    <span class="eft-modal-body-icon-circle">
+                        <i class="bi bi-check-lg eft-modal-body-icon-success"></i>
+                        <i class="bi bi-x-lg eft-modal-body-icon-error"></i>
+                    </span>
+                </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
                     <div class="eft-modal-spinner"></div>
                     <i class="bi bi-check-circle-fill eft-modal-status-icon icon-success"></i>
                     <i class="bi bi-x-circle-fill eft-modal-status-icon icon-error"></i>
-                    <span class="eft-modal-status-line" id="eftModalStatusLine1">Starting…</span>
-                    <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
+                    <span class="eft-modal-status-divider"></span>
+                    <div class="eft-modal-status-text">
+                        <span class="eft-modal-status-line" id="eftModalStatusLine1">Starting…</span>
+                        <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
+                    </div>
                 </div>
+                <p class="eft-modal-decline-hint">Please check your card details and try again, or use a different payment method.</p>
                 <div class="eft-modal-keys" id="eftModalKeys">
                     <button type="button" class="eft-modal-key-btn key-yes" data-key="yes" id="eftModalKeyYes">Yes</button>
                     <button type="button" class="eft-modal-key-btn key-ok" data-key="ok" id="eftModalKeyOk">OK</button>
@@ -1091,7 +1178,7 @@
         // Only relevant while "EFT Terminal" is the selected method — a compact icon sitting
         // right next to Save, not a whole extra row above the action buttons, and not a topbar
         // icon easily mistaken for Settings/Account either (both previous designs).
-        const posTerminalStatus = document.getElementById('posTerminalSwitchBtn');
+        const posTerminalStatus = document.getElementById('posTerminalMiniWrap');
         function updatePosTerminalStatus() {
             if (!posTerminalStatus) { return; }
             posTerminalStatus.hidden = selectedMethod !== 'EFT Terminal';
