@@ -353,15 +353,48 @@
            on its way" moment rather than a corner toast. Same popup shell as the warning
            above (just green instead of red), and dismisses itself: a tap anywhere on the
            overlay (OK button included, since the click bubbles to it) or a short timeout. */
-        .pos-confirm-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
+        .pos-confirm-overlay { position: fixed; inset: 0; background: rgba(20,30,45,0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; cursor: pointer; }
         .pos-confirm-overlay.active { display: flex; }
-        .pos-confirm-popup { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; cursor: default; }
-        .pos-confirm-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: #fff; padding: 14px 20px; font-weight: 800; letter-spacing: 0.04em; font-size: 0.9rem; text-transform: uppercase; }
-        .pos-confirm-icon { background: var(--success); color: #fff; font-size: 1.8rem; padding: 20px; }
-        .pos-confirm-body { padding: 22px 24px 26px; }
-        .pos-confirm-message { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 18px; }
-        .pos-confirm-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; cursor: pointer; }
-        .pos-confirm-ok-btn:active { filter: brightness(0.92); }
+        .pos-confirm-popup { background: #fff; border-radius: 20px; width: 620px; max-width: 92vw; box-shadow: 0 24px 60px rgba(15,23,42,0.35); overflow: hidden; text-align: center; cursor: default; }
+        {{-- The corner highlight is a second background-image, not a ::before — a pseudo-element
+             here would paint as its own positioned layer above the plain inline icon/title text
+             (positioned content paints after in-flow content, regardless of source order),
+             washing over them. Stacked backgrounds have no such risk: a background always
+             paints behind its own element's content, full stop. --}}
+        .pos-confirm-header {
+            min-height: 110px; padding: 20px 28px;
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #12b76a 0%, #039855 100%);
+            color: #fff; display: flex; align-items: center; justify-content: center; gap: 16px;
+        }
+        .pos-confirm-header-icon { font-size: 1.7rem; flex-shrink: 0; }
+        .pos-confirm-header-divider { width: 1px; align-self: stretch; background: rgba(255,255,255,0.4); flex-shrink: 0; }
+        .pos-confirm-header-title { font-weight: 700; font-size: 1.7rem; letter-spacing: 0.3px; }
+        .pos-confirm-body { padding: 36px 32px 32px; }
+        .pos-confirm-icon-wrap { position: relative; width: 90px; height: 90px; margin: 0 auto 26px; display: flex; align-items: center; justify-content: center; }
+        .pos-confirm-icon-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,148,85,0.12); }
+        .pos-confirm-icon-circle { position: relative; width: 64px; height: 64px; border-radius: 50%; background: #12b76a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; box-shadow: 0 6px 16px rgba(18,183,106,0.35); }
+        .pos-confirm-accent { position: absolute; width: 10px; height: 2px; border-radius: 1px; background: #12b76a; opacity: 0.6; }
+        .pos-confirm-accent.accent-tl { top: 6px; left: 6px; transform: rotate(45deg); }
+        .pos-confirm-accent.accent-tr { top: 6px; right: 6px; transform: rotate(-45deg); }
+        .pos-confirm-accent.accent-bl { bottom: 6px; left: 6px; transform: rotate(-45deg); }
+        .pos-confirm-accent.accent-br { bottom: 6px; right: 6px; transform: rotate(45deg); }
+        .pos-confirm-message { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-weight: 600; font-size: 21px; line-height: 1.5; color: #142B45; margin: 0 auto 28px; max-width: 460px; }
+        .pos-confirm-message .pos-confirm-amount { color: #079455; font-weight: 700; }
+        .pos-confirm-message .pos-confirm-email { color: #1570EF; font-weight: 600; overflow-wrap: break-word; }
+        .pos-confirm-ok-btn {
+            width: 100%; min-height: 60px; padding: 14px; border-radius: 12px; border: none; cursor: pointer;
+            background: linear-gradient(135deg, #1570EF, #0560D8); color: #fff;
+            font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .pos-confirm-ok-btn:hover { filter: brightness(1.05); }
+        .pos-confirm-ok-btn:active { filter: brightness(0.92); transform: scale(0.99); }
+        .pos-confirm-ok-btn:focus-visible { outline: 3px solid #1570EF; outline-offset: 2px; }
+        @media (max-width: 480px) {
+            .pos-confirm-header { min-height: 90px; }
+            .pos-confirm-header-title { font-size: 1.3rem; }
+            .pos-confirm-message { font-size: 18px; }
+            .pos-confirm-ok-btn { min-height: 54px; }
+        }
 
         /* ---------- EFT terminal status popup — center-screen, mirrors what's on the
            physical/virtual PIN pad while a card payment is in progress ---------- */
@@ -375,8 +408,10 @@
             max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
             overflow: hidden; text-align: center; display: flex; flex-direction: column;
         }
+        {{-- Same green used by the Donation Recorded popup's header — one shared payment-flow
+             identity instead of two differently-coloured dialogs. --}}
         .eft-modal-header {
-            background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #12b76a 0%, #039855 100%);
             color: white; padding: 18px 20px; font-weight: 800; letter-spacing: 0.06em;
             font-size: 0.95rem; text-transform: uppercase; flex-shrink: 0;
         }
@@ -457,10 +492,11 @@
              entirely. A text element alone in its own row still reads fine at its natural
              width. --}}
         .sci-af-text { font-size: 0.88rem; color: var(--text-secondary); text-align: left; }
-        {{-- Outlined, not a solid maroon fill — the header above is already that same solid
-             maroon, and a button identical to it reads as one flat block with no hierarchy. --}}
-        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid var(--maroon); font-weight: 700; font-size: 0.88rem; color: var(--maroon); background: var(--white); }
-        .sci-af-btn:active { background: var(--cream); }
+        {{-- Outlined, same blue accent as the Donation Recorded popup's OK button and this
+             modal's own header highlight — one shared payment-flow palette, not a block of
+             solid colour identical to the header above it. --}}
+        .sci-af-btn { flex: 1 1 auto; min-width: 90px; padding: 10px 10px; border-radius: var(--radius-sm); border: 2px solid #1570EF; font-weight: 700; font-size: 0.88rem; color: #1570EF; background: var(--white); }
+        .sci-af-btn:active { background: #EFF6FF; }
         {{-- flex-wrap lets a long label (mx51's own test fields can be verbose, e.g.
              "Input 1 (input_name_1_...)") drop to its own line above the input instead of
              forcing the row wider than the modal — that horizontal overflow was the other
@@ -718,12 +754,23 @@
     </div>
 
     <div class="pos-confirm-overlay" id="posConfirmOverlay">
-        <div class="pos-confirm-popup">
-            <div class="pos-confirm-header">Donation Recorded</div>
-            <div class="pos-confirm-icon"><i class="bi bi-check-circle-fill"></i></div>
+        <div class="pos-confirm-popup" role="dialog" aria-modal="true" aria-labelledby="posConfirmTitle">
+            <div class="pos-confirm-header">
+                <i class="bi bi-heart-fill pos-confirm-header-icon"></i>
+                <span class="pos-confirm-header-divider"></span>
+                <span class="pos-confirm-header-title" id="posConfirmTitle">DONATION RECORDED</span>
+            </div>
             <div class="pos-confirm-body">
+                <div class="pos-confirm-icon-wrap">
+                    <span class="pos-confirm-icon-halo"></span>
+                    <span class="pos-confirm-accent accent-tl"></span>
+                    <span class="pos-confirm-accent accent-tr"></span>
+                    <span class="pos-confirm-accent accent-bl"></span>
+                    <span class="pos-confirm-accent accent-br"></span>
+                    <span class="pos-confirm-icon-circle"><i class="bi bi-check-lg"></i></span>
+                </div>
                 <div class="pos-confirm-message" id="posConfirmMessage"></div>
-                <button type="button" class="pos-confirm-ok-btn" id="posConfirmOkBtn">OK</button>
+                <button type="button" class="pos-confirm-ok-btn" id="posConfirmOkBtn"><i class="bi bi-check-lg"></i>OK</button>
             </div>
         </div>
     </div>
@@ -1297,9 +1344,17 @@
             if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
             document.getElementById('posConfirmOverlay').classList.remove('active');
         }
-        function showPosConfirm(message) {
+        // Builds the message as HTML (not textContent) so the amount/email can be highlighted —
+        // both still come from the same dynamic values the caller already had, just escaped
+        // before going into innerHTML since the email is donor-entered input.
+        function showPosConfirm(opts) {
             if (posConfirmHideTimer) { clearTimeout(posConfirmHideTimer); posConfirmHideTimer = null; }
-            document.getElementById('posConfirmMessage').textContent = message;
+            const amountHtml = '<span class="pos-confirm-amount">' + escapeHtmlPos(opts.currency + ' ' + opts.amount.toFixed(2)) + '</span>';
+            let html = 'Donation of ' + amountHtml + (opts.pending ? ' recorded as pending bank transfer.' : ' recorded.');
+            if (opts.email) {
+                html += ' A receipt will be emailed to <span class="pos-confirm-email">' + escapeHtmlPos(opts.email) + '</span>.';
+            }
+            document.getElementById('posConfirmMessage').innerHTML = html;
             document.getElementById('posConfirmOverlay').classList.add('active');
             posConfirmHideTimer = setTimeout(hidePosConfirm, 5000);
         }
@@ -1576,13 +1631,10 @@
                         // toast (UPI/EFT Terminal already have their own on-screen confirmation —
                         // the terminal prompt/receipt view — so they keep the toast).
                         if (selectedMethod === 'Cash' || selectedMethod === 'Bank Transfer') {
-                            const emailNote = emailValue
-                                ? ' A receipt will be emailed to ' + emailValue + '.'
-                                : '';
-                            const message = selectedMethod === 'Bank Transfer'
-                                ? 'Donation of ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' recorded as pending bank transfer.' + emailNote
-                                : 'Donation of ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + ' recorded.' + emailNote;
-                            showPosConfirm(message);
+                            showPosConfirm({
+                                amount: amount, currency: CURRENCY_CODE, email: emailValue,
+                                pending: selectedMethod === 'Bank Transfer',
+                            });
                         } else {
                             const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
                             showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
