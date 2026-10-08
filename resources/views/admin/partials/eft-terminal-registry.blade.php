@@ -3,10 +3,13 @@
      panel, so pairing/adding/removing a terminal is implemented exactly once no matter where
      it's reached from. Expects: $activeTerminals, $inactiveTerminals, $linklyMode,
      $cbaSciMode, $canManageRegistryLevel, $isSystemAdmin, $allOperational — the first five
-     mirror EftTerminalController::index()'s own variables exactly; $isSystemAdmin (literal
-     Admin role) now only gates the account-wide Transaction Limits/Receipt Printing settings
-     below — $canManageRegistryLevel alone gates everything else, including Set Default/Remove
-     Terminal, the same way eft-terminal-card.blade.php does. The host page must link
+     mirror EftTerminalController::index()'s own variables exactly; $canManageRegistryLevel
+     gates everything on this page, including Set Default/Remove Terminal and the account-wide
+     Transaction Limits/Receipt Printing settings below, the same way eft-terminal-card.blade.php
+     does — an admin-tier Event Coordinator or Ticket Controller is trusted the same as System
+     Admin here (updateReceiptSettings()/updateTransactionLimits() check the same thing
+     server-side). $isSystemAdmin itself is only used for incidental, non-gating things like the
+     page's own Back button destination. The host page must link
      css/eft-terminal-registry.css once and already define the --maroon/--gold/--cream/
      --white/--border/--text-primary/--text-secondary/--serif tokens this relies on (every
      current host already does, as they all share the same temple-branding palette) and
@@ -21,9 +24,9 @@
      submitted from — nothing here needs to know which one that is. The Add Terminal wizard is
      the one exception: it's AJAX-driven end to end (see js/eft-terminal-registry.js) and never
      navigates away, refreshing only the #eftTerminalsList container above on success.
-     "Transaction Limits" and "Receipt Printing & Signature" (System-Admin-only, wrapped in
-     #eftRegistryBottomSettings) render last, below the terminal list — they're account-wide
-     defaults an admin sets up once, not something that needs top billing over the terminals
+     "Transaction Limits" and "Receipt Printing & Signature" (wrapped in #eftRegistryBottomSettings,
+     same $canManageRegistryLevel gate as the rest of this page) render last, below the terminal
+     list — they're account-wide defaults an admin sets up once, not something that needs top billing over the terminals
      themselves, and not part of adding a terminal either. --}}
 <div class="eft-terminals-top-row">
     {{-- Required on every EFTPOS-related settings surface (Linkly accreditation requirement
@@ -77,7 +80,7 @@
 @include('admin.partials.eft-terminal-add-wizard')
 @endif
 
-@if($isSystemAdmin)
+@if($canManageRegistryLevel)
 <div id="eftRegistryBottomSettings">
 @include('admin.partials.eft-terminal-transaction-limits')
 @include('admin.partials.eft-terminal-receipt-settings')

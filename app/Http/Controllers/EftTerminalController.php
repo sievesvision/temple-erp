@@ -116,7 +116,7 @@ class EftTerminalController extends Controller
      */
     public function updateReceiptSettings(Request $request)
     {
-        if (!$this->isAdmin()) {
+        if (!$this->canManageRegistry()) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -138,7 +138,7 @@ class EftTerminalController extends Controller
      */
     public function updateTransactionLimits(Request $request)
     {
-        if (!$this->isAdmin()) {
+        if (!$this->canManageRegistry()) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

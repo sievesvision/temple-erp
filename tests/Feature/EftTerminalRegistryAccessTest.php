@@ -517,4 +517,49 @@ class EftTerminalRegistryAccessTest extends TestCase
         $this->assertDatabaseMissing('eft_terminals', ['id' => $default->id]);
         $this->assertFalse($unpaired->fresh()->is_default);
     }
+
+    // Transaction Limits and Receipt Printing & Signature used to be gated to the literal
+    // Admin role alone (both the view and these two save endpoints) — widened to the same
+    // canManageRegistry() check as the rest of this page, so an admin-tier Event Coordinator
+    // or Ticket Controller can see and change them too, not just a System Admin.
+    public function test_event_admin_coordinator_can_save_receipt_settings(): void
+    {
+        $user = $this->eventAdminCoordinator();
+
+        $response = $this->actingAs($user)->post(route('admin.eft-terminals.updateReceiptSettings'), [
+            'print_merchant_receipt_on_terminal' => '1',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertTrue(\App\Services\EftReceiptSettings::printMerchantReceiptOnTerminal());
+    }
+
+    public function test_event_admin_coordinator_can_save_transaction_limits(): void
+    {
+        $user = $this->eventAdminCoordinator();
+
+        $response = $this->actingAs($user)->post(route('admin.eft-terminals.updateTransactionLimits'), [
+            'minimum_transaction_amount' => '2.50',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertSame('2.50', Setting::get('eft_minimum_transaction_amount'));
+    }
+
+    public function test_entry_level_coordinator_cannot_save_receipt_settings_or_transaction_limits(): void
+    {
+        $user = $this->entryLevelCoordinator();
+
+        $this->actingAs($user)->post(route('admin.eft-terminals.updateReceiptSettings'), [
+            'print_merchant_receipt_on_terminal' => '1',
+        ])->assertSessionHas('error');
+        $this->assertFalse(\App\Services\EftReceiptSettings::printMerchantReceiptOnTerminal());
+
+        $this->actingAs($user)->post(route('admin.eft-terminals.updateTransactionLimits'), [
+            'minimum_transaction_amount' => '2.50',
+        ])->assertSessionHas('error');
+        $this->assertNull(Setting::get('eft_minimum_transaction_amount'));
+    }
 }
