@@ -119,12 +119,12 @@ class CbaSciService
     {
         $code = $response->json('error.code') ?? $response->json('code');
         $map = [
-            'invalid_request' => 'The pairing code (or nickname) was invalid — check what was entered and try again.',
+            'invalid_request' => 'Pairing Failed: Request failed validation. Check the pairing code and try again',
             'api_key_invalid' => 'This server\'s SCI credentials were rejected — contact whoever manages the integration.',
             'api_key_missing' => 'This server\'s SCI credentials are missing — contact whoever manages the integration.',
             'pairing_route_forbidden' => 'This terminal is not in an authorised environment for these credentials.',
             'test_api_key_forbidden_for_live_pairing' => 'A test (sandbox) key cannot pair a live terminal — switch this integration to live mode first.',
-            'pairing_not_found' => 'That pairing code was not recognised — double-check it on the terminal and try again.',
+            'pairing_not_found' => 'Pairing not found: Pairing not found',
             'pairing_not_initial' => 'That pairing code has already been used or has expired — generate a fresh one on the terminal and try again.',
         ];
 
