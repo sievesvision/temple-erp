@@ -922,3 +922,42 @@ Route::middleware(['auth', 'role:Admin,Accountant'])->group(function () {
     Route::post('/admin/salaries/sanction', [\App\Http\Controllers\SalaryController::class, 'sanction'])->name('admin.salaries.sanction');
     Route::get('/admin/reports', [\App\Http\Controllers\SalaryController::class, 'reports'])->name('admin.reports.index');
 });
+
+// ============================================
+// KIOSK — new, fully separate URL space, deliberately freed up for this exact feature by
+// 2026_10_17_000000_rename_kiosk_to_pos.php. /kiosk/pair is the ONLY route reachable with no
+// device credential yet (the pairing entry point); everything else under /kiosk requires
+// 'kiosk.device'. No 'auth'/'role:*' middleware anywhere in this block — Phase 1 has no
+// ordering UI yet, so there is nothing here for a human session to gate (see the kiosk
+// feature plan's Phase 2 notes for how a per-device service-account login gets layered in
+// later, for the ordering routes only).
+// ============================================
+Route::get('/kiosk/pair', function () {
+    return view('kiosk.pair');
+})->name('kiosk.pair');
+Route::post('/kiosk/pair', [\App\Http\Controllers\KioskPairingController::class, 'redeem'])->name('kiosk.pair.redeem');
+
+Route::middleware('kiosk.device')->prefix('kiosk')->group(function () {
+    // Phase 1: a liveness check only — a future idle-timer/welcome page can call this.
+    Route::get('/ping', function (\Illuminate\Http\Request $request) {
+        return response()->json(['device' => $request->attributes->get('kiosk_device')->name]);
+    })->name('kiosk.ping');
+});
+
+// ============================================
+// ADMIN: KIOSK DEVICE MANAGEMENT — gated by App\Services\KioskAccess inside the controller
+// (not a role: string), since it needs to combine Admin-bypass with the dynamic
+// RolePermission grid and the per-event/per-module Event Coordinator/Ticket Controller
+// admin-tier checks, none of which a static role list alone can express.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/kiosk-devices', [\App\Http\Controllers\KioskDeviceController::class, 'index'])->name('admin.kiosk-devices.index');
+    Route::post('/admin/kiosk-devices', [\App\Http\Controllers\KioskDeviceController::class, 'store'])->name('admin.kiosk-devices.store');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/configuration', [\App\Http\Controllers\KioskDeviceController::class, 'updateConfiguration'])->name('admin.kiosk-devices.updateConfiguration');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/pairing-code', [\App\Http\Controllers\KioskDeviceController::class, 'generatePairingCode'])->name('admin.kiosk-devices.pairingCode');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/activate', [\App\Http\Controllers\KioskDeviceController::class, 'activate'])->name('admin.kiosk-devices.activate');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/deactivate', [\App\Http\Controllers\KioskDeviceController::class, 'deactivate'])->name('admin.kiosk-devices.deactivate');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/revoke', [\App\Http\Controllers\KioskDeviceController::class, 'revoke'])->name('admin.kiosk-devices.revoke');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/rotate', [\App\Http\Controllers\KioskDeviceController::class, 'rotateCredential'])->name('admin.kiosk-devices.rotate');
+    Route::delete('/admin/kiosk-devices/{kioskDevice}', [\App\Http\Controllers\KioskDeviceController::class, 'destroy'])->name('admin.kiosk-devices.destroy');
+});

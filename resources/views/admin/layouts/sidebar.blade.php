@@ -90,7 +90,7 @@
     @endif
     @endif
 
-    @if($can('bookings') || $can('donations') || $can('events') || $can('inventory'))
+    @if($can('bookings') || $can('donations') || $can('events') || $can('inventory') || \App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole))
     <li class="nav-section-label">Operations</li>
     @if($can('bookings'))
     <li class="nav-item">
@@ -117,6 +117,11 @@
     @if($can('inventory'))
     <li class="nav-item">
       <a href="{{ route('admin.inventory.index') }}" class="nav-link {{ request()->routeIs('admin.inventory.*') ? 'active' : '' }}"><i class="bi bi-box-seam"></i> Inventory</a>
+    </li>
+    @endif
+    @if(\App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole))
+    <li class="nav-item">
+      <a href="{{ route('admin.kiosk-devices.index') }}" class="nav-link {{ request()->routeIs('admin.kiosk-devices.*') ? 'active' : '' }}"><i class="bi bi-tablet"></i> Kiosk Devices</a>
     </li>
     @endif
     @endif
