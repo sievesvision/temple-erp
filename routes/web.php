@@ -286,6 +286,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $onlinePoojaShippingCharge = \App\Models\Setting::get('online_pooja_shipping_charge', '50.00');
         $recaptchaEnabled = (bool) \App\Models\Setting::get('recaptcha_enabled', false);
         $recaptchaConfigured = (bool) \App\Services\RecaptchaService::siteKey();
+        $thermalPrinterEnabled = \App\Services\ThermalPrinterSettings::enabled();
+        $thermalPrinterIp = \App\Services\ThermalPrinterSettings::ip();
+        $thermalPrinterPort = \App\Services\ThermalPrinterSettings::port();
 
         // EFT Terminal panel — the same registry data every console's own EFT Terminal
         // Settings pane computes (see EventConsoleController::show()'s identical call),
@@ -352,6 +355,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'onlinePoojaShippingCharge',
             'recaptchaEnabled',
             'recaptchaConfigured',
+            'thermalPrinterEnabled',
+            'thermalPrinterIp',
+            'thermalPrinterPort',
             'eftTerminals',
             'linklyMode',
             'cbaSciMode',
@@ -418,6 +424,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'max_advance_booking_days' => 'required|integer|min:1',
             'online_pooja_shipping_charge' => 'required|numeric|min:0',
             'recaptcha_enabled' => 'nullable|boolean',
+            'thermal_printer_enabled' => 'nullable|boolean',
+            'thermal_printer_ip' => 'nullable|string|max:255',
+            'thermal_printer_port' => 'nullable|integer|min:1|max:65535',
         ]);
 
         // Image path settings should stay portable between environments (local vs production
@@ -494,9 +503,17 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('max_advance_booking_days', $request->max_advance_booking_days);
         \App\Models\Setting::set('online_pooja_shipping_charge', $request->online_pooja_shipping_charge);
         \App\Models\Setting::set('recaptcha_enabled', $request->boolean('recaptcha_enabled') ? '1' : '0');
+        \App\Models\Setting::set('thermal_printer_enabled', $request->boolean('thermal_printer_enabled') ? '1' : '0');
+        \App\Models\Setting::set('thermal_printer_ip', trim((string) $request->thermal_printer_ip));
+        \App\Models\Setting::set('thermal_printer_port', $request->thermal_printer_port ?: 9100);
 
         return redirect()->back()->with('success', 'System settings updated successfully.');
     })->name('admin.settings.update');
+
+    // Thermal printer "Test Print" button — same 'settings'/edit gate as admin.settings.update
+    // above, checked inside the controller itself (ThermalPrintController::test()) since this
+    // sits in the generic 'auth' group rather than a role-specific one.
+    Route::post('/admin/settings/test-thermal-printer', [\App\Http\Controllers\ThermalPrintController::class, 'test'])->name('admin.settings.testThermalPrinter');
 
     // EFT terminal registry management moved to its own route group below (role:Admin,
     // Committee,Event Coordinator,Ticket Controller) — an event-admin coordinator or
@@ -693,6 +710,11 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
     Route::post('/admin/cba-sci/charge/cancel/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'cancel'])->name('admin.cba-sci.charge.cancel');
     Route::post('/admin/cba-sci/charge/override/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'override'])->name('admin.cba-sci.charge.override');
     Route::post('/admin/cba-sci/charge/refund/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'refund'])->name('admin.cba-sci.charge.refund');
+
+    // Genuine ESC/POS auto-print of a merchant/customer receipt the frontend already holds
+    // as plain text (see sci-action-framework.js's printText()) — same role list as the mx51
+    // charge lifecycle above, since every one of those pages is a potential caller.
+    Route::post('/admin/thermal-print/receipt', [\App\Http\Controllers\ThermalPrintController::class, 'printReceipt'])->name('admin.thermal-print.receipt');
 });
 
 // ============================================
@@ -711,6 +733,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     Route::get('/admin/tickets/pos', [\App\Http\Controllers\TicketController::class, 'posShow'])->name('admin.tickets.pos');
     Route::post('/admin/tickets/order', [\App\Http\Controllers\TicketController::class, 'storeOrder'])->name('admin.tickets.storeOrder');
     Route::get('/admin/tickets/print/{order}', [\App\Http\Controllers\TicketController::class, 'printOrder'])->name('admin.tickets.print');
+    Route::post('/admin/tickets/auto-print/{order}', [\App\Http\Controllers\TicketController::class, 'autoPrintOrder'])->name('admin.tickets.autoPrint');
 
     // Shared by both the event- and tickets-scoped Cash Banking panes — which scope a
     // submission means is carried in the form itself (see CashSettlementController::

@@ -360,6 +360,8 @@ class CbaSciController extends Controller
                 'message' => $txn->message,
                 'pos_instructions' => $txn->pos_instructions,
                 'result_financial_status' => $txn->result_financial_status,
+                'merchant_receipt' => $txn->merchant_receipt,
+                'customer_receipt' => $txn->customer_receipt,
                 'transient_error' => false,
                 'donation_id' => $txn->donation_id,
             ]);
@@ -401,6 +403,8 @@ class CbaSciController extends Controller
             'message' => $result['message'],
             'pos_instructions' => $result['pos_instructions'],
             'result_financial_status' => $result['result_financial_status'],
+            'merchant_receipt' => $result['merchant_receipt'],
+            'customer_receipt' => $result['customer_receipt'],
             'transient_error' => $result['transient_error'],
             'donation_id' => $donationId,
         ]);

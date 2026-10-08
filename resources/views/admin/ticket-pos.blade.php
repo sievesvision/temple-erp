@@ -235,16 +235,6 @@
         .eft-modal-header-icon-error, .eft-modal-header-title-error { display: none; }
         .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-icon-default, .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-title-default { display: none; }
         .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-icon-error, .eft-modal:has(.eft-modal-status-box.error) .eft-modal-header-title-error { display: inline-block; }
-        .eft-modal-body-icon-wrap { display: none; position: relative; width: 76px; height: 76px; margin: 0 auto 12px; align-items: center; justify-content: center; }
-        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-wrap { display: flex; }
-        .eft-modal-body-icon-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,148,85,0.12); }
-        .eft-modal-body-icon-circle { position: relative; width: 54px; height: 54px; border-radius: 50%; background: #12b76a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 6px 16px rgba(18,183,106,0.35); }
-        .eft-modal-body-icon-success { display: block; }
-        .eft-modal-body-icon-accent { position: absolute; width: 8px; height: 2px; border-radius: 1px; background: #12b76a; opacity: 0.6; }
-        .eft-modal-body-icon-accent.a-tl { top: 3px; left: 3px; transform: rotate(45deg); }
-        .eft-modal-body-icon-accent.a-tr { top: 3px; right: 3px; transform: rotate(-45deg); }
-        .eft-modal-body-icon-accent.a-bl { bottom: 3px; left: 3px; transform: rotate(-45deg); }
-        .eft-modal-body-icon-accent.a-br { bottom: 3px; right: 3px; transform: rotate(45deg); }
         {{-- min-height:0 is the flexbox gotcha fix — without it a flex child never actually
              shrinks to scroll, it just overflows its parent instead, which is exactly how a
              long Action Framework response (mx51's "13.37" full-element test case among them)
@@ -274,7 +264,6 @@
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
         .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-line { text-align: left; color: #D92D20; }
-        .eft-modal-print-notice { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--success); margin: 8px 0 0; }
         .eft-modal-decline-hint { display: none; color: #667085; font-size: 0.88rem; line-height: 1.5; margin: 12px 0 0; }
         .eft-modal:has(.eft-modal-status-box.error):not(:has(.eft-modal-status-box.status-cancelled)) .eft-modal-decline-hint { display: block; }
         .eft-modal-cancel-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.95rem; }
@@ -333,7 +322,7 @@
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header { background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%), linear-gradient(135deg, #a70918 0%, #d95f6b 100%); }
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-title-error, .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-icon-error { display: none; }
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-title-default, .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-icon-default { display: inline-block; }
-        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-body-icon-wrap, .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-status-box, .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-decline-hint { display: none; }
+        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-status-box, .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-decline-hint { display: none; }
     </style>
 </head>
 <body>
@@ -509,16 +498,6 @@
                 <span class="eft-modal-header-title-error" id="eftModalHeaderTitleError">Payment Declined</span>
             </div>
             <div class="eft-modal-body">
-                <div class="eft-modal-body-icon-wrap">
-                    <span class="eft-modal-body-icon-halo"></span>
-                    <span class="eft-modal-body-icon-accent a-tl"></span>
-                    <span class="eft-modal-body-icon-accent a-tr"></span>
-                    <span class="eft-modal-body-icon-accent a-bl"></span>
-                    <span class="eft-modal-body-icon-accent a-br"></span>
-                    <span class="eft-modal-body-icon-circle">
-                        <i class="bi bi-check-lg eft-modal-body-icon-success"></i>
-                    </span>
-                </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
                     <div class="eft-modal-payment-anim">
@@ -537,7 +516,6 @@
                         <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
                     </div>
                 </div>
-                <p class="eft-modal-print-notice" id="eftModalPrintNotice" hidden><i class="bi bi-printer-fill"></i> Merchant copy printed automatically</p>
                 <p class="eft-modal-decline-hint">Please check your card details and try again, or use a different payment method.</p>
                 <div class="eft-modal-keys" id="eftModalKeys">
                     <button type="button" class="eft-modal-key-btn key-yes" id="eftModalKeyYes">Yes</button>
@@ -580,6 +558,7 @@
          that cached the old copy days ago, since nothing about the <script> tag itself
          changes between deploys. --}}
     <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
+    <script src="{{ asset('js/print-agent.js') }}?v={{ @filemtime(public_path('js/print-agent.js')) }}"></script>
     @php
         $pendingEftRecoveryForJs = $pendingEftRecovery ? [
             'sessionId' => $pendingEftRecovery->linkly_session_id,
@@ -627,6 +606,8 @@
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
         const CBA_SCI_CHARGE_CANCEL_URL_BASE = @json(url('/admin/cba-sci/charge/cancel'));
         const CBA_SCI_CHARGE_OVERRIDE_URL_BASE = @json(url('/admin/cba-sci/charge/override'));
+        const THERMAL_PRINT_RECEIPT_URL = @json(route('admin.thermal-print.receipt'));
+        const TICKET_AUTO_PRINT_URL_BASE = @json(url('/admin/tickets/auto-print'));
 
         // ---------- This station's EFT terminal ----------
         // Two storage layers, deliberately, and deliberately asymmetric between read and
@@ -1101,6 +1082,7 @@
             actionUrlBase: CBA_SCI_CHARGE_ACTION_URL_BASE,
             cancelUrlBase: CBA_SCI_CHARGE_CANCEL_URL_BASE,
             overrideUrlBase: CBA_SCI_CHARGE_OVERRIDE_URL_BASE,
+            thermalPrintUrl: THERMAL_PRINT_RECEIPT_URL,
             csrfToken: CSRF_TOKEN,
             currencyCode: CURRENCY_CODE,
             attemptStorageKey: 'sciTicketAttempt',
@@ -1119,13 +1101,12 @@
                 overrideQuestion: document.getElementById('eftModalOverrideQuestion'),
                 overrideSaving: document.getElementById('eftModalOverrideSaving'),
                 countdown: document.getElementById('eftModalCountdown'),
-                printNotice: document.getElementById('eftModalPrintNotice'),
                 headerTitleError: document.getElementById('eftModalHeaderTitleError'),
             },
             buildStartBody: function (attempt) {
                 return { record_type: 'ticket_order', cart_json: JSON.stringify(attempt.cart || []) };
             },
-            onToast: function (message) { showToast(message, true); },
+            onToast: function (message, isError) { showToast(message, isError); },
             onApproved: function (donationId) {
                 activeEftProvider = null;
                 showToast('Sale recorded — printing…');
@@ -1155,8 +1136,33 @@
             },
         });
 
+        // Three-tier fallback, same reasoning as sci-action-framework.js's autoPrintReceipt():
+        //  1. The backend tries a direct server-side print (only reachable when the backend
+        //     itself is on the same network as the printer — e.g. local testing).
+        //  2. Failing that, it hands back the raw stub data, which this computer's local
+        //     Print Agent (public/js/print-agent.js) prints instead — the path that actually
+        //     works once deployed, since the printer is on the temple's own LAN, not reachable
+        //     from the backend's remote hosting.
+        //  3. Failing THAT too (agent not configured/not running), fall back to the old
+        //     browser-print tab — never leave an order with nothing printed at all.
         function openPrintView(orderId) {
-            if (orderId) { window.open('/admin/tickets/print/' + orderId, '_blank'); }
+            if (!orderId) { return; }
+            function openBrowserView() { window.open('/admin/tickets/print/' + orderId, '_blank'); }
+            fetch(TICKET_AUTO_PRINT_URL_BASE + '/' + encodeURIComponent(orderId), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.success) { return; }
+                    if (data.stubs && data.stubs.length && window.PrintAgent && PrintAgent.isConfigured()) {
+                        Promise.all(data.stubs.map(function (stub) { return PrintAgent.printTicketStub(stub); }))
+                            .then(function (results) { if (results.some(function (r) { return !r.success; })) { openBrowserView(); } });
+                        return;
+                    }
+                    openBrowserView();
+                })
+                .catch(openBrowserView);
         }
 
         const posSaveBtn = document.getElementById('posSaveBtn');

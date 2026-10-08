@@ -610,6 +610,70 @@ class TicketController extends Controller
     }
 
     /**
+     * Builds every un-printed stub's print data and, where possible, prints it straight to
+     * the configured network thermal printer server-side. Same permission gate and "mark
+     * printed on request" behaviour as printOrder() above (the existing browser-print view
+     * this is an alternative to), just triggered via AJAX from ticket-pos.blade.php instead
+     * of opening a new tab.
+     *
+     * The server-side print (via ThermalPrinterSettings/EscPosPrinterService) only succeeds
+     * when THIS backend happens to be on the same local network as the printer — true for a
+     * local XAMPP install used for testing, never true once deployed to remote hosting
+     * (test.hasq.org/hasq.org), since a temple's receipt printer lives on the temple's own
+     * private LAN, unreachable from outside it. That's why this always also returns the raw
+     * stub data: the frontend's real fallback is public/js/print-agent.js, a small program
+     * running on the POS computer itself (same local network as the printer), not this
+     * backend — see that file's own docblock for the full explanation. Always 200, never an
+     * HTTP error, so the frontend can always fall back further (agent, then printOrder()'s
+     * browser view).
+     */
+    public function autoPrintOrder(Request $request, $orderId)
+    {
+        $user = Auth::user();
+        $activeRole = $this->activeRole();
+        if (!RolePermission::can($activeRole, 'tickets', 'view') && !$this->canSellTickets($user, $activeRole)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $order = TicketOrder::with(['items.stubs'])->findOrFail($orderId);
+        $temple = Setting::templeBranding();
+
+        $stubs = [];
+        foreach ($order->items as $item) {
+            foreach ($item->stubs as $stub) {
+                $stubs[] = [
+                    'temple_name' => $temple['name'] ?? 'Temple',
+                    'temple_subtitle' => $temple['subtitle'] ?? null,
+                    'ticket_name' => $item->ticket_name,
+                    'price_text' => trim(($temple['currency'] ?? '') . ' ' . number_format($item->unit_price, 2)),
+                    'order_meta' => 'Order #' . str_pad($order->id, 5, '0', STR_PAD_LEFT) . ' - ' . $order->order_date->format('d M Y'),
+                    'customer_name' => $order->customer_name,
+                    'stub_number' => $stub->stub_number,
+                ];
+            }
+        }
+
+        DB::table('ticket_stubs')
+            ->whereIn('id', $order->items->flatMap->stubs->pluck('id'))
+            ->whereNull('printed_at')
+            ->update(['printed_at' => now()]);
+
+        if (\App\Services\ThermalPrinterSettings::isConfigured()) {
+            try {
+                $printer = new \App\Services\EscPosPrinterService();
+                foreach ($stubs as $stub) {
+                    $printer->printTicketStub($stub);
+                }
+                return response()->json(['success' => true]);
+            } catch (\Exception $e) {
+                // Fall through — hand the stub data to the frontend's local Print Agent instead.
+            }
+        }
+
+        return response()->json(['success' => false, 'stubs' => $stubs]);
+    }
+
+    /**
      * ---------- EFTPOS console actions ----------
      * These mirror DonationController's refund/logon/reprint/pair actions but for the
      * shared terminal's ticket-related transactions specifically (event_id always null).

@@ -475,22 +475,6 @@
              long Action Framework response (mx51's "13.37" full-element test case among them)
              used to push the whole modal past the viewport instead of scrolling internally. --}}
         .eft-modal-body { padding: 22px 22px 20px; overflow-y: auto; min-height: 0; }
-        {{-- Large status icon above the amount — matches the Donation Recorded popup's own
-             halo-and-checkmark treatment, shown once the transaction is actually approved (not
-             during the plain "Starting…" pending state, which has nothing to illustrate yet).
-             Declined/cancelled deliberately does NOT get this big badge — mx51's own reference
-             UI for that case is a plain inline mark next to the message, not a large circular
-             icon, and matching that reads as calmer and more in line with their certified look. --}}
-        .eft-modal-body-icon-wrap { display: none; position: relative; width: 84px; height: 84px; margin: 0 auto 14px; align-items: center; justify-content: center; }
-        .eft-modal:has(.eft-modal-status-box.success) .eft-modal-body-icon-wrap { display: flex; }
-        .eft-modal-body-icon-halo { position: absolute; inset: 0; border-radius: 50%; background: rgba(7,148,85,0.12); }
-        .eft-modal-body-icon-circle { position: relative; width: 60px; height: 60px; border-radius: 50%; background: #12b76a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; box-shadow: 0 6px 16px rgba(18,183,106,0.35); }
-        .eft-modal-body-icon-success { display: block; }
-        .eft-modal-body-icon-accent { position: absolute; width: 9px; height: 2px; border-radius: 1px; background: #12b76a; opacity: 0.6; }
-        .eft-modal-body-icon-accent.a-tl { top: 4px; left: 4px; transform: rotate(45deg); }
-        .eft-modal-body-icon-accent.a-tr { top: 4px; right: 4px; transform: rotate(-45deg); }
-        .eft-modal-body-icon-accent.a-bl { bottom: 4px; left: 4px; transform: rotate(-45deg); }
-        .eft-modal-body-icon-accent.a-br { bottom: 4px; right: 4px; transform: rotate(45deg); }
         .eft-modal-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
         .eft-modal-status-box {
             background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md);
@@ -529,7 +513,6 @@
         .eft-modal-status-line { font-weight: 700; font-size: 1.05rem; color: var(--text-primary); letter-spacing: 0.02em; }
         .eft-modal-status-box.success .eft-modal-status-line { color: var(--success); }
         .eft-modal-status-box.error .eft-modal-status-line { text-align: left; color: #D92D20; }
-        .eft-modal-print-notice { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.78rem; font-weight: 600; color: var(--success); margin: 8px 0 0; }
         {{-- Always the same wording, deliberately separate from statusLine1/2 above (which keep
              showing mx51's own real decline reason, untouched) — a fixed, generic next-step hint
              rather than a second attempt at explaining what went wrong. Suppressed specifically
@@ -647,7 +630,6 @@
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-icon-error { display: none; }
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-title-default,
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-header-icon-default { display: inline-block; }
-        .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-body-icon-wrap,
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-status-box,
         .eft-modal:has(.eft-modal-override:not([hidden])) .eft-modal-decline-hint { display: none; }
 
@@ -923,16 +905,6 @@
                 <span class="eft-modal-header-title-error" id="eftModalHeaderTitleError">Payment Declined</span>
             </div>
             <div class="eft-modal-body">
-                <div class="eft-modal-body-icon-wrap">
-                    <span class="eft-modal-body-icon-halo"></span>
-                    <span class="eft-modal-body-icon-accent a-tl"></span>
-                    <span class="eft-modal-body-icon-accent a-tr"></span>
-                    <span class="eft-modal-body-icon-accent a-bl"></span>
-                    <span class="eft-modal-body-icon-accent a-br"></span>
-                    <span class="eft-modal-body-icon-circle">
-                        <i class="bi bi-check-lg eft-modal-body-icon-success"></i>
-                    </span>
-                </div>
                 <div class="eft-modal-amount" id="eftModalAmount">{{ $temple['currency'] ?? '' }} 0.00</div>
                 <div class="eft-modal-status-box pending" id="eftModalStatusBox">
                     <div class="eft-modal-payment-anim">
@@ -951,7 +923,6 @@
                         <span class="eft-modal-status-line" id="eftModalStatusLine2"></span>
                     </div>
                 </div>
-                <p class="eft-modal-print-notice" id="eftModalPrintNotice" hidden><i class="bi bi-printer-fill"></i> Merchant copy printed automatically</p>
                 <p class="eft-modal-decline-hint">Please check your card details and try again, or use a different payment method.</p>
                 <div class="eft-modal-keys" id="eftModalKeys">
                     <button type="button" class="eft-modal-key-btn key-yes" data-key="yes" id="eftModalKeyYes">Yes</button>
@@ -1007,6 +978,7 @@
          that cached the old copy days ago, since nothing about the <script> tag itself
          changes between deploys. --}}
     <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
+    <script src="{{ asset('js/print-agent.js') }}?v={{ @filemtime(public_path('js/print-agent.js')) }}"></script>
     @php
         // Built as a plain variable rather than inline inside @json() below — a multi-line
         // array literal with nested ['key'] array-access syntax inside @json(...)'s argument
@@ -1071,6 +1043,7 @@
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
         const CBA_SCI_CHARGE_CANCEL_URL_BASE = @json(url('/admin/cba-sci/charge/cancel'));
         const CBA_SCI_CHARGE_OVERRIDE_URL_BASE = @json(url('/admin/cba-sci/charge/override'));
+        const THERMAL_PRINT_RECEIPT_URL = @json(route('admin.thermal-print.receipt'));
 
         // ---------- This station's EFT terminal ----------
         // sessionStorage only, deliberately — scoped to this one tab for exactly as long as
@@ -1583,6 +1556,7 @@
             actionUrlBase: CBA_SCI_CHARGE_ACTION_URL_BASE,
             cancelUrlBase: CBA_SCI_CHARGE_CANCEL_URL_BASE,
             overrideUrlBase: CBA_SCI_CHARGE_OVERRIDE_URL_BASE,
+            thermalPrintUrl: THERMAL_PRINT_RECEIPT_URL,
             csrfToken: CSRF_TOKEN,
             eventId: EVENT_ID,
             currencyCode: CURRENCY_CODE,
@@ -1602,13 +1576,12 @@
                 overrideQuestion: document.getElementById('eftModalOverrideQuestion'),
                 overrideSaving: document.getElementById('eftModalOverrideSaving'),
                 countdown: document.getElementById('eftModalCountdown'),
-                printNotice: document.getElementById('eftModalPrintNotice'),
                 headerTitleError: document.getElementById('eftModalHeaderTitleError'),
             },
             buildStartBody: function (attempt) {
                 return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };
             },
-            onToast: function (message) { showToast(message, true); },
+            onToast: function (message, isError) { showToast(message, isError); },
             onApproved: function (donationId, resultAmounts, attempt) {
                 activeEftProvider = null;
                 const a = attempt || sciLastAttempt;

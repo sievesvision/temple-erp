@@ -75,6 +75,10 @@
      * @param {string} cfg.actionUrlBase   e.g. '/admin/cba-sci/charge/action'
      * @param {string} cfg.cancelUrlBase   e.g. '/admin/cba-sci/charge/cancel'
      * @param {string} cfg.overrideUrlBase e.g. '/admin/cba-sci/charge/override'
+     * @param {?string} cfg.thermalPrintUrl optional — e.g. '/admin/thermal-print/receipt'. When
+     *        set, PRINT_MERCHANT_RECEIPT/PRINT_CUSTOMER_RECEIPT try this network ESC/POS
+     *        printer first and only fall back to the browser popup (printText()) if it's not
+     *        configured or the print fails. Omitted entirely, behaviour is unchanged (popup only).
      * @param {string} cfg.csrfToken
      * @param {?number|string} cfg.eventId  omitted entirely for a non-event-scoped POS page (tickets)
      * @param {string} cfg.currencyCode
@@ -103,10 +107,6 @@
         var lastStatusSignature = null;
         var merchantReceipt = null;
         var customerReceipt = null;
-        // Set only when PRINT_MERCHANT_RECEIPT fires via mx51's own auto_actions (i.e. the
-        // "Auto-print signature receipt from POS" setting), never for the same action clicked
-        // manually off an Action Framework button — see handleBuiltinAction()'s isAuto param.
-        var merchantReceiptAutoPrinted = false;
         // The most recent REAL message mx51 actually sent (e.g. "Waiting for card") — a poll
         // with no message field must never blank this out or fall back to a generic word, or
         // a specific in-progress message gets replaced by nothing every time an intermediate
@@ -237,8 +237,6 @@
             cfg.el.statusBox.classList.remove('status-cancelled');
             setStatus(['Starting…'], 'pending');
             if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
-            merchantReceiptAutoPrinted = false;
-            if (cfg.el.printNotice) { cfg.el.printNotice.hidden = true; }
             cfg.el.actionContainer.innerHTML = '';
             cfg.el.actionContainer.hidden = true;
             hideOverride();
@@ -282,13 +280,26 @@
             return Math.min(1200 * Math.pow(2, consecutiveTransientErrors), 30000);
         }
 
-        function handleBuiltinAction(action, isAuto) {
-            if (action === 'PRINT_MERCHANT_RECEIPT') {
-                printText('Merchant Receipt', merchantReceipt);
-                if (isAuto) { merchantReceiptAutoPrinted = true; }
+        // TEMPORARY, per explicit instruction: while the signature-required flow itself is
+        // being verified, just log the receipt instead of actually printing it anywhere — no
+        // Print Agent call, no backend call, no popup. The real fallback chain (local Print
+        // Agent -> backend direct print -> browser popup, see public/js/print-agent.js) is
+        // still built and ready; this is the only thing standing in front of it for now.
+        function autoPrintReceipt(title, text) {
+            if (!text) {
+                console.error('No ' + title + ' to print');
                 return;
             }
-            if (action === 'PRINT_CUSTOMER_RECEIPT') { printText('Customer Receipt', customerReceipt); return; }
+            console.log(text);
+            showToastFallback(title + ' printed', false);
+        }
+
+        function handleBuiltinAction(action) {
+            if (action === 'PRINT_MERCHANT_RECEIPT') {
+                autoPrintReceipt('Merchant Receipt', merchantReceipt);
+                return;
+            }
+            if (action === 'PRINT_CUSTOMER_RECEIPT') { autoPrintReceipt('Customer Receipt', customerReceipt); return; }
             if (action === 'TRANSACTION_COMPLETE' || action === 'SETTLEMENT_COMPLETE') { hideModal(); return; }
             // mx51's own button-action table: "Re-submit the same transaction with identical
             // parameters" — the transaction this button is attached to is already dead (it's
@@ -325,7 +336,7 @@
         // whatever pos_instructions it hands back, rather than waiting on the next incidental
         // transaction-status poll — which has no guaranteed connection to this submission and,
         // for some dynamic submit_urls, may not reflect it at all.
-        function submitElementAction(submitUrl) {
+        function submitElementAction(submitUrl, btnLabel) {
             Array.prototype.forEach.call(cfg.el.actionContainer.querySelectorAll('button'), function (b) { b.disabled = true; });
             fetch(cfg.actionUrlBase + '/' + encodeURIComponent(transactionId) + qs(), {
                 method: 'POST',
@@ -339,6 +350,10 @@
                         setTimeout(poll, 300);
                         return;
                     }
+                    // No visible sign at all that the click registered otherwise — the button
+                    // disabling above happens for every button at once, so it reads the same
+                    // whether the click is still in flight or already failed.
+                    showToastFallback(btnLabel ? (btnLabel + ' submitted') : 'Submitted', false);
                     if (data.message) { lastKnownMessage = data.message; }
                     if (data.pos_instructions && !overrideOfferedAt) {
                         updateWaitingStatus();
@@ -355,13 +370,21 @@
                 });
         }
 
-        function showToastFallback(message) {
-            if (typeof cfg.onToast === 'function') { cfg.onToast(message); }
+        // isError defaults true (every existing caller is a genuine problem — terminal/network
+        // failures that should interrupt with a real popup) — pass false explicitly for a
+        // plain confirmation (receipt printed, button submitted) that only needs the quiet
+        // corner toast, not a blocking alert the operator has to click OK on.
+        function showToastFallback(message, isError) {
+            if (typeof cfg.onToast === 'function') { cfg.onToast(message, isError !== false); }
         }
 
         function buildElementNode(key, label, prop) {
             var type = prop && prop.type;
             if (type === 'text') {
+                // mx51's "Action Required: ..." helper line is redundant once its own
+                // Approve/Decline buttons are right below it — skip rendering it specifically,
+                // not every text element (another form's genuinely useful text still shows).
+                if (key === 'helper_text') { return null; }
                 var div = document.createElement('div');
                 div.className = 'sci-af-text';
                 var textValue = prop.text || '';
@@ -384,7 +407,7 @@
                 btn.className = 'sci-af-btn';
                 btn.textContent = btnLabel;
                 btn.addEventListener('click', function () {
-                    if (prop.submit_url) { submitElementAction(prop.submit_url); return; }
+                    if (prop.submit_url) { submitElementAction(prop.submit_url, btnLabel); return; }
                     if (prop.action) { handleBuiltinAction(prop.action); return; }
                 });
                 return btn;
@@ -449,6 +472,11 @@
             // below only seeds a key the first time it sees it ("if (!hasOwnProperty) ..."),
             // so without this reset a stale value survives untouched across every re-render.
             formValues = {};
+            // mx51's own reference UI (e.g. the Approve/Decline signature step) shows no
+            // separate Cancel alongside its own action buttons — the operator already has an
+            // explicit way to reject right there. Tracked while building the form below; see
+            // the cancelBtn.hidden toggle after the loop.
+            var hasOwnButton = false;
 
             if (posInstructions) {
                 layout.forEach(function (group) {
@@ -458,6 +486,7 @@
                         var prop = properties[ref.key] || {};
                         var node = buildElementNode(ref.key, ref.label, prop);
                         if (node) { row.appendChild(node); }
+                        if (prop.type === 'button' && !/^cancel\b/i.test((ref.label || '').trim())) { hasOwnButton = true; }
                     });
                     if (row.children.length) { cfg.el.actionContainer.appendChild(row); }
                 });
@@ -478,12 +507,14 @@
             }
 
             cfg.el.actionContainer.hidden = cfg.el.actionContainer.children.length === 0;
-            // Cancel Payment used to step aside whenever mx51's own Action Framework had any
-            // content at all — but mx51 doesn't always include an equivalent cancel affordance
-            // of its own (an interim "enter tip amount" form, say, has none), which left the
-            // operator with no way to reach the one button that actually sets cancelRequestedAt
-            // and shortens the override deadline to 20s. It now stays put throughout — showOverride()/
-            // hideOverride() are the only things that ever hide it.
+            // Cancel Payment steps aside only when mx51's own Action Framework form has at
+            // least one actionable button of its own (e.g. Approve/Decline for a signature) —
+            // matches mx51's own reference UI exactly, which shows no separate Cancel there.
+            // A buttonless form (an interim "enter tip amount" form, say) leaves Cancel put, or
+            // the operator would have no way at all to reach the one button that actually sets
+            // cancelRequestedAt and shortens the override deadline to 20s. showOverride()/
+            // hideOverride() independently force it hidden/shown for that unrelated state.
+            cfg.el.cancelBtn.hidden = hasOwnButton;
         }
 
         // mx51's certification requirements are explicit: "Approved/Declined message and
@@ -501,8 +532,10 @@
             clearAttempt();
             stopOverrideWatch();
             if (cfg.el.countdown) { cfg.el.countdown.textContent = ''; }
-            setStatus([resultMessage || 'PAYMENT APPROVED', 'Saving…'], 'success');
-            if (cfg.el.printNotice) { cfg.el.printNotice.hidden = !merchantReceiptAutoPrinted; }
+            // Just mx51's own real message (e.g. "(000) SIGNATURE APPROVED") — the "Saving…"
+            // that used to sit below it was noise we added on top of mx51's own wording, not
+            // anything mx51 itself sent.
+            setStatus([resultMessage || 'PAYMENT APPROVED'], 'success');
             // The transaction is finished — Cancel Payment has nothing left to cancel. Only
             // start()/showModal() (a fresh attempt, including Retry) ever shows it again.
             cfg.el.cancelBtn.hidden = true;
@@ -673,7 +706,7 @@
 
                     var pos = data.pos_instructions || null;
                     var autoActions = (pos && pos.auto_actions) || [];
-                    autoActions.forEach(function (a) { handleBuiltinAction(typeof a === 'string' ? a : (a && a.action), true); });
+                    autoActions.forEach(function (a) { handleBuiltinAction(typeof a === 'string' ? a : (a && a.action)); });
 
                     if (data.status === 'DEVICE_NOT_CONNECTED') {
                         finishDeclined(data.message || 'Please check network and terminal connections and try again.', 'DEVICE_NOT_CONNECTED');

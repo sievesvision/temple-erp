@@ -504,12 +504,73 @@
                                 <label class="form-check-label fw-semibold text-dark" for="recaptcha_enabled">Enable reCAPTCHA on Login, Registration and Donation forms</label>
                             </div>
                         </div>
+
+                        <div class="settings-section">
+                            <h5><i class="bi bi-printer me-2"></i>Thermal Printer (ESC/POS)</h5>
+                            <p class="text-muted small mb-3">A network/WiFi receipt printer for automatic printing — ticket stubs and mx51 merchant/customer receipts print straight to it with no popup or print dialog. Leave disabled to keep using the existing browser "Print" button instead.</p>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="thermal_printer_enabled" id="thermal_printer_enabled" value="1" {{ $thermalPrinterEnabled ? 'checked' : '' }}>
+                                        <label class="form-check-label fw-semibold text-dark" for="thermal_printer_enabled">Enable auto-print</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-dark">Printer IP Address</label>
+                                    <input type="text" name="thermal_printer_ip" id="thermal_printer_ip" class="form-control rounded-3" value="{{ $thermalPrinterIp }}" placeholder="e.g. 192.168.1.50">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label fw-semibold text-dark">Port</label>
+                                    <input type="number" name="thermal_printer_port" id="thermal_printer_port" class="form-control rounded-3" value="{{ $thermalPrinterPort }}" min="1" max="65535">
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn btn-outline-secondary w-100" id="thermalPrinterTestBtn" data-test-url="{{ route('admin.settings.testThermalPrinter') }}" data-csrf="{{ csrf_token() }}">Test Print</button>
+                                </div>
+                            </div>
+                            <p class="small mt-2 mb-0" id="thermalPrinterTestResult"></p>
+                        </div>
                     </div>
 
                     <div class="text-end">
                         <button type="submit" class="btn btn-submit">Save Settings</button>
                     </div>
                     </form>
+
+                    <script>
+                    (function () {
+                        var btn = document.getElementById('thermalPrinterTestBtn');
+                        if (!btn) { return; }
+                        btn.addEventListener('click', function () {
+                            var result = document.getElementById('thermalPrinterTestResult');
+                            var ip = document.getElementById('thermal_printer_ip').value.trim();
+                            var port = document.getElementById('thermal_printer_port').value.trim();
+                            if (!ip) {
+                                result.textContent = 'Enter a printer IP address first.';
+                                result.className = 'small mt-2 mb-0 text-danger';
+                                return;
+                            }
+                            btn.disabled = true;
+                            result.textContent = 'Printing test page...';
+                            result.className = 'small mt-2 mb-0 text-muted';
+                            fetch(btn.dataset.testUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': btn.dataset.csrf },
+                                body: 'ip=' + encodeURIComponent(ip) + '&port=' + encodeURIComponent(port || '9100'),
+                            })
+                                .then(function (res) { return res.json(); })
+                                .then(function (data) {
+                                    btn.disabled = false;
+                                    result.textContent = data.success ? 'Test page sent — check the printer.' : ('Failed: ' + (data.message || 'Unknown error'));
+                                    result.className = 'small mt-2 mb-0 ' + (data.success ? 'text-success' : 'text-danger');
+                                })
+                                .catch(function () {
+                                    btn.disabled = false;
+                                    result.textContent = 'Network error — please try again.';
+                                    result.className = 'small mt-2 mb-0 text-danger';
+                                });
+                        });
+                    })();
+                    </script>
 
                     <!-- EFT TERMINALS — the same registry every console's own "EFT Terminal
                          Settings" pane shows (see admin.partials.eft-terminal-registry), so
