@@ -1718,7 +1718,10 @@ class DonationController extends Controller
             $this->linkLedgerToDonation($linklySessionId, 'guest', $donationId);
 
             if ($request->wantsJson()) {
-                return response()->json(['success' => true, 'message' => 'Guest donation recorded successfully.']);
+                // donation_id is additive — no existing caller reads this key, but the kiosk
+                // confirmation screen needs it to build a receipt number (see
+                // DonationReceiptService::receiptNumber()).
+                return response()->json(['success' => true, 'message' => 'Guest donation recorded successfully.', 'donation_id' => $donationId]);
             }
             return redirect()->back()->with('success', 'Guest donation recorded successfully.');
         } catch (\Exception $e) {

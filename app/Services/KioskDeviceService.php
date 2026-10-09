@@ -31,7 +31,7 @@ class KioskDeviceService
         ?array $enabledPaymentMethods,
         User $admin
     ): KioskDevice {
-        return KioskDevice::create([
+        $device = KioskDevice::create([
             'device_uuid' => (string) Str::uuid(),
             'name' => $name,
             'label' => $label,
@@ -42,6 +42,24 @@ class KioskDeviceService
             'status' => 'pending',
             'registered_by' => $admin->id,
         ]);
+
+        // A per-device service account — authenticated via Auth::onceUsingId() (never a
+        // persisted session login, see AuthenticateKioskDeviceSession), so every existing
+        // order/donation-creation controller method this device's API calls reuse works
+        // completely unmodified, reading Auth::user() exactly as it does for a human operator.
+        // Unusable password (never logged in via the normal login form), email synthesized
+        // from the device's own unique uuid (the users.email column is required+unique;
+        // username/mobile are left null — both nullable+unique, no need to synthesize either).
+        $serviceUser = User::create([
+            'name' => "Kiosk — {$name}",
+            'email' => "kiosk-{$device->device_uuid}@kiosk.local",
+            'password' => Hash::make(Str::random(40)),
+            'role' => 'Kiosk Device',
+            'status' => 'Active',
+        ]);
+        $device->update(['service_user_id' => $serviceUser->id]);
+
+        return $device->fresh();
     }
 
     /**

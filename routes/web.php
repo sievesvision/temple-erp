@@ -945,6 +945,61 @@ Route::middleware('kiosk.device')->prefix('kiosk')->group(function () {
 });
 
 // ============================================
+// KIOSK — PHASE 2: customer-facing ordering. Page shells are public/unguarded (device-auth
+// happens via the page's own JS bootstrap call, same "open page, guarded API" split already
+// established by /kiosk/pair above); every API route underneath reuses an EXISTING
+// TicketController/DonationController/CbaSciController method completely unmodified — these
+// are NEW routes pointed at those same methods, never additions to any existing route's own
+// role list, so no existing route's behaviour changes at all.
+// ============================================
+Route::get('/kiosk/welcome', function () {
+    return view('kiosk.welcome');
+})->name('kiosk.welcome');
+Route::get('/kiosk/order', function () {
+    return view('kiosk.order');
+})->name('kiosk.order');
+
+Route::middleware('kiosk.device')->prefix('kiosk/api')->group(function () {
+    Route::get('/bootstrap', [\App\Http\Controllers\KioskOrderController::class, 'bootstrap'])->name('kiosk.api.bootstrap');
+
+    Route::middleware(['kiosk.device.session', 'kiosk.module:tickets'])->group(function () {
+        Route::post('/tickets/checkout', [\App\Http\Controllers\TicketController::class, 'storeOrder'])->name('kiosk.api.tickets.checkout');
+        Route::post('/tickets/auto-print/{order}', [\App\Http\Controllers\TicketController::class, 'autoPrintOrder'])->name('kiosk.api.tickets.autoPrint');
+        Route::post('/tickets/eft/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'ticket_order']);
+            return app(\App\Http\Controllers\DonationController::class)->startEftCharge($r);
+        })->name('kiosk.api.tickets.eft.start');
+        Route::post('/tickets/cba-sci/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'ticket_order']);
+            return app(\App\Http\Controllers\CbaSciController::class)->startPurchase($r);
+        })->name('kiosk.api.tickets.cbaSci.start');
+    });
+
+    Route::middleware(['kiosk.device.session', 'kiosk.module:donations'])->group(function () {
+        Route::post('/donations/guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('kiosk.api.donations.guest');
+        Route::post('/donations/eft/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'donation']);
+            return app(\App\Http\Controllers\DonationController::class)->startEftCharge($r);
+        })->name('kiosk.api.donations.eft.start');
+        Route::post('/donations/cba-sci/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'donation']);
+            return app(\App\Http\Controllers\CbaSciController::class)->startPurchase($r);
+        })->name('kiosk.api.donations.cbaSci.start');
+    });
+
+    // Shared by both modules — poll/cancel/sendkey/action act on an existing transaction id
+    // whose record_type was already fixed at creation time above, so no module forcing needed.
+    Route::middleware('kiosk.device.session')->group(function () {
+        Route::get('/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('kiosk.api.eft.status');
+        Route::post('/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('kiosk.api.eft.cancel');
+        Route::post('/eft/charge/sendkey/{sessionId}', [\App\Http\Controllers\DonationController::class, 'sendEftKey'])->name('kiosk.api.eft.sendkey');
+        Route::get('/cba-sci/charge/status/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'poll'])->name('kiosk.api.cbaSci.status');
+        Route::post('/cba-sci/charge/action/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'submitAction'])->name('kiosk.api.cbaSci.action');
+        Route::post('/cba-sci/charge/cancel/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'cancel'])->name('kiosk.api.cbaSci.cancel');
+    });
+});
+
+// ============================================
 // ADMIN: KIOSK DEVICE MANAGEMENT — gated by App\Services\KioskAccess inside the controller
 // (not a role: string), since it needs to combine Admin-bypass with the dynamic
 // RolePermission grid and the per-event/per-module Event Coordinator/Ticket Controller

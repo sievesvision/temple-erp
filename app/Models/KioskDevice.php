@@ -21,7 +21,7 @@ class KioskDevice extends Model
         'device_uuid', 'name', 'label', 'type', 'status', 'module', 'event_id',
         'eft_terminal_id', 'enabled_payment_methods', 'credential_token',
         'credential_issued_at', 'credential_rotated_at', 'last_activity_at',
-        'last_activity_ip', 'registered_by', 'revoked_by', 'revoked_at',
+        'last_activity_ip', 'registered_by', 'revoked_by', 'revoked_at', 'service_user_id',
     ];
 
     protected $casts = [
@@ -45,12 +45,20 @@ class KioskDevice extends Model
 
     public function event()
     {
-        return $this->belongsTo(Event::class);
+        // Explicit keys required — Event's primary key is the non-standard 'event_id' (not
+        // 'id'), which breaks Eloquent's default foreign-key guess (it would guess
+        // 'event_event_id': relation name + '_' + Event's own key name).
+        return $this->belongsTo(Event::class, 'event_id', 'event_id');
     }
 
     public function eftTerminal()
     {
         return $this->belongsTo(EftTerminal::class);
+    }
+
+    public function serviceUser()
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function isActive(): bool

@@ -65,7 +65,7 @@
                     </div>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="generateCode({{ $device->id }}, '{{ $device->name }}')"><i class="bi bi-qr-code me-1"></i>Pairing Code</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="generateCode('{{ route('admin.kiosk-devices.pairingCode', $device) }}', '{{ $device->name }}')"><i class="bi bi-qr-code me-1"></i>Pairing Code</button>
                     @if($device->status === 'active')
                     <form method="POST" action="{{ route('admin.kiosk-devices.deactivate', $device) }}" class="d-inline">
                         @csrf
@@ -175,8 +175,8 @@
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script>
-        function generateCode(deviceId, deviceName) {
-            fetch('/admin/kiosk-devices/' + deviceId + '/pairing-code', {
+        function generateCode(url, deviceName) {
+            fetch(url, {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
             })
