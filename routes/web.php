@@ -286,6 +286,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         $onlinePoojaShippingCharge = \App\Models\Setting::get('online_pooja_shipping_charge', '50.00');
         $recaptchaEnabled = (bool) \App\Models\Setting::get('recaptcha_enabled', false);
         $recaptchaConfigured = (bool) \App\Services\RecaptchaService::siteKey();
+        $thermalPrinterEnabled = \App\Services\ThermalPrinterSettings::enabled();
+        $thermalPrinterIp = \App\Services\ThermalPrinterSettings::ip();
+        $thermalPrinterPort = \App\Services\ThermalPrinterSettings::port();
 
         // EFT Terminal panel — the same registry data every console's own EFT Terminal
         // Settings pane computes (see EventConsoleController::show()'s identical call),
@@ -352,6 +355,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'onlinePoojaShippingCharge',
             'recaptchaEnabled',
             'recaptchaConfigured',
+            'thermalPrinterEnabled',
+            'thermalPrinterIp',
+            'thermalPrinterPort',
             'eftTerminals',
             'linklyMode',
             'cbaSciMode',
@@ -418,6 +424,9 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
             'max_advance_booking_days' => 'required|integer|min:1',
             'online_pooja_shipping_charge' => 'required|numeric|min:0',
             'recaptcha_enabled' => 'nullable|boolean',
+            'thermal_printer_enabled' => 'nullable|boolean',
+            'thermal_printer_ip' => 'nullable|string|max:255',
+            'thermal_printer_port' => 'nullable|integer|min:1|max:65535',
         ]);
 
         // Image path settings should stay portable between environments (local vs production
@@ -494,9 +503,17 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
         \App\Models\Setting::set('max_advance_booking_days', $request->max_advance_booking_days);
         \App\Models\Setting::set('online_pooja_shipping_charge', $request->online_pooja_shipping_charge);
         \App\Models\Setting::set('recaptcha_enabled', $request->boolean('recaptcha_enabled') ? '1' : '0');
+        \App\Models\Setting::set('thermal_printer_enabled', $request->boolean('thermal_printer_enabled') ? '1' : '0');
+        \App\Models\Setting::set('thermal_printer_ip', trim((string) $request->thermal_printer_ip));
+        \App\Models\Setting::set('thermal_printer_port', $request->thermal_printer_port ?: 9100);
 
         return redirect()->back()->with('success', 'System settings updated successfully.');
     })->name('admin.settings.update');
+
+    // Thermal printer "Test Print" button — same 'settings'/edit gate as admin.settings.update
+    // above, checked inside the controller itself (ThermalPrintController::test()) since this
+    // sits in the generic 'auth' group rather than a role-specific one.
+    Route::post('/admin/settings/test-thermal-printer', [\App\Http\Controllers\ThermalPrintController::class, 'test'])->name('admin.settings.testThermalPrinter');
 
     // EFT terminal registry management moved to its own route group below (role:Admin,
     // Committee,Event Coordinator,Ticket Controller) — an event-admin coordinator or
@@ -693,6 +710,11 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
     Route::post('/admin/cba-sci/charge/cancel/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'cancel'])->name('admin.cba-sci.charge.cancel');
     Route::post('/admin/cba-sci/charge/override/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'override'])->name('admin.cba-sci.charge.override');
     Route::post('/admin/cba-sci/charge/refund/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'refund'])->name('admin.cba-sci.charge.refund');
+
+    // Genuine ESC/POS auto-print of a merchant/customer receipt the frontend already holds
+    // as plain text (see sci-action-framework.js's printText()) — same role list as the mx51
+    // charge lifecycle above, since every one of those pages is a potential caller.
+    Route::post('/admin/thermal-print/receipt', [\App\Http\Controllers\ThermalPrintController::class, 'printReceipt'])->name('admin.thermal-print.receipt');
 });
 
 // ============================================
@@ -711,6 +733,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     Route::get('/admin/tickets/pos', [\App\Http\Controllers\TicketController::class, 'posShow'])->name('admin.tickets.pos');
     Route::post('/admin/tickets/order', [\App\Http\Controllers\TicketController::class, 'storeOrder'])->name('admin.tickets.storeOrder');
     Route::get('/admin/tickets/print/{order}', [\App\Http\Controllers\TicketController::class, 'printOrder'])->name('admin.tickets.print');
+    Route::post('/admin/tickets/auto-print/{order}', [\App\Http\Controllers\TicketController::class, 'autoPrintOrder'])->name('admin.tickets.autoPrint');
 
     // Shared by both the event- and tickets-scoped Cash Banking panes — which scope a
     // submission means is carried in the form itself (see CashSettlementController::
@@ -898,4 +921,98 @@ Route::middleware(['auth', 'role:Admin,Accountant'])->group(function () {
     Route::get('/admin/salaries', [\App\Http\Controllers\SalaryController::class, 'index'])->name('admin.salaries.index');
     Route::post('/admin/salaries/sanction', [\App\Http\Controllers\SalaryController::class, 'sanction'])->name('admin.salaries.sanction');
     Route::get('/admin/reports', [\App\Http\Controllers\SalaryController::class, 'reports'])->name('admin.reports.index');
+});
+
+// ============================================
+// KIOSK — new, fully separate URL space, deliberately freed up for this exact feature by
+// 2026_10_17_000000_rename_kiosk_to_pos.php. /kiosk/pair is the ONLY route reachable with no
+// device credential yet (the pairing entry point); everything else under /kiosk requires
+// 'kiosk.device'. No 'auth'/'role:*' middleware anywhere in this block — Phase 1 has no
+// ordering UI yet, so there is nothing here for a human session to gate (see the kiosk
+// feature plan's Phase 2 notes for how a per-device service-account login gets layered in
+// later, for the ordering routes only).
+// ============================================
+Route::get('/kiosk/pair', function () {
+    return view('kiosk.pair');
+})->name('kiosk.pair');
+Route::post('/kiosk/pair', [\App\Http\Controllers\KioskPairingController::class, 'redeem'])->name('kiosk.pair.redeem');
+
+Route::middleware('kiosk.device')->prefix('kiosk')->group(function () {
+    // Phase 1: a liveness check only — a future idle-timer/welcome page can call this.
+    Route::get('/ping', function (\Illuminate\Http\Request $request) {
+        return response()->json(['device' => $request->attributes->get('kiosk_device')->name]);
+    })->name('kiosk.ping');
+});
+
+// ============================================
+// KIOSK — PHASE 2: customer-facing ordering. Page shells are public/unguarded (device-auth
+// happens via the page's own JS bootstrap call, same "open page, guarded API" split already
+// established by /kiosk/pair above); every API route underneath reuses an EXISTING
+// TicketController/DonationController/CbaSciController method completely unmodified — these
+// are NEW routes pointed at those same methods, never additions to any existing route's own
+// role list, so no existing route's behaviour changes at all.
+// ============================================
+Route::get('/kiosk/welcome', function () {
+    return view('kiosk.welcome');
+})->name('kiosk.welcome');
+Route::get('/kiosk/order', function () {
+    return view('kiosk.order');
+})->name('kiosk.order');
+
+Route::middleware('kiosk.device')->prefix('kiosk/api')->group(function () {
+    Route::get('/bootstrap', [\App\Http\Controllers\KioskOrderController::class, 'bootstrap'])->name('kiosk.api.bootstrap');
+
+    Route::middleware(['kiosk.device.session', 'kiosk.module:tickets'])->group(function () {
+        Route::post('/tickets/checkout', [\App\Http\Controllers\TicketController::class, 'storeOrder'])->name('kiosk.api.tickets.checkout');
+        Route::post('/tickets/auto-print/{order}', [\App\Http\Controllers\TicketController::class, 'autoPrintOrder'])->name('kiosk.api.tickets.autoPrint');
+        Route::post('/tickets/eft/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'ticket_order']);
+            return app(\App\Http\Controllers\DonationController::class)->startEftCharge($r);
+        })->name('kiosk.api.tickets.eft.start');
+        Route::post('/tickets/cba-sci/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'ticket_order']);
+            return app(\App\Http\Controllers\CbaSciController::class)->startPurchase($r);
+        })->name('kiosk.api.tickets.cbaSci.start');
+    });
+
+    Route::middleware(['kiosk.device.session', 'kiosk.module:donations'])->group(function () {
+        Route::post('/donations/guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('kiosk.api.donations.guest');
+        Route::post('/donations/eft/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'donation']);
+            return app(\App\Http\Controllers\DonationController::class)->startEftCharge($r);
+        })->name('kiosk.api.donations.eft.start');
+        Route::post('/donations/cba-sci/start', function (\Illuminate\Http\Request $r) {
+            $r->merge(['record_type' => 'donation']);
+            return app(\App\Http\Controllers\CbaSciController::class)->startPurchase($r);
+        })->name('kiosk.api.donations.cbaSci.start');
+    });
+
+    // Shared by both modules — poll/cancel/sendkey/action act on an existing transaction id
+    // whose record_type was already fixed at creation time above, so no module forcing needed.
+    Route::middleware('kiosk.device.session')->group(function () {
+        Route::get('/eft/charge/status/{sessionId}', [\App\Http\Controllers\DonationController::class, 'pollEftCharge'])->name('kiosk.api.eft.status');
+        Route::post('/eft/charge/cancel/{sessionId}', [\App\Http\Controllers\DonationController::class, 'cancelEftCharge'])->name('kiosk.api.eft.cancel');
+        Route::post('/eft/charge/sendkey/{sessionId}', [\App\Http\Controllers\DonationController::class, 'sendEftKey'])->name('kiosk.api.eft.sendkey');
+        Route::get('/cba-sci/charge/status/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'poll'])->name('kiosk.api.cbaSci.status');
+        Route::post('/cba-sci/charge/action/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'submitAction'])->name('kiosk.api.cbaSci.action');
+        Route::post('/cba-sci/charge/cancel/{transactionId}', [\App\Http\Controllers\CbaSciController::class, 'cancel'])->name('kiosk.api.cbaSci.cancel');
+    });
+});
+
+// ============================================
+// ADMIN: KIOSK DEVICE MANAGEMENT — gated by App\Services\KioskAccess inside the controller
+// (not a role: string), since it needs to combine Admin-bypass with the dynamic
+// RolePermission grid and the per-event/per-module Event Coordinator/Ticket Controller
+// admin-tier checks, none of which a static role list alone can express.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/kiosk-devices', [\App\Http\Controllers\KioskDeviceController::class, 'index'])->name('admin.kiosk-devices.index');
+    Route::post('/admin/kiosk-devices', [\App\Http\Controllers\KioskDeviceController::class, 'store'])->name('admin.kiosk-devices.store');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/configuration', [\App\Http\Controllers\KioskDeviceController::class, 'updateConfiguration'])->name('admin.kiosk-devices.updateConfiguration');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/pairing-code', [\App\Http\Controllers\KioskDeviceController::class, 'generatePairingCode'])->name('admin.kiosk-devices.pairingCode');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/activate', [\App\Http\Controllers\KioskDeviceController::class, 'activate'])->name('admin.kiosk-devices.activate');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/deactivate', [\App\Http\Controllers\KioskDeviceController::class, 'deactivate'])->name('admin.kiosk-devices.deactivate');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/revoke', [\App\Http\Controllers\KioskDeviceController::class, 'revoke'])->name('admin.kiosk-devices.revoke');
+    Route::post('/admin/kiosk-devices/{kioskDevice}/rotate', [\App\Http\Controllers\KioskDeviceController::class, 'rotateCredential'])->name('admin.kiosk-devices.rotate');
+    Route::delete('/admin/kiosk-devices/{kioskDevice}', [\App\Http\Controllers\KioskDeviceController::class, 'destroy'])->name('admin.kiosk-devices.destroy');
 });

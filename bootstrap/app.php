@@ -47,6 +47,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.accountant' => \App\Http\Middleware\AccountantMiddleware::class,
             'role.devotee' => \App\Http\Middleware\DevoteeMiddleware::class,
             'role.committee' => \App\Http\Middleware\CommitteeMiddleware::class,
+            'kiosk.device' => \App\Http\Middleware\AuthenticateKioskDevice::class,
+            'kiosk.device.session' => \App\Http\Middleware\AuthenticateKioskDeviceSession::class,
+            'kiosk.module' => \App\Http\Middleware\EnsureKioskModule::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

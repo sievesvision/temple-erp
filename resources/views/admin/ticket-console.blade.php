@@ -12,6 +12,7 @@
     <link href="{{ asset('css/eft-terminal-registry.css') }}?v={{ @filemtime(public_path('css/eft-terminal-registry.css')) }}" rel="stylesheet">
     <script src="{{ asset('js/eft-terminal-registry.js') }}?v={{ @filemtime(public_path('js/eft-terminal-registry.js')) }}" defer></script>
     <script src="{{ asset('js/sci-action-framework.js') }}?v={{ @filemtime(public_path('js/sci-action-framework.js')) }}"></script>
+    <script src="{{ asset('js/print-agent.js') }}?v={{ @filemtime(public_path('js/print-agent.js')) }}"></script>
     <style>
         :root {
             --maroon: #6B0F1A; --maroon-dark: #4A0A12; --gold: #C89B3C; --gold-hover: #A67C2B;
@@ -567,6 +568,28 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="card-panel mt-3">
+                            <div class="fw-bold mb-2">This Computer's Thermal Printer</div>
+                            <p class="text-muted small mb-3">The network ESC/POS receipt printer <strong>this computer</strong> prints tickets and EFT receipts to — saved only in this browser, not on the server, same as the terminal picker above. Printing happens via the small Print Agent program running on this computer (see <code>print-agent/README.md</code>), not through the website itself, since the printer sits on this computer's local network. Leave unset to keep using the browser's own "Print" popup instead.</p>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="field-label">Printer IP Address</label>
+                                    <input type="text" class="form-control" id="thisComputerPrinterIp" placeholder="e.g. 192.168.1.50">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="field-label">Port</label>
+                                    <input type="number" class="form-control" id="thisComputerPrinterPort" placeholder="9100" min="1" max="65535">
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn-save" id="saveThisComputerPrinterBtn">Save for This Computer</button>
+                                </div>
+                                <div class="col-md-3">
+                                    <button type="button" class="btn btn-outline-secondary w-100" id="testThisComputerPrinterBtn">Test Print</button>
+                                </div>
+                            </div>
+                            <p class="text-muted small mt-2 mb-0" id="thisComputerPrinterStatus"></p>
+                        </div>
                     </div>
 
                     {{-- EFT TERMINAL SETTINGS — the exact same registry partial the standalone
@@ -993,6 +1016,55 @@
                 }
             });
         })();
+
+        // "This Computer's Thermal Printer" — same "saved only in this browser" pattern as the
+        // terminal picker above, read by both the Ticket POS page and sci-action-framework.js
+        // (see public/js/print-agent.js) on this same computer.
+        (function () {
+            const ipInput = document.getElementById('thisComputerPrinterIp');
+            const portInput = document.getElementById('thisComputerPrinterPort');
+            const saveBtn = document.getElementById('saveThisComputerPrinterBtn');
+            const testBtn = document.getElementById('testThisComputerPrinterBtn');
+            const status = document.getElementById('thisComputerPrinterStatus');
+            if (!ipInput || !saveBtn || !window.PrintAgent) { return; }
+
+            const existing = PrintAgent.getConfig();
+            if (existing) {
+                ipInput.value = existing.ip;
+                portInput.value = existing.port;
+                status.textContent = 'Currently set for this computer.';
+            } else {
+                status.textContent = 'Not set for this computer yet — ticket/EFT printing will use the browser\'s "Print" popup instead.';
+            }
+
+            saveBtn.addEventListener('click', function () {
+                if (!ipInput.value.trim()) {
+                    status.textContent = 'Enter a printer IP address first.';
+                    return;
+                }
+                if (PrintAgent.setConfig(ipInput.value.trim(), portInput.value.trim())) {
+                    status.textContent = 'Saved for this computer.';
+                } else {
+                    status.textContent = 'Could not save — this browser may be blocking local storage.';
+                }
+            });
+
+            if (testBtn) {
+                testBtn.addEventListener('click', function () {
+                    if (!ipInput.value.trim()) {
+                        status.textContent = 'Enter a printer IP address first.';
+                        return;
+                    }
+                    testBtn.disabled = true;
+                    status.textContent = 'Printing test page...';
+                    PrintAgent.testPrint(ipInput.value.trim(), portInput.value.trim()).then(function (result) {
+                        testBtn.disabled = false;
+                        status.textContent = result.success ? 'Test page sent — check the printer.' : ('Failed: ' + (result.message || 'Unknown error'));
+                    });
+                });
+            }
+        })();
+
         function activatePane(paneId) {
             const link = document.querySelector('[data-pane="' + paneId + '"]');
             if (!link) { return false; }
