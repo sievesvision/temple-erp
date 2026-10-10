@@ -22,28 +22,68 @@
         .event-meta { display:flex; flex-wrap:wrap; gap:1.5rem; color:#e8e4d8; }
         .event-meta span i { color:var(--accent); margin-right:.4rem; }
         .raised-pill { background:rgba(255,255,255,.12); border-radius:999px; padding:.6rem 1.2rem; display:inline-flex; gap:.5rem; align-items:center; margin-top:1.25rem; margin-right:.75rem; }
-        .btn-donate-hero { display:inline-flex; align-items:center; gap:.5rem; background:linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, black)); color:#fff; font-weight:800; font-size:1.05rem; padding:.85rem 1.75rem; border-radius:999px; text-decoration:none; margin-top:1.25rem; box-shadow:0 14px 30px rgba(0,0,0,.25); transition:transform .15s; }
+        .btn-donate-hero { display:inline-flex; align-items:center; gap:.5rem; background:linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, black)); color:#fff; font-weight:800; font-size:1.05rem; padding:.85rem 1.75rem; border-radius:8px; text-decoration:none; margin-top:1.25rem; box-shadow:0 14px 30px rgba(0,0,0,.25); transition:transform .15s; }
         .btn-donate-hero:hover { color:#fff; transform:translateY(-2px); }
         .closed-badge { display:inline-flex; align-items:center; gap:.5rem; background:rgba(255,255,255,.1); color:#e8e4d8; font-weight:700; font-size:.95rem; padding:.75rem 1.5rem; border-radius:999px; margin-top:1.25rem; border:1px solid rgba(255,255,255,.22); }
 
-        .contact-pill-list { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.4rem; }
-        .contact-pill { display:inline-flex; align-items:center; gap:.5rem; background:linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, black)); color:#fff; padding:.55rem 1.1rem; border-radius:999px; font-size:.85rem; font-weight:700; box-shadow:0 6px 16px rgba(0,0,0,.14); }
-        .contact-pill i { font-size:.85rem; opacity:.9; }
-        .contact-pill a { color:#fff; text-decoration:underline; font-weight:600; }
-        .contact-pill a:hover { color:#fff; opacity:.85; }
+        /* Plain, information-first contact cards — replaces an earlier gradient-capsule
+           pill design that read as more decorative than a phone number list needs to. */
+        .contact-card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:1.75rem; margin-bottom:2.5rem; box-shadow:0 16px 35px rgba(37,35,31,.08); }
+        .contact-card-head { display:flex; align-items:center; gap:.85rem; }
+        .contact-card-icon { width:44px; height:44px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+        .contact-card-head h2 { font-size:1.35rem; color:var(--primary); margin:0; }
+        .contact-card-sub { color:var(--muted); font-size:.92rem; margin:.5rem 0 1.25rem; }
+        .contact-rows { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+        @media (max-width:576px) { .contact-rows { grid-template-columns:1fr; } }
+        .contact-row { display:flex; align-items:center; gap:.75rem; background:color-mix(in srgb, var(--accent) 12%, white); border:1px solid var(--line); border-radius:10px; padding:.65rem .85rem; }
+        .contact-row-avatar { width:38px; height:38px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; border:2px solid var(--accent); }
+        .contact-row-info { flex:1; min-width:0; }
+        .contact-row-name { color:var(--primary); font-weight:700; font-size:.92rem; }
+        .contact-row-phone { color:var(--ink); font-size:.86rem; }
+        .contact-row-call { width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; text-decoration:none; font-size:.85rem; }
+        .contact-row-call:hover { color:#fff; opacity:.85; }
 
         .section-pad { padding:4rem 0; }
-        .donate-tabs-card { background:#fff; border-radius:10px; padding:2rem; box-shadow:0 16px 35px rgba(37,35,31,.08); }
-        .donate-method-tabs .nav-link { border-radius:999px; color:var(--ink); font-weight:600; font-size:.85rem; padding:.55rem 1.1rem; border:1px solid var(--line); margin-right:.5rem; }
+        /* No background/shadow/padding of its own any more — .donate-anchor-body (its parent)
+           already provides the inset, and it just lays out the method-info panel and the
+           group-cards inside it, which carry their own visual weight. A second box around
+           all of them was redundant double-framing once those existed. */
+        .donate-tabs-card { padding: 0; }
+        .donate-method-tabs .nav-link { border-radius:8px; color:var(--ink); font-weight:600; font-size:.85rem; padding:.55rem 1.1rem; border:1px solid var(--line); margin-right:.5rem; }
         .donate-method-tabs .nav-link.active { background:var(--primary); color:#fff; border-color:var(--primary); }
         .donation-bank-card { background:color-mix(in srgb, var(--accent) 18%, white); border-top:4px solid var(--primary); border-radius:8px; padding:1.5rem; }
         .bank-label { display:block; color:var(--muted); font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.3rem; }
         .bank-value { display:block; color:var(--dark); font-size:1.05rem; }
         .locked-event-badge { background:color-mix(in srgb, var(--accent) 18%, white); border-radius:6px; padding:.75rem 1rem; font-weight:700; color:var(--dark); }
-        .donation-form label { font-size:.78rem; font-weight:700; }
-        .donation-form .form-control,.donation-form .form-select { border-color:var(--line); border-radius:4px; padding:.7rem; }
-        .donation-form .btn { background:var(--primary); border-color:var(--primary); color:#fff; font-weight:700; }
-        .back-link { color:var(--muted); font-size:.85rem; }
+        .donation-form label { font-size:.76rem; font-weight:700; letter-spacing:.03em; color:var(--dark); margin-bottom:.35rem; display:inline-block; }
+        .donation-form .form-control,.donation-form .form-select {
+            border:1.5px solid var(--line); border-radius:8px; padding:.7rem .9rem; font-size:.97rem; color:var(--ink);
+            background:color-mix(in srgb, var(--line) 20%, white); transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+        .donation-form .form-control:hover,.donation-form .form-select:hover { border-color:color-mix(in srgb, var(--primary) 45%, var(--line)); }
+        .donation-form .form-control:focus,.donation-form .form-select:focus {
+            border-color:var(--primary); background:#fff; outline:none;
+            box-shadow:0 0 0 4px color-mix(in srgb, var(--primary) 16%, transparent);
+        }
+        .donation-form .form-control::placeholder { color:color-mix(in srgb, var(--muted) 85%, transparent); }
+        .donation-form textarea.form-control { min-height:90px; }
+        .donation-form .btn { background:linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, black)); border-color:var(--primary); color:#fff; font-weight:700; border-radius:8px; transition:transform .15s ease, box-shadow .15s ease; }
+        .donation-form .btn:hover { transform:translateY(-1px); box-shadow:0 10px 22px color-mix(in srgb, var(--primary) 35%, transparent); }
+
+        /* Equal-width segmented control instead of Bootstrap's default wrapping pill list —
+           there are always exactly 3 payment methods here, so a fixed 3-column grid keeps
+           them on one row at every width down to a small phone, rather than each pill
+           claiming only its own content width and wrapping onto its own line once two no
+           longer fit side by side (what happens with the default nav-pills flex-wrap). */
+        .donate-method-tabs { display:grid !important; grid-template-columns:repeat(3, 1fr); align-items:stretch; gap:.5rem; margin-right:0 !important; }
+        .donate-method-tabs .nav-item { width:100%; display:flex; }
+        .donate-method-tabs .nav-link {
+            width:100%; flex:1 0 auto; margin-right:0 !important; display:flex; flex-direction:column; align-items:center;
+            justify-content:center; gap:.25rem; text-align:center; white-space:normal; line-height:1.2; min-height:84px;
+            box-sizing:border-box;
+        }
+        .donate-method-tabs .nav-link i { margin:0 !important; font-size:1.05rem; }
+        .donate-method-tabs .nav-link .badge { margin-left:0 !important; }
 
         .festival-brief { background:#fff; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; padding:1.25rem 1.5rem; margin-bottom:2.5rem; box-shadow:0 12px 30px rgba(37,35,31,.06); }
 
@@ -83,15 +123,79 @@
         .tier-qty-input, .tier-free-amount-input { width:100px; }
         .event-flyer img { border-radius:10px; box-shadow:0 16px 35px rgba(37,35,31,.1); }
 
-        .donate-section-anchor { background:#fff; border-radius:14px; padding:2.5rem; box-shadow:0 20px 50px rgba(37,35,31,.1); border:1px solid var(--line); }
+        .donate-section-anchor { background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(37,35,31,.1); border:1px solid var(--line); }
         .donate-section-anchor .section-heading h2 { font-size:1.75rem; }
+        .donate-anchor-body { padding:2.5rem; }
+
+        /* Mobile pass — the desktop paddings/sizes above were tuned for a wide viewport and
+           feel oversized once everything is a single narrow column; this tightens spacing,
+           imagery and type across every card on the page for a phone screen, without
+           changing any content, field, or behaviour. */
+        @media (max-width:640px) {
+            .event-hero { padding:1.85rem 0 2.1rem; }
+            .event-hero h1 { margin:.5rem 0 .85rem; }
+            .event-meta { gap:.9rem; font-size:.92rem; }
+            .raised-pill { padding:.5rem 1rem; font-size:.92rem; }
+            .btn-donate-hero, .closed-badge { width:100%; justify-content:center; padding:.8rem 1.25rem; }
+
+            .section-pad { padding:2.25rem 0; }
+            .event-header-banner { margin-bottom:1.5rem; }
+
+            .festival-brief { padding:1rem 1.15rem; margin-bottom:1.75rem; }
+            .event-story { padding:1.5rem 1.15rem; margin-bottom:1.75rem; border-radius:12px; }
+            .event-story .story-lead { font-size:1.18rem; margin-bottom:1.1rem; }
+            .event-story .story-body p { font-size:.97rem; line-height:1.75; }
+            .story-callout { padding:1.15rem 1.25rem; margin-top:1.1rem; }
+            .story-callout p { font-size:1.02rem; }
+
+            .section-heading { gap:.6rem; margin-bottom:1rem; }
+            .section-heading .icon-badge { width:36px; height:36px; font-size:.95rem; border-radius:10px; }
+            .section-heading h2 { font-size:1.18rem; }
+            .gallery-section { margin-bottom:1.75rem; }
+            .gallery-item img { height:170px; }
+
+            .donation-bank-card { padding:1.1rem; }
+            .contact-card { padding:1.15rem; margin-bottom:1.75rem; border-radius:12px; }
+            .contact-card-icon { width:38px; height:38px; font-size:1rem; }
+            .contact-card-head h2 { font-size:1.15rem; }
+
+            /* These two cards used to nest 1.25–1.35rem of padding inside each other, on top
+               of the .container's own side padding — three stacked insets squeezing the
+               actual form down to a narrow column in the middle of the screen. Cut right
+               back so the form stretches much closer to the screen edges, the way a phone
+               checkout normally does. */
+            .container { padding-left:12px; padding-right:12px; }
+            .donate-section-anchor { border-radius:12px; }
+            .donate-anchor-body { padding:1rem .7rem; }
+            .donate-section-anchor .section-heading h2 { font-size:1.3rem; }
+            .donate-method-tabs .nav-link { font-size:.7rem; padding:.5rem .25rem; min-height:76px; }
+
+            /* Equal thirds instead of flex-wrap's content-width pills, so a short amount
+               ("101") and a long one ("2001") line up the same instead of the last chip
+               being left to wrap onto its own half-empty row. */
+            .quick-amount-row { display:grid !important; grid-template-columns:repeat(3, 1fr); }
+            .quick-amount-chip { width:100%; padding:.6rem .5rem; font-size:.85rem; }
+            .donation-tier-option { padding:.75rem .85rem; }
+            .tier-option-label { min-width:0; }
+
+            .event-flyer { margin-top:2.5rem !important; }
+        }
+
+        /* The Google reCAPTCHA checkbox has a fixed intrinsic width (~304px) that doesn't
+           shrink on its own — past this point the donate card's own inner width drops below
+           that, so without this it's the one element that pushes the whole page into
+           horizontal scroll. Scaled down rather than hidden/clipped, so it stays fully
+           usable; the negative margin below it removes the empty space the scale leaves
+           behind (its box keeps the original, unscaled height). */
+        @media (max-width:360px) {
+            .g-recaptcha { transform:scale(0.86); transform-origin:0 0; margin-bottom:-14px !important; }
+        }
     </style>
 </head>
 <body>
     <div class="event-hero">
         <div class="container">
-            <a class="back-link" style="color:#c4c6bb;" href="{{ route('home') }}#event-donations"><i class="bi bi-arrow-left me-1"></i>Back to {{ $temple['name'] }}</a>
-            <div class="kicker mt-3">Event Donation</div>
+            <div class="kicker">Event Donation</div>
             <h1>{{ $event->event_name }}</h1>
             <div class="event-meta">
                 @if($event->date_tbc)
@@ -115,7 +219,7 @@
         </div>
     </div>
 
-    <div class="section-pad" style="padding-top:4rem;">
+    <div class="section-pad">
         <div class="container" style="max-width:800px;">
             @if($event->header_image)
                 <div class="event-header-banner">
@@ -165,7 +269,7 @@
                 </div>
             @endif
 
-            @if($event->qr_code_image || $event->contactList() || $temple['address'])
+            @if($event->qr_code_image || $temple['address'])
                 <div class="row g-3 mb-4">
                     @if($event->qr_code_image)
                     <div class="col-md-4">
@@ -175,31 +279,43 @@
                         </div>
                     </div>
                     @endif
-                    @if($event->contactList() || $temple['address'])
+                    @if($temple['address'])
                     <div class="col-md-{{ $event->qr_code_image ? 8 : 12 }}">
                         <div class="donation-bank-card h-100">
-                            @if($temple['address'])
-                                <span class="bank-label">Location</span>
-                                <span class="bank-value mb-2" style="display:block;">{{ $temple['address'] }}</span>
-                            @endif
-                            @if($event->contactList())
-                                <span class="bank-label">Contact</span>
-                                <div class="contact-pill-list">
-                                    @foreach($event->contactList() as $contact)
-                                    <span class="contact-pill">
-                                        <i class="bi bi-person-fill"></i>{{ $contact['name'] }}
-                                        @if($contact['phone'])<a href="tel:{{ preg_replace('/[^0-9+]/', '', $contact['phone']) }}">{{ $contact['phone'] }}</a>@endif
-                                    </span>
-                                    @endforeach
-                                </div>
-                            @endif
+                            <span class="bank-label">Location</span>
+                            <span class="bank-value mb-0" style="display:block;">{{ $temple['address'] }}</span>
                         </div>
                     </div>
                     @endif
                 </div>
             @endif
 
+            @if($event->contactList())
+                <div class="contact-card">
+                    <div class="contact-card-head">
+                        <span class="contact-card-icon"><i class="bi bi-telephone-fill"></i></span>
+                        <h2>Contact</h2>
+                    </div>
+                    <p class="contact-card-sub">For any enquiries or assistance, please contact:</p>
+                    <div class="contact-rows">
+                        @foreach($event->contactList() as $contact)
+                        <div class="contact-row">
+                            <span class="contact-row-avatar"><i class="bi bi-person-fill"></i></span>
+                            <div class="contact-row-info">
+                                <div class="contact-row-name">{{ $contact['name'] }}</div>
+                                @if($contact['phone'])<div class="contact-row-phone">{{ $contact['phone'] }}</div>@endif
+                            </div>
+                            @if($contact['phone'])
+                                <a class="contact-row-call" href="tel:{{ preg_replace('/[^0-9+]/', '', $contact['phone']) }}" aria-label="Call {{ $contact['name'] }}"><i class="bi bi-telephone-fill"></i></a>
+                            @endif
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <div id="donate-now" class="donate-section-anchor">
+                <div class="donate-anchor-body">
                 @if($isClosed)
                     <div class="section-heading">
                         <div class="icon-badge" style="background:#94a3b8;"><i class="bi bi-lock-fill"></i></div>
@@ -207,17 +323,13 @@
                     </div>
                     <p class="mb-0" style="color:var(--muted); line-height:1.8;">This event is marked <strong>{{ $event->status }}</strong> and is no longer accepting donations. Thank you to everyone who contributed — your generosity made this possible.</p>
                 @else
-                    <div class="section-heading">
-                        <div class="icon-badge"><i class="bi bi-hand-thumbs-up-fill"></i></div>
-                        <h2>Make Your Donation</h2>
-                    </div>
-
                     {{-- Success/error feedback is now a prominent popup rendered inside the
                          shared donate-form partial itself (so it's visible regardless of
                          scroll position after the post-submit redirect lands back at the top
                          of the page), not a plain inline alert here. --}}
                     @include('frontend.partials.donate-form', ['temple' => $temple, 'lockedEvent' => $event, 'donationOptions' => $donationOptions, 'formAction' => route('donate.without.login'), 'formId' => 'event-donate-form', 'stripeEnabled' => $stripeEnabled, 'requireDonorEmail' => $requireDonorEmail, 'requireDonorMobile' => $requireDonorMobile, 'requireCaptcha' => true])
                 @endif
+                </div>
             </div>
 
             @if($event->flyer_image)
