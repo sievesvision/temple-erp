@@ -182,13 +182,14 @@
             border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 12px 16px;
             box-shadow: 0 1px 4px rgba(15,23,42,0.07);
         }
-        .pos-summary-main-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+        .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; }
         .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 10px; font-size: 0.74rem; font-weight: 700; color: #8A6A1E; flex-shrink: 0; }
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
-        .pos-summary-total-inline { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-        .pos-summary-total-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #8A6A1E; font-weight: 700; flex-shrink: 0; }
-        .pos-summary-total-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(1.15rem, 3.4vw, 1.5rem); font-weight: 800; color: var(--maroon); line-height: 1.1; white-space: nowrap; }
-        .pos-summary-meta-line { margin-top: 6px; font-size: 0.78rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-summary-total-center { text-align: center; margin: 12px 0 10px; }
+        .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); }
+        .pos-summary-total-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(1.9rem, 5vw, 2.4rem); font-weight: 800; color: var(--maroon); line-height: 1.1; }
+        .pos-summary-meta-line { margin-top: 8px; text-align: left; font-size: 0.82rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pos-summary-meta-line #posSummaryName { color: var(--text-primary); font-weight: 600; }
         .pos-summary-meta-sep { margin: 0 5px; opacity: 0.6; }
 
@@ -347,6 +348,11 @@
         }
         .pos-save-btn:disabled { opacity: 0.55; }
         .pos-save-btn:active { transform: scale(0.98); }
+        {{-- Inline on the same line as PAY, not its own row — keeps the button exactly the same
+             height as the Bank Transfer/Cash state. Visually distinct (smaller, lighter, spaced
+             caps) so the terminal name still reads as supporting detail, not competing with the
+             amount for attention. --}}
+        .pos-save-btn-terminal { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
 
         /* ---------- Recent Orders popup (opened from the Donation Summary link) ---------- */
         .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
@@ -780,15 +786,16 @@
 
             <div class="pos-side">
                 <div class="pos-summary-card">
-                    <div class="pos-summary-main-row">
+                    <div class="pos-summary-top-row">
+                        <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
                         <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
                             <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
                         </button>
-                        <div class="pos-summary-total-inline">
-                            <span class="pos-summary-total-label">Total</span>
-                            <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
-                        </div>
                     </div>
+                    <div class="pos-summary-total-center">
+                        <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
+                    </div>
+                    <div class="pos-summary-divider"></div>
                     <div class="pos-summary-meta-line">
                         <span id="posSummaryName">Donor not entered yet</span><span class="pos-summary-meta-sep">&middot;</span><span id="posSummaryMethod">Pick a payment method</span>
                     </div>
@@ -1141,7 +1148,7 @@
             const saveBtn = document.getElementById('posSaveBtn');
             if (!saveBtn) { return; }
             if (selectedMethod === 'EFT Terminal') {
-                saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY' + (amt > 0 ? ' ' + amtText : '') + ' on ' + escapeHtmlPos(currentTerminalLabel());
+                saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY' + (amt > 0 ? ' ' + amtText : '') + ' <span class="pos-save-btn-terminal">on ' + escapeHtmlPos(currentTerminalLabel()) + ' Terminal</span>';
             } else if (methodIsImmediate(selectedMethod)) {
                 saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY' + (amt > 0 ? ' ' + amtText : '');
             } else {
