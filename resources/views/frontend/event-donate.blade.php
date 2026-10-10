@@ -35,13 +35,16 @@
         .contact-card-sub { color:var(--muted); font-size:.92rem; margin:.5rem 0 1.25rem; }
         .contact-rows { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
         @media (max-width:576px) { .contact-rows { grid-template-columns:1fr; } }
-        .contact-row { display:flex; align-items:center; gap:.75rem; background:color-mix(in srgb, var(--accent) 12%, white); border:1px solid var(--line); border-radius:10px; padding:.65rem .85rem; }
-        .contact-row-avatar { width:38px; height:38px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; border:2px solid var(--accent); }
+        {{-- Plain white card, no tinted background or coloured ring competing with the avatar —
+             the phone number itself is now the tap-to-call target, so the separate circular
+             Call button (redundant with the number already shown) is gone too. --}}
+        .contact-row { display:flex; align-items:center; gap:.85rem; background:#fff; border:1px solid var(--line); border-radius:10px; padding:.75rem .95rem; transition:border-color .15s, box-shadow .15s; }
+        .contact-row:hover { border-color:var(--primary); box-shadow:0 6px 16px rgba(37,35,31,.08); }
+        .contact-row-avatar { width:40px; height:40px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; }
         .contact-row-info { flex:1; min-width:0; }
-        .contact-row-name { color:var(--primary); font-weight:700; font-size:.92rem; }
-        .contact-row-phone { color:var(--ink); font-size:.86rem; }
-        .contact-row-call { width:34px; height:34px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; text-decoration:none; font-size:.85rem; }
-        .contact-row-call:hover { color:#fff; opacity:.85; }
+        .contact-row-name { color:var(--dark); font-weight:700; font-size:.92rem; }
+        .contact-row-phone { display:inline-block; margin-top:1px; color:var(--primary); font-weight:600; font-size:.86rem; text-decoration:none; }
+        .contact-row-phone:hover { text-decoration:underline; }
 
         .section-pad { padding:4rem 0; }
         /* No background/shadow/padding of its own any more — .donate-anchor-body (its parent)
@@ -303,11 +306,8 @@
                             <span class="contact-row-avatar"><i class="bi bi-person-fill"></i></span>
                             <div class="contact-row-info">
                                 <div class="contact-row-name">{{ $contact['name'] }}</div>
-                                @if($contact['phone'])<div class="contact-row-phone">{{ $contact['phone'] }}</div>@endif
+                                @if($contact['phone'])<a class="contact-row-phone" href="tel:{{ preg_replace('/[^0-9+]/', '', $contact['phone']) }}">{{ $contact['phone'] }}</a>@endif
                             </div>
-                            @if($contact['phone'])
-                                <a class="contact-row-call" href="tel:{{ preg_replace('/[^0-9+]/', '', $contact['phone']) }}" aria-label="Call {{ $contact['name'] }}"><i class="bi bi-telephone-fill"></i></a>
-                            @endif
                         </div>
                         @endforeach
                     </div>
