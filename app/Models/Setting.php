@@ -55,6 +55,28 @@ class Setting extends Model
     }
 
     /**
+     * Resolves a stored image-path setting the same way its own asset()-wrapped default
+     * already does — without this, a DB value like the seeded '/images/logo.gif' (a bare
+     * root-relative path, not run through asset()) 404s on any install served from a
+     * subdirectory (e.g. local XAMPP's /ssvk/public), even though the untouched default for
+     * the same key works fine there. Only a genuinely relative path is rewritten; an already-
+     * absolute URL (a real uploaded logo on S3/another host, for instance) passes through as-is.
+     */
+    private static function assetPath(string $key, string $defaultRelativePath): ?string
+    {
+        $value = self::get($key);
+        if (!$value) {
+            return asset($defaultRelativePath);
+        }
+
+        if (preg_match('#^(https?:)?//#i', $value)) {
+            return $value;
+        }
+
+        return asset(ltrim($value, '/'));
+    }
+
+    /**
      * The ticket system's own bank account reference, falling back to the temple's global
      * donation account (same `?:` pattern as Event::effectiveDonationAccountName() etc.) —
      * tickets had no bank account configuration of their own before this.
@@ -92,12 +114,12 @@ class Setting extends Model
             'donation_account_number' => self::get('donation_account_number', '00906257'),
             'donation_receipt_email' => self::get('donation_receipt_email', 'hasq.president@gmail.com'),
             'currency' => self::get('currency_code', 'AUD'),
-            'logo' => self::get('temple_logo', asset('images/logo.gif')),
-            'admin_logo_icon' => self::get('admin_logo_icon', asset('images/logo.gif')),
+            'logo' => self::assetPath('temple_logo', 'images/logo.gif'),
+            'admin_logo_icon' => self::assetPath('admin_logo_icon', 'images/logo.gif'),
             'admin_logo_text' => self::get('admin_logo_text', 'SSVK ERP'),
-            'hero_image' => self::get('temple_hero_image', asset('images/temple_landing.jpg')),
-            'story_image' => self::get('temple_story_image', asset('images/about/ssvk.jpg')),
-            'worship_image' => self::get('temple_worship_image', asset('images/about/SELVA VINAYAHAR TEMPLE.jpg')),
+            'hero_image' => self::assetPath('temple_hero_image', 'images/temple_landing.jpg'),
+            'story_image' => self::assetPath('temple_story_image', 'images/about/ssvk.jpg'),
+            'worship_image' => self::assetPath('temple_worship_image', 'images/about/SELVA VINAYAHAR TEMPLE.jpg'),
             'primary_color' => self::get('theme_primary_color', '#c45b2c'),
             'accent_color' => self::get('theme_accent_color', '#e5ad45'),
             'dark_color' => self::get('theme_dark_color', '#24382f'),

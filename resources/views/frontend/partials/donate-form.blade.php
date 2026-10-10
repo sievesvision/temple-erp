@@ -31,7 +31,7 @@
         color: var(--primary, #b8863a);
         font-weight: 700;
         padding: 8px 16px;
-        border-radius: 40px;
+        border-radius: 8px;
         font-size: 0.9rem;
         transition: 0.15s;
     }
@@ -55,7 +55,34 @@
     .donate-confirm-icon { font-size: 3rem; color: var(--primary, #b8863a); margin-bottom: 0.75rem; }
     .donate-confirm-box.is-error .donate-confirm-icon { color: #c0392b; }
     .donate-confirm-message { font-size: 1.05rem; color: var(--ink, #25231f); line-height: 1.6; margin-bottom: 1.5rem; }
-    .donate-confirm-ok { background: linear-gradient(135deg, var(--primary, #b8863a), color-mix(in srgb, var(--primary, #b8863a) 55%, black)); color: #fff; border: none; font-weight: 700; padding: 0.85rem 2.25rem; border-radius: 999px; font-size: 1rem; cursor: pointer; }
+    .donate-confirm-ok { background: linear-gradient(135deg, var(--primary, #b8863a), color-mix(in srgb, var(--primary, #b8863a) 55%, black)); color: #fff; border: none; font-weight: 700; padding: 0.85rem 2.25rem; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+
+    /* Each part of the form (details / donating-towards / amount) reads as its own small
+       card with an icon-badge heading, rather than one long undifferentiated field list —
+       mirrors how the rest of this site already introduces a section with an icon + title. */
+    .donate-group-card { background: color-mix(in srgb, var(--primary, #b8863a) 5%, white); border: 1px solid color-mix(in srgb, var(--primary, #b8863a) 16%, white); border-radius: 12px; padding: 1.1rem 1.1rem 1.25rem; margin-bottom: 1rem; }
+    .donate-group-head { display: flex; align-items: center; gap: .65rem; margin-bottom: 1rem; }
+    .donate-group-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--primary, #b8863a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .95rem; flex-shrink: 0; }
+    .donate-group-head h3 { font-size: 1.05rem; margin: 0; color: var(--ink, #25231f); font-weight: 800; }
+
+    /* The locked single-event "choice" — there's only ever one, so the ring reads as
+       "this is what you're donating to" rather than an interactive radio. */
+    .donate-event-row { display: flex; align-items: center; gap: .7rem; background: #fff; border: 1px solid var(--line, #e9e1d5); border-radius: 10px; padding: .8rem 1rem; }
+    .donate-event-ring { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--primary, #b8863a); flex-shrink: 0; position: relative; }
+    .donate-event-ring::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--primary, #b8863a); }
+    .donate-event-row .bank-value { margin: 0; }
+
+    /* Quick amounts stay a rounder "chip" (unlike the form's small-curve buttons elsewhere)
+       — outlined rather than filled, so the active one reads clearly against its siblings. */
+    .quick-amount-chip { border-radius: 18px; }
+
+    .donate-amount-group { display: flex; align-items: center; border: 1.5px solid var(--line, #e9e1d5); border-radius: 8px; background: color-mix(in srgb, var(--line, #e9e1d5) 20%, white); overflow: hidden; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+    .donate-amount-group:focus-within { border-color: var(--primary, #b8863a); background: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary, #b8863a) 16%, transparent); }
+    .donate-amount-group-prefix { padding: .7rem .9rem; color: var(--muted, #716c64); font-weight: 700; }
+    .donate-amount-group .form-control { border: none !important; box-shadow: none !important; background: transparent !important; padding-left: 0; }
+
+    .donate-method-tabs-foot { margin-top: .25rem; }
+    .donate-submit-btn { display: flex; align-items: center; justify-content: center; gap: .6rem; }
 </style>
 
 @if(session('success_donation') || $errors->any())
@@ -93,30 +120,6 @@
 @endif
 
 <div class="donate-tabs-card">
-    <ul class="nav nav-pills donate-method-tabs mb-4" id="{{ $formId }}-tabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" data-method="Bank" type="button" role="tab">
-                <i class="bi bi-bank2 me-1"></i> Bank Transfer
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" data-method="Cash" type="button" role="tab">
-                <i class="bi bi-cash-coin me-1"></i> Cash at Temple
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link" data-method="Stripe" type="button" role="tab" @if(!$stripeEnabled) disabled title="Online payment is currently unavailable" style="opacity:0.5;cursor:not-allowed;" @endif>
-                <i class="bi bi-credit-card me-1"></i> Online Payment
-                @if(!$stripeEnabled)
-                    <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">Unavailable</span>
-                @endif
-            </button>
-        </li>
-    </ul>
-    @if(!$stripeEnabled)
-        <div class="small text-muted mb-3"><i class="bi bi-info-circle me-1"></i>Online payment is temporarily unavailable. Please use Bank Transfer or Cash at Temple instead.</div>
-    @endif
-
     <div class="donate-method-info mb-4" data-method-info="Bank">
         <div class="donation-bank-card">
             <div class="row g-3">
@@ -152,115 +155,23 @@
     <form class="donation-form" id="{{ $formId }}" method="POST" action="{{ $formAction }}">
         @csrf
         <input type="hidden" name="payment_method" id="{{ $formId }}-method" value="Bank">
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label for="{{ $formId }}-donor_name">Your name</label>
-                <input class="form-control" id="{{ $formId }}-donor_name" name="donor_name" value="{{ $prefillName ?? old('donor_name') }}" @if($lockContactFields) readonly @endif required>
-            </div>
-            <div class="col-md-6">
-                <label for="{{ $formId }}-email">Email for receipt{{ $requireDonorEmail ? '' : ' (optional)' }}</label>
-                <input class="form-control" id="{{ $formId }}-email" name="email" type="email" value="{{ $prefillEmail ?? old('email') }}" @if($lockContactFields) readonly @endif @if($requireDonorEmail) required @endif>
-            </div>
-            <div class="col-md-6">
-                <label for="{{ $formId }}-mobile">Mobile{{ $requireDonorMobile ? '' : ' (optional)' }}</label>
-                <input class="form-control" id="{{ $formId }}-mobile" name="mobile" @if($requireDonorMobile) required @endif>
-            </div>
-            @if($showPlainAmountField)
-            <div class="col-md-6">
-                <label for="{{ $formId }}-amount">Amount ({{ $temple['currency'] }})</label>
-                <input class="form-control" id="{{ $formId }}-amount" name="amount" type="number" min="1" step=".01" required>
-                <div class="quick-amount-row d-flex flex-wrap gap-2 mt-2" id="{{ $formId }}-quick-amounts">
-                    @foreach([101, 501, 1001, 2001] as $qa)
-                        <button type="button" class="quick-amount-chip" data-amount="{{ $qa }}">{{ $qa }}</button>
-                    @endforeach
-                </div>
-            </div>
-            @endif
 
-            @if($lockedEvent)
-                <input type="hidden" name="event_id" value="{{ $lockedEvent->event_id }}">
-                <div class="col-12">
-                    <label>Donating towards</label>
-                    <div class="locked-event-badge"><i class="bi bi-calendar-heart me-2"></i>{{ $lockedEvent->event_name }}</div>
+        <div class="donate-group-card">
+            <div class="donate-group-head"><span class="donate-group-icon"><i class="bi bi-person-fill"></i></span><h3>Your details</h3></div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="{{ $formId }}-donor_name">Your name <span class="text-danger">*</span></label>
+                    <input class="form-control" id="{{ $formId }}-donor_name" name="donor_name" placeholder="Enter your full name" value="{{ $prefillName ?? old('donor_name') }}" @if($lockContactFields) readonly @endif required>
                 </div>
-
-                @if($singleOption)
-                    @if($singleOption->amount === null)
-                        <div class="col-md-6">
-                            <label for="{{ $formId }}-amount">Donation Amount ({{ $temple['currency'] }})</label>
-                            <input class="form-control" id="{{ $formId }}-amount" name="amount" type="number" min="1" step=".01" required>
-                            <div class="quick-amount-row d-flex flex-wrap gap-2 mt-2" id="{{ $formId }}-quick-amounts">
-                                @foreach([101, 501, 1001, 2001] as $qa)
-                                    <button type="button" class="quick-amount-chip" data-amount="{{ $qa }}">{{ $qa }}</button>
-                                @endforeach
-                            </div>
-                            <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json" value="">
-                        </div>
-                    @elseif($singleOption->allow_quantity)
-                        <div class="col-12">
-                            <label>Donation Amount</label>
-                            <div class="d-flex align-items-center gap-2" style="max-width:180px;">
-                                <label class="mb-0 small">Quantity</label>
-                                <input type="number" min="1" value="1" class="form-control" id="{{ $formId }}-single-qty">
-                            </div>
-                            <input type="hidden" name="amount" id="{{ $formId }}-amount" value="{{ $singleOption->amount }}">
-                            <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json">
-                        </div>
-                    @else
-                        <div class="col-12">
-                            <label>Donation Amount</label>
-                            <div class="bank-value">{{ $temple['currency'] }} {{ number_format($singleOption->amount, 2) }}</div>
-                            <input type="hidden" name="amount" value="{{ $singleOption->amount }}">
-                            <input type="hidden" name="selections_json" value="{{ json_encode([['option_id' => $singleOption->id, 'label' => $singleOption->label, 'quantity' => null, 'amount' => (float) $singleOption->amount]]) }}">
-                        </div>
-                    @endif
-                    <input type="hidden" name="purpose" value="{{ $singleOption->label }}">
-                @elseif($useTiers)
-                    <div class="col-12">
-                        <label>Choose how you'd like to contribute (select as many as you like)</label>
-                        <div class="donation-tier-options" id="{{ $formId }}-tiers">
-                            @foreach($donationOptions as $option)
-                                <div class="donation-tier-option">
-                                    <label class="tier-option-label">
-                                        <input type="checkbox" name="{{ $formId }}_tier_choice[]" value="{{ $option->id }}" data-amount="{{ $option->amount ?? '' }}" data-allow-qty="{{ $option->allow_quantity ? '1' : '0' }}" data-label="{{ $option->label }}">
-                                        <span class="tier-option-text">
-                                            <strong>{{ $option->label }}</strong>
-                                            <span class="tier-amount">@if($option->amount !== null){{ $temple['currency'] }} {{ number_format($option->amount, 2) }}@if($option->allow_quantity) each @endif @else Any amount @endif</span>
-                                        </span>
-                                    </label>
-                                    @if($option->allow_quantity)
-                                        <div class="tier-qty-wrap" style="display:none;">
-                                            <label class="small mb-0 me-2">Qty</label>
-                                            <input type="number" min="1" value="1" class="form-control form-control-sm tier-qty-input">
-                                        </div>
-                                    @elseif($option->amount === null)
-                                        <div class="tier-qty-wrap flex-column align-items-stretch" style="display:none;">
-                                            <div class="d-flex align-items-center">
-                                                <label class="small mb-0 me-2">{{ $temple['currency'] }}</label>
-                                                <input type="number" min="1" step=".01" placeholder="Amount" class="form-control form-control-sm tier-free-amount-input">
-                                            </div>
-                                            <div class="d-flex flex-wrap gap-1 mt-1 tier-free-quick-amounts">
-                                                @foreach([101, 501, 1001, 2001] as $qa)
-                                                    <button type="button" class="quick-amount-chip" style="padding:4px 10px; font-size:0.78rem;" data-amount="{{ $qa }}">{{ $qa }}</button>
-                                                @endforeach
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endforeach
-                        </div>
-                        <div class="tier-total-row d-flex justify-content-between align-items-center mt-2">
-                            <span class="fw-bold">Total amount</span>
-                            <span class="fw-bold" id="{{ $formId }}-tier-total">{{ $temple['currency'] }} 0.00</span>
-                        </div>
-                        <input type="hidden" name="amount" id="{{ $formId }}-amount">
-                        <input type="hidden" name="purpose" id="{{ $formId }}-purpose">
-                        <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json">
-                    </div>
-                @else
-                    <input type="hidden" name="purpose" value="Event Donation">
-                @endif
-            @else
+                <div class="col-md-6">
+                    <label for="{{ $formId }}-email">Email for receipt{{ $requireDonorEmail ? '' : ' (optional)' }}</label>
+                    <input class="form-control" id="{{ $formId }}-email" name="email" type="email" placeholder="Enter your email address" value="{{ $prefillEmail ?? old('email') }}" @if($lockContactFields) readonly @endif @if($requireDonorEmail) required @endif>
+                </div>
+                <div class="col-md-6">
+                    <label for="{{ $formId }}-mobile">Mobile{{ $requireDonorMobile ? '' : ' (optional)' }}</label>
+                    <input class="form-control" id="{{ $formId }}-mobile" name="mobile" placeholder="Enter your mobile number" @if($requireDonorMobile) required @endif>
+                </div>
+                @if(!$lockedEvent)
                 <div class="col-md-6">
                     <label for="{{ $formId }}-purpose">Purpose</label>
                     <select class="form-select" id="{{ $formId }}-purpose" name="purpose" required>
@@ -279,8 +190,113 @@
                         @endforeach
                     </select>
                 </div>
-            @endif
+                @endif
+            </div>
+        </div>
 
+        @if($showPlainAmountField)
+        <div class="donate-group-card">
+            <div class="donate-group-head"><span class="donate-group-icon"><i class="bi bi-currency-exchange"></i></span><h3>Amount ({{ $temple['currency'] }})</h3></div>
+            <div class="donate-amount-group">
+                <span class="donate-amount-group-prefix">{{ $temple['currency'] }}</span>
+                <input class="form-control" id="{{ $formId }}-amount" name="amount" type="number" min="1" step=".01" placeholder="Enter amount" required>
+            </div>
+            <div class="quick-amount-row d-flex flex-wrap gap-2 mt-3" id="{{ $formId }}-quick-amounts">
+                @foreach([101, 501, 1001, 2001] as $qa)
+                    <button type="button" class="quick-amount-chip" data-amount="{{ $qa }}">{{ $qa }}</button>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        @if($lockedEvent)
+            <input type="hidden" name="event_id" value="{{ $lockedEvent->event_id }}">
+            <div class="donate-group-card">
+                <div class="donate-group-head"><span class="donate-group-icon"><i class="bi bi-building"></i></span><h3>Donating towards</h3></div>
+                <div class="donate-event-row">
+                    <span class="donate-event-ring"></span>
+                    <i class="bi bi-building" style="color:var(--primary, #b8863a);"></i>
+                    <strong class="bank-value">{{ $lockedEvent->event_name }}</strong>
+                </div>
+            </div>
+
+            @if($singleOption)
+                <div class="donate-group-card">
+                    <div class="donate-group-head"><span class="donate-group-icon"><i class="bi bi-currency-exchange"></i></span><h3>Donation Amount ({{ $temple['currency'] }})</h3></div>
+                    @if($singleOption->amount === null)
+                        <div class="donate-amount-group">
+                            <span class="donate-amount-group-prefix">{{ $temple['currency'] }}</span>
+                            <input class="form-control" id="{{ $formId }}-amount" name="amount" type="number" min="1" step=".01" placeholder="Enter amount" required>
+                        </div>
+                        <div class="quick-amount-row d-flex flex-wrap gap-2 mt-3" id="{{ $formId }}-quick-amounts">
+                            @foreach([101, 501, 1001, 2001] as $qa)
+                                <button type="button" class="quick-amount-chip" data-amount="{{ $qa }}">{{ $qa }}</button>
+                            @endforeach
+                        </div>
+                        <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json" value="">
+                    @elseif($singleOption->allow_quantity)
+                        <div class="d-flex align-items-center gap-2" style="max-width:180px;">
+                            <label class="mb-0 small">Quantity</label>
+                            <input type="number" min="1" value="1" class="form-control" id="{{ $formId }}-single-qty">
+                        </div>
+                        <input type="hidden" name="amount" id="{{ $formId }}-amount" value="{{ $singleOption->amount }}">
+                        <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json">
+                    @else
+                        <div class="bank-value">{{ $temple['currency'] }} {{ number_format($singleOption->amount, 2) }}</div>
+                        <input type="hidden" name="amount" value="{{ $singleOption->amount }}">
+                        <input type="hidden" name="selections_json" value="{{ json_encode([['option_id' => $singleOption->id, 'label' => $singleOption->label, 'quantity' => null, 'amount' => (float) $singleOption->amount]]) }}">
+                    @endif
+                </div>
+                <input type="hidden" name="purpose" value="{{ $singleOption->label }}">
+            @elseif($useTiers)
+                <div class="donate-group-card">
+                    <div class="donate-group-head"><span class="donate-group-icon"><i class="bi bi-currency-exchange"></i></span><h3>Donation Amount</h3></div>
+                    <label class="small text-muted mb-2 d-block">Choose how you'd like to contribute (select as many as you like)</label>
+                    <div class="donation-tier-options" id="{{ $formId }}-tiers">
+                        @foreach($donationOptions as $option)
+                            <div class="donation-tier-option">
+                                <label class="tier-option-label">
+                                    <input type="checkbox" name="{{ $formId }}_tier_choice[]" value="{{ $option->id }}" data-amount="{{ $option->amount ?? '' }}" data-allow-qty="{{ $option->allow_quantity ? '1' : '0' }}" data-label="{{ $option->label }}">
+                                    <span class="tier-option-text">
+                                        <strong>{{ $option->label }}</strong>
+                                        <span class="tier-amount">@if($option->amount !== null){{ $temple['currency'] }} {{ number_format($option->amount, 2) }}@if($option->allow_quantity) each @endif @else Any amount @endif</span>
+                                    </span>
+                                </label>
+                                @if($option->allow_quantity)
+                                    <div class="tier-qty-wrap" style="display:none;">
+                                        <label class="small mb-0 me-2">Qty</label>
+                                        <input type="number" min="1" value="1" class="form-control form-control-sm tier-qty-input">
+                                    </div>
+                                @elseif($option->amount === null)
+                                    <div class="tier-qty-wrap flex-column align-items-stretch" style="display:none;">
+                                        <div class="d-flex align-items-center">
+                                            <label class="small mb-0 me-2">{{ $temple['currency'] }}</label>
+                                            <input type="number" min="1" step=".01" placeholder="Amount" class="form-control form-control-sm tier-free-amount-input">
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-1 mt-1 tier-free-quick-amounts">
+                                            @foreach([101, 501, 1001, 2001] as $qa)
+                                                <button type="button" class="quick-amount-chip" style="padding:4px 10px; font-size:0.78rem;" data-amount="{{ $qa }}">{{ $qa }}</button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="tier-total-row d-flex justify-content-between align-items-center mt-2">
+                        <span class="fw-bold">Total amount</span>
+                        <span class="fw-bold" id="{{ $formId }}-tier-total">{{ $temple['currency'] }} 0.00</span>
+                    </div>
+                    <input type="hidden" name="amount" id="{{ $formId }}-amount">
+                    <input type="hidden" name="purpose" id="{{ $formId }}-purpose">
+                    <input type="hidden" name="selections_json" id="{{ $formId }}-selections-json">
+                </div>
+            @else
+                <input type="hidden" name="purpose" value="Event Donation">
+            @endif
+        @endif
+
+        <div class="row g-3">
             <div class="col-12">
                 <label for="{{ $formId }}-purpose_details">Details / Dedication (optional)</label>
                 <textarea class="form-control" id="{{ $formId }}-purpose_details" name="purpose_details" rows="2" placeholder="In honour of... or any other details about this donation"></textarea>
@@ -291,9 +307,37 @@
                 @include('partials.recaptcha-widget')
             </div>
             @endif
+
             <div class="col-12">
-                <button class="btn w-100 py-3" type="submit" data-label-Bank="Record my bank transfer" data-label-Cash="Record my cash pledge" data-label-Stripe="Continue with Stripe">Record my bank transfer</button>
-                <small class="text-muted d-block mt-2"><i class="bi bi-shield-check me-1"></i>Secure {{ $temple['currency'] }} donation processing</small>
+                <label class="d-block mb-2">How would you like to donate?</label>
+                <ul class="nav nav-pills donate-method-tabs" id="{{ $formId }}-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-method="Bank" type="button" role="tab">
+                            <i class="bi bi-bank2 me-1"></i> Bank Transfer
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-method="Cash" type="button" role="tab">
+                            <i class="bi bi-cash-coin me-1"></i> Cash at Temple
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-method="Stripe" type="button" role="tab" @if(!$stripeEnabled) disabled title="Online payment is currently unavailable" style="opacity:0.5;cursor:not-allowed;" @endif>
+                            <i class="bi bi-credit-card me-1"></i> Online Payment
+                            @if(!$stripeEnabled)
+                                <span class="badge bg-secondary ms-1" style="font-size:0.65rem;">Unavailable</span>
+                            @endif
+                        </button>
+                    </li>
+                </ul>
+                @if(!$stripeEnabled)
+                    <div class="small text-muted donate-method-tabs-foot"><i class="bi bi-info-circle me-1"></i>Online payment is temporarily unavailable. Please use Bank Transfer or Cash at Temple instead.</div>
+                @endif
+            </div>
+
+            <div class="col-12">
+                <button class="btn w-100 py-3 donate-submit-btn" type="submit" data-label-Bank="Record my bank transfer" data-label-Cash="Record my cash pledge" data-label-Stripe="Continue with Stripe"><i class="bi bi-heart-fill"></i> <span class="donate-submit-label">Record my bank transfer</span> <i class="bi bi-arrow-right"></i></button>
+                <small class="text-muted d-block mt-2 text-center"><i class="bi bi-shield-check me-1"></i>Secure {{ $temple['currency'] }} donation processing</small>
             </div>
         </div>
     </form>
@@ -316,7 +360,11 @@
                     panel.style.display = (panel.getAttribute('data-method-info') === method) ? '' : 'none';
                 }
             });
-            if (submitBtn) { submitBtn.textContent = submitBtn.getAttribute('data-label-' + method); }
+            if (submitBtn) {
+                var label = submitBtn.querySelector('.donate-submit-label');
+                var text = submitBtn.getAttribute('data-label-' + method);
+                if (label) { label.textContent = text; } else { submitBtn.textContent = text; }
+            }
         });
     });
 

@@ -72,19 +72,8 @@
             align-items: center; column-gap: 14px;
             box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 72px;
         }
-        /* Below the point a single row gets cramped, the event name — the one thing an
-           operator actually needs to confirm at a glance — gets its own full-width row
-           instead of fighting brand/actions for leftover space. This is what actually
-           guarantees it stays dead-center and fully visible, rather than shrinking away. */
-        @media (max-width: 899px) {
-            .pos-topbar {
-                grid-template-columns: minmax(0,1fr) auto;
-                grid-template-areas: "brand actions" "title title";
-                row-gap: 10px; padding: 12px 16px 14px;
-            }
-        }
         .pos-topbar-brand { grid-area: brand; display: flex; align-items: center; gap: 10px; min-width: 0; }
-        .pos-topbar-logo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
+        .pos-topbar-logo { width: 40px; height: 40px; border-radius: 50%; object-fit: contain; background: #fff; padding: 2px; flex-shrink: 0; }
         .pos-topbar-brand-text { min-width: 0; overflow: hidden; }
         .pos-topbar-temple-name { font-weight: 800; font-size: clamp(0.8rem, 2.4vw, 1rem); line-height: 1.2; font-family: var(--serif); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pos-topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -93,7 +82,12 @@
         .pos-flourish-line { flex: 1; max-width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); display: none; flex-shrink: 0; }
         @media (min-width: 900px) { .pos-flourish-line { display: block; } }
         .pos-topbar-event-title-text { min-width: 0; max-width: 100%; }
-        .pos-topbar-event-title-text h1 { font-family: var(--serif); font-size: clamp(1.15rem, 2.6vw, 1.6rem); font-weight: 800; color: var(--gold); margin: 0; letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Sans, not the serif the temple name uses — on this dark maroon bar gold-on-serif
+           read low-contrast and slightly muddy at small sizes; a bold Inter in a bright cream
+           carries much better at a glance, with gold kept as a one-line accent label above it
+           instead of being the headline colour itself. */
+        .pos-topbar-event-eyebrow { font-family: 'Inter', sans-serif; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); line-height: 1; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pos-topbar-event-title-text h1 { font-family: 'Inter', sans-serif; font-size: clamp(1.05rem, 2.4vw, 1.5rem); font-weight: 800; color: #FFF9EE; margin: 0; letter-spacing: 0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pos-event-motto { font-size: 0.74rem; color: rgba(255,255,255,0.75); letter-spacing: 0.03em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         @media (max-width: 900px) { .pos-event-motto { display: none; } }
 
@@ -107,6 +101,24 @@
              smudge at the ~17px an icon glyph normally renders at. --}}
         .pos-topbar-btn-icon-img { width: 28px; height: auto; display: block; }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
+
+        /* Always one row, even on a phone — the old design switched to a two-row stack below
+           900px so the event name would never get squeezed to nothing, but a counter operator
+           glancing at a locked-in-landscape or portrait phone reads a topbar that jumps
+           between one and two rows as unpolished. Instead everything shrinks together: the
+           temple name's own text is the first thing to go (the logo alone still identifies
+           the temple), action buttons shrink next, then the title's own type size — the grid's
+           three tracks and each piece's min-width:0/ellipsis do the rest. */
+        @media (max-width: 640px) {
+            .pos-topbar { padding: 8px 10px; column-gap: 6px; min-height: 58px; }
+            .pos-topbar-logo { width: 30px; height: 30px; }
+            .pos-topbar-brand-text { display: none; }
+            .pos-topbar-actions { gap: 4px; }
+            .pos-topbar-btn { width: 34px; height: 34px; font-size: 0.85rem; border-radius: 7px; }
+            .pos-topbar-btn-icon-img { width: 20px; }
+            .pos-topbar-event-eyebrow { font-size: 0.56rem; letter-spacing: 0.1em; }
+            .pos-topbar-event-title-text h1 { font-size: 0.92rem; }
+        }
 
         /* ---------- Main entry area ---------- */
         /* Full-width POS workspace, not a narrow centred web form — the container just gets
@@ -151,24 +163,30 @@
         @media (min-width: 900px) { .pos-side { position: sticky; top: 96px; } }
 
         /* Donation Summary — deliberately NOT another plain white card, so the running total
-           reads at a glance as the "money" panel rather than just more form. */
+           reads at a glance as the "money" panel rather than just more form. Redesigned
+           around ONE focal total (the old layout showed "Amount" then "Total" as two
+           identical numbers with a divider between them — pure duplication, not a real
+           subtotal/total split) with the donor name and payment method as a small receipt
+           line underneath, rather than plain unstyled text. */
         .pos-summary-card {
             background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%);
-            border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 18px 20px;
+            border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 20px 22px;
             box-shadow: 0 1px 4px rgba(15,23,42,0.07);
         }
-        .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-        .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 0; }
+        .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+        .pos-summary-label { display: flex; align-items: center; gap: 9px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 0; }
+        .pos-summary-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--maroon); color: #FFF9ED; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; flex-shrink: 0; }
         .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 12px; font-size: 0.76rem; font-weight: 700; color: #8A6A1E; }
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
-        .pos-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-        .pos-summary-row .pos-summary-row-label { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; }
-        .pos-summary-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
-        .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 14px 0; }
-        .pos-summary-total-row .pos-summary-row-label { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); }
-        .pos-summary-total-row .pos-summary-row-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(1.9rem, 5vw, 2.5rem); font-weight: 700; color: #A56B13; }
-        .pos-summary-name { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(165,107,19,0.2); font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-summary-method { margin-top: 4px; font-size: 0.8rem; color: var(--text-secondary); }
+        .pos-summary-total-block { text-align: center; padding: 4px 0 6px; }
+        .pos-summary-total-label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8A6A1E; font-weight: 700; margin-bottom: 4px; }
+        .pos-summary-total-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 6vw, 2.7rem); font-weight: 800; color: var(--maroon); line-height: 1.1; }
+        .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 16px 0 14px; }
+        .pos-summary-meta-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
+        .pos-summary-meta-row + .pos-summary-meta-row { margin-top: 8px; }
+        .pos-summary-meta-icon { width: 24px; height: 24px; border-radius: 50%; background: rgba(165,107,19,0.12); color: #8A6A1E; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; flex-shrink: 0; }
+        .pos-summary-name { font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-summary-method { font-size: 0.84rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
            styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
@@ -253,6 +271,17 @@
         .pos-field-stack { display: flex; flex-direction: column; flex: 1; min-width: 0; }
         .pos-field-inline-label { font-size: 0.74rem; color: var(--text-secondary); font-weight: 700; }
         .pos-field-inline-input { border: none; outline: none; background: transparent; font-size: 1.02rem; font-weight: 600; color: var(--text-primary); padding: 0; width: 100%; }
+        .pos-field-inline-input:disabled { color: var(--text-secondary); }
+
+        /* Anonymous-donor row — sits under the donor fields, not inside its own pos-field-box,
+           since it's a toggle/action pair rather than another text input. */
+        .pos-anon-row { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+        .pos-anon-check { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+        .pos-anon-check input { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+        .pos-anon-nodetails-btn { border: 1px solid var(--border); background: var(--cream); color: var(--text-secondary); font-size: 0.78rem; font-weight: 700; padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+        .pos-anon-nodetails-btn:hover { border-color: var(--gold); color: var(--maroon); }
+        .pos-anon-note { width: 100%; font-size: 0.78rem; color: #8a6d1f; background: #fff7ea; border: 1px solid #f0dfb8; border-radius: 8px; padding: 7px 12px; }
+        .pos-anon-note a { color: #8a6d1f; font-weight: 700; margin-left: 6px; }
 
         /* Shared "currency-prefixed" amount field — used for both the plain free-amount
            input and any per-tier free-amount input, so a donor/operator always sees the
@@ -654,6 +683,7 @@
         <div class="pos-topbar-event-title">
             <span class="pos-flourish-line"></span>
             <div class="pos-topbar-event-title-text">
+                <div class="pos-topbar-event-eyebrow">Donation Counter</div>
                 <h1>{{ $event->event_name }}</h1>
                 @if(!empty($temple['eyebrow']))
                 <div class="pos-event-motto">{{ $temple['eyebrow'] }}</div>
@@ -733,6 +763,26 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Anonymous-donor flow: ask first whether the donor is fine with the temple
+                         keeping their real details privately for records/receipt — if so, the
+                         name/email above are still filled in normally and this box is just
+                         ticked. Only when the donor won't share anything at all does the
+                         "doesn't want to share any details" button below replace those fields
+                         with the fixed "The well wisher" / admin@hasq.org placeholders. --}}
+                    <div class="pos-anon-row">
+                        <label class="pos-anon-check">
+                            <input type="checkbox" id="posAnonymous">
+                            <span>Donor wishes to remain anonymous</span>
+                        </label>
+                        <button type="button" id="posAnonNoDetailsBtn" class="pos-anon-nodetails-btn" hidden>
+                            <i class="bi bi-incognito me-1"></i>Doesn't want to share any details
+                        </button>
+                        <div id="posAnonNote" class="pos-anon-note" hidden>
+                            <i class="bi bi-info-circle-fill me-1"></i>Recorded as <b>"The well wisher"</b> &mdash; no personal receipt email will be sent.
+                            <a href="#" id="posAnonUndoBtn">Undo</a>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="pos-card">
@@ -768,22 +818,24 @@
             <div class="pos-side">
                 <div class="pos-summary-card">
                     <div class="pos-summary-top-row">
-                        <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
+                        <div class="pos-summary-label"><span class="pos-summary-icon"><i class="bi bi-receipt"></i></span>Donation Summary</div>
                         <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
                             <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
                         </button>
                     </div>
-                    <div class="pos-summary-row">
-                        <span class="pos-summary-row-label">Amount</span>
-                        <span class="pos-summary-row-value" id="posSummaryAmount">{{ $temple['currency'] ?? '' }} 0.00</span>
+                    <div class="pos-summary-total-block">
+                        <span class="pos-summary-total-label">Total</span>
+                        <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
                     </div>
                     <div class="pos-summary-divider"></div>
-                    <div class="pos-summary-row pos-summary-total-row">
-                        <span class="pos-summary-row-label">Total</span>
-                        <span class="pos-summary-row-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
+                    <div class="pos-summary-meta-row">
+                        <span class="pos-summary-meta-icon"><i class="bi bi-person-fill"></i></span>
+                        <span class="pos-summary-name" id="posSummaryName">Donor not entered yet</span>
                     </div>
-                    <div class="pos-summary-name" id="posSummaryName">Donor not entered yet</div>
-                    <div class="pos-summary-method" id="posSummaryMethod"></div>
+                    <div class="pos-summary-meta-row">
+                        <span class="pos-summary-meta-icon"><i class="bi bi-credit-card-fill"></i></span>
+                        <span class="pos-summary-method" id="posSummaryMethod">Pick a payment method</span>
+                    </div>
                 </div>
 
                 <div class="pos-card">
@@ -1317,6 +1369,71 @@
         }
         document.getElementById('posGuestName').addEventListener('input', updatePosSummary);
 
+        // ---------- Anonymous donor flow ----------
+        // Two distinct levels, matching how the conversation at the counter actually goes:
+        // (1) donor wants to stay anonymous but is fine with the temple keeping their real
+        //     name/email privately for records/receipt — just tick the box, fields stay as
+        //     typed; (2) donor won't share ANY details at all — the "doesn't want to share
+        //     any details" button replaces the fields with the fixed "The well wisher" /
+        //     admin@hasq.org placeholders and locks them so they can't be half-overwritten.
+        const WELL_WISHER_NAME = 'The well wisher';
+        const WELL_WISHER_EMAIL = 'admin@hasq.org';
+        const anonCheckbox = document.getElementById('posAnonymous');
+        const anonNoDetailsBtn = document.getElementById('posAnonNoDetailsBtn');
+        const anonNote = document.getElementById('posAnonNote');
+        const anonUndoBtn = document.getElementById('posAnonUndoBtn');
+        const nameInput = document.getElementById('posGuestName');
+        const emailInput = document.getElementById('posGuestEmail');
+        const mobileInput = document.getElementById('posGuestMobile');
+        let noDetailsActive = false;
+
+        function isAnonymousDonation() { return anonCheckbox.checked; }
+
+        function enterNoDetailsMode() {
+            noDetailsActive = true;
+            nameInput.value = WELL_WISHER_NAME;
+            emailInput.value = WELL_WISHER_EMAIL;
+            // Left blank unless this event requires a mobile number to even submit the form —
+            // a donor who shares nothing has no real number to put here either way.
+            mobileInput.value = REQUIRE_MOBILE ? 'N/A' : '';
+            nameInput.disabled = true;
+            emailInput.disabled = true;
+            mobileInput.disabled = true;
+            anonNoDetailsBtn.hidden = true;
+            anonNote.hidden = false;
+            updatePosSummary();
+        }
+
+        function exitNoDetailsMode(clearFields) {
+            noDetailsActive = false;
+            nameInput.disabled = false;
+            emailInput.disabled = false;
+            mobileInput.disabled = false;
+            if (clearFields) {
+                nameInput.value = '';
+                emailInput.value = '';
+                mobileInput.value = '';
+            }
+            anonNote.hidden = true;
+            if (anonCheckbox.checked) { anonNoDetailsBtn.hidden = false; }
+            updatePosSummary();
+        }
+
+        anonCheckbox.addEventListener('change', function () {
+            if (anonCheckbox.checked) {
+                anonNoDetailsBtn.hidden = false;
+            } else {
+                anonNoDetailsBtn.hidden = true;
+                if (noDetailsActive) { exitNoDetailsMode(true); }
+            }
+        });
+        anonNoDetailsBtn.addEventListener('click', enterNoDetailsMode);
+        anonUndoBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            exitNoDetailsMode(true);
+            nameInput.focus();
+        });
+
         // Donation amount — single-option auto-select / multi-option tiers / plain amount,
         // same logic as the full console's Quick Entry, restyled for touch.
         const amountInput = document.getElementById('posAmount');
@@ -1728,6 +1845,10 @@
         });
 
         function resetPosForm() {
+            if (noDetailsActive) { exitNoDetailsMode(false); }
+            anonCheckbox.checked = false;
+            anonNoDetailsBtn.hidden = true;
+            anonNote.hidden = true;
             document.getElementById('posGuestName').value = '';
             document.getElementById('posGuestMobile').value = '';
             document.getElementById('posGuestEmail').value = '';
@@ -1773,6 +1894,7 @@
             body.set('email', emailValue);
             body.set('mobile', mobileValue);
             body.set('payment_method', selectedMethod === 'Bank Transfer' ? 'Bank' : selectedMethod);
+            body.set('is_anonymous', isAnonymousDonation() ? '1' : '0');
             body.set('purpose', purposeValue);
             body.set('purpose_details', document.getElementById('posDetails').value);
 
@@ -1902,6 +2024,7 @@
             startBody.set('mobile', attempt.mobile || '');
             startBody.set('purpose', attempt.purpose || '');
             startBody.set('purpose_details', attempt.purposeDetails || '');
+            startBody.set('is_anonymous', isAnonymousDonation() ? '1' : '0');
             if (selectedTerminalId) { startBody.set('terminal_id', selectedTerminalId); }
 
             fetch(EFT_CHARGE_START_URL, {

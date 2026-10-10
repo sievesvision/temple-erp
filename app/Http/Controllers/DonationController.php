@@ -929,6 +929,7 @@ class DonationController extends Controller
             'mobile' => 'nullable|string|max:20',
             'purpose' => 'nullable|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',
+            'is_anonymous' => 'nullable|boolean',
             // Ticket-order fields only.
             'cart_json' => 'nullable|string',
             // Which physical terminal this station is using — lets two stations (e.g. one on
@@ -1012,6 +1013,7 @@ class DonationController extends Controller
                     'mobile' => $validated['mobile'] ?? null,
                     'purpose' => $validated['purpose'] ?? null,
                     'purpose_details' => $validated['purpose_details'] ?? null,
+                    'is_anonymous' => (bool) ($validated['is_anonymous'] ?? false),
                 ];
 
             LinklyTransaction::create([
@@ -1244,6 +1246,7 @@ class DonationController extends Controller
             'bank_ifsc' => $fields['bank_ifsc'] ?? null,
             'bank_branch' => $fields['bank_branch'] ?? null,
             'donation_date' => $fields['donation_date'],
+            'is_anonymous' => $fields['is_anonymous'] ?? false,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -1333,6 +1336,7 @@ class DonationController extends Controller
             'payment_status' => 'Paid',
             'transaction_id' => $transactionRef,
             'donation_date' => now()->toDateString(),
+            'is_anonymous' => (bool) ($meta['is_anonymous'] ?? false),
         ]);
         $this->linkLedgerToDonation($sessionId, 'guest', $donationId);
 
@@ -1677,6 +1681,11 @@ class DonationController extends Controller
             // Set only when payment_method is EFT Terminal — links this donation back to its
             // Linkly accreditation ledger row (see linkLedgerToDonation()).
             'linkly_session_id' => 'nullable|string|max:64',
+            // Donor asked not to be identified publicly — the counter still records real
+            // contact details underneath when the donor agreed to that (see the POS page's
+            // own "Donor wishes to remain anonymous" flow); this flag only ever hides the
+            // identity on anything donor-facing, never from the temple's own records.
+            'is_anonymous' => 'nullable|boolean',
         ]);
 
         // Idempotency against createDonationIfApprovedPurchaseUnrecorded(): that fallback can
@@ -1713,6 +1722,7 @@ class DonationController extends Controller
                 'bank_ifsc' => $validated['bank_ifsc'] ?? null,
                 'bank_branch' => $validated['bank_branch'] ?? null,
                 'donation_date' => $validated['donation_date'],
+                'is_anonymous' => $validated['is_anonymous'] ?? false,
             ]);
             $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
             $this->linkLedgerToDonation($linklySessionId, 'guest', $donationId);
