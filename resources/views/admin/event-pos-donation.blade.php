@@ -41,7 +41,7 @@
         /* POS hardening: no accidental text selection/callouts from a fast tap-and-hold,
            and no 300ms ghost-click delay on older mobile Safari/Chrome — both matter more
            here than on an ordinary page since this runs as an unattended counter device. */
-        button, .pos-tier-pill, .pos-method-btn, .terminal-picker-row { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+        button, .pos-tier-pill, .pos-method-btn { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
         /* One single, native scroll region (the document itself) rather than an inner
            overflow-y:auto container — that nested-scroll trick depends on a perfect height
            chain (html/body/flex-child all reporting real heights) that iOS Safari does not
@@ -107,6 +107,10 @@
              smudge at the ~17px an icon glyph normally renders at. --}}
         .pos-topbar-btn-icon-img { width: 28px; height: auto; display: block; }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
+        /* iPad and iPhone widths — the temple name next to the logo competes with the event
+           name for the same cramped row; the logo alone still identifies the temple, so only
+           the event name needs to survive at tablet/phone widths. */
+        @media (max-width: 1024px) { .pos-topbar-brand-text { display: none; } }
 
         /* Always one row, even on a phone — the old design switched to a two-row stack below
            900px so the event name would never get squeezed to nothing, but a counter operator
@@ -118,7 +122,6 @@
         @media (max-width: 640px) {
             .pos-topbar { padding: 8px 10px; column-gap: 6px; min-height: 58px; }
             .pos-topbar-logo { width: 30px; height: 30px; }
-            .pos-topbar-brand-text { display: none; }
             .pos-topbar-actions { gap: 4px; }
             .pos-topbar-btn { width: 34px; height: 34px; font-size: 0.85rem; border-radius: 7px; }
             .pos-topbar-btn-icon-img { width: 20px; }
@@ -189,37 +192,18 @@
         .pos-summary-meta-line #posSummaryName { color: var(--text-primary); font-weight: 600; }
         .pos-summary-meta-sep { margin: 0 5px; opacity: 0.6; }
 
-        /* Which physical terminal the "EFT Terminal" payment method will actually charge —
-           styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
-           opens a list of terminals to choose from, sharing one line with Save roughly
-           half-and-half, only while that method is selected, rather than a whole extra row above
-           the action buttons (an earlier design) or a topbar icon indistinguishable from
-           Settings/Account (the design before that). The terminal's name is printed right on the
-           control, not hidden behind a tooltip — a clerk needs to see which terminal is live at
-           a glance, not discover it on hover. */
-        {{-- flex-end, not stretch — the label sits above the box on its own, so the box and
-             Save button end up exactly the same height (both min-height: 68px) with their
-             bottom edges aligned, rather than Save being stretched taller to match the label's
-             extra space above the box. --}}
-        .pos-actions-main-row { display: flex; gap: 10px; align-items: flex-end; }
-        .pos-actions-main-row .pos-save-btn { flex: 1 1 0; width: auto; }
-        .pos-terminal-mini-wrap { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-        .pos-terminal-mini-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-primary); }
-        .pos-terminal-mini-btn {
-            flex: 1; min-width: 0; min-height: 68px; padding: 0 12px;
-            border-radius: var(--radius-md); border: 1.5px solid var(--gold);
-            background: var(--cream); color: var(--text-primary); font-weight: 700; font-size: 0.92rem;
-            display: flex; align-items: center; gap: 8px; width: 100%;
-        }
-        .pos-terminal-mini-btn i.bi-pc-display { font-size: 1.15rem; color: var(--gold-hover); flex-shrink: 0; }
-        .pos-terminal-mini-divider { width: 1.5px; align-self: stretch; background: rgba(201,149,46,0.4); flex-shrink: 0; }
-        .pos-terminal-mini-btn-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; text-align: left; }
-        .pos-terminal-mini-chevron { flex-shrink: 0; color: var(--text-secondary); font-size: 0.85rem; }
-        .pos-terminal-mini-btn:active { background: #F2E4C4; }
-
         .pos-actions-row { display: flex; flex-direction: column; gap: 10px; }
-        .pos-clear-btn { width: 100%; padding: 0 20px; min-height: 54px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: var(--white); color: var(--text-primary); font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .pos-clear-btn:active { background: var(--cream); }
+
+        {{-- Small, inline with the Donor Details heading rather than its own full-width row —
+             a clerk reaches for Clear far less often than Save, so it doesn't need equal visual
+             weight, and sitting inside the title's own flex row (margin-left:auto) means it adds
+             no extra height to the card at all. --}}
+        .pos-card-title-clear-btn {
+            margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 5px;
+            padding: 5px 11px; font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
+            background: var(--white); border: 1.5px solid var(--border); border-radius: 7px;
+        }
+        .pos-card-title-clear-btn:active { background: var(--cream); }
 
         /* A proper full-width bar (like the header) rather than plain text sitting on the
            page background — bottom of the page reads as a distinct navigation-style strip.
@@ -236,20 +220,16 @@
            still the footer's true left/right edges either way, so left/right alignment is
            unaffected (and stays correct even once the center is hidden on a narrow screen). */
         .pos-footer-bar { flex-shrink: 0; background: var(--white); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15,23,42,0.04); }
-        .pos-footer { margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
-        .pos-footer-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-        .pos-footer-logo { width: 34px; height: 34px; border-radius: 50%; object-fit: contain; border: 1px solid var(--border); background: #fff; flex-shrink: 0; }
-        .pos-footer-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
-        .pos-footer-text strong { display: block; color: var(--text-primary); font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-footer-text span { display: block; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-footer-powered { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; font-size: 0.76rem; white-space: nowrap; }
-        .pos-footer-powered img { height: 16px; width: auto; opacity: 0.82; flex-shrink: 0; }
-        .pos-footer-powered .version { color: var(--text-secondary); opacity: 0.75; }
-        .pos-footer-powered strong { color: var(--text-primary); font-weight: 700; }
+        .pos-footer { margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 24px; color: var(--text-secondary); }
+        .pos-footer-powered { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .pos-footer-powered-top { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; white-space: nowrap; }
+        .pos-footer-powered-top img { height: 16px; width: auto; opacity: 0.82; flex-shrink: 0; }
+        .pos-footer-powered-top .version { color: var(--text-secondary); opacity: 0.75; }
+        .pos-footer-powered-top strong { color: var(--text-primary); font-weight: 700; }
+        .pos-footer-powered-sub { font-size: 0.68rem; color: var(--text-secondary); opacity: 0.65; }
         .pos-footer-right { text-align: right; flex-shrink: 0; line-height: 1.35; }
         .pos-footer-date { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); white-space: nowrap; }
         .pos-footer-time { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
-        @media (max-width: 700px) { .pos-footer-powered, .pos-footer-text span { display: none; } }
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
         .pos-input {
@@ -568,24 +548,6 @@
         }
         .eft-modal:has(.eft-modal-status-box.error) .eft-modal-cancel-btn:active { filter: brightness(0.92); }
 
-        /* This station's EFT terminal picker — same modal box styling as the EFT status
-           popup, since it's the same visual family. Only paired terminals ever appear here
-           (see renderTerminalModalList()), so there's nothing to pair/repair from this list —
-           that lives entirely on the EFT Terminal Settings page now. Each row is a big
-           button-style option, not a plain checkbox row — the whole card is clickable, and the
-           currently-selected one is unmistakably highlighted (border/fill colour + a filled
-           check + a "Selected" tag), not just a small tick easy to miss at a glance. */
-        .terminal-picker-row { width: 100%; text-align: left; padding: 12px 16px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); margin-bottom: 10px; cursor: pointer; transition: border-color .12s, background-color .12s; }
-        .terminal-picker-row:hover { border-color: var(--maroon); }
-        .terminal-picker-row.selected { border-color: var(--maroon); background: var(--cream); }
-        .terminal-picker-select { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
-        .terminal-picker-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: transparent; font-size: 0.8rem; background: var(--white); }
-        .terminal-picker-row.selected .terminal-picker-check { border-color: var(--maroon); background: var(--maroon); color: #fff; }
-        .terminal-picker-sci-logo { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
-        .terminal-picker-details { margin-top: 4px; padding-left: 32px; font-size: 0.78rem; color: var(--text-secondary); }
-        .terminal-picker-selected-tag { margin-left: auto; font-size: 0.68rem; font-weight: 800; color: var(--maroon); text-transform: uppercase; letter-spacing: 0.04em; }
-
-
         /* Terminal soft-key buttons (OK/Yes/No/Authorise) — only ever shown when Linkly's own
            display notification currently flags that key as available (data.controls), never
            guessed at or shown speculatively. */
@@ -737,7 +699,7 @@
         <div class="pos-grid">
             <div class="pos-col-left">
                 <div class="pos-card">
-                    <div class="pos-card-title"><span class="pos-step-badge">1</span>Donor Details</div>
+                    <div class="pos-card-title"><span class="pos-step-badge">1</span>Donor Details<button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear</button></div>
                     <div class="pos-card-subtitle">Who this donation is being recorded for</div>
                     <div class="pos-row">
                         <div class="pos-field-box">
@@ -839,22 +801,7 @@
                 </div>
 
                 <div class="pos-actions-row">
-                    <div class="pos-actions-main-row">
-                        {{-- Only relevant while "EFT Terminal" is the selected method — see
-                             updatePosTerminalStatus() in the script below, which shows/hides
-                             this and keeps the name in sync with the picker. --}}
-                        <div class="pos-terminal-mini-wrap" id="posTerminalMiniWrap" hidden>
-                            <span class="pos-terminal-mini-label">EFT Terminal</span>
-                            <button type="button" class="pos-terminal-mini-btn" id="posTerminalSwitchBtn" title="Tap to switch terminal">
-                                <i class="bi bi-pc-display"></i>
-                                <span class="pos-terminal-mini-divider"></span>
-                                <span class="pos-terminal-mini-btn-name" id="posTerminalMiniName">—</span>
-                                <i class="bi bi-chevron-down pos-terminal-mini-chevron"></i>
-                            </button>
-                        </div>
-                        <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
-                    </div>
-                    <button type="button" class="pos-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear Form</button>
+                    <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-check-circle-fill me-2"></i>Save Donation</button>
                 </div>
             </div>
         </div>
@@ -863,17 +810,13 @@
 
     <footer class="pos-footer-bar">
         <div class="pos-footer">
-            <div class="pos-footer-left">
-                <img src="{{ $temple['admin_logo_icon'] ?? $temple['logo'] ?? '' }}" alt="" class="pos-footer-logo">
-                <div class="pos-footer-text">
-                    <strong>&copy; {{ date('Y') }} {{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</strong>
-                    <span>{{ $temple['name'] ?? '' }}{{ !empty($temple['subtitle']) ? ', ' . $temple['subtitle'] : '' }}</span>
-                </div>
-            </div>
             <div class="pos-footer-powered">
-                <span class="version">Powered by</span>
-                <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
-                <span class="version">v{{ config('sievespos.version') }} · Sievesvision</span>
+                <div class="pos-footer-powered-top">
+                    <span class="version">Powered by</span>
+                    <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
+                    <strong>v{{ config('sievespos.version') }}</strong>
+                </div>
+                <div class="pos-footer-powered-sub">sievesvision.com</div>
             </div>
             <div class="pos-footer-right">
                 <div class="pos-footer-date" id="posFooterDate"></div>
@@ -1005,19 +948,6 @@
         </div>
     </div>
 
-    <!-- This station's EFT terminal picker — which registered terminal is plugged in HERE,
-         saved per-browser so two stations can each run their own concurrent POS. -->
-    <div class="eft-modal-overlay" id="terminalModalOverlay">
-        <div class="eft-modal">
-            <div class="eft-modal-header"><i class="bi bi-credit-card-2-front-fill me-2"></i>This Station's EFT Terminal</div>
-            <div class="eft-modal-body">
-                <div id="terminalModalList"></div>
-                <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();" class="d-block small mb-3"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings (pair or add a terminal)</a>
-                <button type="button" class="eft-modal-cancel-btn" id="terminalModalCloseBtn">Close</button>
-            </div>
-        </div>
-    </div>
-
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
          otherwise a fix shipped here never reaches an already-open POS tab or a browser
@@ -1078,12 +1008,9 @@
         // Server-authoritative Power Fail recovery data (see PosDonationController::show())
         // — survives the browser tab itself being gone, unlike sessionStorage below.
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
-        // Mutable (not const) — the terminal picker replaces this wholesale with a freshly
-        // live-checked list every time it's opened (see CBA_SCI_PICKER_REFRESH_URL below);
-        // this initial server-rendered value only ever matters for the very first paint,
-        // before the picker has ever been opened.
-        let EFT_TERMINALS = @json($eftTerminalsForJs);
-        const CBA_SCI_PICKER_REFRESH_URL = @json(route('admin.cba-sci.terminal-picker.refresh'));
+        // Paired-only snapshot taken at page load (see PosDonationController::show()) — the
+        // Card method always just resolves to whichever one of these is flagged default.
+        const EFT_TERMINALS = @json($eftTerminalsForJs);
         const CBA_SCI_CHARGE_START_URL = @json(route('admin.cba-sci.charge.start'));
         const CBA_SCI_CHARGE_STATUS_URL_BASE = @json(url('/admin/cba-sci/charge/status'));
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
@@ -1092,132 +1019,19 @@
         const THERMAL_PRINT_RECEIPT_URL = @json(route('admin.thermal-print.receipt'));
 
         // ---------- This station's EFT terminal ----------
-        // sessionStorage only, deliberately — scoped to this one tab for exactly as long as
-        // it stays open, which is what "selecting a terminal changes this event's default for
-        // this browser session" means in practice: a genuinely new session (new tab, new
-        // browser, or this one closed and reopened) has nothing saved, and falls straight back
-        // to the registry's own default terminal below. It's also what keeps two POS tabs on
-        // ONE computer genuinely independent (e.g. two virtual PIN pads for testing) — nothing
-        // here is shared across tabs or persisted against the operator's account any more.
-        const TERMINAL_SESSION_KEY = 'eventPosEftTerminalId_tab';
-        function loadSelectedTerminalId() {
-            let saved = null;
-            try { saved = sessionStorage.getItem(TERMINAL_SESSION_KEY); } catch (e) {}
-            if (saved && EFT_TERMINALS.some(function (t) { return String(t.id) === String(saved); })) { return saved; }
-            const def = EFT_TERMINALS.find(function (t) { return t.is_default; }) || EFT_TERMINALS[0];
-            return def ? String(def.id) : null;
+        // Always whichever terminal the registry itself flags as default — no manual per-
+        // browser override any more. With a station only ever having one terminal plugged in,
+        // a picker just added a tap for no real choice; if the flagged-default one isn't paired,
+        // fall back to any other paired terminal rather than refusing to work entirely.
+        function defaultTerminal() {
+            return EFT_TERMINALS.find(function (t) { return t.is_default && t.paired; })
+                || EFT_TERMINALS.find(function (t) { return t.paired; })
+                || null;
         }
-        function saveSelectedTerminalId(id) {
-            try { sessionStorage.setItem(TERMINAL_SESSION_KEY, id); } catch (e) {}
-        }
-        let selectedTerminalId = loadSelectedTerminalId();
         function currentTerminalLabel() {
-            const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+            const t = defaultTerminal();
             return t ? t.label : 'No terminal';
         }
-        // Keeps the terminal-switch icon's tooltip in sync with whichever terminal is actually
-        // selected — printed right on the button (truncated with an ellipsis if it's long; the
-        // full name is still in the title tooltip and in the picker this button opens). Whether
-        // it shows AT ALL depends on "EFT Terminal" actually being the selected payment method —
-        // see updatePosTerminalStatus() below, defined once `selectedMethod` exists further down.
-        function updateTerminalStatusName() {
-            const label = currentTerminalLabel();
-            const nameEl = document.getElementById('posTerminalMiniName');
-            if (nameEl) { nameEl.textContent = label; }
-            const btn = document.getElementById('posTerminalSwitchBtn');
-            if (btn) { btn.title = 'Current terminal: ' + label + ' — tap to switch'; }
-        }
-        const SCI_LOGO_URL = @json(asset('images/sci-logo.jpg'));
-
-        // Only ever lists PAIRED terminals — an unpaired one can't take a payment, and pairing/
-        // repairing one is now exclusively done from the EFT Terminal Settings page (see the
-        // "Open EFT Terminal Settings" link below the list), not from this picker.
-        function renderTerminalModalList() {
-            const list = document.getElementById('terminalModalList');
-            if (!list) { return; }
-            list.innerHTML = '';
-            const pairedTerminals = EFT_TERMINALS.filter(function (t) { return t.paired; });
-            if (!pairedTerminals.length) {
-                list.innerHTML = '<p class="text-muted small mb-0">No paired terminals yet — use the link below to pair one.</p>';
-                return;
-            }
-            pairedTerminals.forEach(function (t) {
-                const card = document.createElement('div');
-                const isSelected = String(t.id) === String(selectedTerminalId);
-                card.className = 'terminal-picker-row' + (isSelected ? ' selected' : '');
-                card.setAttribute('role', 'button');
-                card.setAttribute('tabindex', '0');
-
-                const top = document.createElement('div');
-                top.className = 'terminal-picker-select';
-                const providerMark = t.provider === 'cba_sci'
-                    ? '<img src="' + SCI_LOGO_URL + '" alt="SCI" class="terminal-picker-sci-logo">'
-                    : '<span class="badge-pill badge-provider">LINKLY CLOUD</span>';
-                top.innerHTML = '<span class="terminal-picker-check">&#10003;</span>' +
-                    providerMark +
-                    '<span>' + escapeHtmlPos(t.label) + (t.is_default ? ' <span class="text-muted small">· default</span>' : '') + '</span>' +
-                    (isSelected ? '<span class="terminal-picker-selected-tag">Selected</span>' : '');
-                card.appendChild(top);
-
-                if (t.provider === 'cba_sci' && t.sci_pairing_id) {
-                    const details = document.createElement('div');
-                    details.className = 'terminal-picker-details';
-                    details.textContent = 'Pairing ID: ' + t.sci_pairing_id;
-                    card.appendChild(details);
-                }
-
-                function selectThisTerminal() {
-                    selectedTerminalId = String(t.id);
-                    saveSelectedTerminalId(selectedTerminalId);
-                    updateTerminalStatusName();
-                    document.getElementById('terminalModalOverlay').classList.remove('active');
-                }
-                card.addEventListener('click', selectThisTerminal);
-                card.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectThisTerminal(); }
-                });
-
-                list.appendChild(card);
-            });
-        }
-        // mx51's certification checklist requires a live GET /pairing-info check at the moment
-        // the pairing/terminal screen is opened, not a flag cached from page load that only
-        // ever changes once someone presses Unpair — EftTerminalController::index() already
-        // does this for the admin registry page; this is the same check for the POS's own
-        // terminal picker, which previously never ran it at all.
-        function refreshTerminalPicker() {
-            const list = document.getElementById('terminalModalList');
-            if (list) { list.innerHTML = '<p class="text-muted small mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Checking terminal status…</p>'; }
-            fetch(CBA_SCI_PICKER_REFRESH_URL + '?event_id=' + encodeURIComponent(EVENT_ID), {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
-            })
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    if (data && data.success && Array.isArray(data.terminals)) {
-                        EFT_TERMINALS = data.terminals;
-                    }
-                    renderTerminalModalList();
-                    updateTerminalStatusName();
-                    updateEftMethodAvailability();
-                })
-                .catch(function () {
-                    // Still show whatever was last known rather than leaving the modal stuck
-                    // on the loading message if the live check itself can't be reached.
-                    renderTerminalModalList();
-                });
-        }
-        const posTerminalSwitchBtn = document.getElementById('posTerminalSwitchBtn');
-        if (posTerminalSwitchBtn) {
-            // Shown immediately on open (own loading state) rather than blocking the click.
-            posTerminalSwitchBtn.addEventListener('click', function () {
-                document.getElementById('terminalModalOverlay').classList.add('active');
-                refreshTerminalPicker();
-            });
-        }
-        document.getElementById('terminalModalCloseBtn').addEventListener('click', function () {
-            document.getElementById('terminalModalOverlay').classList.remove('active');
-        });
 
         function escapeHtmlPos(str) {
             const div = document.createElement('div');
@@ -1246,16 +1060,26 @@
         // Payment method — big buttons instead of a dropdown.
         const methodRow = document.getElementById('posMethodRow');
         let selectedMethod = null;
+        // Internal method keys stay exactly as the event configured them (matched against the
+        // backend and DB everywhere else on this page) — only the on-screen label changes.
+        const methodLabels = { 'EFT Terminal': 'Card' };
+        function methodLabel(m) { return methodLabels[m] || m; }
         const methodIcons = { Cash: 'bi-cash-coin', UPI: 'bi-phone-fill', 'Bank Transfer': 'bi-bank2', Cheque: 'bi-postcard-fill', 'EFT Terminal': 'bi-credit-card-2-front-fill', Stripe: 'bi-credit-card-fill' };
-        const posMethodList = ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash'];
-        // EFT Terminal is the fastest, most reconciliation-friendly method when it's on offer
-        // at all — default to it rather than whichever method happens to sort first, so a
-        // clerk doesn't have to remember to switch off Cash every single sale. But it's only
-        // genuinely "on offer" if some terminal is actually paired right now — EFT_TERMINALS is
-        // paired-only on first load (see PosDonationController::show()) and re-filtered the
-        // same way after every live picker refresh (see renderTerminalModalList()), so this one
-        // check covers both.
-        function eftTerminalAvailable() { return EFT_TERMINALS.some(function (t) { return t.paired; }); }
+        // Fixed display order — Card, Bank Transfer, Cash, then anything else — rather than
+        // whatever order the event's own configured method list happens to be in.
+        const METHOD_DISPLAY_ORDER = ['EFT Terminal', 'Bank Transfer', 'Cash'];
+        const posMethodListRaw = ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash'];
+        const posMethodList = posMethodListRaw.slice().sort(function (a, b) {
+            const ia = METHOD_DISPLAY_ORDER.indexOf(a);
+            const ib = METHOD_DISPLAY_ORDER.indexOf(b);
+            return (ia === -1 ? METHOD_DISPLAY_ORDER.length : ia) - (ib === -1 ? METHOD_DISPLAY_ORDER.length : ib);
+        });
+        // Card is the fastest, most reconciliation-friendly method when it's on offer at all —
+        // default to it rather than whichever method happens to sort first, so a clerk doesn't
+        // have to remember to switch off Cash every single sale. But it's only genuinely "on
+        // offer" if the registry's own default terminal is actually paired right now —
+        // EFT_TERMINALS is paired-only on first load (see PosDonationController::show()).
+        function eftTerminalAvailable() { return !!defaultTerminal(); }
         const posDefaultMethod = (posMethodList.includes('EFT Terminal') && eftTerminalAvailable())
             ? 'EFT Terminal'
             : posMethodList.find(function (m) { return m !== 'EFT Terminal' || eftTerminalAvailable(); }) || posMethodList[0];
@@ -1264,35 +1088,22 @@
             btn.type = 'button';
             const disabled = m === 'EFT Terminal' && !eftTerminalAvailable();
             btn.className = 'pos-method-btn' + (m === posDefaultMethod ? ' active' : '') + (disabled ? ' disabled' : '');
-            btn.innerHTML = '<span class="pos-method-icon-badge"><i class="bi ' + (methodIcons[m] || 'bi-wallet2') + '"></i></span>' + m;
+            btn.innerHTML = '<span class="pos-method-icon-badge"><i class="bi ' + (methodIcons[m] || 'bi-wallet2') + '"></i></span>' + methodLabel(m);
             btn.dataset.method = m;
-            if (disabled) { btn.title = 'No EFT terminal is currently paired.'; }
+            if (disabled) { btn.title = 'No card terminal is currently paired.'; }
             btn.addEventListener('click', function () {
                 if (btn.classList.contains('disabled')) { return; }
                 methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 selectedMethod = m;
                 updatePosSummary();
-                updatePosTerminalStatus();
             });
             methodRow.appendChild(btn);
             if (m === posDefaultMethod) { selectedMethod = m; }
         });
 
-        // Only relevant while "EFT Terminal" is the selected method — a compact icon sitting
-        // right next to Save, not a whole extra row above the action buttons, and not a topbar
-        // icon easily mistaken for Settings/Account either (both previous designs).
-        const posTerminalStatus = document.getElementById('posTerminalMiniWrap');
-        function updatePosTerminalStatus() {
-            if (!posTerminalStatus) { return; }
-            posTerminalStatus.hidden = selectedMethod !== 'EFT Terminal';
-            updateTerminalStatusName();
-        }
-        updatePosTerminalStatus();
-
-        // Always-visible entry point to terminal pairing/settings — unlike "Switch" above the
-        // Pay button, which only ever appears while "EFT Terminal" is selected (and that method
-        // stays disabled with nothing paired to pick), this one works with zero terminals paired.
+        // Always-visible entry point to terminal pairing/settings — works even with zero
+        // terminals paired, unlike the Card method button itself (disabled with nothing to pair).
         const posEftSettingsTopbarBtn = document.getElementById('posEftSettingsTopbarBtn');
         function updateEftSettingsTopbarBtn() {
             if (!posEftSettingsTopbarBtn) { return; }
@@ -1300,33 +1111,7 @@
         }
         updateEftSettingsTopbarBtn();
         if (posEftSettingsTopbarBtn) {
-            // Straight to pairing/settings itself — the terminal picker (Switch, above the Pay
-            // button) is the separate, optional "which terminal does this station use" list,
-            // not a required stop on the way to Settings.
             posEftSettingsTopbarBtn.addEventListener('click', function () { openEftTerminalSettingsModal(); });
-        }
-
-        // Re-run whenever the picker's own live refresh updates EFT_TERMINALS (e.g. the
-        // previously-paired terminal was just unpaired/removed elsewhere) — switches away from
-        // EFT Terminal automatically if it was selected and just became unavailable, same as it
-        // would never have defaulted to it in the first place on a fresh page load.
-        function updateEftMethodAvailability() {
-            const btn = methodRow.querySelector('.pos-method-btn[data-method="EFT Terminal"]');
-            if (!btn) { return; }
-            const available = eftTerminalAvailable();
-            btn.classList.toggle('disabled', !available);
-            btn.title = available ? '' : 'No EFT terminal is currently paired.';
-            if (!available && selectedMethod === 'EFT Terminal') {
-                methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
-                const fallbackBtn = Array.prototype.find.call(methodRow.querySelectorAll('.pos-method-btn'), function (b) { return !b.classList.contains('disabled'); });
-                if (fallbackBtn) {
-                    fallbackBtn.classList.add('active');
-                    selectedMethod = fallbackBtn.dataset.method;
-                    updatePosSummary();
-                }
-            }
-            updatePosTerminalStatus();
-            updateEftSettingsTopbarBtn();
         }
 
         // Payment methods that confirm money on the spot ("PAY now") versus ones that only
@@ -1351,11 +1136,13 @@
             if (summaryAmount) { summaryAmount.textContent = amtText; }
             if (summaryTotal) { summaryTotal.textContent = amtText; }
             if (summaryName) { summaryName.textContent = name || 'Donor not entered yet'; }
-            if (summaryMethod) { summaryMethod.textContent = selectedMethod ? ('via ' + selectedMethod) : ''; }
+            if (summaryMethod) { summaryMethod.textContent = selectedMethod ? ('via ' + methodLabel(selectedMethod)) : ''; }
 
             const saveBtn = document.getElementById('posSaveBtn');
             if (!saveBtn) { return; }
-            if (methodIsImmediate(selectedMethod)) {
+            if (selectedMethod === 'EFT Terminal') {
+                saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY' + (amt > 0 ? ' ' + amtText : '') + ' on ' + escapeHtmlPos(currentTerminalLabel());
+            } else if (methodIsImmediate(selectedMethod)) {
                 saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY' + (amt > 0 ? ' ' + amtText : '');
             } else {
                 saveBtn.innerHTML = '<i class="bi bi-bookmark-check-fill me-2"></i>Record Pledge' + (amt > 0 ? ' — ' + amtText : '');
@@ -1949,10 +1736,10 @@
             // fed by Linkly's webhook postbacks) can actually reach the screen.
             if (selectedMethod === 'EFT Terminal') {
                 if (amount < EFT_MINIMUM_AMOUNT) {
-                    showToast('Minimum EFT Terminal amount is ' + CURRENCY_CODE + ' ' + EFT_MINIMUM_AMOUNT.toFixed(2) + '.', true);
+                    showToast('Minimum Card amount is ' + CURRENCY_CODE + ' ' + EFT_MINIMUM_AMOUNT.toFixed(2) + '.', true);
                     return;
                 }
-                const selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+                const selectedTerminal = defaultTerminal();
                 if (!selectedTerminal || !selectedTerminal.paired) {
                     // Deliberately not embedding currentTerminalLabel() here — a terminal's own
                     // label can carry a provider's brand name (as "mx51 Certification Terminal"
@@ -1973,7 +1760,7 @@
                         mobile: mobileValue,
                         purpose: purposeValue,
                         purposeDetails: document.getElementById('posDetails').value,
-                        terminalId: selectedTerminalId,
+                        terminalId: selectedTerminal.id,
                     });
                     return;
                 }
@@ -2019,7 +1806,8 @@
             startBody.set('purpose', attempt.purpose || '');
             startBody.set('purpose_details', attempt.purposeDetails || '');
             startBody.set('is_anonymous', isAnonymousDonation() ? '1' : '0');
-            if (selectedTerminalId) { startBody.set('terminal_id', selectedTerminalId); }
+            const startTerminal = defaultTerminal();
+            if (startTerminal) { startBody.set('terminal_id', startTerminal.id); }
 
             fetch(EFT_CHARGE_START_URL, {
                 method: 'POST',
@@ -2205,7 +1993,7 @@
             if (PENDING_EFT_RECOVERY) {
                 const p = PENDING_EFT_RECOVERY;
                 document.getElementById('eftResumeBannerText').textContent =
-                    'Checking a previous EFT Terminal payment (' + CURRENCY_CODE + ' ' + p.amount.toFixed(2) + ' for ' + p.name + ') that did not finish…';
+                    'Checking a previous Card payment (' + CURRENCY_CODE + ' ' + p.amount.toFixed(2) + ' for ' + p.name + ') that did not finish…';
                 banner.style.display = 'flex';
                 document.getElementById('eftResumeBannerBtn').style.display = 'none';
                 document.getElementById('eftResumeBannerDismissBtn').addEventListener('click', function () {
@@ -2230,7 +2018,7 @@
             const attempt = loadEftAttempt();
             if (attempt) {
                 document.getElementById('eftResumeBannerText').textContent =
-                    'Checking a previous EFT Terminal payment (' + CURRENCY_CODE + ' ' + Number(attempt.amount).toFixed(2) + ' for ' + attempt.name + ') that did not finish…';
+                    'Checking a previous Card payment (' + CURRENCY_CODE + ' ' + Number(attempt.amount).toFixed(2) + ' for ' + attempt.name + ') that did not finish…';
                 banner.style.display = 'flex';
                 document.getElementById('eftResumeBannerBtn').style.display = 'none';
                 document.getElementById('eftResumeBannerDismissBtn').addEventListener('click', function () {
