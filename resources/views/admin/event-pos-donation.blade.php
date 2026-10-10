@@ -64,21 +64,27 @@
            to nothing rather than truncating gracefully. A grid's center track is genuinely
            centered on the row regardless of how wide the two side tracks are, as long as it
            fits — no shrink-priority tug-of-war involved. */
+        /* Flex, not a 3-column grid with an "auto" middle track — an auto track sizes itself
+           to the title's own preferred (max-content) width and only yields space to its
+           neighbours up to a point; with 4 action buttons at once (Switch Event, Back to
+           console, EFT Settings, Account) on a narrow phone, the actions track needed more
+           room than the grid gave it and the buttons visually overlapped the title text
+           instead of the title truncating out of the way. Flex with the two end groups fixed
+           to their own content width (flex:0 0 auto) and the title as the only flexible,
+           min-width:0 middle guarantees the ends always get the room they need first and the
+           title's own ellipsis is what gives, never a collision.  */
         .pos-topbar {
             background: #6B0F1A; position: sticky; top: 0; flex-shrink: 0;
-            color: white; padding: 12px 20px; display: grid;
-            grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
-            grid-template-areas: "brand title actions";
-            align-items: center; column-gap: 14px;
-            box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 72px;
+            color: white; padding: 12px 20px; display: flex; align-items: center;
+            gap: 10px; box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 72px;
         }
-        .pos-topbar-brand { grid-area: brand; display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .pos-topbar-brand { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
         .pos-topbar-logo { width: 40px; height: 40px; border-radius: 50%; object-fit: contain; background: #fff; padding: 2px; flex-shrink: 0; }
         .pos-topbar-brand-text { min-width: 0; overflow: hidden; }
         .pos-topbar-temple-name { font-weight: 800; font-size: clamp(0.8rem, 2.4vw, 1rem); line-height: 1.2; font-family: var(--serif); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pos-topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .pos-topbar-event-title { grid-area: title; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
+        .pos-topbar-event-title { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
         .pos-flourish-line { flex: 1; max-width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); display: none; flex-shrink: 0; }
         @media (min-width: 900px) { .pos-flourish-line { display: block; } }
         .pos-topbar-event-title-text { min-width: 0; max-width: 100%; }
@@ -91,7 +97,7 @@
         .pos-event-motto { font-size: 0.74rem; color: rgba(255,255,255,0.75); letter-spacing: 0.03em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         @media (max-width: 900px) { .pos-event-motto { display: none; } }
 
-        .pos-topbar-actions { grid-area: actions; display: flex; align-items: center; gap: 8px; min-width: 0; justify-content: flex-end; }
+        .pos-topbar-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-width: 0; justify-content: flex-end; }
         .pos-topbar-btn { position: relative; background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 44px; height: 44px; border-radius: var(--radius-sm); font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.18); }
         /* Flags that setup is incomplete — only ever shown when no terminal is paired yet. */
@@ -124,7 +130,7 @@
         /* Full-width POS workspace, not a narrow centred web form — the container just gets
            a comfortable max-width so it doesn't stretch absurdly on a huge monitor, but on
            every tablet/laptop size it fills essentially the whole browser width. */
-        .pos-main { padding: 20px 24px 8px; flex: 1 0 auto; }
+        .pos-main { padding: 14px 24px 8px; flex: 1 0 auto; }
 
         /* Two-column layout, primary target = landscape tablet/desktop — left ~64% for the
            entry fields, right ~36% for the running total/payment/actions, always visible
@@ -133,10 +139,10 @@
         .pos-grid { max-width: 1600px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
         @media (min-width: 900px) { .pos-grid { grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); } }
 
-        .pos-col-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+        .pos-col-left { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
         .pos-card {
             background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--border);
-            box-shadow: 0 1px 3px rgba(15,23,42,0.06); padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.06); padding: 14px 18px;
         }
         /* Inter, not the serif display face — a section header you scan past a dozen times a
            shift (Donor Details, Donation Amount...) reads faster in the same grotesque the
@@ -163,30 +169,25 @@
         @media (min-width: 900px) { .pos-side { position: sticky; top: 96px; } }
 
         /* Donation Summary — deliberately NOT another plain white card, so the running total
-           reads at a glance as the "money" panel rather than just more form. Redesigned
-           around ONE focal total (the old layout showed "Amount" then "Total" as two
-           identical numbers with a divider between them — pure duplication, not a real
-           subtotal/total split) with the donor name and payment method as a small receipt
-           line underneath, rather than plain unstyled text. */
+           reads at a glance as the "money" panel rather than just more form. Kept to ONE
+           compact row (Recent Orders on the left, the running Total on the right) plus a
+           single muted meta line underneath — the previous version spent a label row, a
+           centred hero-sized total block and a divider on the same information, which was
+           most of what pushed the page past one screen's height on a laptop/tablet. */
         .pos-summary-card {
             background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%);
-            border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 20px 22px;
+            border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 12px 16px;
             box-shadow: 0 1px 4px rgba(15,23,42,0.07);
         }
-        .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
-        .pos-summary-label { display: flex; align-items: center; gap: 9px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; margin-bottom: 0; }
-        .pos-summary-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--maroon); color: #FFF9ED; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; flex-shrink: 0; }
-        .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 12px; font-size: 0.76rem; font-weight: 700; color: #8A6A1E; }
+        .pos-summary-main-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 10px; font-size: 0.74rem; font-weight: 700; color: #8A6A1E; flex-shrink: 0; }
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
-        .pos-summary-total-block { text-align: center; padding: 4px 0 6px; }
-        .pos-summary-total-label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8A6A1E; font-weight: 700; margin-bottom: 4px; }
-        .pos-summary-total-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(2.1rem, 6vw, 2.7rem); font-weight: 800; color: var(--maroon); line-height: 1.1; }
-        .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); margin: 16px 0 14px; }
-        .pos-summary-meta-row { display: flex; align-items: center; gap: 9px; min-width: 0; }
-        .pos-summary-meta-row + .pos-summary-meta-row { margin-top: 8px; }
-        .pos-summary-meta-icon { width: 24px; height: 24px; border-radius: 50%; background: rgba(165,107,19,0.12); color: #8A6A1E; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; flex-shrink: 0; }
-        .pos-summary-name { font-size: 0.92rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-summary-method { font-size: 0.84rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-summary-total-inline { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+        .pos-summary-total-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #8A6A1E; font-weight: 700; flex-shrink: 0; }
+        .pos-summary-total-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(1.15rem, 3.4vw, 1.5rem); font-weight: 800; color: var(--maroon); line-height: 1.1; white-space: nowrap; }
+        .pos-summary-meta-line { margin-top: 6px; font-size: 0.78rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-summary-meta-line #posSummaryName { color: var(--text-primary); font-weight: 600; }
+        .pos-summary-meta-sep { margin: 0 5px; opacity: 0.6; }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
            styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
@@ -817,24 +818,17 @@
 
             <div class="pos-side">
                 <div class="pos-summary-card">
-                    <div class="pos-summary-top-row">
-                        <div class="pos-summary-label"><span class="pos-summary-icon"><i class="bi bi-receipt"></i></span>Donation Summary</div>
+                    <div class="pos-summary-main-row">
                         <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
                             <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
                         </button>
+                        <div class="pos-summary-total-inline">
+                            <span class="pos-summary-total-label">Total</span>
+                            <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
+                        </div>
                     </div>
-                    <div class="pos-summary-total-block">
-                        <span class="pos-summary-total-label">Total</span>
-                        <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
-                    </div>
-                    <div class="pos-summary-divider"></div>
-                    <div class="pos-summary-meta-row">
-                        <span class="pos-summary-meta-icon"><i class="bi bi-person-fill"></i></span>
-                        <span class="pos-summary-name" id="posSummaryName">Donor not entered yet</span>
-                    </div>
-                    <div class="pos-summary-meta-row">
-                        <span class="pos-summary-meta-icon"><i class="bi bi-credit-card-fill"></i></span>
-                        <span class="pos-summary-method" id="posSummaryMethod">Pick a payment method</span>
+                    <div class="pos-summary-meta-line">
+                        <span id="posSummaryName">Donor not entered yet</span><span class="pos-summary-meta-sep">&middot;</span><span id="posSummaryMethod">Pick a payment method</span>
                     </div>
                 </div>
 
