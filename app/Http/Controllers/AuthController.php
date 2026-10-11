@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Devotee;
-use App\Models\PosPin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -276,21 +275,34 @@ class AuthController extends Controller
     public function showPosLogin(Request $request, $slug = null)
     {
         $posDestinationLabel = null;
+        $contextType = null;
+        $contextSlug = null;
         $routeName = $request->route()?->getName();
 
         if ($routeName === 'pos.login.event' && $slug) {
             $eventName = \Illuminate\Support\Facades\DB::table('events')->where('slug', $slug)->value('event_name');
             if ($eventName) {
                 $posDestinationLabel = $eventName . ' — Event Donation POS';
+                // Carried through as hidden fields on the PIN form (see pos-login.blade.php)
+                // so attemptPosPinLogin() can land a matching account straight on THIS
+                // destination instead of the generic auto-select/picker logic — what makes
+                // "quick staff switching" at a fixed, bookmarked counter fast.
+                $contextType = 'event';
+                $contextSlug = $slug;
             }
         } elseif ($routeName === 'pos.login.tickets') {
             $posDestinationLabel = 'Ticket Sales POS';
+            $contextType = 'tickets';
         }
 
         // No "PIN login is disabled" pre-check here — lockout is per-account now (see
         // attemptPosPinLogin()), so which account might be locked isn't knowable until a
         // username is actually submitted. The PIN panel is always offered by default.
-        return response()->view('auth.pos-login', ['posDestinationLabel' => $posDestinationLabel])
+        return response()->view('auth.pos-login', [
+                'posDestinationLabel' => $posDestinationLabel,
+                'contextType' => $contextType,
+                'contextSlug' => $contextSlug,
+            ])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache')
             ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
@@ -588,31 +600,50 @@ class AuthController extends Controller
         // all actually use that page, so all three get a POS PIN, same as 'admin' already did.
         $allowedCoordinatorLevels = $includeAdminLevel ? ['pos', 'entry', 'admin'] : ['pos'];
 
+        // Filtered per-row, not all-or-nothing — a user who coordinates one event at
+        // 'pos' level and another at 'view' level still gets the 'pos' one; the 'view'
+        // assignment is simply omitted, not a reason to hide every destination they
+        // otherwise qualify for. (This used to reject the whole list if even one
+        // assignment didn't qualify, which was a real bug for anyone with mixed levels.)
         $coordinatorRows = \Illuminate\Support\Facades\DB::table('event_coordinators')
             ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
             ->where('event_coordinators.user_id', $user->id)
+            ->whereIn('event_coordinators.level', $allowedCoordinatorLevels)
             ->orderBy('events.event_date')
             ->select('events.event_id', 'events.event_name', 'events.event_date', 'events.slug', 'event_coordinators.level')
             ->get();
 
-        if ($coordinatorRows->isNotEmpty() && !$coordinatorRows->every(fn ($row) => in_array($row->level, $allowedCoordinatorLevels, true))) {
-            return [];
-        }
-
         $ticketRow = \Illuminate\Support\Facades\DB::table('ticket_controllers')->where('user_id', $user->id)->first();
-        if ($ticketRow && !in_array($ticketRow->level, ['view', 'entry'], true)) {
-            return [];
-        }
+        $ticketQualifies = $ticketRow && in_array($ticketRow->level, ['view', 'entry'], true);
 
         $destinations = [];
         foreach ($coordinatorRows as $row) {
             $destinations[] = ['type' => 'event', 'event_id' => $row->event_id, 'slug' => $row->slug, 'label' => $row->event_name, 'date' => $row->event_date];
         }
-        if ($ticketRow) {
+        if ($ticketQualifies) {
             $destinations[] = ['type' => 'tickets', 'label' => 'Ticket Sales'];
         }
 
         return $destinations;
+    }
+
+    /**
+     * The all-or-nothing check completeLogin()'s own POS-only fast-path needs — distinct
+     * from possiblePosDestinations()'s per-row filtering, which is right for "what can this
+     * account actually reach" but wrong for "is this account's WHOLE footprint POS-only"
+     * (one admin-level assignment mixed in must disqualify the fast-path entirely, not just
+     * have that one assignment quietly dropped from the list).
+     */
+    private function isPurelyPosOnly(User $user): bool
+    {
+        $coordinatorLevels = \Illuminate\Support\Facades\DB::table('event_coordinators')->where('user_id', $user->id)->pluck('level');
+        if ($coordinatorLevels->isNotEmpty() && $coordinatorLevels->contains(fn ($level) => $level !== 'pos')) {
+            return false;
+        }
+
+        $ticketLevel = \Illuminate\Support\Facades\DB::table('ticket_controllers')->where('user_id', $user->id)->value('level');
+
+        return $ticketLevel === null || in_array($ticketLevel, ['view', 'entry'], true);
     }
 
     /**
@@ -703,31 +734,21 @@ class AuthController extends Controller
 
     private const POS_PIN_MAX_ATTEMPTS = 5;
 
+    // Self-healing lockout — after this long with no admin intervention, a locked account
+    // can try again on its own rather than being stuck until someone with console access
+    // notices. The per-attempt generic error message and the account-scoped (not global)
+    // nature of the lockout are unaffected.
+    private const POS_PIN_LOCKOUT_MINUTES = 15;
+
     private function clearPosPinLockout(User $user): void
     {
         $user->update(['pos_pin_failed_attempts' => 0, 'pos_pin_locked_at' => null]);
     }
 
     /**
-     * Finds the possiblePosDestinations() entry matching a stored destination_type/
-     * destination_id pair (from a PosPin row) — this doubles as re-validating the grant is
-     * still current, since a revoked assignment simply won't appear in that list even though
-     * the PosPin row itself is still stored.
-     */
-    private function matchDestination(array $destinations, string $type, ?int $destinationId): ?array
-    {
-        return collect($destinations)->first(function ($d) use ($type, $destinationId) {
-            if ($d['type'] !== $type) {
-                return false;
-            }
-            return $type !== 'event' || (int) $d['event_id'] === (int) $destinationId;
-        });
-    }
-
-    /**
-     * Finishes a PIN login for a destination that's already known (the matched PIN itself
-     * picked it) — deliberately bypasses completeLogin()'s "land on primary role, branch on
-     * destination count" logic, since there is nothing left to pick.
+     * Finishes a PIN login for a destination that's already known — deliberately bypasses
+     * completeLogin()'s "land on primary role, branch on destination count" logic, since
+     * there is nothing left to pick.
      */
     private function finishDirectPosLogin(User $user, array $destination)
     {
@@ -738,19 +759,19 @@ class AuthController extends Controller
     }
 
     /**
-     * PIN login for POS-only accounts — a faster alternative to email+password on a
-     * counter terminal. Unlike the old single-PIN-per-account design, the account is
-     * identified by its own short username FIRST, so the PIN only ever needs to be checked
-     * against that one account's own PosPin rows (one per destination — an event
-     * assignment, or ticket sales) rather than scanned globally. This is what lets a PIN
-     * directly pick a specific destination (no "choose your counter" step) and makes
-     * cross-account PIN collisions harmless — see PosPin's own docblock.
+     * PIN login for POS-only accounts — a faster alternative to email+password on a counter
+     * terminal. One organisation-level PIN per account (users.pos_pin), checked once; which
+     * destination(s) it opens is resolved fresh from the account's own current role grants
+     * (possiblePosDestinations()), never from anything the PIN itself "remembers" — unlike
+     * the old per-destination PosPin design, the same PIN works everywhere this account is
+     * authorised, and revoking an assignment takes effect immediately without touching the
+     * PIN at all.
      *
-     * Every failure — unknown username, wrong PIN, or a destination that's since been
-     * revoked — returns the exact same generic message, so a locked-out account can never
-     * be distinguished from a merely-wrong guess, and the lockout itself is scoped to that
-     * one account (clearable by that account's own next successful email login, or by an
-     * admin — see SystemUserController::resetPosPinLockout()).
+     * Every failure — unknown username, wrong PIN — returns the exact same generic message,
+     * so a locked-out account can never be distinguished from a merely-wrong guess, and the
+     * lockout itself is scoped to that one account (clearable by that account's own next
+     * successful email login, by waiting out POS_PIN_LOCKOUT_MINUTES, or by an admin — see
+     * SystemUserController::resetPosPinLockout()).
      */
     public function attemptPosPinLogin(Request $request)
     {
@@ -767,15 +788,14 @@ class AuthController extends Controller
         }
 
         if ($user->pos_pin_locked_at) {
-            return back()->withErrors(['pin' => 'Too many incorrect attempts. Please sign in with your email and password.']);
+            if ($user->pos_pin_locked_at->lt(now()->subMinutes(self::POS_PIN_LOCKOUT_MINUTES))) {
+                $this->clearPosPinLockout($user);
+            } else {
+                return back()->withErrors(['pin' => 'Too many incorrect attempts. Please try again later, or sign in with your email and password.']);
+            }
         }
 
-        $pinRow = $user->posPins()->get()->first(fn ($row) => Hash::check($request->pin, $row->pin));
-        $destination = $pinRow
-            ? $this->matchDestination($this->possiblePosDestinations($user), $pinRow->destination_type, $pinRow->destination_id)
-            : null;
-
-        if (!$destination) {
+        if (!$user->pos_pin || !Hash::check($request->pin, $user->pos_pin)) {
             $attempts = $user->pos_pin_failed_attempts + 1;
             $user->pos_pin_failed_attempts = $attempts;
             if ($attempts >= self::POS_PIN_MAX_ATTEMPTS) {
@@ -790,7 +810,92 @@ class AuthController extends Controller
 
         $this->clearPosPinLockout($user);
 
-        return $this->finishDirectPosLogin($user, $destination);
+        $destinations = $this->possiblePosDestinations($user);
+
+        // Reached through a destination-scoped bookmark (pos.login.event/{slug} or
+        // pos.login.tickets — see showPosLogin()) and this account is actually authorised
+        // for it right now: land there directly, skipping the auto-select/picker logic
+        // below entirely. This is what makes staff switching at a fixed counter fast — the
+        // register's browser stays on its own bookmarked URL; only the username+PIN change.
+        $contextMatch = null;
+        if ($request->input('context_type') === 'event' && $request->filled('context_slug')) {
+            $contextMatch = collect($destinations)->first(fn ($d) => $d['type'] === 'event' && $d['slug'] === $request->input('context_slug'));
+        } elseif ($request->input('context_type') === 'tickets') {
+            $contextMatch = collect($destinations)->first(fn ($d) => $d['type'] === 'tickets');
+        }
+        if ($contextMatch) {
+            return $this->finishDirectPosLogin($user, $contextMatch);
+        }
+
+        if (count($destinations) === 0) {
+            // The PIN was correct — this is deliberately a distinct, specific message, not
+            // the generic credential-failure one, since nothing about it helps an attacker
+            // guess a PIN (it only ever shows after a correct one).
+            return back()->withErrors(['pin' => 'This account has no POS access configured. Please contact your administrator.']);
+        }
+        if (count($destinations) === 1) {
+            return $this->finishDirectPosLogin($user, $destinations[0]);
+        }
+
+        Auth::login($user);
+        $user->update(['last_login_at' => now()]);
+
+        return redirect()->route('pos.select');
+    }
+
+    /**
+     * One-time, expiring PIN activation/reset link — the only way anyone other than the
+     * account holder can get a PIN set, and even then, the admin who triggers it (see
+     * AccountSetupService::sendPosPinSetupLink()) never sees or chooses the actual digits;
+     * only the person opening this link does, same as a password-reset link.
+     */
+    public function showPosPinActivate(Request $request, $userId, $token)
+    {
+        [$user, $valid] = $this->resolvePosPinSetupToken($userId, $token);
+
+        return view('auth.pos-pin-activate', [
+            'valid' => $valid,
+            'userId' => $userId,
+            'token' => $token,
+            'name' => $user?->name,
+        ]);
+    }
+
+    public function submitPosPinActivate(Request $request, $userId, $token)
+    {
+        [$user, $valid] = $this->resolvePosPinSetupToken($userId, $token);
+        if (!$valid) {
+            return back()->withErrors(['new_pin' => 'This link is invalid or has expired. Please ask for a new one.']);
+        }
+
+        $request->validate(['new_pin' => 'digits:6|confirmed']);
+
+        $user->update([
+            'pos_pin' => Hash::make($request->new_pin),
+            'pos_pin_set_at' => now(),
+            'pos_pin_failed_attempts' => 0,
+            'pos_pin_locked_at' => null,
+        ]);
+        \Illuminate\Support\Facades\DB::table('pos_pin_setup_tokens')->where('user_id', $userId)->delete();
+        \App\Services\AuditLogService::log('Activated/reset POS PIN via setup link for ' . $user->email);
+
+        return redirect()->route('pos.login')->with('success', 'Your POS PIN has been set. You can now sign in at the counter.');
+    }
+
+    /**
+     * @return array{0: ?User, 1: bool}
+     */
+    private function resolvePosPinSetupToken($userId, string $token): array
+    {
+        $user = User::find($userId);
+        if (!$user) {
+            return [null, false];
+        }
+
+        $tokenRow = \Illuminate\Support\Facades\DB::table('pos_pin_setup_tokens')->where('user_id', $userId)->first();
+        $valid = $tokenRow && Hash::check($token, $tokenRow->token) && now()->lt($tokenRow->expires_at);
+
+        return [$user, (bool) $valid];
     }
 
     /**
@@ -799,10 +904,8 @@ class AuthController extends Controller
      * view/entry Ticket Controller to embed this in, per ProfileController's own role
      * branches; an admin-level Event Coordinator does have a console dashboard, but this same
      * screen still covers their PIN setup too, reached the same way). Locked to accounts that
-     * currently resolve at least one POS destination via possiblePosDestinations() —
-     * pos/entry/admin level for an Event Coordinator, view/entry for a Ticket Controller. Shows
-     * every reachable destination separately, each with its own PIN status — the username
-     * itself is admin-assigned, shown read-only here.
+     * currently resolve at least one POS destination via possiblePosDestinations(). One PIN,
+     * one status — the username itself is admin-assigned, shown read-only here.
      */
     public function showPosPinSettings()
     {
@@ -812,13 +915,11 @@ class AuthController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $pins = $user->posPins()->get()->keyBy(fn ($row) => $row->destination_type . ':' . $row->destination_id);
+        // The counter-specific landing page for each destination — shown so whoever sets up
+        // a physical counter device knows which URL to bookmark on it, instead of everyone
+        // sharing the one generic /pos/login page. Purely informational now that there's
+        // only one PIN; it no longer drives a per-destination PIN form.
         foreach ($destinations as &$destination) {
-            $key = $destination['type'] . ':' . ($destination['type'] === 'event' ? $destination['event_id'] : '');
-            $destination['pin_set_at'] = optional($pins->get($key))->pin_set_at;
-            // The counter-specific landing page (see showPosLogin()'s docblock) — shown so
-            // whoever sets up a physical counter device knows which URL to bookmark on it,
-            // instead of everyone sharing the one generic /pos/login page.
             $destination['landing_url'] = $destination['type'] === 'event'
                 ? route('pos.login.event', $destination['slug'])
                 : route('pos.login.tickets');
@@ -856,12 +957,6 @@ class AuthController extends Controller
      * same form, and a compromised/guessed PIN must never be enough to install a new one.
      * Submitting the password alone (no new PIN) is a valid, deliberate "just clear the
      * lockout" action.
-     *
-     * The PIN uniqueness check only ever scans THIS account's OWN other PosPin rows —
-     * never other users' — because a PIN only ever means anything paired with this
-     * account's own username. A collision here is a genuine usability problem (which of my
-     * own counters would it open?) and safe to name explicitly, since it can never reveal
-     * anything about anyone else's account.
      */
     public function updatePosPinSettings(Request $request)
     {
@@ -873,14 +968,7 @@ class AuthController extends Controller
 
         $request->validate([
             'current_password' => 'required',
-            'destination_type' => 'required|in:event,tickets',
-            'destination_id' => 'required_if:destination_type,event|nullable|integer',
         ]);
-
-        $destination = $this->matchDestination($destinations, $request->destination_type, $request->destination_id ? (int) $request->destination_id : null);
-        if (!$destination) {
-            abort(403, 'Unauthorized access.');
-        }
 
         if (!Hash::check($request->current_password, $user->password)) {
             return back()->withErrors(['current_password' => 'That password is incorrect.']);
@@ -888,27 +976,15 @@ class AuthController extends Controller
 
         $this->clearPosPinLockout($user);
 
-        $destinationId = $request->destination_type === 'event' ? (int) $request->destination_id : null;
-
         if ($request->filled('new_pin')) {
             $request->validate([
                 'new_pin' => 'digits:6|confirmed',
             ]);
 
-            $collision = $user->posPins()->get()
-                ->reject(fn ($row) => $row->destination_type === $request->destination_type && (int) $row->destination_id === (int) $destinationId)
-                ->first(fn ($row) => Hash::check($request->new_pin, $row->pin));
-            if ($collision) {
-                return back()->withErrors(['new_pin' => 'You are already using that PIN for another counter — please choose a different one.']);
-            }
+            $user->update(['pos_pin' => Hash::make($request->new_pin), 'pos_pin_set_at' => now()]);
+            \App\Services\AuditLogService::log('Updated POS PIN.');
 
-            PosPin::updateOrCreate(
-                ['user_id' => $user->id, 'destination_type' => $request->destination_type, 'destination_id' => $destinationId],
-                ['pin' => Hash::make($request->new_pin), 'pin_set_at' => now()]
-            );
-            \App\Services\AuditLogService::log('Updated POS PIN for ' . $destination['label'] . '.');
-
-            return back()->with('success', 'Your PIN for ' . $destination['label'] . ' has been updated.');
+            return back()->with('success', 'Your POS PIN has been updated.');
         }
 
         return back()->with('success', 'Password verified.');
@@ -964,7 +1040,13 @@ class AuthController extends Controller
         // these two roles — an Admin/Staff/etc. account holding the same grants as a
         // secondary role keeps using the topbar's "Switch Role" as today, since it already
         // has full navigation available.
-        if (in_array($role, ['Event Coordinator', 'Ticket Controller'], true)) {
+        //
+        // isPurelyPosOnly() is a deliberate all-or-nothing gate, unlike
+        // possiblePosDestinations()'s own per-row filtering — a coordinator with even one
+        // non-pos assignment mixed in must fall through to the normal console-login logic
+        // below entirely, not have that one assignment silently dropped from a fast-path
+        // that assumes full POS-only navigation.
+        if (in_array($role, ['Event Coordinator', 'Ticket Controller'], true) && $this->isPurelyPosOnly($user)) {
             $destinations = $this->possiblePosDestinations($user, includeAdminLevel: false);
             if (count($destinations) > 1) {
                 return redirect()->route('pos.select');
@@ -972,9 +1054,8 @@ class AuthController extends Controller
             if (count($destinations) === 1) {
                 return $this->redirectToPosDestination($destinations[0]);
             }
-            // Zero POS-only destinations for this role — a console-level coordinator, an
-            // admin-level ticket controller, or a coordinator with a non-pos assignment mixed
-            // in — falls through to the existing role-specific logic below, unchanged.
+            // Zero POS-only destinations for this role — falls through to the existing
+            // role-specific logic below, unchanged.
         }
 
         // An Event Coordinator always lands straight on their workspace — the console for

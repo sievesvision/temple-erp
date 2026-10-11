@@ -78,13 +78,20 @@ Route::get('/pos/select', [AuthController::class, 'showPosSelect'])->middleware(
 Route::post('/pos/select', [AuthController::class, 'selectPosDestination'])->middleware('auth')->name('pos.select.choose');
 // PIN login — a faster alternative to email+password for POS-only accounts. No auth
 // middleware (this IS the login). Identified by username+PIN together (see
-// AuthController::attemptPosPinLogin()), so the destination is known immediately and the
-// lockout is scoped to that one account rather than global.
-Route::post('/pos/pin-login', [AuthController::class, 'attemptPosPinLogin'])->name('pos.pin-login');
+// AuthController::attemptPosPinLogin()). The per-account 5-attempt lockout is the primary
+// defense; throttle here is a coarse per-IP backstop (the account lockout alone has no
+// protection against spraying many different usernames from one IP).
+Route::post('/pos/pin-login', [AuthController::class, 'attemptPosPinLogin'])->middleware('throttle:10,1')->name('pos.pin-login');
 Route::middleware(['auth'])->group(function () {
     Route::get('/pos/pin', [AuthController::class, 'showPosPinSettings'])->name('pos.pin.edit');
     Route::post('/pos/pin', [AuthController::class, 'updatePosPinSettings'])->name('pos.pin.update');
 });
+// One-time, expiring PIN activation/reset link — public by design (same precedent as
+// password reset), reached only through a link an Organisation Admin or event-admin
+// coordinator triggered (AccountSetupService::sendPosPinSetupLink()); nothing here lets an
+// admin type or view the PIN itself.
+Route::get('/pos/pin/activate/{user}/{token}', [AuthController::class, 'showPosPinActivate'])->name('pos.pin.activate');
+Route::post('/pos/pin/activate/{user}/{token}', [AuthController::class, 'submitPosPinActivate'])->middleware('throttle:10,1')->name('pos.pin.activate.submit');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::get('/login/verify-otp', [AuthController::class, 'showLoginVerifyOtp'])->name('login.verify-otp');
 Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp'])->name('login.verify-otp.post');
@@ -536,6 +543,7 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/users/{targetUser}/toggle-2fa', [\App\Http\Controllers\SystemUserController::class, 'toggleTwoFactor'])->name('admin.users.toggle-2fa');
     Route::post('/admin/users/{targetUser}/username', [\App\Http\Controllers\SystemUserController::class, 'setUsername'])->name('admin.users.set-username');
     Route::post('/admin/users/{targetUser}/pos-pin/reset-lockout', [\App\Http\Controllers\SystemUserController::class, 'resetPosPinLockout'])->name('admin.pos-pin.reset-lockout');
+    Route::post('/admin/users/{targetUser}/pos-pin/send-setup-link', [\App\Http\Controllers\SystemUserController::class, 'sendPosPinSetupLink'])->name('admin.pos-pin.send-setup-link');
     Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
 
     // Leave Requests Route (Admin management)

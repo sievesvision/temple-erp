@@ -169,6 +169,16 @@
     </div>
 @endif
 
+{{-- Testing Mode only (real emails aren't actually sent there) — the same "here's the
+     link directly, since there's no inbox to check" fallback used elsewhere. --}}
+@if(session('pos_pin_setup_link'))
+    <div class="alert alert-info alert-dismissible fade show border-0 rounded-4 shadow-sm mb-4 p-3" role="alert">
+        PIN setup link for <strong>{{ session('pos_pin_setup_link.name') }}</strong>:
+        <a href="{{ session('pos_pin_setup_link.url') }}" target="_blank">{{ session('pos_pin_setup_link.url') }}</a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
+
 <div class="filter-bar">
     <form method="GET" action="{{ route('admin.users.index') }}" class="row g-2 align-items-center">
         <div class="col-md-3">
@@ -259,6 +269,12 @@
                             @csrf
                             <button type="submit" class="btn-action-reset">
                                 <i class="bi bi-envelope-arrow-up"></i> Send Reset Link
+                            </button>
+                        </form>
+                        <form action="{{ route('admin.pos-pin.send-setup-link', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Send a POS PIN setup link to {{ $u->email }}?')">
+                            @csrf
+                            <button type="submit" class="btn-action-reset">
+                                <i class="bi bi-grid-3x3-gap-fill"></i> Send PIN Link
                             </button>
                         </form>
                         <form action="{{ route('admin.users.toggle-2fa', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $u->two_factor_enabled ? 'Disable' : 'Enable' }} two-factor authentication for {{ $u->email }}?')">

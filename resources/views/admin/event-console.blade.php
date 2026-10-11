@@ -564,6 +564,15 @@
                 <div class="console-body">
                 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
                 @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
+                {{-- Testing Mode only (real emails aren't actually sent there) — the same
+                     "here's the link directly, since there's no inbox to check" fallback used
+                     elsewhere for password setup links. --}}
+                @if(session('pos_pin_setup_link'))
+                <div class="alert alert-info">
+                    PIN setup link for <strong>{{ session('pos_pin_setup_link.name') }}</strong>:
+                    <a href="{{ session('pos_pin_setup_link.url') }}" target="_blank">{{ session('pos_pin_setup_link.url') }}</a>
+                </div>
+                @endif
                 <!-- DASHBOARD -->
                 <div class="console-pane {{ $canAddDonation ? '' : '' }}" id="pane-dashboard">
                     <div class="page-header">
@@ -1436,7 +1445,7 @@
                                     @csrf
                                     <input type="hidden" name="return_context" value="console">
                                     <div class="modal-header border-0 pb-0">
-                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Override POS Username/PIN — <span id="posCredCoordName"></span></h5>
+                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>POS Access — <span id="posCredCoordName"></span></h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body py-3">
@@ -1444,17 +1453,13 @@
                                             <label class="form-label fw-semibold">POS Username</label>
                                             <input type="text" name="username" id="posCredUsername" class="form-control rounded-3" minlength="6" maxlength="10" placeholder="6-10 characters">
                                         </div>
-                                        <div class="row g-3 mb-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold">New PIN</label>
-                                                <input type="text" name="new_pin" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold">Confirm New PIN</label>
-                                                <input type="text" name="new_pin_confirmation" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
-                                            </div>
+                                        {{-- No PIN field, ever — only the account holder can set their own PIN, by
+                                             opening the one-time link this checkbox sends them (see
+                                             EventCoordinatorController::overridePosCredentials()'s own docblock). --}}
+                                        <div class="form-check mb-3">
+                                            <input type="checkbox" name="send_pin_link" value="1" id="posCredSendPinLink" class="form-check-input">
+                                            <label class="form-check-label" for="posCredSendPinLink">Send this person a PIN setup/reset link</label>
                                         </div>
-                                        <p class="text-muted small mt-n2 mb-3">Leave both PIN fields blank to keep the current PIN and only update the username.</p>
                                         <hr>
                                         <div class="mb-1">
                                             <label class="form-label fw-semibold">Your password <span class="text-muted fw-normal">(to confirm this change)</span></label>
@@ -1476,8 +1481,7 @@
                             document.getElementById('posCredCoordName').textContent = name;
                             document.getElementById('posCredUsername').value = username || '';
                             document.getElementById('posCredForm').querySelector('input[name="current_password"]').value = '';
-                            document.getElementById('posCredForm').querySelector('input[name="new_pin"]').value = '';
-                            document.getElementById('posCredForm').querySelector('input[name="new_pin_confirmation"]').value = '';
+                            document.getElementById('posCredForm').querySelector('input[name="send_pin_link"]').checked = false;
                             new bootstrap.Modal(document.getElementById('posCredModal')).show();
                         }
                     </script>

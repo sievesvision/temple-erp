@@ -39,19 +39,25 @@
     .username-status {
       display: flex; align-items: center; gap: 10px;
       background: #f9f3e7; border: 1px solid #e7ddcd; border-radius: 12px;
-      padding: 0.85rem 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; color: #5c5248;
+      padding: 0.85rem 1rem; margin-bottom: 1rem; font-size: 0.9rem; color: #5c5248;
     }
     .username-status i { font-size: 1.2rem; color: var(--primary-saffron); }
     .username-status strong { font-family: ui-monospace, monospace; letter-spacing: 0.04em; }
 
-    .destination-card {
-      border: 1.5px solid #eee2d0; border-radius: 16px; padding: 1.1rem 1.15rem; margin-bottom: 1rem;
+    .pin-status {
+      display: flex; align-items: center; gap: 10px;
+      border: 1.5px solid #eee2d0; border-radius: 12px;
+      padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.88rem; color: #948c7e;
     }
-    .destination-name { font-weight: 700; color: var(--dark-bg); font-size: 1rem; margin-bottom: 0.15rem; }
-    .destination-pin-status { font-size: 0.82rem; color: #948c7e; margin-bottom: 0.9rem; }
-    .destination-pin-status.set { color: #2f7d4f; }
-    .destination-landing-url { font-size: 0.76rem; color: #948c7e; margin: -0.5rem 0 1rem; word-break: break-all; }
-    .destination-landing-url a { color: var(--primary-saffron); }
+    .pin-status.set { color: #2f7d4f; border-color: #cfe8da; background: #f3faf6; }
+    .pin-status i { font-size: 1.1rem; }
+
+    .destinations-list { margin: -0.5rem 0 1.25rem; }
+    .destinations-list summary { font-size: 0.8rem; color: #948c7e; cursor: pointer; }
+    .destinations-list ul { margin: 0.5rem 0 0; padding-left: 1.2rem; font-size: 0.85rem; color: #5c5248; }
+    .destinations-list li { margin-bottom: 0.4rem; }
+    .destinations-list .landing-url { display: block; font-size: 0.72rem; color: #948c7e; word-break: break-all; }
+    .destinations-list .landing-url a { color: var(--primary-saffron); }
 
     .form-floating { margin-bottom: 0.75rem; }
     .form-control { min-height: 50px; font-size: 0.95rem; border: 1.5px solid #e7ddcd; border-radius: 12px; }
@@ -72,7 +78,7 @@
     <a href="{{ $backUrl }}" class="back-link"><i class="bi bi-arrow-left"></i> Back to counter</a>
 
     <h1 class="settings-title font-divine">Your POS PIN</h1>
-    <p class="settings-subtitle">Set or change the 6-digit PIN used for fast sign-in at each of your counters.</p>
+    <p class="settings-subtitle">One 6-digit PIN, used for fast sign-in at every counter you're authorised for.</p>
 
     @if($user->username)
       <div class="username-status">
@@ -85,6 +91,26 @@
         <span>You don't have a POS username yet — ask an admin to assign one before you can set a PIN.</span>
       </div>
     @endif
+
+    <div class="pin-status {{ $user->pos_pin_set_at ? 'set' : '' }}">
+      @if($user->pos_pin_set_at)
+        <i class="bi bi-check-circle-fill"></i> PIN set on {{ $user->pos_pin_set_at->format('d M Y') }}
+      @else
+        <i class="bi bi-dash-circle"></i> No PIN set yet
+      @endif
+    </div>
+
+    <details class="destinations-list">
+      <summary>This PIN opens {{ count($destinations) }} {{ \Illuminate\Support\Str::plural('counter', count($destinations)) }} — bookmark each one's own sign-in page</summary>
+      <ul>
+        @foreach($destinations as $destination)
+          <li>
+            {{ $destination['label'] }}
+            <span class="landing-url"><a href="{{ $destination['landing_url'] }}">{{ $destination['landing_url'] }}</a></span>
+          </li>
+        @endforeach
+      </ul>
+    </details>
 
     @if(isset($errors) && $errors->any())
       <div class="alert alert-danger mb-3" style="border-radius: 10px;">
@@ -101,46 +127,26 @@
     @endif
 
     @if($user->username)
-      @foreach($destinations as $destination)
-        <div class="destination-card">
-          <div class="destination-name">{{ $destination['label'] }}</div>
-          <div class="destination-pin-status {{ $destination['pin_set_at'] ? 'set' : '' }}">
-            @if($destination['pin_set_at'])
-              <i class="bi bi-check-circle-fill"></i> PIN set on {{ $destination['pin_set_at']->format('d M Y') }}
-            @else
-              No PIN set yet for this counter
-            @endif
-          </div>
-          <div class="destination-landing-url">
-            Bookmark this counter's own sign-in page on its device: <a href="{{ $destination['landing_url'] }}">{{ $destination['landing_url'] }}</a>
-          </div>
+      <form method="POST" action="{{ route('pos.pin.update') }}">
+        @csrf
 
-          <form method="POST" action="{{ route('pos.pin.update') }}">
-            @csrf
-            <input type="hidden" name="destination_type" value="{{ $destination['type'] }}">
-            @if($destination['type'] === 'event')
-              <input type="hidden" name="destination_id" value="{{ $destination['event_id'] }}">
-            @endif
-
-            <div class="form-floating">
-              <input type="password" class="form-control" name="current_password" id="password_{{ $loop->index }}" placeholder="Password" required autocomplete="current-password">
-              <label for="password_{{ $loop->index }}"><i class="bi bi-lock me-1"></i>Your Account Password</label>
-            </div>
-
-            <div class="form-floating">
-              <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="form-control" name="new_pin" id="new_pin_{{ $loop->index }}" placeholder="New PIN">
-              <label for="new_pin_{{ $loop->index }}"><i class="bi bi-grid-3x3-gap-fill me-1"></i>New 6-Digit PIN (optional)</label>
-            </div>
-            <div class="form-floating">
-              <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="form-control" name="new_pin_confirmation" id="new_pin_confirm_{{ $loop->index }}" placeholder="Confirm PIN">
-              <label for="new_pin_confirm_{{ $loop->index }}"><i class="bi bi-grid-3x3-gap-fill me-1"></i>Confirm New PIN</label>
-            </div>
-            <p class="field-hint">Leave the PIN fields blank to just verify your password (e.g. to clear a lockout) without changing this counter's PIN.</p>
-
-            <button type="submit" class="btn btn-save font-divine">Save for {{ $destination['label'] }}</button>
-          </form>
+        <div class="form-floating">
+          <input type="password" class="form-control" name="current_password" id="current_password" placeholder="Password" required autocomplete="current-password">
+          <label for="current_password"><i class="bi bi-lock me-1"></i>Your Account Password</label>
         </div>
-      @endforeach
+
+        <div class="form-floating">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="form-control" name="new_pin" id="new_pin" placeholder="New PIN">
+          <label for="new_pin"><i class="bi bi-grid-3x3-gap-fill me-1"></i>New 6-Digit PIN (optional)</label>
+        </div>
+        <div class="form-floating">
+          <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="form-control" name="new_pin_confirmation" id="new_pin_confirmation" placeholder="Confirm PIN">
+          <label for="new_pin_confirmation"><i class="bi bi-grid-3x3-gap-fill me-1"></i>Confirm New PIN</label>
+        </div>
+        <p class="field-hint">Leave the PIN fields blank to just verify your password (e.g. to clear a lockout) without changing your PIN.</p>
+
+        <button type="submit" class="btn btn-save font-divine">Save</button>
+      </form>
     @endif
   </div>
 </body>

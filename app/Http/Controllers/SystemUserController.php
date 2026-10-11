@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\RolePermission;
 use App\Models\User;
+use App\Services\AccountSetupService;
 use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -60,8 +61,8 @@ class SystemUserController extends Controller
     /**
      * Assigns (or clears) the short POS username a pos-level Event Coordinator / Ticket
      * Controller types alongside their PIN at /pos/login — deliberately admin-set, not
-     * self-service, since it's the identifier that scopes their PINs (see PosPin's own
-     * docblock).
+     * self-service, since it's the account's own public-facing counter identifier, separate
+     * from the PIN itself.
      */
     public function setUsername(Request $request, User $targetUser)
     {
@@ -113,6 +114,31 @@ class SystemUserController extends Controller
         AuditLogService::log("Reset the POS PIN login lockout for {$targetUser->email}.");
 
         return redirect()->back()->with('success', 'POS PIN login has been re-enabled for ' . $targetUser->name . '.');
+    }
+
+    /**
+     * Organisation Admin's "Initiate secure PIN resets" capability — same structural
+     * guarantee as the Event Console's version of this action: the PIN is never typed or
+     * viewed here, only the one-time link is triggered (see
+     * AccountSetupService::sendPosPinSetupLink()).
+     */
+    public function sendPosPinSetupLink(Request $request, User $targetUser)
+    {
+        $user = Auth::user();
+        if (!$user || $user->role !== 'Admin') {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $setup = AccountSetupService::sendPosPinSetupLink($targetUser);
+        AuditLogService::log("Sent POS PIN setup link to {$targetUser->email}.");
+
+        if ($setup['show_link']) {
+            return redirect()->back()
+                ->with('success', 'PIN setup link generated for ' . $targetUser->name . '.')
+                ->with('pos_pin_setup_link', ['name' => $targetUser->name, 'url' => $setup['url']]);
+        }
+
+        return redirect()->back()->with('success', 'PIN setup link emailed to ' . $targetUser->name . '.');
     }
 
     /**

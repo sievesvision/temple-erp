@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\PosPin;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\AccountSetupService;
@@ -307,13 +306,18 @@ class EventCoordinatorController extends Controller
     }
 
     /**
-     * Set or reset a coordinator's POS username/PIN for this event on their behalf — the
-     * self-service screen (AuthController::updatePosPinSettings()) needs the ACCOUNT's own
-     * password, which an event-admin obviously doesn't have; this is the admin-assisted
-     * equivalent for a coordinator who's forgotten theirs or never set one up, gated instead
-     * on the ACTING admin's own password so a hijacked/unattended console session can't be
-     * used to silently plant a new PIN. Same admin-vs-event-admin protection as the other
-     * actions here: only the system Admin can touch an Event Admin's credentials this way.
+     * Set a coordinator's POS username on their behalf, and/or trigger a PIN setup/reset
+     * link for them — gated on the ACTING admin's own password so a hijacked/unattended
+     * console session can't be used to silently change either. Same admin-vs-event-admin
+     * protection as the other actions here: only the system Admin can touch an Event
+     * Admin's credentials this way.
+     *
+     * The PIN itself is never typed into this form and never passes through this
+     * controller — "Never allow Event Admins to view or directly change existing users'
+     * PINs" is enforced structurally by routing every PIN change through
+     * AccountSetupService::sendPosPinSetupLink(), which only the account holder, opening
+     * that one-time link, can actually act on. A username isn't a secret, so it's still
+     * set directly here.
      *
      * Only pos/entry/admin level coordinators ever resolve a POS destination at all (see
      * AuthController::possiblePosDestinations()'s own docblock for why 'view' is left
@@ -340,7 +344,6 @@ class EventCoordinatorController extends Controller
         $request->validate([
             'current_password' => 'required',
             'username' => 'nullable|alpha_num|min:6|max:10|unique:users,username,' . $userId,
-            'new_pin' => 'nullable|digits:6|confirmed',
         ]);
 
         $actingUser = Auth::user();
@@ -351,24 +354,26 @@ class EventCoordinatorController extends Controller
         $targetUser = User::findOrFail($userId);
         $targetUser->update(['username' => $request->username ? strtolower($request->username) : null]);
 
-        if ($request->filled('new_pin')) {
-            $collision = $targetUser->posPins()->get()
-                ->reject(fn ($row) => $row->destination_type === 'event' && (int) $row->destination_id === (int) $eventId)
-                ->first(fn ($row) => Hash::check($request->new_pin, $row->pin));
-            if ($collision) {
-                return $this->redirectAfterAction($request, $eventId)->with('error', $targetUser->name . ' is already using that PIN for another counter — please choose a different one.');
-            }
+        $message = "POS username updated for {$targetUser->name}.";
 
-            PosPin::updateOrCreate(
-                ['user_id' => $targetUser->id, 'destination_type' => 'event', 'destination_id' => $eventId],
-                ['pin' => Hash::make($request->new_pin), 'pin_set_at' => now()]
-            );
-            $targetUser->update(['pos_pin_failed_attempts' => 0, 'pos_pin_locked_at' => null]);
+        if ($request->boolean('send_pin_link')) {
+            $setup = AccountSetupService::sendPosPinSetupLink($targetUser);
+            AuditLogService::log("Sent POS PIN setup link to {$targetUser->email}", null, $eventId);
+
+            $message = $setup['emailed']
+                ? "POS username updated, and a PIN setup link has been emailed to {$targetUser->name}."
+                : "POS username updated for {$targetUser->name}.";
+
+            if ($setup['show_link']) {
+                return $this->redirectAfterAction($request, $eventId)
+                    ->with('success', $message)
+                    ->with('pos_pin_setup_link', ['name' => $targetUser->name, 'url' => $setup['url']]);
+            }
+        } else {
+            AuditLogService::log("Updated POS username for {$targetUser->email}", null, $eventId);
         }
 
-        AuditLogService::log("Overrode POS username/PIN for {$targetUser->email}", null, $eventId);
-
-        return $this->redirectAfterAction($request, $eventId)->with('success', "POS credentials updated for {$targetUser->name}.");
+        return $this->redirectAfterAction($request, $eventId)->with('success', $message);
     }
 
     /**
