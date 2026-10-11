@@ -539,6 +539,10 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
 
     // System Users (cross-role account list + admin-triggered password reset)
     Route::get('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'index'])->name('admin.users.index');
+    Route::post('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'store'])->name('admin.users.store');
+    Route::post('/admin/users/{targetUser}', [\App\Http\Controllers\SystemUserController::class, 'update'])->name('admin.users.update');
+    Route::post('/admin/users/{targetUser}/toggle-status', [\App\Http\Controllers\SystemUserController::class, 'toggleStatus'])->name('admin.users.toggle-status');
+    Route::get('/admin/users/{targetUser}/event-access', [\App\Http\Controllers\SystemUserController::class, 'eventAccess'])->name('admin.users.event-access');
     Route::post('/admin/users/{targetUser}/send-reset-link', [\App\Http\Controllers\SystemUserController::class, 'sendResetLink'])->name('admin.users.send-reset-link');
     Route::post('/admin/users/{targetUser}/toggle-2fa', [\App\Http\Controllers\SystemUserController::class, 'toggleTwoFactor'])->name('admin.users.toggle-2fa');
     Route::post('/admin/users/{targetUser}/username', [\App\Http\Controllers\SystemUserController::class, 'setUsername'])->name('admin.users.set-username');
