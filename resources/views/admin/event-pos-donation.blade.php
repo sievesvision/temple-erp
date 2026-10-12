@@ -705,6 +705,12 @@
     </header>
 
     <div class="pos-main">
+        @if($editDonation)
+        <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600;">
+            <i class="bi bi-arrow-repeat" style="font-size:1.2rem;"></i>
+            Completing a pending transaction for {{ $editDonation->donor_name }} ({{ $temple['currency'] ?? '' }} {{ number_format($editDonation->amount, 2) }}) — review the details below and Save Donation to confirm it.
+        </div>
+        @endif
         <div class="pos-grid">
             <div class="pos-col-left">
                 <div class="pos-card">
@@ -967,11 +973,36 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    @include('admin.partials.cash-settlement-pane', ['scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
+                    @include('admin.partials.cash-settlement-pane', ['scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'currentTransactions' => $currentTransactions, 'selectedSettlementId' => $selectedSettlementId, 'lastSettlementDate' => $lastSettlementDate, 'canEditCurrentTransactions' => $canEditCurrentTransactions, 'temple' => $temple])
                 </div>
             </div>
         </div>
     </div>
+    @endif
+
+    @if($editDonation)
+    {{-- "Complete this pending transaction" (reached from the Current Period Transactions
+         table's own "Complete in POS" link) submits straight through the existing
+         admin.donations.updateGuest route — a plain classic form POST + redirect back,
+         exactly like the pane's own devotee inline-edit form, rather than fetch()'d like a
+         brand-new donation, since updateGuestDonation() has no JSON response branch at all.
+         Submitting it flips payment_status away from Pending, so PosDonationController::
+         show()'s own $editDonation lookup simply stops matching on the next load — no
+         special post-save redirect handling needed. --}}
+    <form id="posEditGuestForm" method="POST" action="{{ route('admin.donations.updateGuest', $editDonation->id) }}" style="display:none;">
+        @csrf
+        <input type="hidden" name="donor_name" id="posEditFormDonorName">
+        <input type="hidden" name="event_id" value="{{ $event->event_id }}">
+        <input type="hidden" name="email" id="posEditFormEmail">
+        <input type="hidden" name="mobile" id="posEditFormMobile">
+        <input type="hidden" name="amount" id="posEditFormAmount">
+        <input type="hidden" name="purpose" id="posEditFormPurpose">
+        <input type="hidden" name="purpose_details" id="posEditFormDetails">
+        <input type="hidden" name="payment_method" id="posEditFormMethod">
+        <input type="hidden" name="payment_status" id="posEditFormStatus">
+        <input type="hidden" name="transaction_id" value="{{ $editDonation->transaction_id }}">
+        <input type="hidden" name="donation_date" value="{{ $editDonation->donation_date }}">
+    </form>
     @endif
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
@@ -1019,6 +1050,11 @@
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
         const STORE_GUEST_URL = @json(route('admin.events.portal.storeGuest', $event->event_id));
+        // Non-null only when reached via the Current Period Transactions pane's own
+        // pending-donation link (?edit_id=) — see PosDonationController::show()'s own
+        // server-side re-verification of this before it's ever trusted here.
+        const EDIT_DONATION = @json($editDonation);
+        const IS_EDITING = !!EDIT_DONATION;
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
         const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
         const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));
@@ -1385,6 +1421,43 @@
                 quickAmountsRow.querySelectorAll('.pos-quick-amount-btn').forEach(function (b) { b.classList.remove('active'); });
                 purposeValue = 'Event Donation';
             };
+        }
+
+        // Prefill the form from the pending transaction being completed — set once, before
+        // any tier/amount interaction, so it sticks unless the operator actively changes
+        // something (same "review and correct" intent as the Current Period Transactions
+        // table's own edit link). Guest-only (see PosDonationController::show()), so every
+        // field here maps straight onto the plain donor fields, never the tiers UI.
+        if (IS_EDITING) {
+            document.getElementById('posGuestName').value = EDIT_DONATION.donor_name || '';
+            document.getElementById('posGuestEmail').value = EDIT_DONATION.email || '';
+            document.getElementById('posGuestMobile').value = EDIT_DONATION.mobile || '';
+            amountInput.value = parseFloat(EDIT_DONATION.amount).toFixed(2);
+            document.getElementById('posDetails').value = EDIT_DONATION.purpose_details || '';
+            purposeValue = EDIT_DONATION.purpose || purposeValue;
+
+            // Stored as the raw enum value ('Bank') — mapped back to this page's own UI
+            // method key ('Bank Transfer') the same way submitGuestDonation() maps it the
+            // other way when saving (see its own payment_method line).
+            const editUiMethod = EDIT_DONATION.payment_method === 'Bank' ? 'Bank Transfer' : EDIT_DONATION.payment_method;
+            const editMethodBtn = Array.prototype.find.call(methodRow.querySelectorAll('.pos-method-btn'), function (b) { return b.dataset.method === editUiMethod; });
+            if (editMethodBtn && !editMethodBtn.classList.contains('disabled')) {
+                methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
+                editMethodBtn.classList.add('active');
+                selectedMethod = editUiMethod;
+            }
+
+            // EFT Terminal always CREATES a brand-new donation (see
+            // createDonationIfApprovedPurchaseUnrecorded()) — it has no "update this existing
+            // row" path at all, so offering it here would silently leave this pending
+            // transaction behind as an orphan while also charging a second, unrelated one.
+            const editEftBtn = Array.prototype.find.call(methodRow.querySelectorAll('.pos-method-btn'), function (b) { return b.dataset.method === 'EFT Terminal'; });
+            if (editEftBtn) {
+                editEftBtn.classList.add('disabled');
+                editEftBtn.title = 'Not available while completing an existing transaction — use Cash or Bank Transfer.';
+            }
+
+            updatePosSummary();
         }
 
         let toastHideTimer = null;
@@ -1754,6 +1827,27 @@
             if (REQUIRE_MOBILE && !mobileValue) { showToast('Enter the donor mobile number.', true); return; }
 
             const btn = this;
+
+            // Completing an existing pending transaction updates that same donations_without_
+            // logins row (via the pre-existing admin.donations.updateGuest route — the exact
+            // same route the Current Period Transactions pane's own devotee inline-edit uses)
+            // instead of creating a new one. That route has no JSON response branch at all
+            // (classic redirect()->back() only), so this is a plain form submit + full page
+            // reload, not a fetch() — the page's own flash-to-toast bridge shows the result.
+            if (IS_EDITING) {
+                if (selectedMethod === 'EFT Terminal') { showToast('Card isn\'t available while completing an existing transaction.', true); return; }
+                document.getElementById('posEditFormDonorName').value = name;
+                document.getElementById('posEditFormEmail').value = emailValue;
+                document.getElementById('posEditFormMobile').value = mobileValue;
+                document.getElementById('posEditFormAmount').value = amount.toFixed(2);
+                document.getElementById('posEditFormPurpose').value = purposeValue;
+                document.getElementById('posEditFormDetails').value = document.getElementById('posDetails').value;
+                document.getElementById('posEditFormMethod').value = selectedMethod === 'Bank Transfer' ? 'Bank' : selectedMethod;
+                document.getElementById('posEditFormStatus').value = selectedMethod === 'Bank Transfer' ? 'Pending' : 'Paid';
+                btn.disabled = true;
+                document.getElementById('posEditGuestForm').requestSubmit();
+                return;
+            }
 
             // EFT Terminal charges the physical/virtual PIN pad and waits for the donor to
             // tap/insert their card before recording anything — a declined or failed

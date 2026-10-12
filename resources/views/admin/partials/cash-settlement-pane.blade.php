@@ -6,12 +6,22 @@
      Expects: $scope ('event'|'tickets'), $eventId (nullable), $cashPreview (array from
      CashSettlementService::preview()), $cashBankings, $cashSettlements (collections —
      empty when $canViewCashHistory is false), $canViewCashHistory (bool — false for a
-     pos-level event coordinator; see CashSettlementService::canViewHistory()), $temple. --}}
+     pos-level event coordinator; see CashSettlementService::canViewHistory()),
+     $currentTransactions, $selectedSettlementId (nullable — which past settlement's period
+     $currentTransactions is showing; null means the live, not-yet-settled period),
+     $lastSettlementDate (nullable Carbon), $temple. --}}
 @php
     $currency = $temple['currency'] ?? '';
     $fmt = fn ($n) => $currency . ' ' . number_format((float) $n, 2);
     $expected = round($cashPreview['opening_balance'] + $cashPreview['cash_received'], 2);
     $formId = 'settleTillForm_' . $scope . '_' . ($eventId ?? 'tickets');
+    $canEditCurrentTransactions = $canEditCurrentTransactions ?? false;
+    $selectedSettlementId = $selectedSettlementId ?? null;
+    // Only the live (unsettled) period is ever editable — a past settlement's own
+    // transactions are shown for reference only, never as a route back into editing them.
+    $viewingCurrentPeriod = $selectedSettlementId === null;
+    $baseUrl = $scope === 'event' ? route('admin.events.pos', $eventId) : route('admin.tickets.pos');
+    $distinctMethods = $scope === 'event' ? $currentTransactions->pluck('payment_method')->unique()->values() : collect();
 @endphp
 
 <div class="cash-settle-widget">
@@ -26,6 +36,12 @@
     .cash-settle-widget .btn-cs-save:hover { color: #fff; filter: brightness(1.05); }
     .cash-settle-widget .cs-table-wrap { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; overflow: hidden; }
     .cash-settle-widget .cs-table-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid #f0ece6; }
+    .cash-settle-widget .cs-filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid #f0ece6; background: #fcfbf9; }
+    .cash-settle-widget .cs-filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .cash-settle-widget .cs-filter-group-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #a0907e; margin-right: 2px; }
+    .cash-settle-widget .cs-pill { border: 1px solid #e8e0d4; background: #fff; border-radius: 40px; padding: 4px 12px; font-size: 0.78rem; font-weight: 600; color: #7b6b5a; cursor: pointer; user-select: none; }
+    .cash-settle-widget .cs-pill.active { background: #C89B3C; border-color: #C89B3C; color: #fff; }
+    .cash-settle-widget .cs-select { border: 1px solid #e8e0d4; border-radius: 10px; padding: 6px 10px; font-size: 0.85rem; background: #fff; }
     .cash-settle-widget .cs-search-wrap { position: relative; }
     .cash-settle-widget .cs-search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a89a86; font-size: 0.85rem; }
     .cash-settle-widget .cs-search-input { border: 1px solid #e8e0d4; border-radius: 40px; padding: 7px 14px 7px 32px; font-size: 0.85rem; min-width: 220px; background: #faf8f5; }
@@ -43,6 +59,11 @@
     .cash-settle-widget .cs-icon-btn.cs-cancel-btn:hover { background: #fdf3f3; }
     .cash-settle-widget .cs-edit-row input.form-control { font-size: 0.85rem; padding: 6px 10px; }
     .cash-settle-widget .cs-empty-state { padding: 40px 20px; text-align: center; color: #a0907e; }
+    .cash-settle-widget .cs-badge { display: inline-block; border-radius: 40px; padding: 3px 10px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+    .cash-settle-widget .cs-badge.paid { background: #e7f6ee; color: #1f9d6a; }
+    .cash-settle-widget .cs-badge.pending { background: #fdf0db; color: #b8863a; }
+    .cash-settle-widget .cs-complete-link { font-size: 0.8rem; font-weight: 700; color: #b8863a; text-decoration: none; white-space: nowrap; }
+    .cash-settle-widget .cs-complete-link:hover { color: #8A6A1E; text-decoration: underline; }
 </style>
 
 <div class="row g-3 mb-3">
@@ -57,6 +78,16 @@
     </div>
 </div>
 
+@if(!$canViewCashHistory)
+<div class="cs-card mb-3 d-flex align-items-center gap-2">
+    <i class="bi bi-clock-history" style="font-size:1.2rem;color:#B7791F;"></i>
+    <div class="small">
+        <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y') : 'Never — this is the first period' }}
+        &middot; <span class="fw-bold">Carried forward:</span> {{ $fmt($cashPreview['opening_balance']) }}
+    </div>
+</div>
+@endif
+
 @if(count($cashPreview['breakdown']))
 <div class="cs-card mb-3">
     <div class="fw-bold mb-2"><i class="bi bi-tags-fill me-1"></i>Cash Received by {{ $scope === 'event' ? 'Donation Type' : 'Ticket Type' }} (this period)</div>
@@ -69,10 +100,17 @@
 </div>
 @endif
 
-@php $canEditCurrentTransactions = $canEditCurrentTransactions ?? false; @endphp
 <div class="cs-table-wrap mb-3">
     <div class="cs-table-head">
-        <div class="fw-bold"><i class="bi bi-list-check me-1"></i>Current Period Transactions ({{ $currentTransactions->count() }})</div>
+        <div class="fw-bold">
+            <i class="bi bi-list-check me-1"></i>
+            @if($viewingCurrentPeriod)
+                Current Period Transactions ({{ $currentTransactions->count() }})
+            @else
+                @php $viewedSettlement = $cashSettlements->firstWhere('id', $selectedSettlementId); @endphp
+                Transactions for {{ $viewedSettlement ? $viewedSettlement->period_start->format('d M Y') . ' – ' . $viewedSettlement->period_end->format('d M Y') : 'selected settlement' }} ({{ $currentTransactions->count() }})
+            @endif
+        </div>
         @if($currentTransactions->isNotEmpty())
         <div class="cs-search-wrap">
             <i class="bi bi-search"></i>
@@ -80,6 +118,35 @@
         </div>
         @endif
     </div>
+
+    @if($canViewCashHistory && $cashSettlements->isNotEmpty())
+    <div class="cs-filter-row">
+        <span class="cs-filter-group-label">Settlement</span>
+        <select class="cs-select" id="csSettlementSelect_{{ $formId }}" data-base-url="{{ $baseUrl }}">
+            <option value="" {{ $viewingCurrentPeriod ? 'selected' : '' }}>Current period (unsettled)</option>
+            @foreach($cashSettlements as $s)
+            <option value="{{ $s->id }}" {{ $selectedSettlementId === $s->id ? 'selected' : '' }}>{{ $s->period_start->format('d M Y') }} – {{ $s->period_end->format('d M Y') }}</option>
+            @endforeach
+        </select>
+    </div>
+    @endif
+
+    @if($scope === 'event' && $distinctMethods->isNotEmpty())
+    <div class="cs-filter-row">
+        <div class="cs-filter-group">
+            <span class="cs-filter-group-label">Method</span>
+            @foreach($distinctMethods as $m)
+            <span class="cs-pill active" data-filter-group="method" data-value="{{ strtolower($m) }}">{{ $m }}</span>
+            @endforeach
+        </div>
+        <div class="cs-filter-group">
+            <span class="cs-filter-group-label">Status</span>
+            <span class="cs-pill active" data-filter-group="status" data-value="paid">Completed</span>
+            <span class="cs-pill active" data-filter-group="status" data-value="pending">Pending</span>
+        </div>
+    </div>
+    @endif
+
     @if($currentTransactions->isEmpty())
         <div class="cs-empty-state">Nothing recorded in this period yet.</div>
     @else
@@ -90,32 +157,44 @@
                     <th>Date</th>
                     <th>{{ $scope === 'event' ? 'Donor' : 'Customer' }}</th>
                     <th>{{ $scope === 'event' ? 'Purpose' : 'Order' }}</th>
+                    @if($scope === 'event')<th>Method</th><th>Status</th>@endif
                     <th class="text-end">Amount</th>
-                    @if($canEditCurrentTransactions)<th></th>@endif
+                    @if($canEditCurrentTransactions && $viewingCurrentPeriod)<th></th>@endif
                 </tr>
             </thead>
             <tbody>
                 @if($scope === 'event')
                     @foreach($currentTransactions as $row)
-                    @php $rowKey = $row->donation_type . '-' . $row->id; @endphp
-                    <tr class="cs-row" data-search="{{ strtolower($row->display_name . ' ' . $row->purpose) }}" data-edit-id="csEdit_{{ $rowKey }}">
+                    @php
+                        $rowKey = $row->donation_type . '-' . $row->id;
+                        $isPending = $row->payment_status === 'Pending';
+                        $canComplete = $canEditCurrentTransactions && $viewingCurrentPeriod && $isPending;
+                    @endphp
+                    <tr class="cs-row" data-search="{{ strtolower($row->display_name . ' ' . $row->purpose) }}" data-method="{{ strtolower($row->payment_method) }}" data-status="{{ strtolower($row->payment_status) }}" data-edit-id="csEdit_{{ $rowKey }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }}</td>
                         <td>{{ $row->display_name }}</td>
                         <td>{{ $row->purpose ?: '—' }}</td>
+                        <td>{{ $row->payment_method }}</td>
+                        <td><span class="cs-badge {{ $isPending ? 'pending' : 'paid' }}">{{ $isPending ? 'Pending' : 'Completed' }}</span></td>
                         <td class="text-end fw-bold">{{ $fmt($row->amount) }}</td>
-                        @if($canEditCurrentTransactions)
-                        <td class="text-end"><button type="button" class="cs-icon-btn cs-edit-toggle" data-target="csEdit_{{ $rowKey }}" title="Edit"><i class="bi bi-pencil-fill"></i></button></td>
+                        @if($canEditCurrentTransactions && $viewingCurrentPeriod)
+                        <td class="text-end">
+                            @if($canComplete && $row->donation_type === 'guest')
+                                <a class="cs-complete-link" href="{{ $baseUrl }}?edit_id={{ $row->id }}"><i class="bi bi-arrow-right-circle-fill me-1"></i>Complete in POS</a>
+                            @elseif($canComplete && $row->donation_type === 'devotee')
+                                <button type="button" class="cs-icon-btn cs-edit-toggle" data-target="csEdit_{{ $rowKey }}" title="Edit"><i class="bi bi-pencil-fill"></i></button>
+                            @endif
+                        </td>
                         @endif
                     </tr>
-                    @if($canEditCurrentTransactions)
+                    @if($canComplete && $row->donation_type === 'devotee')
                     <tr class="cs-edit-row" id="csEdit_{{ $rowKey }}" style="display:none;">
-                        <td colspan="5">
-                            @if($row->donation_type === 'devotee')
+                        <td colspan="7">
                             <form action="{{ route('admin.donations.updateDevotee', $row->id) }}" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
                                 @csrf
                                 <input type="hidden" name="event_id" value="{{ $eventId }}">
-                                <input type="hidden" name="payment_mode" value="Cash">
-                                <input type="hidden" name="payment_status" value="Paid">
+                                <input type="hidden" name="payment_mode" value="{{ $row->payment_method }}">
+                                <input type="hidden" name="payment_status" value="{{ $row->payment_status }}">
                                 <input type="hidden" name="donation_date" value="{{ $row->donation_date }}">
                                 <input type="hidden" name="transaction_id" value="{{ $row->transaction_id }}">
                                 <input type="hidden" name="remarks" value="{{ $row->remarks }}">
@@ -125,22 +204,6 @@
                                 <button type="submit" class="cs-icon-btn cs-save-btn" title="Save"><i class="bi bi-check-lg"></i></button>
                                 <button type="button" class="cs-icon-btn cs-cancel-btn cs-edit-cancel" data-target="csEdit_{{ $rowKey }}" title="Cancel"><i class="bi bi-x-lg"></i></button>
                             </form>
-                            @else
-                            <form action="{{ route('admin.donations.updateGuest', $row->id) }}" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
-                                @csrf
-                                <input type="hidden" name="event_id" value="{{ $eventId }}">
-                                <input type="hidden" name="payment_method" value="Cash">
-                                <input type="hidden" name="payment_status" value="Paid">
-                                <input type="hidden" name="donation_date" value="{{ $row->donation_date }}">
-                                <input type="hidden" name="transaction_id" value="{{ $row->transaction_id }}">
-                                <input type="hidden" name="purpose_details" value="{{ $row->purpose_details }}">
-                                <div><input type="text" name="donor_name" class="form-control form-control-sm" value="{{ $row->donor_name }}" placeholder="Donor name" style="min-width:140px;" required></div>
-                                <div><input type="text" name="purpose" class="form-control form-control-sm" value="{{ $row->purpose }}" placeholder="Purpose" style="min-width:160px;" required></div>
-                                <div><input type="number" step="0.01" min="0" name="amount" class="form-control form-control-sm" value="{{ $row->amount }}" placeholder="Amount" style="width:110px;" required></div>
-                                <button type="submit" class="cs-icon-btn cs-save-btn" title="Save"><i class="bi bi-check-lg"></i></button>
-                                <button type="button" class="cs-icon-btn cs-cancel-btn cs-edit-cancel" data-target="csEdit_{{ $rowKey }}" title="Cancel"><i class="bi bi-x-lg"></i></button>
-                            </form>
-                            @endif
                         </td>
                     </tr>
                     @endif
@@ -161,6 +224,7 @@
     @endif
 </div>
 
+@if($viewingCurrentPeriod)
 <div class="cs-card mb-3">
     <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settle Till</div>
     <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
@@ -193,84 +257,64 @@
         <button type="submit" class="btn-cs-save mt-3" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">Settle Till Now</button>
     </form>
 </div>
+@endif
 
 @if($canViewCashHistory)
-<div class="row g-3 mt-1">
-    <div class="col-lg-6">
-        <div class="cs-card h-100">
-            <div class="fw-bold mb-2"><i class="bi bi-bank2 me-1"></i>Banking History</div>
-            @forelse($cashBankings as $banking)
-                <div class="border-bottom py-2">
-                    <div class="fw-bold">{{ $fmt($banking->amount) }}</div>
+<div class="cs-card mb-3">
+    <div class="fw-bold mb-2"><i class="bi bi-journal-check me-1"></i>Settlement History</div>
+    @forelse($cashSettlements as $settlement)
+        @php $canEditFigures = \App\Services\CashSettlementService::canEditFigures($settlement); @endphp
+        <div class="border-bottom py-2">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                    <div class="fw-bold">{{ $settlement->period_start->format('d M Y') }} &ndash; {{ $settlement->period_end->format('d M Y') }}</div>
                     <div class="text-muted small">
-                        {{ $banking->banked_date->format('d M Y') }}
-                        @if($banking->reference) &middot; {{ $banking->reference }} @endif
-                        @if($banking->recordedBy) &middot; {{ $banking->recordedBy->name }} @endif
+                        Opening {{ $fmt($settlement->opening_balance) }} &rarr; Closing {{ $fmt($settlement->closing_balance) }}
+                        @if($settlement->performedBy) &middot; by {{ $settlement->performedBy->name }} @endif
                     </div>
-                    @if($banking->note)<div class="text-muted small fst-italic">{{ $banking->note }}</div>@endif
-                </div>
-            @empty
-                <p class="text-muted mb-0">No banking entries recorded yet.</p>
-            @endforelse
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="cs-card h-100">
-            <div class="fw-bold mb-2"><i class="bi bi-journal-check me-1"></i>Settlement History</div>
-            @forelse($cashSettlements as $settlement)
-                @php $canEditFigures = \App\Services\CashSettlementService::canEditFigures($settlement); @endphp
-                <div class="border-bottom py-2">
-                    <div class="d-flex justify-content-between align-items-start gap-2">
-                        <div>
-                            <div class="fw-bold">{{ $settlement->period_start->format('d M Y') }} &ndash; {{ $settlement->period_end->format('d M Y') }}</div>
-                            <div class="text-muted small">
-                                Opening {{ $fmt($settlement->opening_balance) }} &rarr; Closing {{ $fmt($settlement->closing_balance) }}
-                                @if($settlement->performedBy) &middot; by {{ $settlement->performedBy->name }} @endif
-                            </div>
-                            @if($settlement->till_count !== null)
-                            <div class="text-muted small">Till counted {{ $fmt($settlement->till_count) }} &middot; Banked {{ $fmt($settlement->amount_banked) }}</div>
-                            @endif
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary settlement-edit-toggle" data-settlement-id="{{ $settlement->id }}">Edit</button>
-                    </div>
-                    @if($settlement->variance !== null && abs($settlement->variance) >= 0.01)
-                        <div class="small fw-bold {{ $settlement->variance > 0 ? 'text-success' : 'text-danger' }}">
-                            Variance: {{ $settlement->variance > 0 ? '+' : '' }}{{ $fmt($settlement->variance) }}
-                        </div>
+                    @if($settlement->till_count !== null)
+                    <div class="text-muted small">Till counted {{ $fmt($settlement->till_count) }} &middot; Banked {{ $fmt($settlement->amount_banked) }}</div>
                     @endif
-                    @if($settlement->variance_note)<div class="text-muted small fst-italic">"{{ $settlement->variance_note }}"</div>@endif
-
-                    <form action="{{ route('admin.cash-settlement.update', $settlement->id) }}" method="POST" class="settlement-edit-form mt-2" id="settlementEdit{{ $settlement->id }}" style="display:none;">
-                        @csrf
-                        <div class="row g-2">
-                            @if($canEditFigures)
-                            <div class="col-6">
-                                <label class="form-label small mb-1">Till Count</label>
-                                <input type="number" step="0.01" min="0" name="till_count" class="form-control form-control-sm" value="{{ $settlement->till_count }}" required>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small mb-1">Amount Banked</label>
-                                <input type="number" step="0.01" min="0" name="amount_banked" class="form-control form-control-sm" value="{{ $settlement->amount_banked }}" required>
-                            </div>
-                            @else
-                            <div class="col-12"><p class="text-muted small mb-1">A newer settlement already exists, so only the note can be changed here — editing the figures would desync everything settled after it.</p></div>
-                            @endif
-                            <div class="col-12">
-                                <label class="form-label small mb-1">Note</label>
-                                <textarea name="variance_note" class="form-control form-control-sm" rows="2" maxlength="1000">{{ $settlement->variance_note }}</textarea>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-sm btn-cs-save mt-2">Save Changes</button>
-                    </form>
                 </div>
-            @empty
-                <p class="text-muted mb-0">No settlements run yet.</p>
-            @endforelse
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ $baseUrl }}?settlement_id={{ $settlement->id }}">View Transactions</a>
+                    <button type="button" class="btn btn-sm btn-outline-secondary settlement-edit-toggle" data-settlement-id="{{ $settlement->id }}">Edit</button>
+                </div>
+            </div>
+            @if($settlement->variance !== null && abs($settlement->variance) >= 0.01)
+                <div class="small fw-bold {{ $settlement->variance > 0 ? 'text-success' : 'text-danger' }}">
+                    Variance: {{ $settlement->variance > 0 ? '+' : '' }}{{ $fmt($settlement->variance) }}
+                </div>
+            @endif
+            @if($settlement->variance_note)<div class="text-muted small fst-italic">"{{ $settlement->variance_note }}"</div>@endif
+
+            <form action="{{ route('admin.cash-settlement.update', $settlement->id) }}" method="POST" class="settlement-edit-form mt-2" id="settlementEdit{{ $settlement->id }}" style="display:none;">
+                @csrf
+                <div class="row g-2">
+                    @if($canEditFigures)
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Till Count</label>
+                        <input type="number" step="0.01" min="0" name="till_count" class="form-control form-control-sm" value="{{ $settlement->till_count }}" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">Amount Banked</label>
+                        <input type="number" step="0.01" min="0" name="amount_banked" class="form-control form-control-sm" value="{{ $settlement->amount_banked }}" required>
+                    </div>
+                    @else
+                    <div class="col-12"><p class="text-muted small mb-1">A newer settlement already exists, so only the note can be changed here — editing the figures would desync everything settled after it.</p></div>
+                    @endif
+                    <div class="col-12">
+                        <label class="form-label small mb-1">Note</label>
+                        <textarea name="variance_note" class="form-control form-control-sm" rows="2" maxlength="1000">{{ $settlement->variance_note }}</textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-sm btn-cs-save mt-2">Save Changes</button>
+            </form>
         </div>
-    </div>
+    @empty
+        <p class="text-muted mb-0">No settlements run yet.</p>
+    @endforelse
 </div>
-@else
-<p class="text-muted small fst-italic mt-2"><i class="bi bi-info-circle me-1"></i>Past settlements and banking history aren't shown here — ask an Admin or Entry-level user if you need to review them.</p>
 @endif
 
 </div>
@@ -278,40 +322,41 @@
 <script>
 (function () {
     const form = document.getElementById('{{ $formId }}');
-    if (!form) return;
-    const tillInput = form.querySelector('.settle-till-count');
-    const bankedInput = form.querySelector('.settle-amount-banked');
-    const varianceDisplay = form.querySelector('.settle-variance-display');
-    const carryDisplay = form.querySelector('.settle-carry-display');
-    const noteWrap = form.querySelector('.settle-note-wrap');
-    const noteField = form.querySelector('.settle-note-field');
-    const expected = parseFloat(tillInput.dataset.expected || '0');
-    const currency = @json($currency);
+    if (form) {
+        const tillInput = form.querySelector('.settle-till-count');
+        const bankedInput = form.querySelector('.settle-amount-banked');
+        const varianceDisplay = form.querySelector('.settle-variance-display');
+        const carryDisplay = form.querySelector('.settle-carry-display');
+        const noteWrap = form.querySelector('.settle-note-wrap');
+        const noteField = form.querySelector('.settle-note-field');
+        const expected = parseFloat(tillInput.dataset.expected || '0');
+        const currency = @json($currency);
 
-    function fmt(n) { return currency + ' ' + n.toFixed(2); }
+        function fmt(n) { return currency + ' ' + n.toFixed(2); }
 
-    function recompute() {
-        const till = parseFloat(tillInput.value);
-        const banked = parseFloat(bankedInput.value);
-        if (isNaN(till)) {
-            varianceDisplay.textContent = '—';
-            carryDisplay.textContent = '—';
-            noteWrap.style.display = 'none';
-            return;
+        function recompute() {
+            const till = parseFloat(tillInput.value);
+            const banked = parseFloat(bankedInput.value);
+            if (isNaN(till)) {
+                varianceDisplay.textContent = '—';
+                carryDisplay.textContent = '—';
+                noteWrap.style.display = 'none';
+                return;
+            }
+            const variance = Math.round((till - expected) * 100) / 100;
+            varianceDisplay.textContent = (variance > 0 ? '+' : '') + fmt(variance);
+            varianceDisplay.className = 'fw-bold settle-variance-display ' + (Math.abs(variance) < 0.01 ? '' : (variance > 0 ? 'text-success' : 'text-danger'));
+            carryDisplay.textContent = isNaN(banked) ? '—' : fmt(Math.round((till - banked) * 100) / 100);
+
+            const mismatched = Math.abs(variance) >= 0.01;
+            noteWrap.style.display = mismatched ? '' : 'none';
+            noteField.required = mismatched;
         }
-        const variance = Math.round((till - expected) * 100) / 100;
-        varianceDisplay.textContent = (variance > 0 ? '+' : '') + fmt(variance);
-        varianceDisplay.className = 'fw-bold settle-variance-display ' + (Math.abs(variance) < 0.01 ? '' : (variance > 0 ? 'text-success' : 'text-danger'));
-        carryDisplay.textContent = isNaN(banked) ? '—' : fmt(Math.round((till - banked) * 100) / 100);
 
-        const mismatched = Math.abs(variance) >= 0.01;
-        noteWrap.style.display = mismatched ? '' : 'none';
-        noteField.required = mismatched;
+        tillInput.addEventListener('input', recompute);
+        bankedInput.addEventListener('input', recompute);
+        recompute();
     }
-
-    tillInput.addEventListener('input', recompute);
-    bankedInput.addEventListener('input', recompute);
-    recompute();
 
     document.querySelectorAll('.settlement-edit-toggle').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -320,7 +365,8 @@
         });
     });
 
-    // Current Period Transactions: inline edit toggle — swaps a row for its matching
+    // Current Period Transactions: inline edit toggle (devotee rows only — guest rows link
+    // straight to the POS page instead) — swaps a row for its matching
     // <tr class="cs-edit-row"> (a plain classic form; submitting it reloads the page, same
     // as every other form in this widget) rather than opening a separate modal.
     document.querySelectorAll('.cs-edit-toggle').forEach(function (btn) {
@@ -336,23 +382,56 @@
         });
     });
 
-    // Current Period Transactions: client-side search — filters by the row's own
-    // data-search text (name/purpose, lowercased), and hides a row's edit form along with
-    // it so a filtered-out row never leaves an open edit form behind.
-    const txnSearch = document.getElementById('csTxnSearch_{{ $formId }}');
-    const txnTable = document.getElementById('csTxnTable_{{ $formId }}');
-    if (txnSearch && txnTable) {
-        txnSearch.addEventListener('input', function () {
-            const q = this.value.trim().toLowerCase();
-            txnTable.querySelectorAll('tbody tr.cs-row').forEach(function (row) {
-                const match = !q || (row.dataset.search || '').includes(q);
-                row.style.display = match ? '' : 'none';
-                if (!match && row.dataset.editId) {
-                    const editRow = document.getElementById(row.dataset.editId);
-                    if (editRow) { editRow.style.display = 'none'; }
-                }
-            });
+    // Jumping to a past settlement's own transaction list — a plain navigation (not an
+    // AJAX refresh) since the whole pane/page re-renders read-only for that period.
+    const settlementSelect = document.getElementById('csSettlementSelect_{{ $formId }}');
+    if (settlementSelect) {
+        settlementSelect.addEventListener('change', function () {
+            const base = this.dataset.baseUrl;
+            window.location.href = this.value ? (base + '?settlement_id=' + this.value) : base;
         });
     }
+
+    // Current Period Transactions: client-side search + method/status pill filters — all
+    // three narrow the same already-loaded rows together; a row's edit form (devotee) is
+    // hidden along with it so a filtered-out row never leaves one open behind.
+    const txnSearch = document.getElementById('csTxnSearch_{{ $formId }}');
+    const txnTable = document.getElementById('csTxnTable_{{ $formId }}');
+    const activeFilters = { method: new Set(), status: new Set() };
+    document.querySelectorAll('.cs-pill').forEach(function (pill) {
+        activeFilters[pill.dataset.filterGroup].add(pill.dataset.value);
+    });
+
+    function applyFilters() {
+        if (!txnTable) return;
+        const q = txnSearch ? txnSearch.value.trim().toLowerCase() : '';
+        txnTable.querySelectorAll('tbody tr.cs-row').forEach(function (row) {
+            const searchOk = !q || (row.dataset.search || '').includes(q);
+            const methodOk = !row.dataset.method || activeFilters.method.size === 0 || activeFilters.method.has(row.dataset.method);
+            const statusOk = !row.dataset.status || activeFilters.status.size === 0 || activeFilters.status.has(row.dataset.status);
+            const match = searchOk && methodOk && statusOk;
+            row.style.display = match ? '' : 'none';
+            if (!match && row.dataset.editId) {
+                const editRow = document.getElementById(row.dataset.editId);
+                if (editRow) { editRow.style.display = 'none'; }
+            }
+        });
+    }
+
+    if (txnSearch) { txnSearch.addEventListener('input', applyFilters); }
+    document.querySelectorAll('.cs-pill').forEach(function (pill) {
+        pill.addEventListener('click', function () {
+            const group = this.dataset.filterGroup;
+            const value = this.dataset.value;
+            if (activeFilters[group].has(value)) {
+                activeFilters[group].delete(value);
+                this.classList.remove('active');
+            } else {
+                activeFilters[group].add(value);
+                this.classList.add('active');
+            }
+            applyFilters();
+        });
+    });
 })();
 </script>

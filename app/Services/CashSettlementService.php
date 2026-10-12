@@ -160,35 +160,66 @@ class CashSettlementService
     }
 
     /**
-     * The individual Cash/Paid transactions behind cashReceivedBreakdown()'s total for the
-     * CURRENT (not yet settled) period — a pos-level user gets to see and correct exactly
-     * what they're about to settle, never anything from an already-settled period (see
-     * canViewHistory() for the past-settlements/bankings restriction this is deliberately
-     * separate from). Event scope returns devotee + guest donation rows (normalized by
-     * EventDonationBreakdown, same shape the console's own All Transactions pane uses, so
-     * the exact same edit routes — admin.donations.updateDevotee/updateGuest — work
-     * unchanged here); tickets scope returns ticket_orders rows (no edit route exists for
-     * those yet, so the pane only ever shows them read-only).
+     * The individual Paid/Pending transactions for one period, any payment method
+     * (Cancelled/Failed never show) — event scope returns devotee + guest donation rows
+     * (normalized by EventDonationBreakdown, same shape the console's own All Transactions
+     * pane uses, so the exact same edit routes — admin.donations.updateDevotee/updateGuest
+     * — work unchanged here); tickets scope returns ticket_orders rows (no edit route
+     * exists for those yet, so the pane only ever shows them read-only). The till-count
+     * figures themselves (cashReceivedBreakdown()/preview()) stay Cash-only and are
+     * computed separately — this is for review, with the pane's own settlement/method/
+     * status filters letting staff narrow it down. A null $periodEnd means "still open"
+     * (the current, not-yet-settled period).
+     */
+    public static function transactionsForPeriod(string $scope, ?int $eventId, Carbon $periodStart, ?Carbon $periodEnd): \Illuminate\Support\Collection
+    {
+        if ($scope === 'event') {
+            $data = EventDonationBreakdown::forEvent((int) $eventId);
+            return $data['rows']
+                ->filter(fn ($r) => in_array($r->payment_status, ['Paid', 'Pending'], true))
+                ->filter(fn ($r) => Carbon::parse($r->donation_date)->gte($periodStart))
+                ->filter(fn ($r) => !$periodEnd || Carbon::parse($r->donation_date)->lte($periodEnd))
+                ->values();
+        }
+
+        $query = DB::table('ticket_orders')
+            ->where('payment_method', 'Cash')
+            ->where('payment_status', 'Paid')
+            ->whereDate('order_date', '>=', $periodStart->toDateString());
+        if ($periodEnd) {
+            $query->whereDate('order_date', '<=', $periodEnd->toDateString());
+        }
+
+        return collect($query->orderByDesc('created_at')->get());
+    }
+
+    /**
+     * The CURRENT (not yet settled) period's transactions — a pos-level user gets to see
+     * and correct exactly what they're about to settle, never anything from an
+     * already-settled period (see canViewHistory() for the past-settlements/bankings
+     * restriction this is deliberately separate from).
      */
     public static function currentPeriodTransactions(string $scope, ?int $eventId): \Illuminate\Support\Collection
     {
         $lastEnd = self::lastPeriodEnd($scope, $eventId);
         $periodStart = $lastEnd ? $lastEnd->copy()->addDay() : Carbon::createFromDate(2000, 1, 1);
 
-        if ($scope === 'event') {
-            $data = EventDonationBreakdown::forEvent((int) $eventId);
-            return $data['rows']
-                ->filter(fn ($r) => $r->payment_method === 'Cash' && $r->payment_status === 'Paid')
-                ->filter(fn ($r) => Carbon::parse($r->donation_date)->gte($periodStart))
-                ->values();
-        }
+        return self::transactionsForPeriod($scope, $eventId, $periodStart, null);
+    }
 
-        return collect(DB::table('ticket_orders')
-            ->where('payment_method', 'Cash')
-            ->where('payment_status', 'Paid')
-            ->whereDate('order_date', '>=', $periodStart->toDateString())
-            ->orderByDesc('created_at')
-            ->get());
+    /**
+     * The transactions that fell inside one already-locked settlement's own period — only
+     * ever reachable by someone canViewHistory() already lets see past settlements at all;
+     * never editable (see the pane's own $selectedSettlementId !== null guard).
+     */
+    public static function transactionsForSettlement(CashSettlement $settlement): \Illuminate\Support\Collection
+    {
+        return self::transactionsForPeriod(
+            $settlement->scope,
+            $settlement->event_id,
+            Carbon::parse($settlement->period_start),
+            Carbon::parse($settlement->period_end)
+        );
     }
 
     public static function bankedInPeriod(string $scope, ?int $eventId, Carbon $from, Carbon $to): float
@@ -243,19 +274,34 @@ class CashSettlementService
      * merged into their existing view data. $includeHistory is false for a pos-level
      * event coordinator (see canViewHistory()) — past bankings/settlements are simply
      * never fetched for them, not just hidden in the view, so there's no chance of a
-     * template change accidentally leaking them.
+     * template change accidentally leaking them. $selectedSettlementId lets the
+     * Transactions table be pointed at one already-settled period instead of the live one
+     * (the pane's own "Settlement" filter) — ignored (falls back to the current period)
+     * unless it actually names one of THIS scope's own settlements, which is automatically
+     * impossible when $includeHistory is false since $cashSettlements is empty then.
      */
-    public static function paneData(string $scope, ?int $eventId, bool $includeHistory = true): array
+    public static function paneData(string $scope, ?int $eventId, bool $includeHistory = true, ?int $selectedSettlementId = null): array
     {
+        $cashSettlements = $includeHistory
+            ? CashSettlement::where('scope', $scope)->where('event_id', $eventId)->with('performedBy')->latest('period_end')->latest('id')->limit(50)->get()
+            : collect();
+        $selectedSettlement = $selectedSettlementId ? $cashSettlements->firstWhere('id', $selectedSettlementId) : null;
+
         return [
             'cashPreview' => self::preview($scope, $eventId),
-            'currentTransactions' => self::currentPeriodTransactions($scope, $eventId),
+            'currentTransactions' => $selectedSettlement
+                ? self::transactionsForSettlement($selectedSettlement)
+                : self::currentPeriodTransactions($scope, $eventId),
+            'selectedSettlementId' => $selectedSettlement?->id,
+            // Not gated by $includeHistory — this is a single fact (when was it last
+            // settled, how much carried forward), not the settlement/banking history
+            // itself, and a pos-level user is allowed to know it (see the pane's own
+            // fallback message for a user who can't see full history).
+            'lastSettlementDate' => self::lastPeriodEnd($scope, $eventId),
             'cashBankings' => $includeHistory
                 ? CashBanking::where('scope', $scope)->where('event_id', $eventId)->with('recordedBy')->latest('banked_date')->latest('id')->limit(50)->get()
                 : collect(),
-            'cashSettlements' => $includeHistory
-                ? CashSettlement::where('scope', $scope)->where('event_id', $eventId)->with('performedBy')->latest('period_end')->latest('id')->limit(50)->get()
-                : collect(),
+            'cashSettlements' => $cashSettlements,
         ];
     }
 

@@ -148,12 +148,16 @@ class PosDonationController extends Controller
         $cashBankings = collect();
         $cashSettlements = collect();
         $currentTransactions = collect();
+        $lastSettlementDate = null;
+        $selectedSettlementId = null;
         if ($canSettleCash) {
-            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory);
+            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory, $request->input('settlement_id') ? (int) $request->input('settlement_id') : null);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
             $currentTransactions = $cashPane['currentTransactions'];
+            $lastSettlementDate = $cashPane['lastSettlementDate'];
+            $selectedSettlementId = $cashPane['selectedSettlementId'];
         }
         // Same bar EventConsoleController's own $canEditDonation uses — a pos-level
         // coordinator already qualifies (EventCoordinatorLevel ranks pos alongside entry),
@@ -161,6 +165,21 @@ class PosDonationController extends Controller
         $canEditCurrentTransactions = $activeRole === 'Admin'
             || RolePermission::can($activeRole, 'donations', 'edit')
             || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
+
+        // "Complete this pending transaction" — reached from the Current Period
+        // Transactions table's edit link (?edit_id=), never typed by hand, but
+        // re-verified server-side rather than trusted from the query string: must still
+        // be $canEditCurrentTransactions, must belong to THIS event, and must still be
+        // Pending (a guest donation only — the POS page has no devotee lookup at all, see
+        // this controller's own docblock, so a devotee donation's edit_id is just ignored).
+        $editDonation = null;
+        if ($canEditCurrentTransactions && $request->filled('edit_id')) {
+            $editDonation = DB::table('donations_without_logins')
+                ->where('id', (int) $request->input('edit_id'))
+                ->where('event_id', $event->event_id)
+                ->where('payment_status', 'Pending')
+                ->first();
+        }
 
         return view('admin.event-pos-donation', compact(
             'event',
@@ -177,7 +196,10 @@ class PosDonationController extends Controller
             'cashBankings',
             'cashSettlements',
             'currentTransactions',
+            'lastSettlementDate',
+            'selectedSettlementId',
             'canEditCurrentTransactions',
+            'editDonation',
             'canManagePosPin',
             'eftMinimumAmount'
         ));

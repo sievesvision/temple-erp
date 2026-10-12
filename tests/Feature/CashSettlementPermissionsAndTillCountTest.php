@@ -129,7 +129,6 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Settlement History');
-        $response->assertSee('Banking History');
     }
 
     public function test_a_pos_level_coordinator_can_actually_run_a_settlement(): void
