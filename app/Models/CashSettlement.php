@@ -26,6 +26,7 @@ class CashSettlement extends Model
         'variance_note',
         'breakdown',
         'performed_by',
+        'transaction_refs',
     ];
 
     protected $casts = [
@@ -38,6 +39,13 @@ class CashSettlement extends Model
         'closing_balance' => 'decimal:2',
         'variance' => 'decimal:2',
         'breakdown' => 'array',
+        // The exact {type, id} pairs (donation_type-style 'devotee'|'guest'|'ticket_order',
+        // plus 'banking' for the CashBanking row this settlement's own deposit created) this
+        // settlement claimed at the moment it was run — see CashSettlementService's own
+        // docblock on why period membership is decided by this exact snapshot rather than by
+        // comparing timestamps (a plain `timestamp` column only has one-second resolution,
+        // nowhere near enough to order two things recorded moments apart).
+        'transaction_refs' => 'array',
     ];
 
     public function event()

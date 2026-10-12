@@ -548,7 +548,7 @@
                     <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
                     @endif
                     @if($canSettleCash)
-                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Settlements</span></button>
                     @endif
                     @if($canViewEventLogs)
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
@@ -1570,13 +1570,13 @@
                 @endif
 
                 @if($canSettleCash)
-                <!-- CASH BANKING -->
+                <!-- SETTLEMENTS -->
                 <div class="console-pane" id="pane-cash-banking">
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-cash-stack"></i></div>
                         <div>
-                            <h2>Cash Banking</h2>
-                            <p>Track cash taken to the bank and reconcile what's still on hand for {{ $event->event_name }}.</p>
+                            <h2>Settlements</h2>
+                            <p>Count the till, reconcile what's still on hand, and review past settlements for {{ $event->event_name }}.</p>
                         </div>
                     </div>
                     @include('admin.partials.cash-settlement-pane', ['scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])

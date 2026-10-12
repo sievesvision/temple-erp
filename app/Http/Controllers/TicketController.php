@@ -185,15 +185,13 @@ class TicketController extends Controller
         $cashSettlements = collect();
         $currentTransactions = collect();
         $lastSettlementDate = null;
-        $selectedSettlementId = null;
         if ($canSettleCash) {
-            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory, $request->input('settlement_id') ? (int) $request->input('settlement_id') : null);
+            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
             $currentTransactions = $cashPane['currentTransactions'];
             $lastSettlementDate = $cashPane['lastSettlementDate'];
-            $selectedSettlementId = $cashPane['selectedSettlementId'];
         }
         $temple = Setting::templeBranding();
         $ticketBankAccount = Setting::effectiveTicketBankAccount();
@@ -209,7 +207,6 @@ class TicketController extends Controller
             'cashSettlements',
             'currentTransactions',
             'lastSettlementDate',
-            'selectedSettlementId',
             'canSettleCash',
             'canViewCashHistory',
             'temple',
@@ -460,20 +457,18 @@ class TicketController extends Controller
         $cashSettlements = collect();
         $currentTransactions = collect();
         $lastSettlementDate = null;
-        $selectedSettlementId = null;
         if ($canSettleCash) {
-            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory, $request->input('settlement_id') ? (int) $request->input('settlement_id') : null);
+            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
             $currentTransactions = $cashPane['currentTransactions'];
             $lastSettlementDate = $cashPane['lastSettlementDate'];
-            $selectedSettlementId = $cashPane['selectedSettlementId'];
         }
 
         return view('admin.ticket-pos', compact(
             'tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin',
-            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate', 'selectedSettlementId'
+            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate'
         ));
     }
 

@@ -149,15 +149,13 @@ class PosDonationController extends Controller
         $cashSettlements = collect();
         $currentTransactions = collect();
         $lastSettlementDate = null;
-        $selectedSettlementId = null;
         if ($canSettleCash) {
-            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory, $request->input('settlement_id') ? (int) $request->input('settlement_id') : null);
+            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
             $currentTransactions = $cashPane['currentTransactions'];
             $lastSettlementDate = $cashPane['lastSettlementDate'];
-            $selectedSettlementId = $cashPane['selectedSettlementId'];
         }
         // Same bar EventConsoleController's own $canEditDonation uses — a pos-level
         // coordinator already qualifies (EventCoordinatorLevel ranks pos alongside entry),
@@ -197,7 +195,6 @@ class PosDonationController extends Controller
             'cashSettlements',
             'currentTransactions',
             'lastSettlementDate',
-            'selectedSettlementId',
             'canEditCurrentTransactions',
             'editDonation',
             'canManagePosPin',

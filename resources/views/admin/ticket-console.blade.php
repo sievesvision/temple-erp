@@ -292,7 +292,7 @@
                     @if($canManageConsole)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
-                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Settlements</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-controllers"><i class="bi bi-people-fill"></i><span>Ticket Controllers</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
                     @endif
@@ -531,7 +531,7 @@
 
                         <div class="card-panel mt-3">
                             <div class="fw-bold mb-2">Ticket Bank Account</div>
-                            <p class="text-muted small mb-3">Leave any field blank to use the temple's global donation account from Admin &gt; Settings. Set one here only to record a different account for ticket sales specifically — used on the Cash Banking report below.</p>
+                            <p class="text-muted small mb-3">Leave any field blank to use the temple's global donation account from Admin &gt; Settings. Set one here only to record a different account for ticket sales specifically — used on the Settlements report below.</p>
                             <form action="{{ route('admin.tickets.settings.bankAccount') }}" method="POST" id="ticketBankAccountForm">
                                 @csrf
                                 <div class="row g-3">
@@ -626,13 +626,13 @@
                         ])
                     </div>
 
-                    <!-- CASH BANKING -->
+                    <!-- SETTLEMENTS -->
                     <div class="console-pane" id="pane-cash-banking">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-cash-stack"></i></div>
                             <div>
-                                <h2>Cash Banking</h2>
-                                <p>Track cash taken to the bank and reconcile what's still on hand for ticket sales.</p>
+                                <h2>Settlements</h2>
+                                <p>Count the till, reconcile what's still on hand, and review past settlements for ticket sales.</p>
                             </div>
                         </div>
                         @if($cashPreview)

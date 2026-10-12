@@ -75,7 +75,11 @@ class PosPendingTransactionEditTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Completing a pending transaction for Pending Donor');
-        $response->assertSee(route('admin.donations.updateGuest', $donationId), false);
+        // UPDATE_GUEST_URL is JSON-encoded into the page's own <script> (Laravel's @json
+        // escapes forward slashes, so the raw route() URL never appears verbatim) — the
+        // donation id is the one unambiguous, unescaped marker that it was actually built
+        // from THIS donation rather than left null.
+        $response->assertSee('update-guest\/' . $donationId, false);
     }
 
     public function test_edit_id_for_an_already_paid_donation_is_ignored(): void
@@ -127,7 +131,13 @@ class PosPendingTransactionEditTest extends TestCase
         $followUp->assertDontSee('Completing a pending transaction');
     }
 
-    public function test_the_transactions_pane_can_be_filtered_to_a_past_settlements_period(): void
+    /**
+     * The POS page's own Current Period Transactions widget only ever shows the live,
+     * not-yet-settled session — browsing a past settlement's own transactions (by date
+     * range or any other filter) belongs on the Portal's All Transactions pane instead, not
+     * here. A crafted ?settlement_id= query string is simply ignored.
+     */
+    public function test_the_pos_page_only_ever_shows_the_current_session_never_a_past_settlement(): void
     {
         $admin = $this->admin();
         $eventId = $this->makeEvent();
@@ -145,11 +155,9 @@ class PosPendingTransactionEditTest extends TestCase
         $liveView->assertSee('Pending Donor');
         $liveView->assertDontSee('Settled Donor');
 
-        $pastView = $this->actingAs($admin)->get(route('admin.events.pos', ['event' => $eventId, 'settlement_id' => $settlement->id]));
-        $pastView->assertOk();
-        $pastView->assertSee('Settled Donor');
-        $pastView->assertDontSee('Pending Donor');
-        // Never editable when looking at an already-settled period.
-        $pastView->assertDontSee('Complete in POS');
+        $withQueryParam = $this->actingAs($admin)->get(route('admin.events.pos', ['event' => $eventId, 'settlement_id' => $settlement->id]));
+        $withQueryParam->assertOk();
+        $withQueryParam->assertSee('Pending Donor');
+        $withQueryParam->assertDontSee('Settled Donor');
     }
 }

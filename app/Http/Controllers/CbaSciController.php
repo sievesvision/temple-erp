@@ -247,6 +247,10 @@ class CbaSciController extends Controller
             'purpose_details' => 'nullable|string|max:2000',
             'cart_json' => 'nullable|string',
             'terminal_id' => 'nullable|integer|exists:eft_terminals,id',
+            // Set only when this charge is completing an existing Pending guest donation —
+            // see createRecordIfApprovedAndUnrecorded()'s own branch on this, mirroring
+            // DonationController::startEftCharge()'s identical Linkly-side field.
+            'edit_donation_id' => 'nullable|integer|exists:donations_without_logins,id',
         ]);
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
@@ -301,6 +305,7 @@ class CbaSciController extends Controller
                     'mobile' => $validated['mobile'] ?? null,
                     'purpose' => $validated['purpose'] ?? null,
                     'purpose_details' => $validated['purpose_details'] ?? null,
+                    'edit_donation_id' => $validated['edit_donation_id'] ?? null,
                 ];
 
             SciTransaction::create([
@@ -680,6 +685,21 @@ class CbaSciController extends Controller
                 $txn->update(['donation_type' => 'ticket_order', 'donation_id' => $orderId]);
             }
             return $orderId;
+        }
+
+        // Completing an existing Pending donation updates that same row instead of
+        // inserting a new one — mirrors DonationController::createDonationIfApprovedPurchaseUnrecorded()'s
+        // identical Linkly-side branch.
+        if (!empty($meta['edit_donation_id'])) {
+            $editDonationId = (int) $meta['edit_donation_id'];
+            app(DonationController::class)->updateGuestDonationRecord($editDonationId, [
+                'payment_method' => 'EFT Terminal',
+                'payment_status' => 'Paid',
+                'transaction_id' => $transactionRef,
+            ]);
+            $txn->update(['donation_type' => 'guest', 'donation_id' => $editDonationId]);
+
+            return $editDonationId;
         }
 
         if (empty($meta['donor_name'])) {

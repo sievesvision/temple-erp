@@ -938,6 +938,11 @@ class DonationController extends Controller
             // paired terminals. Omitted (an old cached page, or a single-terminal deployment)
             // falls back to the registry's default terminal.
             'terminal_id' => 'nullable|integer|exists:eft_terminals,id',
+            // Set only when this charge is completing an existing Pending guest donation
+            // (reached via the Current Period Transactions pane's own pending-donation link)
+            // rather than recording a brand new one — see createDonationIfApprovedPurchaseUnrecorded()'s
+            // own branch on this, which updates that row instead of inserting a new one.
+            'edit_donation_id' => 'nullable|integer|exists:donations_without_logins,id',
         ]);
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
@@ -1015,6 +1020,7 @@ class DonationController extends Controller
                     'purpose' => $validated['purpose'] ?? null,
                     'purpose_details' => $validated['purpose_details'] ?? null,
                     'is_anonymous' => (bool) ($validated['is_anonymous'] ?? false),
+                    'edit_donation_id' => $validated['edit_donation_id'] ?? null,
                 ];
 
             LinklyTransaction::create([
@@ -1319,6 +1325,22 @@ class DonationController extends Controller
                 $this->linkLedgerToDonation($sessionId, 'ticket_order', $orderId);
             }
             return $orderId;
+        }
+
+        // Completing an existing Pending donation (reached via the Current Period
+        // Transactions pane's own pending-donation link) updates that same row instead of
+        // inserting a new one — mirrors the browser's own normal-path call, which branches
+        // the exact same way (see event-pos-donation.blade.php's submitGuestDonation()).
+        if (!empty($meta['edit_donation_id'])) {
+            $editDonationId = (int) $meta['edit_donation_id'];
+            $this->updateGuestDonationRecord($editDonationId, [
+                'payment_method' => 'EFT Terminal',
+                'payment_status' => 'Paid',
+                'transaction_id' => $transactionRef,
+            ]);
+            $this->linkLedgerToDonation($sessionId, 'guest', $editDonationId);
+
+            return $editDonationId;
         }
 
         if (empty($meta['donor_name'])) {
@@ -1839,10 +1861,16 @@ class DonationController extends Controller
         }
 
         if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+            }
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         if ($donation->payment_method === 'EFT Terminal') {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'EFT Terminal transactions cannot be edited — use Refund instead.'], 422);
+            }
             return redirect()->back()->with('error', 'EFT Terminal transactions cannot be edited — use Refund instead.');
         }
 
@@ -1858,9 +1886,29 @@ class DonationController extends Controller
             'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
+            // Set only when this update is completing a Pending donation via the EFT
+            // Terminal (see event-pos-donation.blade.php's submitGuestDonation()) — links
+            // this row back to its Linkly accreditation ledger row, same as a brand new
+            // EFT donation would via storeGuestDonation()'s own linkLedgerToDonation() call.
+            'linkly_session_id' => 'nullable|string|max:64',
         ]);
 
-        DB::table('donations_without_logins')->where('id', $id)->update([
+        // Idempotency against createDonationIfApprovedPurchaseUnrecorded(): that fallback
+        // can already have updated this row server-side (the poll loop discovered the
+        // approval first) — detect that via the ledger row this session is linked to and
+        // just confirm success rather than updating a second time.
+        $linklySessionId = $validated['linkly_session_id'] ?? null;
+        if ($linklySessionId) {
+            $existingTxn = LinklyTransaction::where('linkly_session_id', $linklySessionId)->first();
+            if ($existingTxn && $existingTxn->donation_id) {
+                if ($request->wantsJson()) {
+                    return response()->json(['success' => true, 'message' => 'Guest donation updated successfully.']);
+                }
+                return redirect()->back()->with('success', 'Guest donation updated successfully.');
+            }
+        }
+
+        $this->updateGuestDonationRecord((int) $id, [
             'donor_name' => $validated['donor_name'],
             'event_id' => $validated['event_id'] ?? null,
             'email' => $validated['email'] ?? null,
@@ -1872,10 +1920,25 @@ class DonationController extends Controller
             'payment_status' => $validated['payment_status'],
             'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
             'donation_date' => $validated['donation_date'],
-            'updated_at' => now(),
         ]);
+        $this->linkLedgerToDonation($linklySessionId, 'guest', (int) $id);
 
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Guest donation updated successfully.']);
+        }
         return redirect()->back()->with('success', 'Guest donation updated successfully.');
+    }
+
+    /**
+     * Raw field update for one guest donation row — shared by updateGuestDonation() (the
+     * web action, fully validated), createDonationIfApprovedPurchaseUnrecorded()'s own
+     * "completing an existing Pending donation" branch, and CbaSciController's equivalent
+     * (already-trusted server-side data in both cases), so all three ever only update a row
+     * the exact same way. Public to match insertGuestDonationRecord()'s own visibility.
+     */
+    public function updateGuestDonationRecord(int $id, array $fields): void
+    {
+        DB::table('donations_without_logins')->where('id', $id)->update(array_merge($fields, ['updated_at' => now()]));
     }
 
     /**

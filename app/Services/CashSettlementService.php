@@ -76,7 +76,7 @@ class CashSettlementService
 
     public static function latestSettlement(string $scope, ?int $eventId): ?CashSettlement
     {
-        return CashSettlement::where('scope', $scope)->where('event_id', $eventId)->latest('period_end')->latest('id')->first();
+        return CashSettlement::where('scope', $scope)->where('event_id', $eventId)->latest('id')->first();
     }
 
     /**
@@ -93,35 +93,70 @@ class CashSettlementService
 
     public static function currentOpeningBalance(string $scope, ?int $eventId): float
     {
-        $last = CashSettlement::where('scope', $scope)->where('event_id', $eventId)->latest('period_end')->first();
+        $last = self::latestSettlement($scope, $eventId);
         return $last ? (float) $last->closing_balance : 0.0;
     }
 
-    public static function lastPeriodEnd(string $scope, ?int $eventId): ?Carbon
+    /**
+     * When the last settlement was run — shown to a pos-level user in place of full history
+     * (see canViewHistory()). Purely informational; period membership itself is decided by
+     * claimedTransactionKeys(), never by comparing this timestamp against anything.
+     */
+    public static function lastSettledAt(string $scope, ?int $eventId): ?Carbon
     {
-        $last = CashSettlement::where('scope', $scope)->where('event_id', $eventId)->latest('period_end')->first();
-        return $last ? Carbon::parse($last->period_end) : null;
+        $last = self::latestSettlement($scope, $eventId);
+        return $last ? $last->created_at->copy() : null;
+    }
+
+    /**
+     * Every {type, id} this scope's settlements have ever claimed, flattened into one
+     * lookup set — "has this transaction already been counted in a past settlement" is the
+     * one question every period-membership check in this class reduces to. type is
+     * 'devotee'|'guest'|'ticket_order' (matching EventDonationBreakdown's own donation_type,
+     * or 'ticket_order' for tickets scope) or 'banking' for the CashBanking deposit row a
+     * settlement created alongside itself.
+     *
+     * Settled by exact id, not by comparing timestamps — see run()'s own docblock for why: a
+     * plain `timestamp` column only has one-second resolution, nowhere near enough to order
+     * two settlements run the same day, or a transaction recorded moments after one was
+     * finalized (the donation_date/order_date business date doesn't help either, since
+     * that's routinely backdated — "yesterday's" cash entered today still needs to land in
+     * yesterday's settlement, which an id-exact snapshot does automatically since it's taken
+     * at the moment the settlement is actually run, whatever date the transaction itself
+     * carries).
+     */
+    private static function claimedTransactionKeys(string $scope, ?int $eventId): array
+    {
+        $keys = [];
+        CashSettlement::where('scope', $scope)->where('event_id', $eventId)->pluck('transaction_refs')
+            ->each(function ($refs) use (&$keys) {
+                foreach ((array) $refs as $ref) {
+                    $keys[$ref['type'] . ':' . $ref['id']] = true;
+                }
+            });
+
+        return $keys;
     }
 
     /**
      * @return array{total: float, breakdown: array<int, array{label: string, cash_received: float}>}
      */
-    public static function cashReceivedBreakdown(string $scope, ?int $eventId, Carbon $from, Carbon $to): array
+    public static function cashReceivedBreakdown(string $scope, ?int $eventId, array $claimedKeys): array
     {
         if ($scope === 'event') {
-            return self::eventCashBreakdown((int) $eventId, $from, $to);
+            return self::eventCashBreakdown((int) $eventId, $claimedKeys);
         }
 
-        return self::ticketsCashBreakdown($from, $to);
+        return self::ticketsCashBreakdown($claimedKeys);
     }
 
-    private static function eventCashBreakdown(int $eventId, Carbon $from, Carbon $to): array
+    private static function eventCashBreakdown(int $eventId, array $claimedKeys): array
     {
         $data = EventDonationBreakdown::forEvent($eventId);
         $options = $data['options'];
         $cashRows = $data['rows']
             ->filter(fn ($r) => $r->payment_method === 'Cash' && $r->payment_status === 'Paid')
-            ->filter(fn ($r) => Carbon::parse($r->donation_date)->between($from, $to));
+            ->filter(fn ($r) => !isset($claimedKeys[$r->donation_type . ':' . $r->id]));
 
         $breakdown = [];
         $total = 0.0;
@@ -141,15 +176,15 @@ class CashSettlementService
         return ['total' => round($total, 2), 'breakdown' => $breakdown];
     }
 
-    private static function ticketsCashBreakdown(Carbon $from, Carbon $to): array
+    private static function ticketsCashBreakdown(array $claimedKeys): array
     {
         $items = DB::table('ticket_order_items')
             ->join('ticket_orders', 'ticket_orders.id', '=', 'ticket_order_items.ticket_order_id')
             ->where('ticket_orders.payment_method', 'Cash')
             ->where('ticket_orders.payment_status', 'Paid')
-            ->whereBetween('ticket_orders.order_date', [$from->toDateString(), $to->toDateString()])
-            ->select('ticket_order_items.ticket_name', 'ticket_order_items.line_total')
-            ->get();
+            ->select('ticket_order_items.ticket_name', 'ticket_order_items.line_total', 'ticket_orders.id as order_id')
+            ->get()
+            ->filter(fn ($r) => !isset($claimedKeys['ticket_order:' . $r->order_id]));
 
         $grouped = $items->groupBy('ticket_name')->map(fn ($rows) => round((float) $rows->sum('line_total'), 2));
 
@@ -160,77 +195,57 @@ class CashSettlementService
     }
 
     /**
-     * The individual Paid/Pending transactions for one period, any payment method
-     * (Cancelled/Failed never show) — event scope returns devotee + guest donation rows
-     * (normalized by EventDonationBreakdown, same shape the console's own All Transactions
-     * pane uses, so the exact same edit routes — admin.donations.updateDevotee/updateGuest
-     * — work unchanged here); tickets scope returns ticket_orders rows (no edit route
-     * exists for those yet, so the pane only ever shows them read-only). The till-count
-     * figures themselves (cashReceivedBreakdown()/preview()) stay Cash-only and are
-     * computed separately — this is for review, with the pane's own settlement/method/
-     * status filters letting staff narrow it down. A null $periodEnd means "still open"
-     * (the current, not-yet-settled period).
+     * The individual Paid/Pending transactions NOT YET claimed by any settlement — any
+     * payment method (Cancelled/Failed never show). Event scope returns devotee + guest
+     * donation rows (normalized by EventDonationBreakdown, same shape the console's own All
+     * Transactions pane uses, so the exact same edit routes — admin.donations.
+     * updateDevotee/updateGuest — work unchanged here); tickets scope returns ticket_orders
+     * rows (no edit route exists for those yet, so the pane only ever shows them read-only).
+     * The till-count figures themselves (cashReceivedBreakdown()/preview()) stay Cash-only
+     * and are computed separately — this is for review.
      */
-    public static function transactionsForPeriod(string $scope, ?int $eventId, Carbon $periodStart, ?Carbon $periodEnd): \Illuminate\Support\Collection
+    public static function currentPeriodTransactions(string $scope, ?int $eventId): \Illuminate\Support\Collection
     {
+        $claimedKeys = self::claimedTransactionKeys($scope, $eventId);
+
         if ($scope === 'event') {
             $data = EventDonationBreakdown::forEvent((int) $eventId);
             return $data['rows']
                 ->filter(fn ($r) => in_array($r->payment_status, ['Paid', 'Pending'], true))
-                ->filter(fn ($r) => Carbon::parse($r->donation_date)->gte($periodStart))
-                ->filter(fn ($r) => !$periodEnd || Carbon::parse($r->donation_date)->lte($periodEnd))
+                ->filter(fn ($r) => !isset($claimedKeys[$r->donation_type . ':' . $r->id]))
                 ->values();
         }
 
-        $query = DB::table('ticket_orders')
-            ->where('payment_method', 'Cash')
-            ->where('payment_status', 'Paid')
-            ->whereDate('order_date', '>=', $periodStart->toDateString());
-        if ($periodEnd) {
-            $query->whereDate('order_date', '<=', $periodEnd->toDateString());
-        }
-
-        return collect($query->orderByDesc('created_at')->get());
+        return collect(DB::table('ticket_orders')->where('payment_method', 'Cash')->where('payment_status', 'Paid')->orderByDesc('created_at')->get())
+            ->filter(fn ($r) => !isset($claimedKeys['ticket_order:' . $r->id]))
+            ->values();
     }
 
     /**
-     * The CURRENT (not yet settled) period's transactions — a pos-level user gets to see
-     * and correct exactly what they're about to settle, never anything from an
-     * already-settled period (see canViewHistory() for the past-settlements/bankings
-     * restriction this is deliberately separate from).
-     */
-    public static function currentPeriodTransactions(string $scope, ?int $eventId): \Illuminate\Support\Collection
-    {
-        $lastEnd = self::lastPeriodEnd($scope, $eventId);
-        $periodStart = $lastEnd ? $lastEnd->copy()->addDay() : Carbon::createFromDate(2000, 1, 1);
-
-        return self::transactionsForPeriod($scope, $eventId, $periodStart, null);
-    }
-
-    /**
-     * The transactions that fell inside one already-locked settlement's own period — only
-     * ever reachable by someone canViewHistory() already lets see past settlements at all;
-     * never editable (see the pane's own $selectedSettlementId !== null guard).
+     * The exact transactions one already-locked settlement claimed at the moment it was run
+     * — only ever reachable by someone canViewHistory() already lets see past settlements
+     * at all; never editable.
      */
     public static function transactionsForSettlement(CashSettlement $settlement): \Illuminate\Support\Collection
     {
-        return self::transactionsForPeriod(
-            $settlement->scope,
-            $settlement->event_id,
-            Carbon::parse($settlement->period_start),
-            Carbon::parse($settlement->period_end)
-        );
+        $wanted = collect($settlement->transaction_refs ?? [])
+            ->reject(fn ($ref) => $ref['type'] === 'banking')
+            ->map(fn ($ref) => $ref['type'] . ':' . $ref['id'])
+            ->flip();
+
+        if ($settlement->scope === 'event') {
+            $data = EventDonationBreakdown::forEvent((int) $settlement->event_id);
+            return $data['rows']->filter(fn ($r) => $wanted->has($r->donation_type . ':' . $r->id))->values();
+        }
+
+        $ids = collect($settlement->transaction_refs ?? [])->where('type', 'ticket_order')->pluck('id');
+        return collect(DB::table('ticket_orders')->whereIn('id', $ids)->orderByDesc('created_at')->get());
     }
 
-    public static function bankedInPeriod(string $scope, ?int $eventId, Carbon $from, Carbon $to): float
+    public static function bankedInPeriod(string $scope, ?int $eventId, array $claimedKeys): float
     {
-        // The 'date' cast on CashBanking::banked_date round-trips through Carbon, which
-        // stores it with a "00:00:00" time component — comparing against bare "Y-m-d"
-        // strings would lexicographically exclude same-day rows (the longer, timed string
-        // sorts after the bare date), so the bounds need the same full-datetime shape.
-        return (float) CashBanking::where('scope', $scope)
-            ->where('event_id', $eventId)
-            ->whereBetween('banked_date', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+        return (float) CashBanking::where('scope', $scope)->where('event_id', $eventId)->get(['id', 'amount'])
+            ->filter(fn ($b) => !isset($claimedKeys['banking:' . $b->id]))
             ->sum('amount');
     }
 
@@ -241,23 +256,26 @@ class CashSettlementService
     public static function preview(string $scope, ?int $eventId, ?Carbon $periodEnd = null): array
     {
         $periodEnd = $periodEnd ?? now();
-        $lastEnd = self::lastPeriodEnd($scope, $eventId);
-        // First-ever settlement for this scope starts from the very beginning of time
-        // rather than requiring a manual "first period" date.
-        $periodStart = $lastEnd ? $lastEnd->copy()->addDay() : Carbon::createFromDate(2000, 1, 1);
-        if ($periodStart->gt($periodEnd)) {
-            $periodStart = $periodEnd->copy();
+        $claimedKeys = self::claimedTransactionKeys($scope, $eventId);
+
+        // Cosmetic only (what gets stored/displayed as this settlement's period_start) —
+        // the actual figures below come from claimedTransactionKeys(), not from this date.
+        $last = self::latestSettlement($scope, $eventId);
+        $lastEndDate = $last ? Carbon::parse($last->period_end) : null;
+        $displayPeriodStart = $lastEndDate ? $lastEndDate->copy()->addDay() : Carbon::createFromDate(2000, 1, 1);
+        if ($displayPeriodStart->gt($periodEnd)) {
+            $displayPeriodStart = $periodEnd->copy();
         }
 
         $opening = self::currentOpeningBalance($scope, $eventId);
-        $received = self::cashReceivedBreakdown($scope, $eventId, $periodStart, $periodEnd);
-        $banked = self::bankedInPeriod($scope, $eventId, $periodStart, $periodEnd);
+        $received = self::cashReceivedBreakdown($scope, $eventId, $claimedKeys);
+        $banked = self::bankedInPeriod($scope, $eventId, $claimedKeys);
         $closing = round($opening + $received['total'] - $banked, 2);
 
         return [
             'scope' => $scope,
             'event_id' => $eventId,
-            'period_start' => $periodStart,
+            'period_start' => $displayPeriodStart,
             'period_end' => $periodEnd,
             'opening_balance' => $opening,
             'cash_received' => $received['total'],
@@ -274,34 +292,27 @@ class CashSettlementService
      * merged into their existing view data. $includeHistory is false for a pos-level
      * event coordinator (see canViewHistory()) — past bankings/settlements are simply
      * never fetched for them, not just hidden in the view, so there's no chance of a
-     * template change accidentally leaking them. $selectedSettlementId lets the
-     * Transactions table be pointed at one already-settled period instead of the live one
-     * (the pane's own "Settlement" filter) — ignored (falls back to the current period)
-     * unless it actually names one of THIS scope's own settlements, which is automatically
-     * impossible when $includeHistory is false since $cashSettlements is empty then.
+     * template change accidentally leaking them. currentTransactions here is ALWAYS the
+     * live, not-yet-settled period — the Settle Till widget only ever works the till in
+     * front of it right now; browsing past settlements' own transactions by filter lives on
+     * the Portal's All Transactions pane instead (EventConsoleController::show()), not here.
      */
-    public static function paneData(string $scope, ?int $eventId, bool $includeHistory = true, ?int $selectedSettlementId = null): array
+    public static function paneData(string $scope, ?int $eventId, bool $includeHistory = true): array
     {
-        $cashSettlements = $includeHistory
-            ? CashSettlement::where('scope', $scope)->where('event_id', $eventId)->with('performedBy')->latest('period_end')->latest('id')->limit(50)->get()
-            : collect();
-        $selectedSettlement = $selectedSettlementId ? $cashSettlements->firstWhere('id', $selectedSettlementId) : null;
-
         return [
             'cashPreview' => self::preview($scope, $eventId),
-            'currentTransactions' => $selectedSettlement
-                ? self::transactionsForSettlement($selectedSettlement)
-                : self::currentPeriodTransactions($scope, $eventId),
-            'selectedSettlementId' => $selectedSettlement?->id,
+            'currentTransactions' => self::currentPeriodTransactions($scope, $eventId),
             // Not gated by $includeHistory — this is a single fact (when was it last
             // settled, how much carried forward), not the settlement/banking history
             // itself, and a pos-level user is allowed to know it (see the pane's own
             // fallback message for a user who can't see full history).
-            'lastSettlementDate' => self::lastPeriodEnd($scope, $eventId),
+            'lastSettlementDate' => self::lastSettledAt($scope, $eventId),
             'cashBankings' => $includeHistory
-                ? CashBanking::where('scope', $scope)->where('event_id', $eventId)->with('recordedBy')->latest('banked_date')->latest('id')->limit(50)->get()
+                ? CashBanking::where('scope', $scope)->where('event_id', $eventId)->with('recordedBy')->latest('created_at')->limit(50)->get()
                 : collect(),
-            'cashSettlements' => $cashSettlements,
+            'cashSettlements' => $includeHistory
+                ? CashSettlement::where('scope', $scope)->where('event_id', $eventId)->with('performedBy')->latest('created_at')->limit(50)->get()
+                : collect(),
         ];
     }
 
@@ -320,9 +331,26 @@ class CashSettlementService
         $variance = round($tillCount - $expected, 2);
         $closing = round($tillCount - $amountBanked, 2);
 
-        return DB::transaction(function () use ($data, $performedBy, $tillCount, $amountBanked, $variance, $closing, $varianceNote, $scope, $eventId) {
+        // Snapshot — by exact id, taken right now — of every transaction and (if any)
+        // not-yet-claimed banking deposit this settlement is locking in, so later lookups
+        // (transactionsForSettlement(), the next currentPeriodTransactions() call) never
+        // need to re-derive "was this in this settlement's period" from a date or a
+        // `timestamp` column's one-second resolution — see claimedTransactionKeys()'s own
+        // docblock for why that's unreliable.
+        $claimedKeys = self::claimedTransactionKeys($scope, $eventId);
+        $refs = self::currentPeriodTransactions($scope, $eventId)
+            ->map(fn ($r) => ['type' => $scope === 'event' ? $r->donation_type : 'ticket_order', 'id' => $r->id])
+            ->values()->all();
+        $unclaimedBankingIds = CashBanking::where('scope', $scope)->where('event_id', $eventId)->get(['id'])
+            ->filter(fn ($b) => !isset($claimedKeys['banking:' . $b->id]))
+            ->pluck('id');
+        foreach ($unclaimedBankingIds as $bankingId) {
+            $refs[] = ['type' => 'banking', 'id' => $bankingId];
+        }
+
+        return DB::transaction(function () use ($data, $performedBy, $tillCount, $amountBanked, $variance, $closing, $varianceNote, $scope, $eventId, $refs) {
             if ($amountBanked > 0) {
-                CashBanking::create([
+                $banking = CashBanking::create([
                     'scope' => $scope,
                     'event_id' => $eventId,
                     'amount' => $amountBanked,
@@ -330,6 +358,7 @@ class CashSettlementService
                     'note' => 'Recorded as part of a till settlement',
                     'recorded_by' => $performedBy,
                 ]);
+                $refs[] = ['type' => 'banking', 'id' => $banking->id];
             }
 
             $settlement = CashSettlement::create([
@@ -346,6 +375,7 @@ class CashSettlementService
                 'variance_note' => $varianceNote,
                 'breakdown' => $data['breakdown'],
                 'performed_by' => $performedBy,
+                'transaction_refs' => $refs,
             ]);
 
             $label = $data['scope'] === 'event' ? "event #{$data['event_id']}" : 'tickets';

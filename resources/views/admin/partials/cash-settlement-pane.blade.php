@@ -3,25 +3,21 @@
      partial is deliberately self-contained: only plain Bootstrap classes (always loaded on
      all four) plus its own small scoped <style> block, nothing that depends on a class any
      particular host page happens to define.
+     This is the live, not-yet-settled period only — a settlement/method/status filterable
+     view of EVERY transaction (not just the current period) lives on the Portal's own All
+     Transactions pane instead (event-console.blade.php), not here.
      Expects: $scope ('event'|'tickets'), $eventId (nullable), $cashPreview (array from
      CashSettlementService::preview()), $cashBankings, $cashSettlements (collections —
      empty when $canViewCashHistory is false), $canViewCashHistory (bool — false for a
      pos-level event coordinator; see CashSettlementService::canViewHistory()),
-     $currentTransactions, $selectedSettlementId (nullable — which past settlement's period
-     $currentTransactions is showing; null means the live, not-yet-settled period),
-     $lastSettlementDate (nullable Carbon), $temple. --}}
+     $currentTransactions, $lastSettlementDate (nullable Carbon), $temple. --}}
 @php
     $currency = $temple['currency'] ?? '';
     $fmt = fn ($n) => $currency . ' ' . number_format((float) $n, 2);
     $expected = round($cashPreview['opening_balance'] + $cashPreview['cash_received'], 2);
     $formId = 'settleTillForm_' . $scope . '_' . ($eventId ?? 'tickets');
     $canEditCurrentTransactions = $canEditCurrentTransactions ?? false;
-    $selectedSettlementId = $selectedSettlementId ?? null;
-    // Only the live (unsettled) period is ever editable — a past settlement's own
-    // transactions are shown for reference only, never as a route back into editing them.
-    $viewingCurrentPeriod = $selectedSettlementId === null;
     $baseUrl = $scope === 'event' ? route('admin.events.pos', $eventId) : route('admin.tickets.pos');
-    $distinctMethods = $scope === 'event' ? $currentTransactions->pluck('payment_method')->unique()->values() : collect();
 @endphp
 
 <div class="cash-settle-widget">
@@ -36,12 +32,6 @@
     .cash-settle-widget .btn-cs-save:hover { color: #fff; filter: brightness(1.05); }
     .cash-settle-widget .cs-table-wrap { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; overflow: hidden; }
     .cash-settle-widget .cs-table-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid #f0ece6; }
-    .cash-settle-widget .cs-filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 20px; border-bottom: 1px solid #f0ece6; background: #fcfbf9; }
-    .cash-settle-widget .cs-filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    .cash-settle-widget .cs-filter-group-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #a0907e; margin-right: 2px; }
-    .cash-settle-widget .cs-pill { border: 1px solid #e8e0d4; background: #fff; border-radius: 40px; padding: 4px 12px; font-size: 0.78rem; font-weight: 600; color: #7b6b5a; cursor: pointer; user-select: none; }
-    .cash-settle-widget .cs-pill.active { background: #C89B3C; border-color: #C89B3C; color: #fff; }
-    .cash-settle-widget .cs-select { border: 1px solid #e8e0d4; border-radius: 10px; padding: 6px 10px; font-size: 0.85rem; background: #fff; }
     .cash-settle-widget .cs-search-wrap { position: relative; }
     .cash-settle-widget .cs-search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a89a86; font-size: 0.85rem; }
     .cash-settle-widget .cs-search-input { border: 1px solid #e8e0d4; border-radius: 40px; padding: 7px 14px 7px 32px; font-size: 0.85rem; min-width: 220px; background: #faf8f5; }
@@ -82,7 +72,7 @@
 <div class="cs-card mb-3 d-flex align-items-center gap-2">
     <i class="bi bi-clock-history" style="font-size:1.2rem;color:#B7791F;"></i>
     <div class="small">
-        <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y') : 'Never — this is the first period' }}
+        <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y, g:i A') : 'Never — this is the first period' }}
         &middot; <span class="fw-bold">Carried forward:</span> {{ $fmt($cashPreview['opening_balance']) }}
     </div>
 </div>
@@ -102,15 +92,7 @@
 
 <div class="cs-table-wrap mb-3">
     <div class="cs-table-head">
-        <div class="fw-bold">
-            <i class="bi bi-list-check me-1"></i>
-            @if($viewingCurrentPeriod)
-                Current Period Transactions ({{ $currentTransactions->count() }})
-            @else
-                @php $viewedSettlement = $cashSettlements->firstWhere('id', $selectedSettlementId); @endphp
-                Transactions for {{ $viewedSettlement ? $viewedSettlement->period_start->format('d M Y') . ' – ' . $viewedSettlement->period_end->format('d M Y') : 'selected settlement' }} ({{ $currentTransactions->count() }})
-            @endif
-        </div>
+        <div class="fw-bold"><i class="bi bi-list-check me-1"></i>Current Period Transactions ({{ $currentTransactions->count() }})</div>
         @if($currentTransactions->isNotEmpty())
         <div class="cs-search-wrap">
             <i class="bi bi-search"></i>
@@ -118,34 +100,6 @@
         </div>
         @endif
     </div>
-
-    @if($canViewCashHistory && $cashSettlements->isNotEmpty())
-    <div class="cs-filter-row">
-        <span class="cs-filter-group-label">Settlement</span>
-        <select class="cs-select" id="csSettlementSelect_{{ $formId }}" data-base-url="{{ $baseUrl }}">
-            <option value="" {{ $viewingCurrentPeriod ? 'selected' : '' }}>Current period (unsettled)</option>
-            @foreach($cashSettlements as $s)
-            <option value="{{ $s->id }}" {{ $selectedSettlementId === $s->id ? 'selected' : '' }}>{{ $s->period_start->format('d M Y') }} – {{ $s->period_end->format('d M Y') }}</option>
-            @endforeach
-        </select>
-    </div>
-    @endif
-
-    @if($scope === 'event' && $distinctMethods->isNotEmpty())
-    <div class="cs-filter-row">
-        <div class="cs-filter-group">
-            <span class="cs-filter-group-label">Method</span>
-            @foreach($distinctMethods as $m)
-            <span class="cs-pill active" data-filter-group="method" data-value="{{ strtolower($m) }}">{{ $m }}</span>
-            @endforeach
-        </div>
-        <div class="cs-filter-group">
-            <span class="cs-filter-group-label">Status</span>
-            <span class="cs-pill active" data-filter-group="status" data-value="paid">Completed</span>
-            <span class="cs-pill active" data-filter-group="status" data-value="pending">Pending</span>
-        </div>
-    </div>
-    @endif
 
     @if($currentTransactions->isEmpty())
         <div class="cs-empty-state">Nothing recorded in this period yet.</div>
@@ -159,7 +113,7 @@
                     <th>{{ $scope === 'event' ? 'Purpose' : 'Order' }}</th>
                     @if($scope === 'event')<th>Method</th><th>Status</th>@endif
                     <th class="text-end">Amount</th>
-                    @if($canEditCurrentTransactions && $viewingCurrentPeriod)<th></th>@endif
+                    @if($canEditCurrentTransactions)<th></th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -168,16 +122,16 @@
                     @php
                         $rowKey = $row->donation_type . '-' . $row->id;
                         $isPending = $row->payment_status === 'Pending';
-                        $canComplete = $canEditCurrentTransactions && $viewingCurrentPeriod && $isPending;
+                        $canComplete = $canEditCurrentTransactions && $isPending;
                     @endphp
-                    <tr class="cs-row" data-search="{{ strtolower($row->display_name . ' ' . $row->purpose) }}" data-method="{{ strtolower($row->payment_method) }}" data-status="{{ strtolower($row->payment_status) }}" data-edit-id="csEdit_{{ $rowKey }}">
+                    <tr class="cs-row" data-search="{{ strtolower($row->display_name . ' ' . $row->purpose) }}" data-edit-id="csEdit_{{ $rowKey }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }}</td>
                         <td>{{ $row->display_name }}</td>
                         <td>{{ $row->purpose ?: '—' }}</td>
                         <td>{{ $row->payment_method }}</td>
                         <td><span class="cs-badge {{ $isPending ? 'pending' : 'paid' }}">{{ $isPending ? 'Pending' : 'Completed' }}</span></td>
                         <td class="text-end fw-bold">{{ $fmt($row->amount) }}</td>
-                        @if($canEditCurrentTransactions && $viewingCurrentPeriod)
+                        @if($canEditCurrentTransactions)
                         <td class="text-end">
                             @if($canComplete && $row->donation_type === 'guest')
                                 <a class="cs-complete-link" href="{{ $baseUrl }}?edit_id={{ $row->id }}"><i class="bi bi-arrow-right-circle-fill me-1"></i>Complete in POS</a>
@@ -224,14 +178,12 @@
     @endif
 </div>
 
-@if($viewingCurrentPeriod)
 <div class="cs-card mb-3">
     <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settle Till</div>
     <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
         @csrf
         <input type="hidden" name="scope" value="{{ $scope }}">
         @if($eventId)<input type="hidden" name="event_id" value="{{ $eventId }}">@endif
-        <input type="hidden" name="period_end" value="{{ now()->toDateString() }}">
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label small">Till Count — total cash counted ({{ $currency }})</label>
@@ -257,7 +209,6 @@
         <button type="submit" class="btn-cs-save mt-3" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">Settle Till Now</button>
     </form>
 </div>
-@endif
 
 @if($canViewCashHistory)
 <div class="cs-card mb-3">
@@ -271,15 +222,13 @@
                     <div class="text-muted small">
                         Opening {{ $fmt($settlement->opening_balance) }} &rarr; Closing {{ $fmt($settlement->closing_balance) }}
                         @if($settlement->performedBy) &middot; by {{ $settlement->performedBy->name }} @endif
+                        &middot; settled {{ $settlement->created_at->format('d M Y, g:i A') }}
                     </div>
                     @if($settlement->till_count !== null)
                     <div class="text-muted small">Till counted {{ $fmt($settlement->till_count) }} &middot; Banked {{ $fmt($settlement->amount_banked) }}</div>
                     @endif
                 </div>
-                <div class="d-flex gap-2">
-                    <a class="btn btn-sm btn-outline-secondary" href="{{ $baseUrl }}?settlement_id={{ $settlement->id }}">View Transactions</a>
-                    <button type="button" class="btn btn-sm btn-outline-secondary settlement-edit-toggle" data-settlement-id="{{ $settlement->id }}">Edit</button>
-                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary settlement-edit-toggle" data-settlement-id="{{ $settlement->id }}">Edit</button>
             </div>
             @if($settlement->variance !== null && abs($settlement->variance) >= 0.01)
                 <div class="small fw-bold {{ $settlement->variance > 0 ? 'text-success' : 'text-danger' }}">
@@ -382,56 +331,21 @@
         });
     });
 
-    // Jumping to a past settlement's own transaction list — a plain navigation (not an
-    // AJAX refresh) since the whole pane/page re-renders read-only for that period.
-    const settlementSelect = document.getElementById('csSettlementSelect_{{ $formId }}');
-    if (settlementSelect) {
-        settlementSelect.addEventListener('change', function () {
-            const base = this.dataset.baseUrl;
-            window.location.href = this.value ? (base + '?settlement_id=' + this.value) : base;
-        });
-    }
-
-    // Current Period Transactions: client-side search + method/status pill filters — all
-    // three narrow the same already-loaded rows together; a row's edit form (devotee) is
-    // hidden along with it so a filtered-out row never leaves one open behind.
+    // Current Period Transactions: client-side search by name/purpose.
     const txnSearch = document.getElementById('csTxnSearch_{{ $formId }}');
     const txnTable = document.getElementById('csTxnTable_{{ $formId }}');
-    const activeFilters = { method: new Set(), status: new Set() };
-    document.querySelectorAll('.cs-pill').forEach(function (pill) {
-        activeFilters[pill.dataset.filterGroup].add(pill.dataset.value);
-    });
-
-    function applyFilters() {
-        if (!txnTable) return;
-        const q = txnSearch ? txnSearch.value.trim().toLowerCase() : '';
-        txnTable.querySelectorAll('tbody tr.cs-row').forEach(function (row) {
-            const searchOk = !q || (row.dataset.search || '').includes(q);
-            const methodOk = !row.dataset.method || activeFilters.method.size === 0 || activeFilters.method.has(row.dataset.method);
-            const statusOk = !row.dataset.status || activeFilters.status.size === 0 || activeFilters.status.has(row.dataset.status);
-            const match = searchOk && methodOk && statusOk;
-            row.style.display = match ? '' : 'none';
-            if (!match && row.dataset.editId) {
-                const editRow = document.getElementById(row.dataset.editId);
-                if (editRow) { editRow.style.display = 'none'; }
-            }
+    if (txnSearch && txnTable) {
+        txnSearch.addEventListener('input', function () {
+            const q = this.value.trim().toLowerCase();
+            txnTable.querySelectorAll('tbody tr.cs-row').forEach(function (row) {
+                const match = !q || (row.dataset.search || '').includes(q);
+                row.style.display = match ? '' : 'none';
+                if (!match && row.dataset.editId) {
+                    const editRow = document.getElementById(row.dataset.editId);
+                    if (editRow) { editRow.style.display = 'none'; }
+                }
+            });
         });
     }
-
-    if (txnSearch) { txnSearch.addEventListener('input', applyFilters); }
-    document.querySelectorAll('.cs-pill').forEach(function (pill) {
-        pill.addEventListener('click', function () {
-            const group = this.dataset.filterGroup;
-            const value = this.dataset.value;
-            if (activeFilters[group].has(value)) {
-                activeFilters[group].delete(value);
-                this.classList.remove('active');
-            } else {
-                activeFilters[group].add(value);
-                this.classList.add('active');
-            }
-            applyFilters();
-        });
-    });
 })();
 </script>
