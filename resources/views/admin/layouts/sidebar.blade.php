@@ -47,6 +47,70 @@
     </li>
     @endif
 
+    @if($can('bookings') || $can('events') || $can('inventory'))
+    <li class="nav-section-label">Operations</li>
+    @if($can('bookings'))
+    <li class="nav-item">
+      <a href="{{ route('admin.bookings.index') }}" class="nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
+        <i class="bi bi-calendar-event"></i> Pooja Bookings
+      </a>
+    </li>
+    @endif
+    @if($can('events'))
+    <li class="nav-item">
+      <a href="{{ route('admin.events.index') }}" class="nav-link {{ request()->routeIs('admin.events.*') ? 'active' : '' }}"><i class="bi bi-stars"></i> Events</a>
+    </li>
+    @endif
+    @if($can('inventory'))
+    <li class="nav-item">
+      <a href="{{ route('admin.inventory.index') }}" class="nav-link {{ request()->routeIs('admin.inventory.*') ? 'active' : '' }}"><i class="bi bi-box-seam"></i> Inventory</a>
+    </li>
+    @endif
+    @endif
+
+    @if($can('donations') || $can('tickets') || $can('salaries') || $can('reports') || $sidebarRole === 'Admin')
+    <li class="nav-section-label">Finance</li>
+    @if($sidebarRole === 'Admin')
+    <li class="nav-item">
+      <a href="{{ route('admin.transactions.index') }}" class="nav-link {{ request()->routeIs('admin.transactions.*') ? 'active' : '' }}"><i class="bi bi-graph-up-arrow"></i> Transactions</a>
+    </li>
+    @endif
+    @if($can('donations'))
+    <li class="nav-item">
+      <a href="{{ route('admin.donations.index') }}" class="nav-link {{ request()->routeIs('admin.donations.*') ? 'active' : '' }}"><i class="bi bi-wallet2"></i> Donations</a>
+    </li>
+    @endif
+    @if($can('tickets'))
+    <li class="nav-item">
+      <a href="{{ route('admin.tickets.index') }}" class="nav-link {{ request()->routeIs('admin.tickets.*') ? 'active' : '' }}"><i class="bi bi-ticket-perforated-fill"></i> Ticket Sales</a>
+    </li>
+    @endif
+    @if($can('reports'))
+    <li class="nav-item">
+      <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}"><i class="bi bi-bar-chart-fill"></i> Reports</a>
+    </li>
+    @endif
+    @if($can('salaries'))
+    <li class="nav-item">
+      <a href="{{ route('admin.salaries.index') }}" class="nav-link {{ request()->routeIs('admin.salaries.*') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Salaries</a>
+    </li>
+    @endif
+    @endif
+
+    @if(\App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole) || $sidebarRole === 'Admin')
+    <li class="nav-section-label">Devices</li>
+    @if(\App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole))
+    <li class="nav-item">
+      <a href="{{ route('admin.kiosk-devices.index') }}" class="nav-link {{ request()->routeIs('admin.kiosk-devices.*') ? 'active' : '' }}"><i class="bi bi-tablet"></i> Kiosk Devices</a>
+    </li>
+    @endif
+    @if($sidebarRole === 'Admin')
+    <li class="nav-item">
+      <a href="{{ route('admin.registers.index') }}" class="nav-link {{ request()->routeIs('admin.registers.*') ? 'active' : '' }}"><i class="bi bi-display"></i> Registers</a>
+    </li>
+    @endif
+    @endif
+
     @if($can('devotees') || $can('priests') || $can('trustees') || $can('staff') || $can('accountants') || $can('committee') || $can('leaves'))
     <li class="nav-section-label">People</li>
     @if($can('devotees'))
@@ -90,64 +154,8 @@
     @endif
     @endif
 
-    @if($can('bookings') || $can('donations') || $can('events') || $can('inventory') || \App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole))
-    <li class="nav-section-label">Operations</li>
-    @if($can('bookings'))
-    <li class="nav-item">
-      <a href="{{ route('admin.bookings.index') }}" class="nav-link {{ request()->routeIs('admin.bookings.*') ? 'active' : '' }}">
-        <i class="bi bi-calendar-event"></i> Pooja Bookings
-      </a>
-    </li>
-    @endif
-    @if($can('donations'))
-    <li class="nav-item">
-      <a href="{{ route('admin.donations.index') }}" class="nav-link {{ request()->routeIs('admin.donations.*') ? 'active' : '' }}"><i class="bi bi-wallet2"></i> Donations</a>
-    </li>
-    @endif
-    @if($can('tickets'))
-    <li class="nav-item">
-      <a href="{{ route('admin.tickets.index') }}" class="nav-link {{ request()->routeIs('admin.tickets.*') ? 'active' : '' }}"><i class="bi bi-ticket-perforated-fill"></i> Tickets</a>
-    </li>
-    @endif
-    @if($can('events'))
-    <li class="nav-item">
-      <a href="{{ route('admin.events.index') }}" class="nav-link {{ request()->routeIs('admin.events.*') ? 'active' : '' }}"><i class="bi bi-stars"></i> Events</a>
-    </li>
-    @endif
-    @if($can('inventory'))
-    <li class="nav-item">
-      <a href="{{ route('admin.inventory.index') }}" class="nav-link {{ request()->routeIs('admin.inventory.*') ? 'active' : '' }}"><i class="bi bi-box-seam"></i> Inventory</a>
-    </li>
-    @endif
-    @if(\App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole))
-    <li class="nav-item">
-      <a href="{{ route('admin.kiosk-devices.index') }}" class="nav-link {{ request()->routeIs('admin.kiosk-devices.*') ? 'active' : '' }}"><i class="bi bi-tablet"></i> Kiosk Devices</a>
-    </li>
-    @endif
-    @endif
-
-    @if($can('salaries') || $can('reports'))
-    <li class="nav-section-label">Finance</li>
-    @if($can('salaries'))
-    <li class="nav-item">
-      <a href="{{ route('admin.salaries.index') }}" class="nav-link {{ request()->routeIs('admin.salaries.*') ? 'active' : '' }}"><i class="bi bi-cash-stack"></i> Salaries</a>
-    </li>
-    @endif
-    @if($can('reports'))
-    <li class="nav-item">
-      <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}"><i class="bi bi-bar-chart-fill"></i> Reports</a>
-    </li>
-    @endif
-    @endif
-
     @if($sidebarRole === 'Admin')
     <li class="nav-section-label">Administration</li>
-    <li class="nav-item">
-      <a href="{{ route('admin.role-permissions.index') }}" class="nav-link {{ request()->routeIs('admin.role-permissions.*') ? 'active' : '' }}"><i class="bi bi-shield-lock-fill"></i> Role Management</a>
-    </li>
-    <li class="nav-item">
-      <a href="{{ route('admin.qrlinks.index') }}" class="nav-link {{ request()->routeIs('admin.qrlinks.*') ? 'active' : '' }}"><i class="bi bi-qr-code"></i> QR Links</a>
-    </li>
     <li class="nav-item">
       <a href="{{ route('admin.settings') }}" class="nav-link {{ request()->routeIs('admin.settings*') ? 'active' : '' }}"><i class="bi bi-gear-fill"></i> System Settings</a>
     </li>
@@ -155,10 +163,10 @@
       <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"><i class="bi bi-person-vcard-fill"></i> System Users</a>
     </li>
     <li class="nav-item">
-      <a href="{{ route('admin.registers.index') }}" class="nav-link {{ request()->routeIs('admin.registers.*') ? 'active' : '' }}"><i class="bi bi-display"></i> Registers</a>
+      <a href="{{ route('admin.role-permissions.index') }}" class="nav-link {{ request()->routeIs('admin.role-permissions.*') ? 'active' : '' }}"><i class="bi bi-shield-lock-fill"></i> Role Management</a>
     </li>
     <li class="nav-item">
-      <a href="{{ route('admin.transactions.index') }}" class="nav-link {{ request()->routeIs('admin.transactions.*') ? 'active' : '' }}"><i class="bi bi-graph-up-arrow"></i> Transactions</a>
+      <a href="{{ route('admin.qrlinks.index') }}" class="nav-link {{ request()->routeIs('admin.qrlinks.*') ? 'active' : '' }}"><i class="bi bi-qr-code"></i> QR Links</a>
     </li>
     <li class="nav-item">
       <a href="{{ route('admin.logs.index') }}" class="nav-link {{ request()->routeIs('admin.logs.*') ? 'active' : '' }}"><i class="bi bi-journal-text"></i> Audit Logs</a>
