@@ -324,6 +324,33 @@
                                 <div class="stat-tile"><div class="stat-icon" style="background:#2a6fdb;"><i class="bi bi-ticket-perforated-fill"></i></div><div class="stat-text"><div class="label">Ticket Types</div><div class="value">{{ $tickets->count() }}</div></div></div>
                             </div>
                         </div>
+                        @if($canSettleCash)
+                        {{-- Current Settlement — replaces the old "Recent Orders" table here: the
+                             All Transactions pane already covers "what sold recently" in far more
+                             detail (filterable, searchable), so the dashboard's second card is more
+                             useful surfacing the till itself — what's expected, what's carried
+                             forward, and when it was last counted — with a direct way in to settle. --}}
+                        <div class="card-panel" style="padding:0;">
+                            <div class="p-3 pb-2"><h5 class="mb-0"><i class="bi bi-cash-stack me-1"></i>Current Settlement</h5></div>
+                            <div class="row g-2 px-3 pb-3">
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-box-arrow-in-right"></i></div><div class="stat-text"><div class="label">Opening Balance</div><div class="value">{{ number_format($cashPreview['opening_balance'], 2) }}</div></div></div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:var(--success);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Cash Received</div><div class="value">{{ number_format($cashPreview['cash_received'], 2) }}</div></div></div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:var(--maroon);"><i class="bi bi-calculator-fill"></i></div><div class="stat-text"><div class="label">Expected in Till</div><div class="value">{{ number_format($cashPreview['opening_balance'] + $cashPreview['cash_received'], 2) }}</div></div></div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:#2a6fdb;"><i class="bi bi-clock-history"></i></div><div class="stat-text"><div class="label">Last Settled</div><div class="value" style="font-size:0.95rem;">{{ $lastSettlementDate ? $lastSettlementDate->format('d M Y') : 'Never yet' }}</div></div></div>
+                                </div>
+                            </div>
+                            <div class="px-3 pb-3">
+                                <button type="button" class="btn-save w-100" style="padding:11px;" data-pane="pane-cash-banking"><i class="bi bi-arrow-right-circle me-1"></i>Go to Settlements</button>
+                            </div>
+                        </div>
+                        @else
                         <div class="card-panel" style="padding:0;">
                             <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Orders</h5></div>
                             <div class="table-scroll-wrap" style="max-height:360px;">
@@ -346,6 +373,7 @@
                                 </table>
                             </div>
                         </div>
+                        @endif
                     </div>
 
                     @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))

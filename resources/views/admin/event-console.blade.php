@@ -669,6 +669,34 @@
                         </div>
                         <div class="col-lg-6">
                             <div class="card-panel recent-mini-card h-100">
+                                @if($canSettleCash)
+                                {{-- Current Settlement — replaces the old "Recent Donations" list here:
+                                     the All Transactions pane already covers "what came in recently" in
+                                     far more detail (filterable, searchable), so the dashboard's second
+                                     card is more useful surfacing the till itself — what's expected,
+                                     what's carried forward, and when it was last counted — with a direct
+                                     way in to actually settle it. --}}
+                                <h4><i class="bi bi-cash-stack" style="color:var(--gold);"></i>Current Settlement</h4>
+                                <div class="summary-grid">
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-box-arrow-in-right"></i>Opening Balance</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($cashPreview['opening_balance'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-cash-coin"></i>Cash Received</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($cashPreview['cash_received'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-calculator-fill"></i>Expected in Till</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($cashPreview['opening_balance'] + $cashPreview['cash_received'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-clock-history"></i>Last Settled</div>
+                                        <div class="value" style="font-size:0.98rem;">{{ $lastSettlementDate ? $lastSettlementDate->format('d M Y') : 'Never yet' }}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-view-pending" data-pane="pane-cash-banking"><i class="bi bi-arrow-right-circle me-1"></i>Go to Settlements</button>
+                                @else
                                 <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
                                 <div class="recent-mini-list">
                                     @forelse($rows->take(8) as $row)
@@ -687,6 +715,7 @@
                                     @endforelse
                                 </div>
                                 <button type="button" class="btn-view-all w-100 mt-3 justify-content-center" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
+                                @endif
                             </div>
                         </div>
                     </div>
