@@ -155,6 +155,9 @@
       <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}"><i class="bi bi-person-vcard-fill"></i> System Users</a>
     </li>
     <li class="nav-item">
+      <a href="{{ route('admin.registers.index') }}" class="nav-link {{ request()->routeIs('admin.registers.*') ? 'active' : '' }}"><i class="bi bi-display"></i> Registers</a>
+    </li>
+    <li class="nav-item">
       <a href="{{ route('admin.logs.index') }}" class="nav-link {{ request()->routeIs('admin.logs.*') ? 'active' : '' }}"><i class="bi bi-journal-text"></i> Audit Logs</a>
     </li>
     @endif

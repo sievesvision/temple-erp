@@ -357,7 +357,7 @@ class TicketController extends Controller
      * The dedicated POS page — a cart-style "add tickets, adjust quantities, take payment"
      * screen, separate from the donation POS page per this being its own standalone module.
      */
-    public function posShow()
+    public function posShow(\Illuminate\Http\Request $request)
     {
         $user = Auth::user();
         $activeRole = $this->activeRole();
@@ -408,9 +408,11 @@ class TicketController extends Controller
         // rather than offered as a selectable-but-broken option (it still shows on the EFT
         // Terminal Settings page, grouped under "Inactive").
         $linklyMode = \App\Services\LinklyConfigService::mode();
-        // Per-operator, not the registry's raw global flag — see EftTerminal::default(), which
-        // this mirrors, so the picker pre-selects whichever terminal THIS user last picked.
-        $myDefaultTerminalId = EftTerminal::default()?->id;
+        // Register-aware: a paired register's own configured terminal for Ticket Sales
+        // wins first (a station's hardware fact, see EftTerminal::defaultForContext()),
+        // falling back to the per-operator default (EftTerminal::default()) otherwise.
+        $register = $request->attributes->get('register');
+        $myDefaultTerminalId = EftTerminal::defaultForContext($register, 'tickets', null)?->id;
         $eftTerminalsForJs = EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
             ->filter(fn ($t) => $t->isPairedFor($linklyMode))
             ->map(function ($t) use ($linklyMode, $myDefaultTerminalId) {

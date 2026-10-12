@@ -112,6 +112,28 @@ class EftTerminal extends Model
     }
 
     /**
+     * The context-aware default — priority order: the register's own configured default
+     * for THIS exact context (an event, or ticket sales — see
+     * register_eft_terminal_defaults/Register::defaultTerminalFor()), then the existing
+     * fallback chain default() already implements (user's preferred terminal, registry's
+     * is_default, first paired). A register's configured terminal represents the hardware
+     * actually plugged into that physical station — more authoritative than "whichever
+     * terminal this particular staff member happened to use last", since the same person
+     * might work from a different register another day.
+     */
+    public static function defaultForContext(?\App\Models\Register $register, string $contextType, ?int $contextId, ?\App\Models\User $user = null): ?self
+    {
+        if ($register) {
+            $configured = $register->defaultTerminalFor($contextType, $contextId);
+            if ($configured) {
+                return $configured;
+            }
+        }
+
+        return self::default($user);
+    }
+
+    /**
      * Resolves a terminal by id if given and valid, falling back to the default terminal —
      * the one place every EFT-starting controller action decides "which terminal", so a
      * missing/invalid id never silently 500s but always degrades to the default.

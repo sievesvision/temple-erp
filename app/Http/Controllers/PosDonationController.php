@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PosDonationController extends Controller
 {
-    public function show($eventId)
+    public function show(\Illuminate\Http\Request $request, $eventId)
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
@@ -114,9 +114,12 @@ class PosDonationController extends Controller
         // than offered as a selectable-but-broken option (it still shows on the EFT
         // Terminal Settings page, grouped under "Inactive").
         $linklyMode = \App\Services\LinklyConfigService::mode();
-        // Per-operator, not the registry's raw global flag — see EftTerminal::default(), which
-        // this mirrors, so the picker pre-selects whichever terminal THIS user last picked.
-        $myDefaultTerminalId = \App\Models\EftTerminal::default()?->id;
+        // Register-aware: a paired register's own configured terminal for THIS event wins
+        // first (a station's hardware fact, see EftTerminal::defaultForContext()), falling
+        // back to the per-operator default (EftTerminal::default()) when nothing's
+        // configured for this register/event pair, or no register is paired at all.
+        $register = $request->attributes->get('register');
+        $myDefaultTerminalId = \App\Models\EftTerminal::defaultForContext($register, 'event', (int) $eventId)?->id;
         $eftTerminalsForJs = \App\Models\EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
             ->filter(fn ($t) => $t->isPairedFor($linklyMode))
             ->map(function ($t) use ($linklyMode, $myDefaultTerminalId) {

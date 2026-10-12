@@ -949,6 +949,13 @@ Route::get('/kiosk/pair', function () {
 })->name('kiosk.pair');
 Route::post('/kiosk/pair', [\App\Http\Controllers\KioskPairingController::class, 'redeem'])->name('kiosk.pair.redeem');
 
+// Register pairing — same "the short code IS the credential" reasoning as kiosk pairing
+// above, but public by necessity for a different reason: a register is a normal
+// staff-operated browser (not a locked-down kiosk app), visited once on that counter's own
+// device to receive its long-lived register_token cookie (see IdentifyRegister).
+Route::get('/register/pair', [\App\Http\Controllers\RegisterController::class, 'showPair'])->name('register.pair');
+Route::post('/register/pair', [\App\Http\Controllers\RegisterController::class, 'submitPair'])->name('register.pair.submit');
+
 Route::middleware('kiosk.device')->prefix('kiosk')->group(function () {
     // Phase 1: a liveness check only — a future idle-timer/welcome page can call this.
     Route::get('/ping', function (\Illuminate\Http\Request $request) {
@@ -1027,4 +1034,20 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/admin/kiosk-devices/{kioskDevice}/revoke', [\App\Http\Controllers\KioskDeviceController::class, 'revoke'])->name('admin.kiosk-devices.revoke');
     Route::post('/admin/kiosk-devices/{kioskDevice}/rotate', [\App\Http\Controllers\KioskDeviceController::class, 'rotateCredential'])->name('admin.kiosk-devices.rotate');
     Route::delete('/admin/kiosk-devices/{kioskDevice}', [\App\Http\Controllers\KioskDeviceController::class, 'destroy'])->name('admin.kiosk-devices.destroy');
+});
+
+// ============================================
+// ADMIN: REGISTER MANAGEMENT — a physical counter/station, paired to its own browser via
+// a short code (see RegisterService), with its own per-event/ticket-sales default EFT
+// terminal (register_eft_terminal_defaults). See Register/RegisterController.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/registers', [\App\Http\Controllers\RegisterController::class, 'index'])->name('admin.registers.index');
+    Route::post('/admin/registers', [\App\Http\Controllers\RegisterController::class, 'store'])->name('admin.registers.store');
+    Route::post('/admin/registers/{register}/rename', [\App\Http\Controllers\RegisterController::class, 'rename'])->name('admin.registers.rename');
+    Route::post('/admin/registers/{register}/pairing-code', [\App\Http\Controllers\RegisterController::class, 'generateCode'])->name('admin.registers.pairingCode');
+    Route::post('/admin/registers/{register}/unpair', [\App\Http\Controllers\RegisterController::class, 'unpair'])->name('admin.registers.unpair');
+    Route::delete('/admin/registers/{register}', [\App\Http\Controllers\RegisterController::class, 'destroy'])->name('admin.registers.destroy');
+    Route::get('/admin/registers/{register}/terminals', [\App\Http\Controllers\RegisterController::class, 'terminals'])->name('admin.registers.terminals');
+    Route::post('/admin/registers/{register}/terminals', [\App\Http\Controllers\RegisterController::class, 'setTerminal'])->name('admin.registers.setTerminal');
 });
