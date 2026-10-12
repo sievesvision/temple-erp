@@ -302,6 +302,9 @@
         .donations-row-clickable:hover { background: #fbfaf8; }
         .btn-view-donation { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 6px 13px; border-radius: 7px; font-size: 0.8rem; }
         .btn-view-donation:hover { border-color: #adb5bd; color: var(--text-primary); }
+        .btn-copy-ref { display: inline-flex; align-items: center; gap: 6px; background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 6px 12px; border-radius: 7px; font-size: 0.78rem; max-width: 170px; }
+        .btn-copy-ref span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace; font-size: 0.74rem; }
+        .btn-copy-ref:hover { border-color: #adb5bd; color: var(--text-primary); }
         .settlement-badge { display: inline-block; background: #eef2f5; color: var(--text-secondary); border-radius: 7px; padding: 4px 10px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
         .settlement-badge.current { background: #fdf0db; color: #8A6A1E; }
 
@@ -900,6 +903,7 @@
                                 <tr>
                                     <th class="sortable" data-sort="timestamp">Date &amp; Time<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="name">Donor Name<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th>Contact</th>
                                     <th class="col-amount sortable" data-sort="amount">Amount<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="payment">Payment Method<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="status">Status<i class="bi bi-arrow-down-up sort-icon"></i></th>
@@ -940,6 +944,11 @@
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $rowModalId }}">
                                     <td>{{ date('d M Y', strtotime($row->donation_date)) }}<div class="text-muted small">{{ date('g:i A', strtotime($row->created_at)) }}</div></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
+                                    <td class="col-contact">
+                                        @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
+                                        @if($row->email)<div class="text-muted contact-email" title="{{ $row->email }}">{{ $row->email }}</div>@endif
+                                        @if(!$row->mobile && !$row->email)—@endif
+                                    </td>
                                     <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
                                     <td>{{ $row->payment_method }}</td>
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
@@ -950,7 +959,7 @@
                                 </tr>
                                 @empty
                                 @if(($eftOrphanRows ?? collect())->isEmpty())
-                                <tr><td colspan="7" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
                                 @endif
                                 @endforelse
                                 @if($canEditEvent)
@@ -966,10 +975,12 @@
                                         ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
                                         : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
                                     $oDonorName = $ot->meta['donor_name'] ?? null;
+                                    $oEmail = $ot->meta['email'] ?? null;
+                                    $oMobile = $ot->meta['mobile'] ?? null;
                                 @endphp
                                 <tr data-donation-date="{{ $ot->created_at->format('Y-m-d') }}"
                                     data-timestamp="{{ $ot->created_at->format('Y-m-d H:i:s') }}"
-                                    data-search="{{ strtolower($oDonorName ?? '') }}"
+                                    data-search="{{ strtolower(($oDonorName ?? '') . ' ' . ($oEmail ?? '') . ' ' . ($oMobile ?? '')) }}"
                                     data-type="eft"
                                     data-donation-id=""
                                     data-name="{{ strtolower($oDonorName ?? '') }}"
@@ -983,12 +994,17 @@
                                     data-settlement="current">
                                     <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
                                     <td class="col-name">{{ $oDonorName ?: '—' }} <span class="text-muted small text-capitalize">({{ $oIsRefund ? 'Refund' : 'Attempt' }})</span></td>
+                                    <td class="col-contact">
+                                        @if($oMobile)<div>{{ $oMobile }}</div>@endif
+                                        @if($oEmail)<div class="text-muted contact-email" title="{{ $oEmail }}">{{ $oEmail }}</div>@endif
+                                        @if(!$oMobile && !$oEmail)—@endif
+                                    </td>
                                     <td class="col-amount total">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
                                     <td>EFT Terminal<div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div></td>
                                     <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
                                     <td><span class="settlement-badge current">Current (Unsettled)</span></td>
                                     <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i> {{ $oRef ?: '—' }}</button>
+                                        <button type="button" class="btn-copy-ref" title="Click to copy full reference: {{ $oRef }}" onclick="navigator.clipboard.writeText('{{ $oRef }}'); showToast('Reference copied to clipboard');"><i class="bi bi-clipboard"></i> <span>{{ $oRef ? \Illuminate\Support\Str::limit($oRef, 14, '…') : '—' }}</span></button>
                                         @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
                                         <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i></button>
                                         @endif
@@ -996,7 +1012,7 @@
                                 </tr>
                                 @endforeach
                                 @endif
-                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="7" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
+                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="8" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
                             </tbody>
                         </table>
                         </div>

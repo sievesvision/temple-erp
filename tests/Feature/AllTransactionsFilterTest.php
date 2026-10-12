@@ -29,11 +29,12 @@ class AllTransactionsFilterTest extends TestCase
         ]);
     }
 
-    private function insertGuestDonation(int $eventId, string $donorName, float $amount, string $method, string $status): int
+    private function insertGuestDonation(int $eventId, string $donorName, float $amount, string $method, string $status, ?string $email = null, ?string $mobile = null): int
     {
         return DB::table('donations_without_logins')->insertGetId([
             'event_id' => $eventId, 'donor_name' => $donorName, 'amount' => $amount,
             'payment_method' => $method, 'payment_status' => $status, 'purpose' => 'General',
+            'email' => $email, 'mobile' => $mobile,
             'donation_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
         ]);
     }
@@ -76,5 +77,22 @@ class AllTransactionsFilterTest extends TestCase
         // donor's own row data regardless of pill state.
         $response->assertSee('data-value="cancelled">', false);
         $response->assertDontSee('donations-multi-pill active" data-value="cancelled"', false);
+    }
+
+    public function test_contact_details_are_shown_and_searchable_by_email_or_mobile(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $this->insertGuestDonation($eventId, 'Contactable Donor', 40, 'Cash', 'Paid', 'contactable@example.test', '0412345678');
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('contactable@example.test');
+        $response->assertSee('0412345678');
+        // The row's own data-search attribute (client-side search index) must include both,
+        // not just the visible column — this is what lets typing an email or mobile into
+        // the search box actually find the row.
+        $response->assertSee('data-search="contactable donor contactable@example.test 0412345678"', false);
     }
 }
