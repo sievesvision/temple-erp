@@ -51,7 +51,7 @@ class AllTransactionsFilterTest extends TestCase
         $response->assertOk();
         $response->assertSee('donationsStatusPills', false);
         $response->assertSee('donationsPaymentPills', false);
-        $response->assertSee('donationsSettlementPills', false);
+        $response->assertSee('donationsSettlementSelect', false);
         $response->assertSee('Current (Unsettled)');
         $response->assertSee('Settled Donor');
         $response->assertSee('Current Donor');

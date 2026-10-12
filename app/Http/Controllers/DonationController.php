@@ -1355,7 +1355,19 @@ class DonationController extends Controller
             'email' => $meta['email'] ?? null,
             'mobile' => $meta['mobile'] ?? null,
             'amount' => $txn->amount,
-            'purpose' => $meta['purpose'] ?: 'General Donation',
+            // 'Event Donation' — not 'General Donation' — is this app's one sentinel for
+            // "no specific donation option/tier was chosen" (see $this->display_option's own
+            // "!== 'Event Donation'" check a few lines up in this file, and the browser's own
+            // normal-path purposeValue default in event-pos-donation.blade.php): keeping
+            // every fallback on that same string is what makes a donation recovered here
+            // (the browser never got the chance to save it itself) display identically to one
+            // the browser saved normally, instead of showing a literal "General Donation"
+            // label the ordinary path would have shown blank.
+            // ?? (not ?:) first — `$meta['purpose']` not existing at all (an older ledger
+            // row from before 'purpose' was even captured) would otherwise raise an
+            // "Undefined array key" warning, since unlike ??, ?: still evaluates the
+            // left-hand lookup itself before falling back.
+            'purpose' => ($meta['purpose'] ?? '') ?: 'Event Donation',
             'purpose_details' => $meta['purpose_details'] ?? null,
             'payment_method' => 'EFT Terminal',
             'payment_status' => 'Paid',

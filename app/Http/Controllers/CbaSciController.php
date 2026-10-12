@@ -712,7 +712,12 @@ class CbaSciController extends Controller
             'email' => $meta['email'] ?? null,
             'mobile' => $meta['mobile'] ?? null,
             'amount' => $txn->amount,
-            'purpose' => $meta['purpose'] ?? 'General Donation',
+            // 'Event Donation' is this app's one sentinel for "no specific donation option
+            // chosen" — see DonationController::createDonationIfApprovedPurchaseUnrecorded()'s
+            // identical fix for why every fallback needs to agree on it. ?? first (not just
+            // ?:) — $meta['purpose'] not existing at all would otherwise raise an "Undefined
+            // array key" warning, since ?: still evaluates the left-hand lookup itself.
+            'purpose' => ($meta['purpose'] ?? '') ?: 'Event Donation',
             'purpose_details' => $meta['purpose_details'] ?? null,
             'payment_method' => 'EFT Terminal',
             'payment_status' => 'Paid',

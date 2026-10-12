@@ -1000,7 +1000,7 @@
             'name' => $pendingEftRecovery->meta['donor_name'] ?? 'Guest',
             'email' => $pendingEftRecovery->meta['email'] ?? '',
             'mobile' => $pendingEftRecovery->meta['mobile'] ?? '',
-            'purpose' => $pendingEftRecovery->meta['purpose'] ?? 'General Donation',
+            'purpose' => ($pendingEftRecovery->meta['purpose'] ?? '') ?: 'Event Donation',
             'purposeDetails' => $pendingEftRecovery->meta['purpose_details'] ?? '',
         ] : null;
     @endphp
