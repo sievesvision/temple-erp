@@ -22,7 +22,7 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
 
     public function test_ticket_console_shows_settings_and_logs_panes(): void
     {
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+        $response = $this->actingAs($this->adminUser())->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee('pane-settings', false);
@@ -42,7 +42,7 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
     {
         EftTerminal::factory()->create(['key' => 'counter-2', 'label' => 'Ticket Counter 2']);
 
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+        $response = $this->actingAs($this->adminUser())->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee('This Computer', false);
@@ -88,7 +88,7 @@ class TicketConsoleSettingsAndLogsTest extends TestCase
             'name' => 'Log Test Ticket', 'price' => '5.00', 'status' => 'Active',
         ]);
 
-        $response = $this->actingAs($admin)->get('/admin/manage-tickets');
+        $response = $this->actingAs($admin)->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee("Created ticket type &#039;Log Test Ticket&#039;", false);

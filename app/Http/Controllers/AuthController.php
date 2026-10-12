@@ -447,7 +447,7 @@ class AuthController extends Controller
             'Accountant' => 'accountant.dashboard',
             'Committee' => 'committee.dashboard',
             'Event Coordinator' => 'event-coordinator.my-events',
-            // Same landing route as Admin/Committee reaching the Ticket Console
+            // Same landing route as Admin/Committee reaching the Pooja Portal
             // (admin.tickets.index) — TicketController::manageTickets() itself redirects a
             // view/entry-level Ticket Controller straight to the Ticket POS, the same way
             // EventConsoleController::show() redirects a pos-level Event Coordinator.
@@ -1069,12 +1069,12 @@ class AuthController extends Controller
                 ->join('events', 'event_coordinators.event_id', '=', 'events.event_id')
                 ->where('event_coordinators.user_id', $user->id)
                 ->orderBy('events.event_date')
-                ->select('events.event_id', 'event_coordinators.level')
+                ->select('events.event_id', 'events.slug', 'event_coordinators.level')
                 ->first();
             if ($firstAssignment) {
                 return $firstAssignment->level === 'pos'
                     ? redirect()->route('admin.events.pos', $firstAssignment->event_id)
-                    : redirect()->route('admin.events.console', $firstAssignment->event_id);
+                    : redirect()->route('admin.events.portal', $firstAssignment->slug ?? $firstAssignment->event_id);
             }
             return redirect()->route('event-coordinator.my-events');
         }

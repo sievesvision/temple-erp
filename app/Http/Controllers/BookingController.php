@@ -458,13 +458,19 @@ class BookingController extends Controller
         $totalRevenue = DB::table('pooja_bookings')->where('payment_status', 'Paid')->sum('total_amount');
         $totalDiscount = DB::table('pooja_bookings')->sum('discount_amount');
 
+        // The Pooja Portal embeds this same page, unmodified, in an iframe pane — ?embed=1
+        // just tells the layout to drop its own sidebar/topbar so it doesn't double up
+        // inside the Portal's own chrome.
+        $embed = $request->boolean('embed');
+
         return view('admin.manage-bookings', compact(
             'bookings',
             'priests',
             'leaves',
             'totalBookings',
             'totalRevenue',
-            'totalDiscount'
+            'totalDiscount',
+            'embed'
         ));
     }
 

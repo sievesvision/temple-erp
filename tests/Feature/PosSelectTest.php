@@ -180,7 +180,7 @@ class PosSelectTest extends TestCase
 
         $response->assertRedirect($earliest->level === 'pos'
             ? route('admin.events.pos', $earliest->event_id)
-            : route('admin.events.console', $earliest->event_id));
+            : route('admin.events.portal', $earliest->event_id));
     }
 
     public function test_an_admin_level_ticket_controller_is_unaffected_even_with_a_pos_event(): void

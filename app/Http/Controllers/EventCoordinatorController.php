@@ -107,7 +107,8 @@ class EventCoordinatorController extends Controller
     private function redirectAfterAction(Request $request, $eventId)
     {
         if ($request->input('return_context') === 'console') {
-            return redirect()->route('admin.events.console', $eventId);
+            $slug = Event::where('event_id', $eventId)->value('slug') ?? $eventId;
+            return redirect()->route('admin.events.portal', $slug);
         }
 
         return redirect()->back();

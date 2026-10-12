@@ -130,7 +130,7 @@ class CashSettlementController extends Controller
             if (!$this->canManageEventCash($event, $user, $activeRole)) {
                 abort(403, 'Unauthorized access.');
             }
-            return ['event', $event->event_id, route('admin.events.console', $event->event_id)];
+            return ['event', $event->event_id, route('admin.events.portal', $event->slug ?? $event->event_id)];
         }
 
         if ($scope === 'tickets') {

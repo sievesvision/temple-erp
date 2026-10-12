@@ -54,7 +54,7 @@ class EftConsoleRenderingTest extends TestCase
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
+        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/portal");
 
         $response->assertOk();
         $response->assertSee('Unpaired Terminal');
@@ -74,7 +74,7 @@ class EftConsoleRenderingTest extends TestCase
 
     public function test_ticket_console_renders_with_multiple_terminals(): void
     {
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+        $response = $this->actingAs($this->adminUser())->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee('Unpaired Terminal');

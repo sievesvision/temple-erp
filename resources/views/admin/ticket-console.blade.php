@@ -280,12 +280,12 @@
             <aside class="app-sidebar" id="appSidebar">
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link active" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
-                    {{-- Pooja Bookings keeps its own existing page/controller untouched — this
-                         is a plain navigation link (not an internal pane) so this portal can
-                         surface both archana ticket sales and pooja bookings together without
-                         merging any of their underlying logic. --}}
+                    {{-- Pooja Bookings keeps its own existing page/controller untouched — it's
+                         embedded via iframe below (BookingController::manageBookings()'s own
+                         ?embed=1 flag just drops its layout's sidebar/topbar) so it lives inside
+                         the Portal's shell instead of navigating away to a separate admin page. --}}
                     @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))
-                    <a href="{{ route('admin.bookings.index') }}" class="sidebar-link"><i class="bi bi-calendar-event"></i><span>Pooja Bookings</span></a>
+                    <button type="button" class="sidebar-link" data-pane="pane-bookings"><i class="bi bi-calendar-event"></i><span>Pooja Bookings</span></button>
                     @endif
                     <button type="button" class="sidebar-link" data-pane="pane-types"><i class="bi bi-ticket-perforated-fill"></i><span>Ticket Types</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>All Transactions</span></button>
@@ -347,6 +347,13 @@
                             </div>
                         </div>
                     </div>
+
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))
+                    <!-- POOJA BOOKINGS (embedded, same page/controller as the standalone admin area) -->
+                    <div class="console-pane" id="pane-bookings">
+                        <iframe src="{{ route('admin.bookings.index') }}?embed=1" style="width:100%; min-height:82vh; border:0;" loading="lazy" title="Pooja Bookings"></iframe>
+                    </div>
+                    @endif
 
                     <!-- TICKET TYPES -->
                     <div class="console-pane" id="pane-types">

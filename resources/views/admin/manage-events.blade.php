@@ -260,7 +260,7 @@
                         <button class="btn-action-edit me-1" data-bs-toggle="modal" data-bs-target="#coordinatorsModal{{ $e->event_id }}" onclick="loadCoordinators({{ $e->event_id }})">
                             <i class="bi bi-person-badge"></i> Coordinators
                         </button>
-                        <a href="{{ route('admin.events.console', $e->event_id) }}" class="btn-action-edit me-1">
+                        <a href="{{ route('admin.events.portal', $e->slug ?? $e->event_id) }}" class="btn-action-edit me-1">
                             <i class="bi bi-arrows-fullscreen"></i> Portal
                         </a>
                         @endif

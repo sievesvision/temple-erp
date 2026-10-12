@@ -436,15 +436,20 @@
 </head>
 
 <body>
+    @php($embed = $embed ?? false)
+    @unless($embed)
     @include('layouts.partials.notifications')
 
     {{-- Sidebar --}}
     @include('admin.layouts.sidebar')
+    @endunless
 
-    <div class="main-content">
+    <div class="main-content" @if($embed) style="margin-left:0;" @endif>
 
         {{-- Topbar --}}
+        @unless($embed)
         @include('admin.layouts.topbar')
+        @endunless
 
         <div class="container-fluid p-4">
             @yield('content')

@@ -622,9 +622,12 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
 // Event Coordinator scoped to just their assigned event; the controller does that finer
 // per-event_id check itself since RoleMiddleware has no concept of a specific record.
 Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(function () {
-    Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
-    Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
-    Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
+    // {event} accepts either the slug (every link generated in-app uses it) or the numeric
+    // event_id (old bookmarks, QR codes printed before the slug existed) — see
+    // EventConsoleController::show()'s resolution at the top of the method.
+    Route::get('/admin/events/{event}/portal', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.portal');
+    Route::post('/admin/events/{event}/portal/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.portal.storeDevotee');
+    Route::post('/admin/events/{event}/portal/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.portal.storeGuest');
     // Event-admin-only EFTPOS management (Refund/Logon/Reprint/Pairing) — DonationController's
     // own canManageEftForEvent() does the finer per-event, admin-level check; this route group
     // only gets the request as far as "some kind of console user", same broader-than-capability
@@ -737,7 +740,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
 // whatever an Admin grants via that grid, not this route list.
 // ============================================
 Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff,Event Coordinator,Ticket Controller'])->group(function () {
-    Route::get('/admin/manage-tickets', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
+    Route::get('/admin/pooja/portal', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
     Route::post('/admin/ticket/store', [\App\Http\Controllers\TicketController::class, 'storeTicket'])->name('admin.tickets.store');
     Route::post('/admin/ticket/update/{id}', [\App\Http\Controllers\TicketController::class, 'updateTicket'])->name('admin.tickets.update');
     Route::delete('/admin/ticket/delete/{id}', [\App\Http\Controllers\TicketController::class, 'deleteTicket'])->name('admin.tickets.delete');

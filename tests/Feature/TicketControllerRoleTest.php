@@ -57,7 +57,7 @@ class TicketControllerRoleTest extends TestCase
         foreach (['view', 'entry'] as $level) {
             $user = $this->ticketControllerUser($level);
 
-            $response = $this->actingAs($user)->get('/admin/manage-tickets');
+            $response = $this->actingAs($user)->get(route('admin.tickets.index'));
 
             $response->assertRedirect(route('admin.tickets.pos'));
         }
@@ -67,7 +67,7 @@ class TicketControllerRoleTest extends TestCase
     {
         $user = $this->ticketControllerUser('admin');
 
-        $response = $this->actingAs($user)->get('/admin/manage-tickets');
+        $response = $this->actingAs($user)->get(route('admin.tickets.index'));
 
         $response->assertOk();
         // Renamed from "Ticket Console" — same page, same route/controller, just relabeled

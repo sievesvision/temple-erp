@@ -309,11 +309,11 @@ class EftTerminalRegistryAccessTest extends TestCase
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
-        $response = $this->actingAs($user)->from(route('admin.events.console', $eventId))->post('/admin/eft-terminals', [
+        $response = $this->actingAs($user)->from(route('admin.events.portal', $eventId))->post('/admin/eft-terminals', [
             'key' => 'from-event-console', 'label' => 'From Event Console',
         ]);
 
-        $response->assertRedirect(route('admin.events.console', $eventId));
+        $response->assertRedirect(route('admin.events.portal', $eventId));
         $this->assertDatabaseHas('eft_terminals', ['key' => 'from-event-console']);
     }
 

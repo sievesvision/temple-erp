@@ -517,7 +517,7 @@
                         @if($switchableEvents->count())
                         <li><h6 class="dropdown-header">Switch Event</h6></li>
                         @foreach($switchableEvents as $switchEvent)
-                        <li><a class="dropdown-item" href="{{ route('admin.events.console', $switchEvent->event_id) }}"><i class="bi bi-arrow-left-right me-2"></i>{{ $switchEvent->event_name }}</a></li>
+                        <li><a class="dropdown-item" href="{{ route('admin.events.portal', $switchEvent->slug ?? $switchEvent->event_id) }}"><i class="bi bi-arrow-left-right me-2"></i>{{ $switchEvent->event_name }}</a></li>
                         @endforeach
                         <li><hr class="dropdown-divider"></li>
                         @endif
@@ -2248,8 +2248,8 @@
         const EVENT_OPTIONS = @json($eventOptionsForJs);
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
-        const STORE_DEVOTEE_URL = @json(route('admin.events.console.storeDevotee', $event->event_id));
-        const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
+        const STORE_DEVOTEE_URL = @json(route('admin.events.portal.storeDevotee', $event->event_id));
+        const STORE_GUEST_URL = @json(route('admin.events.portal.storeGuest', $event->event_id));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [101, 501, 1001, 2001];
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);

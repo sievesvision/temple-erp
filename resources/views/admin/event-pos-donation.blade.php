@@ -676,7 +676,7 @@
             </div>
             @endif
             @if($canReturnToConsole)
-            <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to portal"><i class="bi bi-gear-fill"></i></a>
+            <a href="{{ route('admin.events.portal', $event->slug ?? $event->event_id) }}" class="pos-topbar-btn" title="Back to portal"><i class="bi bi-gear-fill"></i></a>
             @endif
             <!-- Always visible, regardless of whether a terminal is currently paired — the
                  Switch button near Pay only ever shows up while "EFT Terminal" is the selected
@@ -999,7 +999,7 @@
         const EVENT_OPTIONS = @json($eventOptionsForJs);
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
-        const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
+        const STORE_GUEST_URL = @json(route('admin.events.portal.storeGuest', $event->event_id));
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
         const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
         const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));

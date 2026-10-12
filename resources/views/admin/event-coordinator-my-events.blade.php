@@ -132,7 +132,7 @@
                     @if($event->location)<span><i class="bi bi-geo-alt"></i>{{ $event->location }}</span>@endif
                 </div>
             </div>
-            <a href="{{ route('admin.events.console', $event->event_id) }}" class="btn-open-console">
+            <a href="{{ route('admin.events.portal', $event->slug ?? $event->event_id) }}" class="btn-open-console">
                 <i class="bi bi-arrow-right-circle-fill"></i>Open Portal
             </a>
         </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Event;
 use App\Models\LinklyTransaction;
 use App\Models\RolePermission;
 use App\Models\SciTransaction;
@@ -23,6 +24,15 @@ class EventConsoleController extends Controller
 {
     public function show($eventId)
     {
+        // {event} accepts a slug (every in-app link) or a raw numeric event_id (anything
+        // bookmarked/printed before the slug existed) — resolve once up front so every
+        // lookup below can keep working off the numeric id as it always has.
+        $resolvedEvent = Event::where('slug', $eventId)->first() ?? Event::find($eventId);
+        if (!$resolvedEvent) {
+            abort(404, 'Event not found.');
+        }
+        $eventId = $resolvedEvent->event_id;
+
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
 
@@ -129,13 +139,13 @@ class EventConsoleController extends Controller
                 ->where('event_coordinators.user_id', $user->id)
                 ->where('events.event_id', '!=', $event->event_id)
                 ->orderBy('events.event_date')
-                ->select('events.event_id', 'events.event_name')
+                ->select('events.event_id', 'events.event_name', 'events.slug')
                 ->get();
         } else {
             $switchableEvents = DB::table('events')
                 ->where('event_id', '!=', $event->event_id)
                 ->orderBy('event_date')
-                ->select('event_id', 'event_name')
+                ->select('event_id', 'event_name', 'slug')
                 ->get();
         }
 

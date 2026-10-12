@@ -50,7 +50,7 @@
 <div class="section-label">Event Portals</div>
 <div class="portal-grid">
     @forelse($events as $event)
-    <a href="{{ route('admin.events.console', $event->event_id) }}" class="portal-card">
+    <a href="{{ route('admin.events.portal', $event->slug ?? $event->event_id) }}" class="portal-card">
         <div class="portal-card-icon"><i class="bi bi-stars"></i></div>
         <div class="portal-card-name">{{ $event->event_name }}</div>
         <div class="portal-card-meta">

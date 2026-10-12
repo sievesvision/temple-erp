@@ -61,7 +61,7 @@ class EftReceiptViewerTest extends TestCase
             'customer_receipt' => "CUSTOMER COPY\nAMOUNT: AUD 20.00\nAPPROVED",
         ]);
 
-        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
+        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/portal");
 
         $response->assertOk();
         $response->assertSee('viewSciReceipt(' . $txn->id . ')', false);
@@ -82,7 +82,7 @@ class EftReceiptViewerTest extends TestCase
             'merchant_receipt' => "MERCHANT COPY\nAMOUNT: AUD 15.00\nDECLINED",
         ]);
 
-        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
+        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/portal");
 
         $response->assertOk();
         $response->assertSee('viewSciReceipt(' . $txn->id . ')', false);
@@ -100,7 +100,7 @@ class EftReceiptViewerTest extends TestCase
             'status' => 'DEVICE_NOT_CONNECTED',
         ]);
 
-        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
+        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/portal");
 
         $response->assertOk();
         $response->assertDontSee('viewSciReceipt(' . $txn->id . ')', false);
@@ -123,7 +123,7 @@ class EftReceiptViewerTest extends TestCase
             'merchant_receipt' => "MERCHANT COPY\nAMOUNT: AUD 40.00\nAPPROVED",
         ]);
 
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+        $response = $this->actingAs($this->adminUser())->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee('viewSciReceipt(' . $txn->id . ')', false);
