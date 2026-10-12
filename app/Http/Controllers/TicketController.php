@@ -491,7 +491,8 @@ class TicketController extends Controller
         ?string $mobile,
         string $paymentMethod,
         string $paymentStatus,
-        ?string $transactionId
+        ?string $transactionId,
+        ?string $sourceChannel = null
     ): int {
         $total = 0;
         foreach ($cart as $line) {
@@ -505,6 +506,7 @@ class TicketController extends Controller
             'total_amount' => round($total, 2),
             'payment_method' => $paymentMethod,
             'payment_status' => $paymentStatus,
+            'source_channel' => $sourceChannel ?? \App\Services\TransactionChannel::resolve(),
             'transaction_id' => $transactionId,
             'order_date' => now()->toDateString(),
             'sold_by' => Auth::id(),
@@ -537,7 +539,7 @@ class TicketController extends Controller
      * approved — the cart was captured in the ledger row's meta at startEftCharge() time,
      * the same way donor details are for a donation.
      */
-    public function createOrderFromLedgerMeta(array $meta, string $transactionId): ?int
+    public function createOrderFromLedgerMeta(array $meta, string $transactionId, ?string $sourceChannel = null): ?int
     {
         $cart = $meta['cart'] ?? [];
         if (empty($cart)) {
@@ -551,7 +553,8 @@ class TicketController extends Controller
             $meta['mobile'] ?? null,
             'EFT Terminal',
             'Paid',
-            $transactionId
+            $transactionId,
+            $sourceChannel
         );
     }
 
@@ -818,6 +821,7 @@ class TicketController extends Controller
                 'amount' => $validated['amount'],
                 'currency_code' => $original->currency_code,
                 'status' => 'initiated',
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'original_transaction_id' => $original->id,
                 'initiated_by' => $user->id,
                 'authorised_by' => $user->id,

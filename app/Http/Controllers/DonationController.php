@@ -810,6 +810,7 @@ class DonationController extends Controller
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_mode'],
                 'payment_status' => $validated['payment_status'] ?? 'Paid',
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'transaction_id' => ($validated['transaction_id'] ?? '') !== '' ? $validated['transaction_id'] : 'OFFLINE-' . strtoupper(uniqid()),
                 // 'purpose' carries the selected event donation option(s) when the admin
                 // picked from an event's tiers; 'remarks' stays the free-text note either way.
@@ -1026,6 +1027,7 @@ class DonationController extends Controller
                 'amount' => $validated['amount'],
                 'currency_code' => Setting::get('currency_code', 'AUD'),
                 'status' => 'initiated',
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'initiated_by' => $user->id,
                 'meta' => $meta,
             ]);
@@ -1240,6 +1242,7 @@ class DonationController extends Controller
             'purpose_details' => $fields['purpose_details'] ?? null,
             'payment_method' => $fields['payment_method'],
             'payment_status' => $fields['payment_status'] ?? 'Paid',
+            'source_channel' => $fields['source_channel'] ?? \App\Services\TransactionChannel::resolve(),
             'transaction_id' => $fields['transaction_id'] ?? null,
             'bank_name' => $fields['bank_name'] ?? null,
             'bank_account_no' => $fields['bank_account_no'] ?? null,
@@ -1311,7 +1314,7 @@ class DonationController extends Controller
             if (empty($meta['cart'])) {
                 return null;
             }
-            $orderId = app(\App\Http\Controllers\TicketController::class)->createOrderFromLedgerMeta($meta, $transactionRef);
+            $orderId = app(\App\Http\Controllers\TicketController::class)->createOrderFromLedgerMeta($meta, $transactionRef, $txn->source_channel);
             if ($orderId) {
                 $this->linkLedgerToDonation($sessionId, 'ticket_order', $orderId);
             }
@@ -1334,6 +1337,9 @@ class DonationController extends Controller
             'purpose_details' => $meta['purpose_details'] ?? null,
             'payment_method' => 'EFT Terminal',
             'payment_status' => 'Paid',
+            // Carries the channel captured when the charge actually started (this recovery
+            // path can run from a poll with no "current" request of its own to resolve from).
+            'source_channel' => $txn->source_channel,
             'transaction_id' => $transactionRef,
             'donation_date' => now()->toDateString(),
             'is_anonymous' => (bool) ($meta['is_anonymous'] ?? false),
@@ -1437,6 +1443,7 @@ class DonationController extends Controller
                 'amount' => $validated['amount'],
                 'currency_code' => $original->currency_code,
                 'status' => 'initiated',
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'original_transaction_id' => $original->id,
                 'initiated_by' => $user->id,
                 'authorised_by' => $user->id,
@@ -2149,6 +2156,7 @@ class DonationController extends Controller
             'purpose' => $validated['purpose'],
             'payment_method' => $validated['payment_method'],
             'payment_status' => 'Pending',
+            'source_channel' => \App\Services\TransactionChannel::resolve(),
             'remarks' => $validated['purpose_details'] ?? null,
             'transaction_id' => $transactionId,
             'donation_date' => now()->toDateString(),
@@ -2239,6 +2247,7 @@ class DonationController extends Controller
             'purpose_details' => $validated['purpose_details'] ?? null,
             'payment_method' => $validated['payment_method'],
             'payment_status' => 'Pending',
+            'source_channel' => \App\Services\TransactionChannel::resolve(),
             'transaction_id' => $transactionId,
             'bank_name' => null,
             'bank_account_no' => null,
@@ -2302,6 +2311,7 @@ class DonationController extends Controller
                 'purpose' => $validated['purpose'],
                 'payment_method' => 'Stripe',
                 'payment_status' => 'Pending',
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'remarks' => $validated['purpose_details'] ?? null,
                 'transaction_id' => null,
                 'donation_date' => now()->toDateString(),
@@ -2320,6 +2330,7 @@ class DonationController extends Controller
                 'purpose_details' => $validated['purpose_details'] ?? null,
                 'payment_method' => 'Stripe',
                 'payment_status' => 'Pending',
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'transaction_id' => null,
                 'bank_name' => null,
                 'bank_account_no' => null,
