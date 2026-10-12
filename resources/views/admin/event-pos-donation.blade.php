@@ -676,7 +676,7 @@
             </div>
             @endif
             @if($canReturnToConsole)
-            <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
+            <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to portal"><i class="bi bi-gear-fill"></i></a>
             @endif
             <!-- Always visible, regardless of whether a terminal is currently paired — the
                  Switch button near Pay only ever shows up while "EFT Terminal" is the selected

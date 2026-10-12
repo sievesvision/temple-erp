@@ -70,7 +70,9 @@ class TicketControllerRoleTest extends TestCase
         $response = $this->actingAs($user)->get('/admin/manage-tickets');
 
         $response->assertOk();
-        $response->assertSee('Ticket Console', false);
+        // Renamed from "Ticket Console" — same page, same route/controller, just relabeled
+        // to "Pooja Portal" (it now also surfaces Pooja Bookings alongside ticket sales).
+        $response->assertSee('Pooja Portal', false);
     }
 
     // A view-level controller lands on the POS page itself (per the redirect above) but

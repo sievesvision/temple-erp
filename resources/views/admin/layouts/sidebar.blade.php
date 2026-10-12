@@ -82,7 +82,10 @@
     @endif
     @if($can('tickets'))
     <li class="nav-item">
-      <a href="{{ route('admin.tickets.index') }}" class="nav-link {{ request()->routeIs('admin.tickets.*') ? 'active' : '' }}"><i class="bi bi-ticket-perforated-fill"></i> Ticket Sales</a>
+      {{-- The transactions-only view (just the ticket EFT/card ledger), not the full Pooja
+           Portal (catalog, settings, bookings etc.) — that full management area now lives
+           under Devices > Portals. --}}
+      <a href="{{ route('admin.transactions.index', ['event_id' => 'tickets']) }}" class="nav-link {{ request()->routeIs('admin.transactions.*') && request()->get('event_id') === 'tickets' ? 'active' : '' }}"><i class="bi bi-ticket-perforated-fill"></i> Ticket Sales</a>
     </li>
     @endif
     @if($can('reports'))
@@ -99,6 +102,11 @@
 
     @if(\App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole) || $sidebarRole === 'Admin')
     <li class="nav-section-label">Devices</li>
+    @if($sidebarRole === 'Admin')
+    <li class="nav-item">
+      <a href="{{ route('admin.portals.index') }}" class="nav-link {{ request()->routeIs('admin.portals.*') ? 'active' : '' }}"><i class="bi bi-grid-3x3-gap-fill"></i> Portals</a>
+    </li>
+    @endif
     @if(\App\Services\KioskAccess::canManageRegistry(auth()->user(), $sidebarRole))
     <li class="nav-item">
       <a href="{{ route('admin.kiosk-devices.index') }}" class="nav-link {{ request()->routeIs('admin.kiosk-devices.*') ? 'active' : '' }}"><i class="bi bi-tablet"></i> Kiosk Devices</a>

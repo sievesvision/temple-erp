@@ -119,7 +119,7 @@
             <div class="page-header-icon"><i class="bi bi-calendar-check"></i></div>
             <div>
                 <h2>My Events</h2>
-                <p>Events you've been assigned to coordinate — open the console for the full donations table, quick entry, and dashboard.</p>
+                <p>Events you've been assigned to coordinate — open the portal for the full donations table, quick entry, and dashboard.</p>
             </div>
         </div>
 
@@ -133,7 +133,7 @@
                 </div>
             </div>
             <a href="{{ route('admin.events.console', $event->event_id) }}" class="btn-open-console">
-                <i class="bi bi-arrow-right-circle-fill"></i>Open Console
+                <i class="bi bi-arrow-right-circle-fill"></i>Open Portal
             </a>
         </div>
         @empty

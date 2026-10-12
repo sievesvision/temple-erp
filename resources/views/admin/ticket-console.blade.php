@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ticket Console</title>
+    <title>Pooja Portal</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
@@ -259,7 +259,7 @@
                     @if($temple['subtitle'] ?? null)<div class="topbar-temple-sub">{{ $temple['subtitle'] }}</div>@endif
                 </div>
             </div>
-            <div class="topbar-title"><h1>Ticket Console</h1></div>
+            <div class="topbar-title"><h1>Pooja Portal</h1></div>
             <div class="topbar-right">
                 <a href="{{ route('admin.tickets.pos') }}" target="_blank" class="admin-pill"><i class="bi bi-box-arrow-up-right"></i><span>Ticket POS</span></a>
                 <div class="dropdown">
@@ -280,6 +280,13 @@
             <aside class="app-sidebar" id="appSidebar">
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link active" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
+                    {{-- Pooja Bookings keeps its own existing page/controller untouched — this
+                         is a plain navigation link (not an internal pane) so this portal can
+                         surface both archana ticket sales and pooja bookings together without
+                         merging any of their underlying logic. --}}
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))
+                    <a href="{{ route('admin.bookings.index') }}" class="sidebar-link"><i class="bi bi-calendar-event"></i><span>Pooja Bookings</span></a>
+                    @endif
                     <button type="button" class="sidebar-link" data-pane="pane-types"><i class="bi bi-ticket-perforated-fill"></i><span>Ticket Types</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>All Transactions</span></button>
                     @if($canManageConsole)
@@ -630,7 +637,7 @@
                     <div class="console-pane" id="pane-controllers">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-people-fill"></i></div>
-                            <div><h2>Ticket Controllers</h2><p>People with access to the Ticket Console / POS.</p></div>
+                            <div><h2>Ticket Controllers</h2><p>People with access to the Pooja Portal / POS.</p></div>
                         </div>
                         <div class="card-panel mb-3">
                             <div class="fw-bold mb-2">Add a Ticket Controller</div>

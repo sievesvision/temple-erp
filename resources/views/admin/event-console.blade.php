@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Console · {{ $event->event_name }} · SievesPOS v{{ config('sievespos.version') }}</title>
+    <title>{{ $event->event_name }} Portal · SievesPOS v{{ config('sievespos.version') }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
@@ -1304,7 +1304,7 @@
                         <div class="page-header-icon"><i class="bi bi-people-fill"></i></div>
                         <div>
                             <h2>Event Coordinators</h2>
-                            <p>People with console access to {{ $event->event_name }}</p>
+                            <p>People with portal access to {{ $event->event_name }}</p>
                         </div>
                     </div>
 

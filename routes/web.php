@@ -1060,3 +1060,12 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/transactions', [\App\Http\Controllers\OrganisationReportController::class, 'transactions'])->name('admin.transactions.index');
 });
+
+// ============================================
+// ADMIN: PORTALS HUB — every portal (each event's own, plus the Pooja Portal) as one card
+// grid, each card opening that portal's existing, unchanged admin view. See
+// PortalController's own docblock — presentation only, no logic change.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/portals', [\App\Http\Controllers\PortalController::class, 'index'])->name('admin.portals.index');
+});

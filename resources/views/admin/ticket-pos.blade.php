@@ -333,7 +333,7 @@
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
         @if($canManageConsole)
-        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
+        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
         <!-- Always visible, regardless of whether a terminal is currently paired — the Switch
              button near Pay only ever shows up while "EFT Terminal" is the selected payment
@@ -385,7 +385,7 @@
                     </span>
                 </button>
                 @empty
-                <p class="text-muted text-center py-4">No active ticket types — add one in the Ticket Console.</p>
+                <p class="text-muted text-center py-4">No active ticket types — add one in the Pooja Portal.</p>
                 @endforelse
             </div>
         </div>
