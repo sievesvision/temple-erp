@@ -183,11 +183,13 @@ class TicketController extends Controller
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
+        $currentTransactions = collect();
         if ($canSettleCash) {
             $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
+            $currentTransactions = $cashPane['currentTransactions'];
         }
         $temple = Setting::templeBranding();
         $ticketBankAccount = Setting::effectiveTicketBankAccount();
@@ -201,6 +203,7 @@ class TicketController extends Controller
             'cashPreview',
             'cashBankings',
             'cashSettlements',
+            'currentTransactions',
             'canSettleCash',
             'canViewCashHistory',
             'temple',
@@ -449,16 +452,18 @@ class TicketController extends Controller
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
+        $currentTransactions = collect();
         if ($canSettleCash) {
             $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
+            $currentTransactions = $cashPane['currentTransactions'];
         }
 
         return view('admin.ticket-pos', compact(
             'tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin',
-            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements'
+            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions'
         ));
     }
 

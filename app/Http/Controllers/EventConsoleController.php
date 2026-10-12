@@ -272,12 +272,18 @@ class EventConsoleController extends Controller
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
+        $currentTransactions = collect();
         if ($canSettleCash) {
             $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
+            $currentTransactions = $cashPane['currentTransactions'];
         }
+        // Same bar $canEditDonation already uses — the current-period Cash transactions
+        // list in the Settle Till widget reuses the exact same edit capability/routes, so
+        // whoever can edit a donation at all can edit one from in there too.
+        $canEditCurrentTransactions = $canEditDonation;
 
         $temple = Setting::templeBranding();
 
@@ -291,8 +297,10 @@ class EventConsoleController extends Controller
             'cashPreview',
             'cashBankings',
             'cashSettlements',
+            'currentTransactions',
             'canSettleCash',
             'canViewCashHistory',
+            'canEditCurrentTransactions',
             'devotees',
             'enabledPaymentMethods',
             'globalPaymentMethods',

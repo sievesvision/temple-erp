@@ -159,6 +159,38 @@ class CashSettlementService
         return ['total' => $total, 'breakdown' => $breakdown];
     }
 
+    /**
+     * The individual Cash/Paid transactions behind cashReceivedBreakdown()'s total for the
+     * CURRENT (not yet settled) period — a pos-level user gets to see and correct exactly
+     * what they're about to settle, never anything from an already-settled period (see
+     * canViewHistory() for the past-settlements/bankings restriction this is deliberately
+     * separate from). Event scope returns devotee + guest donation rows (normalized by
+     * EventDonationBreakdown, same shape the console's own All Transactions pane uses, so
+     * the exact same edit routes — admin.donations.updateDevotee/updateGuest — work
+     * unchanged here); tickets scope returns ticket_orders rows (no edit route exists for
+     * those yet, so the pane only ever shows them read-only).
+     */
+    public static function currentPeriodTransactions(string $scope, ?int $eventId): \Illuminate\Support\Collection
+    {
+        $lastEnd = self::lastPeriodEnd($scope, $eventId);
+        $periodStart = $lastEnd ? $lastEnd->copy()->addDay() : Carbon::createFromDate(2000, 1, 1);
+
+        if ($scope === 'event') {
+            $data = EventDonationBreakdown::forEvent((int) $eventId);
+            return $data['rows']
+                ->filter(fn ($r) => $r->payment_method === 'Cash' && $r->payment_status === 'Paid')
+                ->filter(fn ($r) => Carbon::parse($r->donation_date)->gte($periodStart))
+                ->values();
+        }
+
+        return collect(DB::table('ticket_orders')
+            ->where('payment_method', 'Cash')
+            ->where('payment_status', 'Paid')
+            ->whereDate('order_date', '>=', $periodStart->toDateString())
+            ->orderByDesc('created_at')
+            ->get());
+    }
+
     public static function bankedInPeriod(string $scope, ?int $eventId, Carbon $from, Carbon $to): float
     {
         // The 'date' cast on CashBanking::banked_date round-trips through Carbon, which
@@ -217,6 +249,7 @@ class CashSettlementService
     {
         return [
             'cashPreview' => self::preview($scope, $eventId),
+            'currentTransactions' => self::currentPeriodTransactions($scope, $eventId),
             'cashBankings' => $includeHistory
                 ? CashBanking::where('scope', $scope)->where('event_id', $eventId)->with('recordedBy')->latest('banked_date')->latest('id')->limit(50)->get()
                 : collect(),

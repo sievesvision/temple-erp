@@ -147,12 +147,20 @@ class PosDonationController extends Controller
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
+        $currentTransactions = collect();
         if ($canSettleCash) {
             $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
+            $currentTransactions = $cashPane['currentTransactions'];
         }
+        // Same bar EventConsoleController's own $canEditDonation uses — a pos-level
+        // coordinator already qualifies (EventCoordinatorLevel ranks pos alongside entry),
+        // they just never had a page to reach it from before this widget existed.
+        $canEditCurrentTransactions = $activeRole === 'Admin'
+            || RolePermission::can($activeRole, 'donations', 'edit')
+            || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
 
         return view('admin.event-pos-donation', compact(
             'event',
@@ -168,6 +176,8 @@ class PosDonationController extends Controller
             'cashPreview',
             'cashBankings',
             'cashSettlements',
+            'currentTransactions',
+            'canEditCurrentTransactions',
             'canManagePosPin',
             'eftMinimumAmount'
         ));

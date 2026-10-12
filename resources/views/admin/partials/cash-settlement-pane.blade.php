@@ -55,6 +55,142 @@
 </div>
 @endif
 
+@php $canEditCurrentTransactions = $canEditCurrentTransactions ?? false; @endphp
+<div class="cs-card mb-3">
+    <div class="fw-bold mb-2"><i class="bi bi-list-check me-1"></i>Current Period Transactions ({{ $currentTransactions->count() }})</div>
+    <p class="text-muted small mb-2">Every Cash, Paid {{ $scope === 'event' ? 'donation' : 'ticket order' }} counted in "Cash Received" above — review these before you settle@if($canEditCurrentTransactions), and fix anything that's wrong@endif.</p>
+    @if($currentTransactions->isEmpty())
+        <p class="text-muted mb-0">Nothing recorded in this period yet.</p>
+    @else
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr class="text-muted small text-uppercase">
+                    <th>Date</th>
+                    <th>{{ $scope === 'event' ? 'Donor' : 'Customer' }}</th>
+                    <th>{{ $scope === 'event' ? 'Purpose' : 'Order' }}</th>
+                    <th class="text-end">Amount</th>
+                    @if($canEditCurrentTransactions)<th></th>@endif
+                </tr>
+            </thead>
+            <tbody>
+                @if($scope === 'event')
+                    @foreach($currentTransactions as $row)
+                    <tr>
+                        <td>{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }}</td>
+                        <td>{{ $row->display_name }}</td>
+                        <td>{{ $row->purpose ?: '—' }}</td>
+                        <td class="text-end fw-bold">{{ $fmt($row->amount) }}</td>
+                        @if($canEditCurrentTransactions)
+                        <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#txnEdit{{ $row->donation_type }}{{ $row->id }}">Edit</button></td>
+                        @endif
+                    </tr>
+                    @endforeach
+                @else
+                    @foreach($currentTransactions as $row)
+                    <tr>
+                        <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
+                        <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
+                        <td>Order #{{ $row->id }}</td>
+                        <td class="text-end fw-bold">{{ $fmt($row->total_amount) }}</td>
+                    </tr>
+                    @endforeach
+                @endif
+            </tbody>
+        </table>
+    </div>
+    @if($scope === 'tickets')
+    <p class="text-muted small fst-italic mt-2 mb-0">Ticket orders can't be edited here yet — refund from the Pooja Portal's All Orders list if one needs correcting.</p>
+    @endif
+    @endif
+</div>
+
+@if($canEditCurrentTransactions && $scope === 'event')
+    @foreach($currentTransactions->where('donation_type', 'devotee') as $row)
+    <div class="modal fade" id="txnEditdevotee{{ $row->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:20px;">
+                <form action="{{ route('admin.donations.updateDevotee', $row->id) }}" method="POST">
+                    @csrf
+                    <div class="modal-header"><h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Devotee Donation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <input type="hidden" name="event_id" value="{{ $eventId }}">
+                        <div class="mb-3"><label class="form-label small">Devotee</label><input type="text" class="form-control" value="{{ $row->display_name }}" disabled></div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6"><label class="form-label small">Amount ({{ $currency }})</label><input type="number" step="0.01" name="amount" class="form-control" value="{{ $row->amount }}" required></div>
+                            <div class="col-6"><label class="form-label small">Date</label><input type="date" name="donation_date" class="form-control" value="{{ $row->donation_date }}" required></div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small">Payment Mode</label>
+                                <select name="payment_mode" class="form-select" required>
+                                    @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Terminal', 'Stripe'] as $mode)
+                                    <option value="{{ $mode }}" {{ $row->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Status</label>
+                                <select name="payment_status" class="form-select" required>
+                                    @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
+                                    <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3"><label class="form-label small">Purpose</label><input type="text" name="purpose" class="form-control" value="{{ $row->purpose }}"></div>
+                        <div class="mb-0"><label class="form-label small">Remarks</label><textarea name="remarks" rows="2" class="form-control">{{ $row->remarks }}</textarea></div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn-cs-save">Save Changes</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
+    @foreach($currentTransactions->where('donation_type', 'guest') as $row)
+    <div class="modal fade" id="txnEditguest{{ $row->id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:20px;">
+                <form action="{{ route('admin.donations.updateGuest', $row->id) }}" method="POST">
+                    @csrf
+                    <div class="modal-header"><h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Guest Donation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <input type="hidden" name="event_id" value="{{ $eventId }}">
+                        <div class="mb-3"><label class="form-label small">Donor Name</label><input type="text" name="donor_name" class="form-control" value="{{ $row->donor_name }}" required></div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6"><label class="form-label small">Amount ({{ $currency }})</label><input type="number" step="0.01" name="amount" class="form-control" value="{{ $row->amount }}" required></div>
+                            <div class="col-6"><label class="form-label small">Date</label><input type="date" name="donation_date" class="form-control" value="{{ $row->donation_date }}" required></div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small">Payment Method</label>
+                                <select name="payment_method" class="form-select" required>
+                                    @foreach(['Cash', 'UPI', 'Bank', 'EFT Terminal', 'Stripe'] as $method)
+                                    <option value="{{ $method }}" {{ $row->payment_method === $method ? 'selected' : '' }}>{{ $method }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Status</label>
+                                <select name="payment_status" class="form-select" required>
+                                    @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
+                                    <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3"><label class="form-label small">Purpose</label><input type="text" name="purpose" class="form-control" value="{{ $row->purpose }}" required></div>
+                        <div class="mb-0"><label class="form-label small">Details</label><textarea name="purpose_details" rows="2" class="form-control">{{ $row->purpose_details }}</textarea></div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn-cs-save">Save Changes</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endforeach
+@endif
+
 <div class="cs-card mb-3">
     <div class="fw-bold mb-2"><i class="bi bi-clipboard-check-fill me-1"></i>Settle Till</div>
     <p class="text-muted small mb-3">Count every note and coin in the till, enter it below, then say how much of that you're taking to the bank. What's left is automatically carried forward as the opening balance for the next till count.</p>
@@ -212,6 +348,37 @@
         btn.addEventListener('click', function () {
             const target = document.getElementById('settlementEdit' + btn.dataset.settlementId);
             if (target) target.style.display = target.style.display === 'none' ? '' : 'none';
+        });
+    });
+
+    // On the POS pages this whole widget is rendered INSIDE the "Settle Till" modal's own
+    // DOM, so each transaction's edit modal is nested inside it too — hiding the parent
+    // (display:none) hides its descendants regardless of their own shown state, and a
+    // modal using position:fixed inside another modal's transitioning .modal-dialog can
+    // also just render in the wrong place. Re-parenting each edit modal to <body> once,
+    // up front, sidesteps both: Bootstrap only ever supports one modal per DOM branch
+    // cleanly, so each one needs to be its own top-level sibling. No-op on the console
+    // pages, where these modals are already top-level.
+    document.querySelectorAll('[id^="txnEdit"].modal').forEach(function (modalEl) {
+        if (modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+        }
+    });
+
+    document.querySelectorAll('[id^="txnEdit"].modal').forEach(function (modalEl) {
+        let reopenParent = null;
+        modalEl.addEventListener('show.bs.modal', function () {
+            const openParent = document.querySelector('.modal.show');
+            if (openParent && openParent !== modalEl) {
+                reopenParent = openParent;
+                bootstrap.Modal.getInstance(openParent)?.hide();
+            }
+        });
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            if (reopenParent) {
+                bootstrap.Modal.getOrCreateInstance(reopenParent).show();
+                reopenParent = null;
+            }
         });
     });
 })();

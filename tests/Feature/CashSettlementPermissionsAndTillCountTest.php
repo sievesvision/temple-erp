@@ -54,6 +54,67 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response->assertDontSee('Banking History');
     }
 
+    private function insertCashDonation(int $eventId, string $donorName, float $amount, ?string $date = null): int
+    {
+        return DB::table('donations_without_logins')->insertGetId([
+            'event_id' => $eventId, 'donor_name' => $donorName, 'amount' => $amount,
+            'payment_method' => 'Cash', 'payment_status' => 'Paid', 'purpose' => 'General',
+            'donation_date' => $date ?? now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    public function test_pos_level_coordinator_sees_and_can_edit_a_current_period_cash_donation(): void
+    {
+        $eventId = $this->makeEvent();
+        $pos = $this->coordinator($eventId, 'pos');
+        $donationId = $this->insertCashDonation($eventId, 'Walk-up Donor', 75);
+
+        $response = $this->actingAs($pos)->get(route('admin.events.pos', $eventId));
+        $response->assertOk();
+        $response->assertSee('Walk-up Donor');
+        $response->assertSee('Current Period Transactions');
+
+        $editResponse = $this->actingAs($pos)->post(route('admin.donations.updateGuest', $donationId), [
+            'donor_name' => 'Corrected Donor Name', 'amount' => 80, 'purpose' => 'General',
+            'payment_method' => 'Cash', 'payment_status' => 'Paid', 'donation_date' => now()->toDateString(),
+        ]);
+        $editResponse->assertRedirect();
+        $this->assertDatabaseHas('donations_without_logins', ['id' => $donationId, 'donor_name' => 'Corrected Donor Name', 'amount' => 80]);
+    }
+
+    public function test_a_donation_from_an_already_settled_period_is_excluded_from_current_transactions(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $yesterday = now()->subDay()->toDateString();
+        $this->insertCashDonation($eventId, 'Settled Donor', 40, $yesterday);
+
+        CashSettlementService::run('event', $eventId, $admin->id, 40.0, 0.0, null, now()->subDay());
+
+        $this->insertCashDonation($eventId, 'Fresh Donor', 25);
+
+        $current = CashSettlementService::currentPeriodTransactions('event', $eventId);
+
+        $this->assertCount(1, $current);
+        $this->assertSame('Fresh Donor', $current->first()->display_name);
+    }
+
+    public function test_tickets_current_transactions_show_without_an_edit_option(): void
+    {
+        $entry = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
+        DB::table('ticket_controllers')->insert(['user_id' => $entry->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('ticket_orders')->insert([
+            'customer_name' => 'Ticket Buyer', 'total_amount' => 30, 'payment_method' => 'Cash', 'payment_status' => 'Paid',
+            'order_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($entry)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('Ticket Buyer');
+        $response->assertSee("can't be edited here yet", false);
+    }
+
     public function test_entry_level_coordinator_sees_full_history_on_the_pos_page(): void
     {
         $eventId = $this->makeEvent();
