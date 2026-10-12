@@ -71,4 +71,9 @@ class SciTransaction extends Model
     {
         return $this->belongsTo(Event::class, 'event_id', 'event_id');
     }
+
+    public function initiator()
+    {
+        return $this->belongsTo(User::class, 'initiated_by');
+    }
 }

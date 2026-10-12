@@ -1051,3 +1051,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/registers/{register}/terminals', [\App\Http\Controllers\RegisterController::class, 'terminals'])->name('admin.registers.terminals');
     Route::post('/admin/registers/{register}/terminals', [\App\Http\Controllers\RegisterController::class, 'setTerminal'])->name('admin.registers.setTerminal');
 });
+
+// ============================================
+// ADMIN: ORGANISATION-WIDE TRANSACTIONS — the EFT/SCI transaction ledger across every
+// event and Ticket Sales combined (donations/tickets/audit-logs are already org-wide on
+// their own existing pages, linked from this one). See OrganisationReportController.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/transactions', [\App\Http\Controllers\OrganisationReportController::class, 'transactions'])->name('admin.transactions.index');
+});

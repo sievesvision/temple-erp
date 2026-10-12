@@ -66,6 +66,13 @@ class LinklyTransaction extends Model
         return $this->belongsTo(EftTerminal::class);
     }
 
+    // Explicit keys required — Event's primary key is the non-standard 'event_id', same
+    // reasoning as SciTransaction's own identical relation.
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id', 'event_id');
+    }
+
     public function refunds()
     {
         return $this->hasMany(self::class, 'original_transaction_id');

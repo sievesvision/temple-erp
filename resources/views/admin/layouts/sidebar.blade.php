@@ -158,6 +158,9 @@
       <a href="{{ route('admin.registers.index') }}" class="nav-link {{ request()->routeIs('admin.registers.*') ? 'active' : '' }}"><i class="bi bi-display"></i> Registers</a>
     </li>
     <li class="nav-item">
+      <a href="{{ route('admin.transactions.index') }}" class="nav-link {{ request()->routeIs('admin.transactions.*') ? 'active' : '' }}"><i class="bi bi-graph-up-arrow"></i> Transactions</a>
+    </li>
+    <li class="nav-item">
       <a href="{{ route('admin.logs.index') }}" class="nav-link {{ request()->routeIs('admin.logs.*') ? 'active' : '' }}"><i class="bi bi-journal-text"></i> Audit Logs</a>
     </li>
     @endif
