@@ -708,7 +708,13 @@
         @if($editDonation)
         <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600;">
             <i class="bi bi-arrow-repeat" style="font-size:1.2rem;"></i>
-            Completing a pending transaction for {{ $editDonation->donor_name }} ({{ $temple['currency'] ?? '' }} {{ number_format($editDonation->amount, 2) }}) — review the details below and Save Donation to confirm it.
+            <span style="flex:1;">Completing a pending transaction for {{ $editDonation->donor_name }} ({{ $temple['currency'] ?? '' }} {{ number_format($editDonation->amount, 2) }}) — review the details below and Save Donation to confirm it.</span>
+            {{-- IS_EDITING is set from the server-rendered $editDonation, not from form state —
+                 the Donor Details card's own Clear button only resets fields, it can't drop out
+                 of edit mode. This is the only way back to a plain new entry. --}}
+            <a href="{{ route('admin.events.pos', $event->event_id) }}" style="flex-shrink:0; display:flex; align-items:center; gap:5px; padding:5px 11px; font-size:0.78rem; font-weight:700; color:#8A6A1E; background:#fff; border:1.5px solid rgba(184,134,58,0.4); border-radius:7px; text-decoration:none;" title="Cancel completing this transaction and start a new entry">
+                <i class="bi bi-x-lg"></i>Close &amp; New Entry
+            </a>
         </div>
         @endif
         <div class="pos-grid">

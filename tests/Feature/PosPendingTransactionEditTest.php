@@ -82,6 +82,21 @@ class PosPendingTransactionEditTest extends TestCase
         $response->assertSee('update-guest\/' . $donationId, false);
     }
 
+    public function test_the_prefilled_banner_offers_a_way_back_to_a_plain_new_entry(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $donationId = $this->insertGuestDonation($eventId, 'Pending');
+
+        $response = $this->actingAs($admin)->get(route('admin.events.pos', ['event' => $eventId, 'edit_id' => $donationId]));
+
+        $response->assertOk();
+        $response->assertSee('Close &amp; New Entry', false);
+        // The link must drop ?edit_id, not just add a close button on top of it — otherwise
+        // "closing" would just reload straight back into the same edit state.
+        $response->assertSee(route('admin.events.pos', $eventId), false);
+    }
+
     public function test_edit_id_for_an_already_paid_donation_is_ignored(): void
     {
         $admin = $this->admin();
