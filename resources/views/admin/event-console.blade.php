@@ -351,9 +351,13 @@
         .btn-export { background: linear-gradient(135deg, #1f9d6a, #34b380); border: none; padding: 9px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; color: white; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .btn-export:hover { color: white; opacity: 0.92; }
 
+        {{-- Icon + visible label (unlike manage-donations.blade.php's own icon-only-circle
+             definition of these same class names) — these now live in the spacious detail
+             modal's footer, not a cramped table cell, so there's room to say what each one
+             does instead of relying purely on a tooltip. --}}
         .btn-action-edit, .btn-action-delete, .btn-action-resend, .btn-action-approve, .btn-action-checkstatus {
-            border: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 0; transition: 0.15s;
-            display: inline-flex; align-items: center; justify-content: center; margin: 2px;
+            border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: 0.15s;
+            display: inline-flex; align-items: center; gap: 6px; margin: 2px;
         }
         .btn-action-edit i, .btn-action-delete i, .btn-action-resend i, .btn-action-approve i, .btn-action-checkstatus i { font-size: 0.92rem; }
         .btn-action-edit { background: rgba(200,155,60,0.14); color: var(--gold-hover); }
@@ -366,6 +370,13 @@
         .btn-action-approve:hover { background: var(--success); color: white; }
         .btn-action-checkstatus { background: var(--pending-bg); color: var(--warning); }
         .btn-action-checkstatus:hover { background: var(--warning); color: white; }
+
+        {{-- The one action a Pending transaction actually needs taken on it — solid-filled
+             and bigger than its siblings so it reads as the primary action for that row,
+             not just another item in a row of equal-weight icon buttons. --}}
+        .btn-action-approve-prominent { border: none; background: var(--success); color: white; padding: 11px 22px; border-radius: 10px; font-size: 0.9rem; font-weight: 800; display: inline-flex; align-items: center; gap: 8px; margin: 2px; box-shadow: 0 2px 10px rgba(31,157,106,0.3); }
+        .btn-action-approve-prominent i { font-size: 1.05rem; }
+        .btn-action-approve-prominent:hover { background: #178a5c; color: white; }
 
         /* ---------- Dashboard pane ---------- */
         .stat-tile { background: var(--white); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(31,42,55,0.04); border: 1px solid var(--border); display: flex; align-items: center; gap: 14px; min-width: 0; }
@@ -1050,6 +1061,13 @@
                                     <div><span class="ddl">Contact</span><span class="ddv">{{ $row->mobile }}@if($row->mobile && $row->email) · @endif{{ $row->email }}</span></div>
                                     @endif
                                     <div><span class="ddl">Transaction ID</span><span class="ddv">{{ $row->transaction_id ?: '—' }}@if(!empty($row->linkly_txn_ref))<div class="text-muted small">Linkly: {{ $row->linkly_txn_ref }}</div>@endif</span></div>
+                                    @if($row->payment_status === 'Paid')
+                                    {{-- Deterministic from the donation's own type+id (see
+                                         DonationReceiptService::receiptNumber()) — the exact
+                                         number the receipt email itself was sent with, not a
+                                         separately stored/editable field. --}}
+                                    <div><span class="ddl">Receipt ID</span><span class="ddv">{{ \App\Services\DonationReceiptService::receiptNumber($row->donation_type === 'devotee' ? 'D' : 'G', $row->id) }}</span></div>
+                                    @endif
                                     @if($row->purpose && $row->purpose !== 'Event Donation')
                                     <div><span class="ddl">Purpose</span><span class="ddv">{{ $row->purpose }}</span></div>
                                     @endif
@@ -1928,8 +1946,9 @@
     @if($canEditDonation)
         @foreach($rows->where('donation_type', 'devotee') as $row)
         {{-- An EFT Terminal donation can't be edited (see donation-actions.blade.php's own
-             docblock) — no point rendering a form for it that the server would just reject. --}}
-        @continue($row->payment_method === 'EFT Terminal')
+             docblock), and neither can a completed (Paid) one of any method — no point
+             rendering a form the Actions button no longer even links to. --}}
+        @continue($row->payment_method === 'EFT Terminal' || $row->payment_status === 'Paid')
         <div class="modal fade" id="editDevoteeDonationModal{{ $row->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">
@@ -2002,7 +2021,8 @@
         @endforeach
 
         @foreach($rows->where('donation_type', 'guest') as $row)
-        @continue($row->payment_method === 'EFT Terminal')
+        {{-- Same guard as the devotee edit modals above — see that loop's own comment. --}}
+        @continue($row->payment_method === 'EFT Terminal' || $row->payment_status === 'Paid')
         <div class="modal fade" id="editGuestDonationModal{{ $row->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">

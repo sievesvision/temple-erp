@@ -138,4 +138,57 @@ class AllTransactionsFilterTest extends TestCase
         $response->assertSee('Declined Donor');
         $response->assertSee('EFT-ATTEMPT-001');
     }
+
+    /**
+     * Once a transaction is Completed (Paid), Edit and Delete are gone — Resend is the only
+     * correction left available, regardless of payment method (not just EFT Terminal, which
+     * was already locked for a different reason — see EftTerminalDonationImmutabilityTest).
+     */
+    public function test_a_completed_donation_hides_edit_and_delete_and_keeps_only_resend(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $donationId = $this->insertGuestDonation($eventId, 'Paid Cash Donor', 45, 'Cash', 'Paid', 'paid@example.test');
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertDontSee('editGuestDonationModal' . $donationId, false);
+        $response->assertDontSee(route('admin.donations.deleteGuest', $donationId), false);
+        $response->assertSee(route('admin.donations.resendReceipt', ['type' => 'guest', 'id' => $donationId]), false);
+    }
+
+    /**
+     * A still-Pending donation keeps Edit/Delete (it hasn't been counted as received yet)
+     * and gets the prominent "Confirm & Send Receipt" action instead of Resend — approving
+     * is what marks it Paid and sends the receipt in the same step (see
+     * DonationController::approveGuestDonation()).
+     */
+    public function test_a_pending_donation_shows_the_prominent_confirm_and_send_receipt_action(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $donationId = $this->insertGuestDonation($eventId, 'Pending Bank Donor', 35, 'Bank', 'Pending');
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('Confirm &amp; Send Receipt', false);
+        $response->assertSee('btn-action-approve-prominent', false);
+        $response->assertSee('editGuestDonationModal' . $donationId, false);
+        $response->assertSee(route('admin.donations.deleteGuest', $donationId), false);
+    }
+
+    public function test_a_completed_donations_receipt_id_is_shown_in_the_detail_modal(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $donationId = $this->insertGuestDonation($eventId, 'Receipted Donor', 90, 'Cash', 'Paid');
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('Receipt ID');
+        $response->assertSee('G-' . str_pad((string) $donationId, 6, '0', STR_PAD_LEFT));
+    }
 }

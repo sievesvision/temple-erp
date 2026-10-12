@@ -196,6 +196,25 @@
         background: #1f9d6a;
         color: white;
     }
+    .btn-action-approve-prominent {
+        border: none;
+        background: #1f9d6a;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 40px;
+        font-weight: 700;
+        font-size: 0.78rem;
+        transition: 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(31, 157, 106, 0.25);
+    }
+    .btn-action-approve-prominent:hover {
+        background: #178a5c;
+        color: white;
+    }
     .btn-action-checkstatus {
         background: rgba(139, 92, 246, 0.1);
         color: #8b5cf6;
@@ -409,9 +428,9 @@
             @if($canEditDonation)
             @foreach($devoteeDonations as $d)
             {{-- An EFT Terminal donation can't be edited (see donation-actions.blade.php's
-                 own docblock) — no point rendering a form for it that the server would just
-                 reject anyway. --}}
-            @continue($d->payment_method === 'EFT Terminal')
+                 own docblock), and neither can a completed (Paid) one of any method — no
+                 point rendering a form the Actions button no longer even links to. --}}
+            @continue($d->payment_method === 'EFT Terminal' || $d->payment_status === 'Paid')
             <div class="modal fade" id="editDevoteeDonationModal{{ $d->id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content border-0 shadow-lg rounded-4">
@@ -491,7 +510,8 @@
             </div>
             @endforeach
             @foreach($guestDonations as $g)
-            @continue($g->payment_method === 'EFT Terminal')
+            {{-- Same guard as the devotee edit modals above — see that loop's own comment. --}}
+            @continue($g->payment_method === 'EFT Terminal' || $g->payment_status === 'Paid')
             <div class="modal fade" id="editGuestDonationModal{{ $g->id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content border-0 shadow-lg rounded-4">
