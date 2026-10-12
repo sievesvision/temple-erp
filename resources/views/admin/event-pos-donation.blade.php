@@ -173,10 +173,10 @@
 
         /* Donation Summary — deliberately NOT another plain white card, so the running total
            reads at a glance as the "money" panel rather than just more form. Kept to ONE
-           compact row (Recent Orders on the left, the running Total on the right) plus a
-           single muted meta line underneath — the previous version spent a label row, a
-           centred hero-sized total block and a divider on the same information, which was
-           most of what pushed the page past one screen's height on a laptop/tablet. */
+           compact row (the Settle Till / session-orders trigger on the left, the running Total
+           on the right) plus a single muted meta line underneath — the previous version spent
+           a label row, a centred hero-sized total block and a divider on the same information,
+           which was most of what pushed the page past one screen's height on a laptop/tablet. */
         .pos-summary-card {
             background: linear-gradient(135deg, #FFF9ED 0%, #FFF2D0 100%);
             border: 1.5px solid #D9AC4E; border-radius: var(--radius-md); padding: 12px 16px;
@@ -354,7 +354,7 @@
              amount for attention. --}}
         .pos-save-btn-terminal { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
 
-        /* ---------- Recent Orders popup (opened from the Donation Summary link) ---------- */
+        /* ---------- Session orders popup (non-settlers only; settlers get Settle Till) ---------- */
         .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
         .pos-orders-modal-total-row span:last-child { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: #A56B13; }
         .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
@@ -678,9 +678,6 @@
             @if($canReturnToConsole)
             <a href="{{ route('admin.events.portal', $event->slug ?? $event->event_id) }}" class="pos-topbar-btn" title="Back to portal"><i class="bi bi-gear-fill"></i></a>
             @endif
-            @if($canSettleCash)
-            <button type="button" class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal" title="Settle Till"><i class="bi bi-cash-stack"></i></button>
-            @endif
             <!-- Always visible, regardless of whether a terminal is currently paired — the
                  Switch button near Pay only ever shows up while "EFT Terminal" is the selected
                  payment method (and that method stays disabled with nothing paired to pick), so
@@ -803,9 +800,21 @@
                 <div class="pos-summary-card">
                     <div class="pos-summary-top-row">
                         <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
+                        {{-- The Settle Till popup already lists every transaction for the current
+                             period (server data, live-refreshed) — a second, client-only "Recent
+                             Orders" count here was redundant for anyone who can actually open it.
+                             Folded the one trigger into this card instead of keeping both; staff
+                             without settle permission never had Settle Till access either way, so
+                             they keep the session-only Recent Orders view. --}}
+                        @if($canSettleCash)
+                        <button type="button" class="pos-summary-orders-link" data-bs-toggle="modal" data-bs-target="#settleTillModal">
+                            <i class="bi bi-cash-stack"></i>Settle Till
+                        </button>
+                        @else
                         <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
                             <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
                         </button>
+                        @endif
                     </div>
                     <div class="pos-summary-total-center">
                         <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
@@ -847,9 +856,9 @@
         </div>
     </footer>
 
-    <!-- Recent Orders — opened from the link at the top of the Donation Summary card,
-         rather than a permanent bottom bar, so the bottom of the page stays the plain
-         temple-branded footer. -->
+    {{-- Session orders — opened from the Donation Summary card's link for staff who can't
+         settle cash, rather than a permanent bottom bar, so the bottom of the page stays the
+         plain temple-branded footer. --}}
     <div class="eft-modal-overlay" id="ordersModalOverlay">
         <div class="eft-modal" style="max-width: 440px; text-align: left;">
             <div class="eft-modal-header" style="text-align:center;"><i class="bi bi-clock-history me-2"></i>Orders This Session</div>
@@ -1681,7 +1690,9 @@
         function renderSessionOrders() {
             const orders = loadSessionOrders();
             const list = document.getElementById('posOrdersList');
-            document.getElementById('posOrdersCount').textContent = orders.length;
+            const countEl = document.getElementById('posOrdersCount');
+            // Only rendered for staff without canSettleCash — see posOrdersLink below.
+            if (countEl) { countEl.textContent = orders.length; }
             document.getElementById('posOrdersTotal').textContent = CURRENCY_CODE + ' ' + orders.reduce(function (s, o) { return s + o.amount; }, 0).toFixed(2);
             list.innerHTML = orders.length
                 ? orders.map(function (o) {
@@ -1692,9 +1703,15 @@
         renderSessionOrders();
         updatePosSummary();
 
-        document.getElementById('posOrdersLink').addEventListener('click', function () {
-            document.getElementById('ordersModalOverlay').classList.add('active');
-        });
+        // posOrdersLink only renders for staff who can't settle cash — those who can get
+        // the Settle Till trigger in this same card slot instead (see the Donation Summary
+        // card's own markup), so there's nothing here for it to open.
+        const posOrdersLinkBtn = document.getElementById('posOrdersLink');
+        if (posOrdersLinkBtn) {
+            posOrdersLinkBtn.addEventListener('click', function () {
+                document.getElementById('ordersModalOverlay').classList.add('active');
+            });
+        }
         document.getElementById('ordersModalCloseBtn').addEventListener('click', function () {
             document.getElementById('ordersModalOverlay').classList.remove('active');
         });

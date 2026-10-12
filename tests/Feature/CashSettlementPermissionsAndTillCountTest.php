@@ -54,6 +54,54 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response->assertDontSee('Banking History');
     }
 
+    /**
+     * The Settle Till trigger used to live as its own icon in the top bar AND the Donation
+     * Summary card had a separate "Recent Orders" link opening a client-only session list —
+     * two popups covering overlapping ground for anyone who could actually settle. The
+     * trigger now lives only in the Donation Summary card, replacing Recent Orders for
+     * settlers; staff who can't settle still get Recent Orders, since they have no Settle
+     * Till access either way.
+     */
+    public function test_a_settler_sees_settle_till_in_the_summary_card_not_a_separate_topbar_icon(): void
+    {
+        $eventId = $this->makeEvent();
+        $pos = $this->coordinator($eventId, 'pos');
+
+        $response = $this->actingAs($pos)->get(route('admin.events.pos', $eventId));
+
+        $response->assertOk();
+        $response->assertDontSee('Recent Orders', false);
+        // The old standalone topbar button is gone; the only remaining "Settle Till" trigger
+        // is the one now inside the Donation Summary card's own markup.
+        $response->assertDontSee('class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal"', false);
+        $response->assertSee('pos-summary-orders-link" data-bs-toggle="modal" data-bs-target="#settleTillModal"', false);
+    }
+
+    public function test_a_non_settler_still_sees_recent_orders_since_they_have_no_settle_till_access(): void
+    {
+        // The POS route itself only admits Admin/Committee/Event Coordinator (routes/web.php),
+        // and for Event Coordinator canUsePos() and canSettle() share the exact same
+        // atLeast('entry') bar — so demonstrating "can reach POS but can't settle" needs
+        // Committee with donations.can_add granted but events.can_edit withheld, same split
+        // an admin could configure from the Role Management screen.
+        DB::table('role_permissions')->updateOrInsert(
+            ['role' => 'Committee', 'resource' => 'donations'],
+            ['can_add' => true, 'created_at' => now(), 'updated_at' => now()]
+        );
+        DB::table('role_permissions')->updateOrInsert(
+            ['role' => 'Committee', 'resource' => 'events'],
+            ['can_edit' => false, 'created_at' => now(), 'updated_at' => now()]
+        );
+        $committee = User::factory()->create(['role' => 'Committee', 'mobile' => fake()->unique()->numerify('04########')]);
+        $eventId = $this->makeEvent();
+
+        $response = $this->actingAs($committee)->get(route('admin.events.pos', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('Recent Orders');
+        $response->assertDontSee('id="settleTillModal"', false);
+    }
+
     private function insertCashDonation(int $eventId, string $donorName, float $amount, ?string $date = null): int
     {
         return DB::table('donations_without_logins')->insertGetId([
