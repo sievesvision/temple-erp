@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\LinklyTransaction;
 use App\Models\User;
 use App\Services\CashSettlementService;
 use Illuminate\Support\Facades\DB;
@@ -94,5 +95,47 @@ class AllTransactionsFilterTest extends TestCase
         // not just the visible column — this is what lets typing an email or mobile into
         // the search box actually find the row.
         $response->assertSee('data-search="contactable donor contactable@example.test 0412345678"', false);
+    }
+
+    public function test_transaction_id_column_is_shown_for_donations(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $donationId = $this->insertGuestDonation($eventId, 'Reference Donor', 60, 'Bank', 'Paid');
+        DB::table('donations_without_logins')->where('id', $donationId)->update(['transaction_id' => 'BK-REF-00042']);
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('Transaction ID');
+        $response->assertSee('BK-REF-00042');
+    }
+
+    /**
+     * A declined EFT Terminal attempt never becomes a donation, so it's not part of the
+     * normal $rows loop — it's rendered as its own "orphan" row instead, but should still
+     * get the exact same clickable row + View button + detail modal treatment as any other
+     * transaction, not a lesser, inline-only one.
+     */
+    public function test_an_eft_attempt_gets_a_view_button_and_detail_modal_like_any_other_transaction(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $txn = LinklyTransaction::create([
+            'pos_txn_ref' => 'EFT-ATTEMPT-001', 'client_ref' => 'client-ref-1', 'linkly_session_id' => 'session-1',
+            'txn_type' => 'purchase', 'event_id' => $eventId, 'eft_terminal_id' => null,
+            'donation_type' => null, 'donation_id' => null, 'amount' => 77.00, 'currency_code' => 'AUD',
+            'status' => 'declined', 'initiated_by' => $admin->id,
+            'meta' => ['donor_name' => 'Declined Donor', 'email' => 'declined@example.test'],
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $modalId = 'eftDetaillinkly' . $txn->id;
+        $response->assertSee('data-bs-target="#' . $modalId . '"', false);
+        $response->assertSee('id="' . $modalId . '"', false);
+        $response->assertSee('Declined Donor');
+        $response->assertSee('EFT-ATTEMPT-001');
     }
 }

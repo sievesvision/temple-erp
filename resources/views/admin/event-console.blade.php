@@ -302,9 +302,6 @@
         .donations-row-clickable:hover { background: #fbfaf8; }
         .btn-view-donation { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 6px 13px; border-radius: 7px; font-size: 0.8rem; }
         .btn-view-donation:hover { border-color: #adb5bd; color: var(--text-primary); }
-        .btn-copy-ref { display: inline-flex; align-items: center; gap: 6px; background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 6px 12px; border-radius: 7px; font-size: 0.78rem; max-width: 170px; }
-        .btn-copy-ref span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace; font-size: 0.74rem; }
-        .btn-copy-ref:hover { border-color: #adb5bd; color: var(--text-primary); }
         .settlement-badge { display: inline-block; background: #eef2f5; color: var(--text-secondary); border-radius: 7px; padding: 4px 10px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
         .settlement-badge.current { background: #fdf0db; color: #8A6A1E; }
 
@@ -906,6 +903,7 @@
                                     <th>Contact</th>
                                     <th class="col-amount sortable" data-sort="amount">Amount<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="payment">Payment Method<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th>Transaction ID</th>
                                     <th class="sortable" data-sort="status">Status<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th>Settlement</th>
                                     <th class="text-end">Actions</th>
@@ -951,6 +949,7 @@
                                     </td>
                                     <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
                                     <td>{{ $row->payment_method }}</td>
+                                    <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
                                     <td><span class="settlement-badge{{ $row->settlement_id ? '' : ' current' }}">{{ $row->_settlementLabel ?? 'Current (Unsettled)' }}</span></td>
                                     <td class="text-end" onclick="event.stopPropagation();">
@@ -959,7 +958,7 @@
                                 </tr>
                                 @empty
                                 @if(($eftOrphanRows ?? collect())->isEmpty())
-                                <tr><td colspan="8" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
                                 @endif
                                 @endforelse
                                 @if($canEditEvent)
@@ -977,6 +976,7 @@
                                     $oDonorName = $ot->meta['donor_name'] ?? null;
                                     $oEmail = $ot->meta['email'] ?? null;
                                     $oMobile = $ot->meta['mobile'] ?? null;
+                                    $orphanModalId = 'eftDetail' . $orow->provider . $ot->id;
                                 @endphp
                                 <tr data-donation-date="{{ $ot->created_at->format('Y-m-d') }}"
                                     data-timestamp="{{ $ot->created_at->format('Y-m-d H:i:s') }}"
@@ -991,7 +991,8 @@
                                     data-amount="0"
                                     data-payment="eft terminal"
                                     data-status="{{ strtolower($oStatusWord) }}"
-                                    data-settlement="current">
+                                    data-settlement="current"
+                                    class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}">
                                     <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
                                     <td class="col-name">{{ $oDonorName ?: '—' }} <span class="text-muted small text-capitalize">({{ $oIsRefund ? 'Refund' : 'Attempt' }})</span></td>
                                     <td class="col-contact">
@@ -1001,18 +1002,16 @@
                                     </td>
                                     <td class="col-amount total">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
                                     <td>EFT Terminal<div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div></td>
+                                    <td class="col-txn" title="{{ $oRef }}">{{ $oRef ?: '—' }}</td>
                                     <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
                                     <td><span class="settlement-badge current">Current (Unsettled)</span></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn-copy-ref" title="Click to copy full reference: {{ $oRef }}" onclick="navigator.clipboard.writeText('{{ $oRef }}'); showToast('Reference copied to clipboard');"><i class="bi bi-clipboard"></i> <span>{{ $oRef ? \Illuminate\Support\Str::limit($oRef, 14, '…') : '—' }}</span></button>
-                                        @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i></button>
-                                        @endif
+                                    <td class="text-end" onclick="event.stopPropagation();">
+                                        <button type="button" class="btn-view-donation" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}"><i class="bi bi-eye"></i> View</button>
                                     </td>
                                 </tr>
                                 @endforeach
                                 @endif
-                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="8" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
+                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="9" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
                             </tbody>
                         </table>
                         </div>
@@ -1084,6 +1083,64 @@
                     </div>
                 </div>
                 @endforeach
+
+                {{-- Detail modals for the EFT "orphan" rows (declined/cancelled/still-pending
+                     purchase attempts, and refunds — none of these have a donation of their
+                     own, so they're not part of the $rows loop above, but they deserve the
+                     exact same "click to see everything" treatment rather than being treated
+                     as second-class rows. --}}
+                @if($canEditEvent)
+                @foreach($eftOrphanRows as $orow)
+                @php
+                    $ot = $orow->txn;
+                    $oIsRefund = $ot->txn_type === 'refund';
+                    $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'SCI';
+                    $oRef = $orow->provider === 'linkly' ? $ot->pos_txn_ref : ($ot->sci_transaction_id ?: $ot->client_ref);
+                    $oTerminalLabel = $ot->eftTerminal->label ?? null;
+                    $oStatusWord = $orow->provider === 'linkly' ? $ot->status : (($ot->result_financial_status ?: $ot->status) ?? '');
+                    $oPillClass = $orow->provider === 'linkly'
+                        ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
+                        : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
+                    $oDonorName = $ot->meta['donor_name'] ?? null;
+                    $oEmail = $ot->meta['email'] ?? null;
+                    $oMobile = $ot->meta['mobile'] ?? null;
+                    $orphanModalId = 'eftDetail' . $orow->provider . $ot->id;
+                @endphp
+                <div class="modal fade" id="{{ $orphanModalId }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold">
+                                    {{ $oDonorName ?: 'EFT Terminal' }}
+                                    <span class="text-muted small fw-normal ms-1 text-capitalize">{{ $oIsRefund ? 'Refund' : 'Attempt' }}</span>
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="donation-detail-grid">
+                                    <div><span class="ddl">Amount</span><span class="ddv fw-bold">{{ $ot->amount !== null ? ($temple['currency'] ?? '') . ' ' . number_format($ot->amount, 2) : '—' }}</span></div>
+                                    <div><span class="ddl">Status</span><span class="ddv"><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></span></div>
+                                    <div><span class="ddl">Payment Method</span><span class="ddv">EFT Terminal · {{ $oProvider }}@if($oTerminalLabel) ({{ $oTerminalLabel }})@endif</span></div>
+                                    <div><span class="ddl">Date &amp; Time</span><span class="ddv">{{ $ot->created_at->format('d M Y, g:i A') }}</span></div>
+                                    @if($oMobile || $oEmail)
+                                    <div><span class="ddl">Contact</span><span class="ddv">{{ $oMobile }}@if($oMobile && $oEmail) · @endif{{ $oEmail }}</span></div>
+                                    @endif
+                                    <div><span class="ddl">Reference</span><span class="ddv">{{ $oRef ?: '—' }}</span></div>
+                                </div>
+                            </div>
+                            <div class="modal-footer flex-wrap justify-content-start">
+                                @if($oRef)
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText('{{ $oRef }}'); showToast('Reference copied to clipboard');"><i class="bi bi-clipboard"></i> Copy Reference</button>
+                                @endif
+                                @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i> View Receipt</button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+                @endif
 
                 @if($canAddDonation)
                 <!-- ADD TRANSACTION (the former standalone "New Donation" pane, now a modal
