@@ -1429,7 +1429,11 @@
                                         <form action="{{ route('admin.events.coordinators.updateLevel', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline">
                                             @csrf
                                             <input type="hidden" name="return_context" value="console">
-                                            <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
+                                            {{-- requestSubmit(), not submit() — the legacy .submit() method doesn't
+                                                 fire the form's 'submit' event at all, which is what the pane-restore
+                                                 listener below needs to remember "stay on Event Coordinators" before
+                                                 the page reloads. --}}
+                                            <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.requestSubmit()">
                                                 <option value="view" {{ $coord->level === 'view' ? 'selected' : '' }}>View</option>
                                                 <option value="entry" {{ $coord->level === 'entry' ? 'selected' : '' }}>Entry</option>
                                                 <option value="pos" {{ $coord->level === 'pos' ? 'selected' : '' }}>POS</option>

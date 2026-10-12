@@ -711,7 +711,10 @@
                                                 @if($canTouch)
                                                 <form action="{{ route('admin.ticket-controllers.updateLevel', $tc->id) }}" method="POST" class="d-inline">
                                                     @csrf
-                                                    <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
+                                                    {{-- requestSubmit(), not submit() — the legacy .submit() method
+                                                         doesn't fire the form's 'submit' event, which is what the
+                                                         pane-restore listener needs to remember this pane before reload. --}}
+                                                    <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.requestSubmit()">
                                                         <option value="view" {{ $tc->level === 'view' ? 'selected' : '' }}>View</option>
                                                         <option value="entry" {{ $tc->level === 'entry' ? 'selected' : '' }}>Entry</option>
                                                         @if($activeRole === 'Admin')
