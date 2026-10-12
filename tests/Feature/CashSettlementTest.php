@@ -116,18 +116,18 @@ class CashSettlementTest extends TestCase
         $yesterday = now()->subDay()->toDateString();
         $this->insertGuestDonation($eventId, 300, 'Cash', $yesterday);
 
-        $this->actingAs($admin)->post(route('admin.cash-settlement.recordBanking'), [
-            'scope' => 'event', 'event_id' => $eventId, 'amount' => 100, 'banked_date' => $yesterday,
-        ]);
-
+        // till_count=300 matches the expected balance exactly (opening 0 + received 300),
+        // so no variance_note is required here.
         $response = $this->actingAs($admin)->post(route('admin.cash-settlement.run'), [
             'scope' => 'event', 'event_id' => $eventId, 'period_end' => $yesterday,
+            'till_count' => 300, 'amount_banked' => 100,
         ]);
         $response->assertRedirect();
 
         $this->assertDatabaseHas('cash_settlements', [
             'scope' => 'event', 'event_id' => $eventId,
-            'opening_balance' => 0, 'cash_received' => 300, 'amount_banked' => 100, 'closing_balance' => 200,
+            'opening_balance' => 0, 'cash_received' => 300, 'till_count' => 300, 'amount_banked' => 100,
+            'closing_balance' => 200, 'variance' => 0,
         ]);
         $this->assertDatabaseHas('audit_logs', ['event_id' => $eventId]);
 
@@ -160,8 +160,10 @@ class CashSettlementTest extends TestCase
         $this->assertSame(20.0, $preview['cash_received']);
         $this->assertSame('Adult Entry', $preview['breakdown'][0]['label']);
 
-        $response = $this->actingAs($admin)->post(route('admin.cash-settlement.run'), ['scope' => 'tickets']);
+        $response = $this->actingAs($admin)->post(route('admin.cash-settlement.run'), [
+            'scope' => 'tickets', 'till_count' => 20, 'amount_banked' => 0,
+        ]);
         $response->assertRedirect();
-        $this->assertDatabaseHas('cash_settlements', ['scope' => 'tickets', 'event_id' => null, 'cash_received' => 20]);
+        $this->assertDatabaseHas('cash_settlements', ['scope' => 'tickets', 'event_id' => null, 'cash_received' => 20, 'till_count' => 20]);
     }
 }

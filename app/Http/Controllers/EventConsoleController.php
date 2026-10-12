@@ -264,12 +264,16 @@ class EventConsoleController extends Controller
         $canManageRegistryLevel = \App\Services\EftTerminalAccess::canManageRegistry($user, $activeRole);
         $isSystemAdmin = $activeRole === 'Admin';
 
-        // Cash Banking pane — same admin tier as Settings/Coordinators/EFTPOS/Logs above.
+        // Cash Banking pane — its own gate, broader than $canEditEvent: an entry (and,
+        // via the POS page, pos) level coordinator can settle the till too, just without
+        // seeing past settlements — see CashSettlementService::canSettle()/canViewHistory().
+        $canSettleCash = \App\Services\CashSettlementService::canSettle('event', $event->event_id, $user, $activeRole);
+        $canViewCashHistory = \App\Services\CashSettlementService::canViewHistory('event', $event->event_id, $user, $activeRole);
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
-        if ($canEditEvent) {
-            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id);
+        if ($canSettleCash) {
+            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
@@ -287,6 +291,8 @@ class EventConsoleController extends Controller
             'cashPreview',
             'cashBankings',
             'cashSettlements',
+            'canSettleCash',
+            'canViewCashHistory',
             'devotees',
             'enabledPaymentMethods',
             'globalPaymentMethods',

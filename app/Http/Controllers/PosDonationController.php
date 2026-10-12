@@ -138,6 +138,22 @@ class PosDonationController extends Controller
 
         $eftMinimumAmount = \App\Services\EftTransactionLimits::minimumAmount();
 
+        // Settle Till widget — a pos-level coordinator's only way to ever reach this at
+        // all (they never see the console); entry/admin see the same widget here too if
+        // they're using the POS page, just with full history (see CashSettlementService::
+        // canSettle()/canViewHistory()).
+        $canSettleCash = \App\Services\CashSettlementService::canSettle('event', $event->event_id, $user, $activeRole);
+        $canViewCashHistory = \App\Services\CashSettlementService::canViewHistory('event', $event->event_id, $user, $activeRole);
+        $cashPreview = null;
+        $cashBankings = collect();
+        $cashSettlements = collect();
+        if ($canSettleCash) {
+            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory);
+            $cashPreview = $cashPane['cashPreview'];
+            $cashBankings = $cashPane['cashBankings'];
+            $cashSettlements = $cashPane['cashSettlements'];
+        }
+
         return view('admin.event-pos-donation', compact(
             'event',
             'eventOptionsForJs',
@@ -147,6 +163,11 @@ class PosDonationController extends Controller
             'temple',
             'pendingEftRecovery',
             'eftTerminalsForJs',
+            'canSettleCash',
+            'canViewCashHistory',
+            'cashPreview',
+            'cashBankings',
+            'cashSettlements',
             'canManagePosPin',
             'eftMinimumAmount'
         ));

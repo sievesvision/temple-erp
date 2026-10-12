@@ -335,6 +335,9 @@
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
+        @if($canSettleCash)
+        <button type="button" class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal" title="Settle Till"><i class="bi bi-cash-stack"></i></button>
+        @endif
         <!-- Always visible, regardless of whether a terminal is currently paired — the Switch
              button near Pay only ever shows up while "EFT Terminal" is the selected payment
              method (and that method stays disabled with nothing paired to pick), so it's not a
@@ -551,6 +554,22 @@
             </div>
         </div>
     </div>
+
+    @if($canSettleCash)
+    <div class="modal fade" id="settleTillModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Settle Till</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @include('admin.partials.cash-settlement-pane', ['scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
@@ -1428,5 +1447,17 @@
     </script>
 
     @include('admin.partials.eft-terminal-settings-modal')
+
+    {{-- This page is a classic form POST + redirect for Settle Till (unlike the AJAX-driven
+         ticket sale/EFT flows above), so its result only ever reaches the browser as a
+         session flash — reused through the same corner toast() every other confirmation on
+         this page already uses, rather than a different-looking banner just for this form. --}}
+    @if(session('success') || session('error'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            showToast(@json(session('success', session('error'))), {{ session('error') ? 'true' : 'false' }});
+        });
+    </script>
+    @endif
 </body>
 </html>

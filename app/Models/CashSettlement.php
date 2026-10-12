@@ -20,7 +20,10 @@ class CashSettlement extends Model
         'opening_balance',
         'cash_received',
         'amount_banked',
+        'till_count',
         'closing_balance',
+        'variance',
+        'variance_note',
         'breakdown',
         'performed_by',
     ];
@@ -31,7 +34,9 @@ class CashSettlement extends Model
         'opening_balance' => 'decimal:2',
         'cash_received' => 'decimal:2',
         'amount_banked' => 'decimal:2',
+        'till_count' => 'decimal:2',
         'closing_balance' => 'decimal:2',
+        'variance' => 'decimal:2',
         'breakdown' => 'array',
     ];
 

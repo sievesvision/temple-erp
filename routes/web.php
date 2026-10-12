@@ -755,6 +755,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     // resolveScopeFromRequest()), re-checked against that scope's own access gate.
     Route::post('/admin/cash-settlement/banking', [\App\Http\Controllers\CashSettlementController::class, 'recordBanking'])->name('admin.cash-settlement.recordBanking');
     Route::post('/admin/cash-settlement/run', [\App\Http\Controllers\CashSettlementController::class, 'runSettlement'])->name('admin.cash-settlement.run');
+    Route::post('/admin/cash-settlement/{settlement}', [\App\Http\Controllers\CashSettlementController::class, 'updateSettlement'])->name('admin.cash-settlement.update');
     Route::post('/admin/tickets/settings/bank-account', [\App\Http\Controllers\CashSettlementController::class, 'updateTicketBankSettings'])->name('admin.tickets.settings.bankAccount');
 
     Route::get('/admin/ticket-orders', [\App\Http\Controllers\TicketController::class, 'manageOrders'])->name('admin.tickets.orders');

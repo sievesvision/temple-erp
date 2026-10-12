@@ -173,13 +173,18 @@ class TicketController extends Controller
         // these, regardless of what donations elsewhere are configured to accept".
         $ticketPaymentMethodsOverride = $this->ticketPaymentMethodsOverride();
 
-        // Cash Banking pane — same admin tier as the rest of the console (Settings/EFTPOS/
-        // Ticket Controllers/Logs). Tickets isn't event-scoped, so this is the global scope.
+        // Cash Banking pane — entry-level Ticket Controllers never reach this method at all
+        // (redirected to the Ticket POS above), so in practice only admin-tier users ever
+        // see this; canSettleCash/canViewCashHistory are still used (rather than
+        // $canManageConsole directly) so the partial reads the same way it does on the POS
+        // page, where the two really do differ.
+        $canSettleCash = \App\Services\CashSettlementService::canSettle('tickets', null, $user, $activeRole);
+        $canViewCashHistory = \App\Services\CashSettlementService::canViewHistory('tickets', null, $user, $activeRole);
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
-        if ($canManageConsole) {
-            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null);
+        if ($canSettleCash) {
+            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
@@ -196,6 +201,8 @@ class TicketController extends Controller
             'cashPreview',
             'cashBankings',
             'cashSettlements',
+            'canSettleCash',
+            'canViewCashHistory',
             'temple',
             'ticketBankAccount',
             'activeRole',
@@ -433,7 +440,26 @@ class TicketController extends Controller
         // actually applies to — showing it to everyone else would just be a dead-end 403.
         $canManagePosPin = (bool) app(AuthController::class)->possiblePosDestinations($user);
 
-        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin'));
+        // Settle Till widget — entry-level Ticket Controllers only ever reach this page
+        // (never the full console, see manageTickets()'s redirect), so this is their only
+        // way to settle the till; tickets has no separate pos tier, so entry gets full
+        // history here too (see CashSettlementService::canSettle()/canViewHistory()).
+        $canSettleCash = \App\Services\CashSettlementService::canSettle('tickets', null, $user, $activeRole);
+        $canViewCashHistory = \App\Services\CashSettlementService::canViewHistory('tickets', null, $user, $activeRole);
+        $cashPreview = null;
+        $cashBankings = collect();
+        $cashSettlements = collect();
+        if ($canSettleCash) {
+            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
+            $cashPreview = $cashPane['cashPreview'];
+            $cashBankings = $cashPane['cashBankings'];
+            $cashSettlements = $cashPane['cashSettlements'];
+        }
+
+        return view('admin.ticket-pos', compact(
+            'tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin',
+            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements'
+        ));
     }
 
     /**
