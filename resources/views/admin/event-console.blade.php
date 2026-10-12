@@ -535,10 +535,9 @@
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
                     @if($canAddDonation)
-                    <button type="button" class="sidebar-link active" data-pane="pane-entry"><i class="bi bi-heart-fill"></i><span>New Donation</span></button>
                     <a href="{{ route('admin.events.pos', $event->event_id) }}" class="sidebar-link"><i class="bi bi-lightning-charge-fill"></i><span>POS Mode</span></a>
                     @endif
-                    <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Transactions</span></button>
+                    <button type="button" class="sidebar-link active" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Transactions</span></button>
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     @endif
@@ -582,6 +581,55 @@
                         <div>
                             <h2>Dashboard</h2>
                             <p>Full donation statistics for {{ $event->event_name }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-6">
+                            <div class="card-panel summary-panel h-100">
+                                <h4><i class="bi bi-pie-chart-fill" style="color:var(--gold);"></i>Donation Summary</h4>
+                                <div class="summary-grid">
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-cash-coin"></i>Total Collected</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-people-fill"></i>Total Donors</div>
+                                        <div class="value">{{ $summary['total_donors'] }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-calendar-check"></i>Today's Collection</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-hourglass-split"></i>Pending Transfers</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-view-pending" data-pane="pane-table">View Pending ({{ $summary['pending_count'] }})</button>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="card-panel recent-mini-card h-100">
+                                <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
+                                <div class="recent-mini-list">
+                                    @forelse($rows->take(8) as $row)
+                                        <div class="recent-mini-item">
+                                            <div class="recent-mini-top">
+                                                <span class="recent-mini-name">{{ $row->display_name }}</span>
+                                                <span class="recent-mini-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
+                                            </div>
+                                            <div class="recent-mini-bottom">
+                                                <span>{{ date('d M', strtotime($row->donation_date)) }}</span>
+                                                <span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span>
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <p class="text-muted small mb-0">No donations recorded for this event yet.</p>
+                                    @endforelse
+                                </div>
+                                <button type="button" class="btn-view-all w-100 mt-3 justify-content-center" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
+                            </div>
                         </div>
                     </div>
 
@@ -672,7 +720,7 @@
                      isn't already represented by one — see EventConsoleController::show()'s
                      $eftOrphanRows docblock. Folds in what used to be a second, overlapping
                      table on the EFTPOS pane. -->
-                <div class="console-pane {{ $canAddDonation ? '' : 'active' }}" id="pane-table">
+                <div class="console-pane active" id="pane-table">
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-card-list"></i></div>
                         <div>
@@ -680,10 +728,55 @@
                             <p>Every donation and EFT terminal transaction recorded for {{ $event->event_name }}</p>
                         </div>
                         <div class="page-header-actions d-flex gap-2">
+                            @if($canAddDonation)
+                            <button type="button" class="btn-save" data-bs-toggle="modal" data-bs-target="#addTransactionModal"><i class="bi bi-plus-lg me-1"></i>Add New Transaction</button>
+                            @endif
                             <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
                             <button type="button" class="btn-refresh" onclick="try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {} location.reload();"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
                         </div>
                     </div>
+
+                    @php
+                        $topMethod = collect($summary['method_totals'])->sortDesc()->keys()->first();
+                        $topMethodAmt = $topMethod ? $summary['method_totals'][$topMethod] : 0;
+                        $topMethodShare = $summary['paid_total'] > 0 ? round($topMethodAmt / $summary['paid_total'] * 100) : 0;
+                    @endphp
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--success);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Paid Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--warning);"><i class="bi bi-hourglass-split"></i></div><div class="stat-text"><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--maroon);"><i class="bi bi-people-fill"></i></div><div class="stat-text"><div class="label">Total Donors</div><div class="value">{{ $summary['total_donors'] }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-calendar-check"></i></div><div class="stat-text"><div class="label">Today's Collection</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div></div></div>
+                        </div>
+                    </div>
+
+                    @if($summary['donation_count'] > 0)
+                    <div class="row g-2 mb-3">
+                        @if($topMethod && $topMethodShare >= 40)
+                        <div class="col-md-6">
+                            <div class="card-panel py-2 px-3 d-flex align-items-center gap-2" style="border-left:4px solid var(--gold);">
+                                <i class="bi bi-pie-chart-fill" style="color:var(--gold); font-size:1.1rem;"></i>
+                                <span class="small">{{ $topMethod }} leads at <strong>{{ $topMethodShare }}%</strong> of collected funds.</span>
+                            </div>
+                        </div>
+                        @endif
+                        @if($summary['pending_count'] > 0)
+                        <div class="col-md-6">
+                            <div class="card-panel py-2 px-3 d-flex align-items-center gap-2" style="border-left:4px solid var(--warning);">
+                                <i class="bi bi-hourglass-split" style="color:var(--warning); font-size:1.1rem;"></i>
+                                <span class="small"><strong>{{ $summary['pending_count'] }}</strong> transaction{{ $summary['pending_count'] === 1 ? '' : 's' }} ({{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}) still awaiting confirmation.</span>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+
                     @php
                         $distinctStatuses = $rows->pluck('payment_status')->filter()->unique()->sort()->values();
                         $distinctPaymentMethods = $rows->pluck('payment_method')->filter()->unique()->sort()->values();
@@ -869,21 +962,18 @@
                 </div>
 
                 @if($canAddDonation)
-                <!-- DONATIONS WORKSPACE (Quick Entry + Recent Donations combined) -->
-                <div class="console-pane active" id="pane-entry">
-                    <div class="page-header">
-                        <div class="page-header-icon"><i class="bi bi-heart-fill"></i></div>
-                        <div>
-                            <h2>Log New Donation</h2>
-                            <p>Record a new donation received for {{ $event->event_name }}</p>
-                        </div>
-                        <div class="page-header-actions">
-                            <button type="button" class="btn-view-all" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
-                        </div>
-                    </div>
-
-                    <div class="donation-grid">
-                        <div class="card-panel">
+                <!-- ADD TRANSACTION (the former standalone "New Donation" pane, now a modal
+                     reachable from the All Transactions pane's own "Add New Transaction"
+                     button — see pane-table's header below). -->
+                <div class="modal fade" id="addTransactionModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                        <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold"><i class="bi bi-heart-fill me-2"></i>Add Transaction</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                        <div class="card-panel" style="box-shadow:none; border:none; padding:0;">
                             <div class="mode-toggle">
                                 <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
                                 <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
@@ -987,50 +1077,6 @@
                                 <button type="button" class="btn-save" id="qeSaveBtn"><i class="bi bi-save2-fill me-2"></i>Save Donation</button>
                             </div>
                         </div>
-
-                        <div>
-                            <div class="card-panel summary-panel">
-                                <h4><i class="bi bi-pie-chart-fill" style="color:var(--gold);"></i>Donation Summary</h4>
-                                <div class="summary-grid">
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-cash-coin"></i>Total Collected</div>
-                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div>
-                                    </div>
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-people-fill"></i>Total Donors</div>
-                                        <div class="value">{{ $summary['total_donors'] }}</div>
-                                    </div>
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-calendar-check"></i>Today's Collection</div>
-                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div>
-                                    </div>
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-hourglass-split"></i>Pending Transfers</div>
-                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn-view-pending" data-pane="pane-table">View Pending ({{ $summary['pending_count'] }})</button>
-                            </div>
-
-                            <div class="card-panel mt-3 recent-mini-card">
-                                <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
-                                <div class="recent-mini-list">
-                                    @forelse($rows->take(8) as $row)
-                                        <div class="recent-mini-item">
-                                            <div class="recent-mini-top">
-                                                <span class="recent-mini-name">{{ $row->display_name }}</span>
-                                                <span class="recent-mini-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
-                                            </div>
-                                            <div class="recent-mini-bottom">
-                                                <span>{{ date('d M', strtotime($row->donation_date)) }}</span>
-                                                <span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span>
-                                            </div>
-                                        </div>
-                                    @empty
-                                        <p class="text-muted small mb-0">No donations recorded for this event yet.</p>
-                                    @endforelse
-                                </div>
-                                <button type="button" class="btn-view-all w-100 mt-3 justify-content-center" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
                             </div>
                         </div>
                     </div>
@@ -2282,9 +2328,13 @@
             devoteeFields.style.display = 'none';
         });
 
-        // Payment method select, respecting the configured enabled list.
+        // Payment method select, respecting the configured enabled list — minus EFT
+        // Terminal even if an admin has it enabled for this event's payment methods
+        // elsewhere: a real terminal charge needs the POS page's own pairing/polling flow,
+        // not this quick-entry modal, so it's never offered as a choice here.
         const paymentSelect = document.getElementById('qePaymentMethod');
-        (ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash']).forEach(function (m) {
+        const quickEntryPaymentMethods = ENABLED_PAYMENT_METHODS.filter(function (m) { return m !== 'EFT Terminal'; });
+        (quickEntryPaymentMethods.length ? quickEntryPaymentMethods : ['Cash']).forEach(function (m) {
             const opt = document.createElement('option');
             opt.value = m === 'Bank Transfer' ? 'Bank Transfer' : m;
             opt.textContent = m;
@@ -2567,6 +2617,11 @@
                     if (result.status >= 200 && result.status < 300 && result.data.success) {
                         showToast(result.data.message || 'Saved.');
                         resetQuickEntry();
+                        // Reload so the new transaction (and the summary/insights tiles
+                        // above it) show up immediately in the table this was opened
+                        // from — same reasoning as the Refresh button nearby.
+                        try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
+                        setTimeout(function () { location.reload(); }, 900);
                     } else {
                         showToast(result.data.message || 'Failed to save.', true);
                     }
