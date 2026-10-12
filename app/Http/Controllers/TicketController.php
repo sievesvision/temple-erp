@@ -173,16 +173,25 @@ class TicketController extends Controller
         // these, regardless of what donations elsewhere are configured to accept".
         $ticketPaymentMethodsOverride = $this->ticketPaymentMethodsOverride();
 
-        // Cash Banking pane — same admin tier as the rest of the console (Settings/EFTPOS/
-        // Ticket Controllers/Logs). Tickets isn't event-scoped, so this is the global scope.
+        // Cash Banking pane — entry-level Ticket Controllers never reach this method at all
+        // (redirected to the Ticket POS above), so in practice only admin-tier users ever
+        // see this; canSettleCash/canViewCashHistory are still used (rather than
+        // $canManageConsole directly) so the partial reads the same way it does on the POS
+        // page, where the two really do differ.
+        $canSettleCash = \App\Services\CashSettlementService::canSettle('tickets', null, $user, $activeRole);
+        $canViewCashHistory = \App\Services\CashSettlementService::canViewHistory('tickets', null, $user, $activeRole);
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
-        if ($canManageConsole) {
-            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null);
+        $currentTransactions = collect();
+        $lastSettlementDate = null;
+        if ($canSettleCash) {
+            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
+            $currentTransactions = $cashPane['currentTransactions'];
+            $lastSettlementDate = $cashPane['lastSettlementDate'];
         }
         $temple = Setting::templeBranding();
         $ticketBankAccount = Setting::effectiveTicketBankAccount();
@@ -196,6 +205,10 @@ class TicketController extends Controller
             'cashPreview',
             'cashBankings',
             'cashSettlements',
+            'currentTransactions',
+            'lastSettlementDate',
+            'canSettleCash',
+            'canViewCashHistory',
             'temple',
             'ticketBankAccount',
             'activeRole',
@@ -357,7 +370,7 @@ class TicketController extends Controller
      * The dedicated POS page — a cart-style "add tickets, adjust quantities, take payment"
      * screen, separate from the donation POS page per this being its own standalone module.
      */
-    public function posShow()
+    public function posShow(\Illuminate\Http\Request $request)
     {
         $user = Auth::user();
         $activeRole = $this->activeRole();
@@ -408,9 +421,11 @@ class TicketController extends Controller
         // rather than offered as a selectable-but-broken option (it still shows on the EFT
         // Terminal Settings page, grouped under "Inactive").
         $linklyMode = \App\Services\LinklyConfigService::mode();
-        // Per-operator, not the registry's raw global flag — see EftTerminal::default(), which
-        // this mirrors, so the picker pre-selects whichever terminal THIS user last picked.
-        $myDefaultTerminalId = EftTerminal::default()?->id;
+        // Register-aware: a paired register's own configured terminal for Ticket Sales
+        // wins first (a station's hardware fact, see EftTerminal::defaultForContext()),
+        // falling back to the per-operator default (EftTerminal::default()) otherwise.
+        $register = $request->attributes->get('register');
+        $myDefaultTerminalId = EftTerminal::defaultForContext($register, 'tickets', null)?->id;
         $eftTerminalsForJs = EftTerminal::orderByDesc('is_default')->orderBy('label')->get()
             ->filter(fn ($t) => $t->isPairedFor($linklyMode))
             ->map(function ($t) use ($linklyMode, $myDefaultTerminalId) {
@@ -431,7 +446,30 @@ class TicketController extends Controller
         // actually applies to — showing it to everyone else would just be a dead-end 403.
         $canManagePosPin = (bool) app(AuthController::class)->possiblePosDestinations($user);
 
-        return view('admin.ticket-pos', compact('tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin'));
+        // Settle Till widget — entry-level Ticket Controllers only ever reach this page
+        // (never the full console, see manageTickets()'s redirect), so this is their only
+        // way to settle the till; tickets has no separate pos tier, so entry gets full
+        // history here too (see CashSettlementService::canSettle()/canViewHistory()).
+        $canSettleCash = \App\Services\CashSettlementService::canSettle('tickets', null, $user, $activeRole);
+        $canViewCashHistory = \App\Services\CashSettlementService::canViewHistory('tickets', null, $user, $activeRole);
+        $cashPreview = null;
+        $cashBankings = collect();
+        $cashSettlements = collect();
+        $currentTransactions = collect();
+        $lastSettlementDate = null;
+        if ($canSettleCash) {
+            $cashPane = \App\Services\CashSettlementService::paneData('tickets', null, $canViewCashHistory);
+            $cashPreview = $cashPane['cashPreview'];
+            $cashBankings = $cashPane['cashBankings'];
+            $cashSettlements = $cashPane['cashSettlements'];
+            $currentTransactions = $cashPane['currentTransactions'];
+            $lastSettlementDate = $cashPane['lastSettlementDate'];
+        }
+
+        return view('admin.ticket-pos', compact(
+            'tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin',
+            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate'
+        ));
     }
 
     /**
@@ -489,7 +527,8 @@ class TicketController extends Controller
         ?string $mobile,
         string $paymentMethod,
         string $paymentStatus,
-        ?string $transactionId
+        ?string $transactionId,
+        ?string $sourceChannel = null
     ): int {
         $total = 0;
         foreach ($cart as $line) {
@@ -503,6 +542,7 @@ class TicketController extends Controller
             'total_amount' => round($total, 2),
             'payment_method' => $paymentMethod,
             'payment_status' => $paymentStatus,
+            'source_channel' => $sourceChannel ?? \App\Services\TransactionChannel::resolve(),
             'transaction_id' => $transactionId,
             'order_date' => now()->toDateString(),
             'sold_by' => Auth::id(),
@@ -535,7 +575,7 @@ class TicketController extends Controller
      * approved — the cart was captured in the ledger row's meta at startEftCharge() time,
      * the same way donor details are for a donation.
      */
-    public function createOrderFromLedgerMeta(array $meta, string $transactionId): ?int
+    public function createOrderFromLedgerMeta(array $meta, string $transactionId, ?string $sourceChannel = null): ?int
     {
         $cart = $meta['cart'] ?? [];
         if (empty($cart)) {
@@ -549,7 +589,8 @@ class TicketController extends Controller
             $meta['mobile'] ?? null,
             'EFT Terminal',
             'Paid',
-            $transactionId
+            $transactionId,
+            $sourceChannel
         );
     }
 
@@ -816,6 +857,7 @@ class TicketController extends Controller
                 'amount' => $validated['amount'],
                 'currency_code' => $original->currency_code,
                 'status' => 'initiated',
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'original_transaction_id' => $original->id,
                 'initiated_by' => $user->id,
                 'authorised_by' => $user->id,

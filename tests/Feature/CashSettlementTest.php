@@ -110,24 +110,25 @@ class CashSettlementTest extends TestCase
     {
         $admin = $this->adminUser();
         $eventId = $this->makeEvent();
-        // A settlement is a once-per-day, end-of-day action — model "yesterday" so today's
-        // fresh cash unambiguously belongs to the next, still-open period (donation_date/
-        // banked_date are date-only columns, so same-day ordering can't be split further).
+        // Backdated to yesterday deliberately — exercises that a settlement's period
+        // membership is decided by exactly which transactions existed at the moment it was
+        // run (see CashSettlementService::claimedTransactionKeys()), not by comparing dates,
+        // so backdated data entry still lands in the right settlement.
         $yesterday = now()->subDay()->toDateString();
         $this->insertGuestDonation($eventId, 300, 'Cash', $yesterday);
 
-        $this->actingAs($admin)->post(route('admin.cash-settlement.recordBanking'), [
-            'scope' => 'event', 'event_id' => $eventId, 'amount' => 100, 'banked_date' => $yesterday,
-        ]);
-
+        // till_count=300 matches the expected balance exactly (opening 0 + received 300),
+        // so no variance_note is required here.
         $response = $this->actingAs($admin)->post(route('admin.cash-settlement.run'), [
             'scope' => 'event', 'event_id' => $eventId, 'period_end' => $yesterday,
+            'till_count' => 300, 'amount_banked' => 100,
         ]);
         $response->assertRedirect();
 
         $this->assertDatabaseHas('cash_settlements', [
             'scope' => 'event', 'event_id' => $eventId,
-            'opening_balance' => 0, 'cash_received' => 300, 'amount_banked' => 100, 'closing_balance' => 200,
+            'opening_balance' => 0, 'cash_received' => 300, 'till_count' => 300, 'amount_banked' => 100,
+            'closing_balance' => 200, 'variance' => 0,
         ]);
         $this->assertDatabaseHas('audit_logs', ['event_id' => $eventId]);
 
@@ -138,6 +139,42 @@ class CashSettlementTest extends TestCase
         $this->assertSame(200.0, $nextPreview['opening_balance']);
         $this->assertSame(50.0, $nextPreview['cash_received']);
         $this->assertSame(250.0, $nextPreview['closing_balance']);
+    }
+
+    /**
+     * The exact scenario reported as a bug: a transaction recorded on the public donation
+     * page landed in a settlement that had already been finalized earlier the SAME day,
+     * because both only differed by a date-only comparison — "today" vs "today" told
+     * nothing about which happened first. Running a second settlement later the same
+     * calendar day must only ever claim what came in since the first one, never re-claim
+     * (or wrongly exclude) anything.
+     */
+    public function test_two_settlements_run_the_same_day_each_claim_only_their_own_transactions(): void
+    {
+        $admin = $this->adminUser();
+        $eventId = $this->makeEvent();
+
+        $this->insertGuestDonation($eventId, 50, 'Cash', now()->toDateString());
+        $morning = CashSettlementService::run('event', $eventId, $admin->id, 50.0, 50.0, null);
+
+        // A later donation on the public page, recorded the same calendar day, after the
+        // morning settlement was already finalized.
+        $this->insertGuestDonation($eventId, 30, 'Cash', now()->toDateString());
+
+        $current = CashSettlementService::currentPeriodTransactions('event', $eventId);
+        $this->assertCount(1, $current);
+
+        $preview = CashSettlementService::preview('event', $eventId);
+        $this->assertSame(30.0, $preview['cash_received']);
+
+        $afternoon = CashSettlementService::run('event', $eventId, $admin->id, 30.0, 30.0, null);
+
+        $morningTxns = CashSettlementService::transactionsForSettlement($morning);
+        $afternoonTxns = CashSettlementService::transactionsForSettlement($afternoon);
+        $this->assertCount(1, $morningTxns);
+        $this->assertCount(1, $afternoonTxns);
+        $this->assertSame(50.0, (float) $morningTxns->first()->amount);
+        $this->assertSame(30.0, (float) $afternoonTxns->first()->amount);
     }
 
     public function test_tickets_scope_is_global_and_breaks_down_by_ticket_type(): void
@@ -160,8 +197,10 @@ class CashSettlementTest extends TestCase
         $this->assertSame(20.0, $preview['cash_received']);
         $this->assertSame('Adult Entry', $preview['breakdown'][0]['label']);
 
-        $response = $this->actingAs($admin)->post(route('admin.cash-settlement.run'), ['scope' => 'tickets']);
+        $response = $this->actingAs($admin)->post(route('admin.cash-settlement.run'), [
+            'scope' => 'tickets', 'till_count' => 20, 'amount_banked' => 0,
+        ]);
         $response->assertRedirect();
-        $this->assertDatabaseHas('cash_settlements', ['scope' => 'tickets', 'event_id' => null, 'cash_received' => 20]);
+        $this->assertDatabaseHas('cash_settlements', ['scope' => 'tickets', 'event_id' => null, 'cash_received' => 20, 'till_count' => 20]);
     }
 }

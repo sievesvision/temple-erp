@@ -78,13 +78,20 @@ Route::get('/pos/select', [AuthController::class, 'showPosSelect'])->middleware(
 Route::post('/pos/select', [AuthController::class, 'selectPosDestination'])->middleware('auth')->name('pos.select.choose');
 // PIN login — a faster alternative to email+password for POS-only accounts. No auth
 // middleware (this IS the login). Identified by username+PIN together (see
-// AuthController::attemptPosPinLogin()), so the destination is known immediately and the
-// lockout is scoped to that one account rather than global.
-Route::post('/pos/pin-login', [AuthController::class, 'attemptPosPinLogin'])->name('pos.pin-login');
+// AuthController::attemptPosPinLogin()). The per-account 5-attempt lockout is the primary
+// defense; throttle here is a coarse per-IP backstop (the account lockout alone has no
+// protection against spraying many different usernames from one IP).
+Route::post('/pos/pin-login', [AuthController::class, 'attemptPosPinLogin'])->middleware('throttle:10,1')->name('pos.pin-login');
 Route::middleware(['auth'])->group(function () {
     Route::get('/pos/pin', [AuthController::class, 'showPosPinSettings'])->name('pos.pin.edit');
     Route::post('/pos/pin', [AuthController::class, 'updatePosPinSettings'])->name('pos.pin.update');
 });
+// One-time, expiring PIN activation/reset link — public by design (same precedent as
+// password reset), reached only through a link an Organisation Admin or event-admin
+// coordinator triggered (AccountSetupService::sendPosPinSetupLink()); nothing here lets an
+// admin type or view the PIN itself.
+Route::get('/pos/pin/activate/{user}/{token}', [AuthController::class, 'showPosPinActivate'])->name('pos.pin.activate');
+Route::post('/pos/pin/activate/{user}/{token}', [AuthController::class, 'submitPosPinActivate'])->middleware('throttle:10,1')->name('pos.pin.activate.submit');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::get('/login/verify-otp', [AuthController::class, 'showLoginVerifyOtp'])->name('login.verify-otp');
 Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp'])->name('login.verify-otp.post');
@@ -532,10 +539,15 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
 
     // System Users (cross-role account list + admin-triggered password reset)
     Route::get('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'index'])->name('admin.users.index');
+    Route::post('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'store'])->name('admin.users.store');
+    Route::post('/admin/users/{targetUser}', [\App\Http\Controllers\SystemUserController::class, 'update'])->name('admin.users.update');
+    Route::post('/admin/users/{targetUser}/toggle-status', [\App\Http\Controllers\SystemUserController::class, 'toggleStatus'])->name('admin.users.toggle-status');
+    Route::get('/admin/users/{targetUser}/event-access', [\App\Http\Controllers\SystemUserController::class, 'eventAccess'])->name('admin.users.event-access');
     Route::post('/admin/users/{targetUser}/send-reset-link', [\App\Http\Controllers\SystemUserController::class, 'sendResetLink'])->name('admin.users.send-reset-link');
     Route::post('/admin/users/{targetUser}/toggle-2fa', [\App\Http\Controllers\SystemUserController::class, 'toggleTwoFactor'])->name('admin.users.toggle-2fa');
     Route::post('/admin/users/{targetUser}/username', [\App\Http\Controllers\SystemUserController::class, 'setUsername'])->name('admin.users.set-username');
     Route::post('/admin/users/{targetUser}/pos-pin/reset-lockout', [\App\Http\Controllers\SystemUserController::class, 'resetPosPinLockout'])->name('admin.pos-pin.reset-lockout');
+    Route::post('/admin/users/{targetUser}/pos-pin/send-setup-link', [\App\Http\Controllers\SystemUserController::class, 'sendPosPinSetupLink'])->name('admin.pos-pin.send-setup-link');
     Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
 
     // Leave Requests Route (Admin management)
@@ -610,9 +622,12 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
 // Event Coordinator scoped to just their assigned event; the controller does that finer
 // per-event_id check itself since RoleMiddleware has no concept of a specific record.
 Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(function () {
-    Route::get('/admin/events/{event}/console', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.console');
-    Route::post('/admin/events/{event}/console/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.console.storeDevotee');
-    Route::post('/admin/events/{event}/console/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.console.storeGuest');
+    // {event} accepts either the slug (every link generated in-app uses it) or the numeric
+    // event_id (old bookmarks, QR codes printed before the slug existed) — see
+    // EventConsoleController::show()'s resolution at the top of the method.
+    Route::get('/admin/events/{event}/portal', [\App\Http\Controllers\EventConsoleController::class, 'show'])->name('admin.events.portal');
+    Route::post('/admin/events/{event}/portal/donate-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.events.portal.storeDevotee');
+    Route::post('/admin/events/{event}/portal/donate-guest', [\App\Http\Controllers\DonationController::class, 'storeGuestDonation'])->name('admin.events.portal.storeGuest');
     // Event-admin-only EFTPOS management (Refund/Logon/Reprint/Pairing) — DonationController's
     // own canManageEftForEvent() does the finer per-event, admin-level check; this route group
     // only gets the request as far as "some kind of console user", same broader-than-capability
@@ -725,7 +740,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
 // whatever an Admin grants via that grid, not this route list.
 // ============================================
 Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff,Event Coordinator,Ticket Controller'])->group(function () {
-    Route::get('/admin/manage-tickets', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
+    Route::get('/admin/pooja/portal', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
     Route::post('/admin/ticket/store', [\App\Http\Controllers\TicketController::class, 'storeTicket'])->name('admin.tickets.store');
     Route::post('/admin/ticket/update/{id}', [\App\Http\Controllers\TicketController::class, 'updateTicket'])->name('admin.tickets.update');
     Route::delete('/admin/ticket/delete/{id}', [\App\Http\Controllers\TicketController::class, 'deleteTicket'])->name('admin.tickets.delete');
@@ -738,8 +753,10 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     // Shared by both the event- and tickets-scoped Cash Banking panes — which scope a
     // submission means is carried in the form itself (see CashSettlementController::
     // resolveScopeFromRequest()), re-checked against that scope's own access gate.
+    Route::get('/admin/cash-settlement/pane', [\App\Http\Controllers\CashSettlementController::class, 'pane'])->name('admin.cash-settlement.pane');
     Route::post('/admin/cash-settlement/banking', [\App\Http\Controllers\CashSettlementController::class, 'recordBanking'])->name('admin.cash-settlement.recordBanking');
     Route::post('/admin/cash-settlement/run', [\App\Http\Controllers\CashSettlementController::class, 'runSettlement'])->name('admin.cash-settlement.run');
+    Route::post('/admin/cash-settlement/{settlement}', [\App\Http\Controllers\CashSettlementController::class, 'updateSettlement'])->name('admin.cash-settlement.update');
     Route::post('/admin/tickets/settings/bank-account', [\App\Http\Controllers\CashSettlementController::class, 'updateTicketBankSettings'])->name('admin.tickets.settings.bankAccount');
 
     Route::get('/admin/ticket-orders', [\App\Http\Controllers\TicketController::class, 'manageOrders'])->name('admin.tickets.orders');
@@ -937,6 +954,13 @@ Route::get('/kiosk/pair', function () {
 })->name('kiosk.pair');
 Route::post('/kiosk/pair', [\App\Http\Controllers\KioskPairingController::class, 'redeem'])->name('kiosk.pair.redeem');
 
+// Register pairing — same "the short code IS the credential" reasoning as kiosk pairing
+// above, but public by necessity for a different reason: a register is a normal
+// staff-operated browser (not a locked-down kiosk app), visited once on that counter's own
+// device to receive its long-lived register_token cookie (see IdentifyRegister).
+Route::get('/register/pair', [\App\Http\Controllers\RegisterController::class, 'showPair'])->name('register.pair');
+Route::post('/register/pair', [\App\Http\Controllers\RegisterController::class, 'submitPair'])->name('register.pair.submit');
+
 Route::middleware('kiosk.device')->prefix('kiosk')->group(function () {
     // Phase 1: a liveness check only — a future idle-timer/welcome page can call this.
     Route::get('/ping', function (\Illuminate\Http\Request $request) {
@@ -1015,4 +1039,38 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/admin/kiosk-devices/{kioskDevice}/revoke', [\App\Http\Controllers\KioskDeviceController::class, 'revoke'])->name('admin.kiosk-devices.revoke');
     Route::post('/admin/kiosk-devices/{kioskDevice}/rotate', [\App\Http\Controllers\KioskDeviceController::class, 'rotateCredential'])->name('admin.kiosk-devices.rotate');
     Route::delete('/admin/kiosk-devices/{kioskDevice}', [\App\Http\Controllers\KioskDeviceController::class, 'destroy'])->name('admin.kiosk-devices.destroy');
+});
+
+// ============================================
+// ADMIN: REGISTER MANAGEMENT — a physical counter/station, paired to its own browser via
+// a short code (see RegisterService), with its own per-event/ticket-sales default EFT
+// terminal (register_eft_terminal_defaults). See Register/RegisterController.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/registers', [\App\Http\Controllers\RegisterController::class, 'index'])->name('admin.registers.index');
+    Route::post('/admin/registers', [\App\Http\Controllers\RegisterController::class, 'store'])->name('admin.registers.store');
+    Route::post('/admin/registers/{register}/rename', [\App\Http\Controllers\RegisterController::class, 'rename'])->name('admin.registers.rename');
+    Route::post('/admin/registers/{register}/pairing-code', [\App\Http\Controllers\RegisterController::class, 'generateCode'])->name('admin.registers.pairingCode');
+    Route::post('/admin/registers/{register}/unpair', [\App\Http\Controllers\RegisterController::class, 'unpair'])->name('admin.registers.unpair');
+    Route::delete('/admin/registers/{register}', [\App\Http\Controllers\RegisterController::class, 'destroy'])->name('admin.registers.destroy');
+    Route::get('/admin/registers/{register}/terminals', [\App\Http\Controllers\RegisterController::class, 'terminals'])->name('admin.registers.terminals');
+    Route::post('/admin/registers/{register}/terminals', [\App\Http\Controllers\RegisterController::class, 'setTerminal'])->name('admin.registers.setTerminal');
+});
+
+// ============================================
+// ADMIN: ORGANISATION-WIDE TRANSACTIONS — the EFT/SCI transaction ledger across every
+// event and Ticket Sales combined (donations/tickets/audit-logs are already org-wide on
+// their own existing pages, linked from this one). See OrganisationReportController.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/transactions', [\App\Http\Controllers\OrganisationReportController::class, 'transactions'])->name('admin.transactions.index');
+});
+
+// ============================================
+// ADMIN: PORTALS HUB — every portal (each event's own, plus the Pooja Portal) as one card
+// grid, each card opening that portal's existing, unchanged admin view. See
+// PortalController's own docblock — presentation only, no logic change.
+// ============================================
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/portals', [\App\Http\Controllers\PortalController::class, 'index'])->name('admin.portals.index');
 });

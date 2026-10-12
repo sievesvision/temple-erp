@@ -369,6 +369,15 @@
         <form method="POST" action="{{ route('pos.pin-login') }}" id="posPinForm">
           @csrf
           <input type="hidden" name="pin" id="posPinValue">
+          {{-- Carries which bookmarked counter this login came from (see showPosLogin()) so a
+               matching account lands straight there instead of the generic picker. Purely
+               informational — never a restriction on who may sign in through this page. --}}
+          @if($contextType)
+          <input type="hidden" name="context_type" value="{{ $contextType }}">
+          @endif
+          @if($contextSlug)
+          <input type="hidden" name="context_slug" value="{{ $contextSlug }}">
+          @endif
 
           <div class="pos-username-field">
             <label for="posUsernameInput">Counter Username</label>

@@ -57,7 +57,7 @@ class TicketControllerRoleTest extends TestCase
         foreach (['view', 'entry'] as $level) {
             $user = $this->ticketControllerUser($level);
 
-            $response = $this->actingAs($user)->get('/admin/manage-tickets');
+            $response = $this->actingAs($user)->get(route('admin.tickets.index'));
 
             $response->assertRedirect(route('admin.tickets.pos'));
         }
@@ -67,10 +67,12 @@ class TicketControllerRoleTest extends TestCase
     {
         $user = $this->ticketControllerUser('admin');
 
-        $response = $this->actingAs($user)->get('/admin/manage-tickets');
+        $response = $this->actingAs($user)->get(route('admin.tickets.index'));
 
         $response->assertOk();
-        $response->assertSee('Ticket Console', false);
+        // Renamed from "Ticket Console" — same page, same route/controller, just relabeled
+        // to "Pooja Portal" (it now also surfaces Pooja Bookings alongside ticket sales).
+        $response->assertSee('Pooja Portal', false);
     }
 
     // A view-level controller lands on the POS page itself (per the redirect above) but

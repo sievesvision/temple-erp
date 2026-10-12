@@ -11,10 +11,10 @@
     </form>
     @endif
     @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank Transfer', 'Bank', 'Cash']))
-    <form action="{{ route('admin.donations.approveDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
+    <form action="{{ route('admin.donations.approveDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received? This marks the donation as paid and emails the receipt immediately.')">
         @csrf
-        <button type="submit" class="btn-action-approve" title="Approve this donation as received">
-            <i class="bi bi-check-circle"></i> Approve
+        <button type="submit" class="btn-action-approve-prominent" title="Mark as received and email the receipt now">
+            <i class="bi bi-check-circle-fill"></i> Confirm &amp; Send Receipt
         </button>
     </form>
     @endif
@@ -29,13 +29,16 @@
     {{-- An EFT Terminal donation IS the terminal transaction record — editing/deleting it
          here would desync it from what the gateway actually charged. Refund (on the All
          Transactions list) is the only correct way to change one of these; Resend/View stay
-         available above/below since they're read-only. --}}
-    @if($canEditDonation && $row->payment_method !== 'EFT Terminal')
+         available above/below since they're read-only. A completed (Paid) donation of ANY
+         method is locked the same way once it's been counted and (for most methods) a
+         receipt has gone out — Resend is the only correction left; a genuine mistake past
+         that point needs a Refund/reversal, not a silent edit or delete of settled money. --}}
+    @if($canEditDonation && $row->payment_method !== 'EFT Terminal' && $row->payment_status !== 'Paid')
     <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editDevoteeDonationModal{{ $row->id }}">
         <i class="bi bi-pencil-square"></i> Edit
     </button>
     @endif
-    @if($canDeleteDonation && $row->payment_method !== 'EFT Terminal')
+    @if($canDeleteDonation && $row->payment_method !== 'EFT Terminal' && $row->payment_status !== 'Paid')
     <form action="{{ route('admin.donations.deleteDevotee', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
         @csrf
         @method('DELETE')
@@ -54,10 +57,10 @@
     </form>
     @endif
     @if($canEditDonation && $row->payment_status === 'Pending' && in_array($row->payment_method, ['Bank', 'Cash']))
-    <form action="{{ route('admin.donations.approveGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received and approve this donation?')">
+    <form action="{{ route('admin.donations.approveGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm that this payment was received? This marks the donation as paid and emails the receipt immediately.')">
         @csrf
-        <button type="submit" class="btn-action-approve" title="Approve this donation as received">
-            <i class="bi bi-check-circle"></i> Approve
+        <button type="submit" class="btn-action-approve-prominent" title="Mark as received and email the receipt now">
+            <i class="bi bi-check-circle-fill"></i> Confirm &amp; Send Receipt
         </button>
     </form>
     @endif
@@ -69,12 +72,12 @@
         </button>
     </form>
     @endif
-    @if($canEditDonation && $row->payment_method !== 'EFT Terminal')
+    @if($canEditDonation && $row->payment_method !== 'EFT Terminal' && $row->payment_status !== 'Paid')
     <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editGuestDonationModal{{ $row->id }}">
         <i class="bi bi-pencil-square"></i> Edit
     </button>
     @endif
-    @if($canDeleteDonation && $row->payment_method !== 'EFT Terminal')
+    @if($canDeleteDonation && $row->payment_method !== 'EFT Terminal' && $row->payment_status !== 'Paid')
     <form action="{{ route('admin.donations.deleteGuest', $row->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this donation record? This cannot be undone.')">
         @csrf
         @method('DELETE')

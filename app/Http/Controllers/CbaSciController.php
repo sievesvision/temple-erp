@@ -247,6 +247,10 @@ class CbaSciController extends Controller
             'purpose_details' => 'nullable|string|max:2000',
             'cart_json' => 'nullable|string',
             'terminal_id' => 'nullable|integer|exists:eft_terminals,id',
+            // Set only when this charge is completing an existing Pending guest donation —
+            // see createRecordIfApprovedAndUnrecorded()'s own branch on this, mirroring
+            // DonationController::startEftCharge()'s identical Linkly-side field.
+            'edit_donation_id' => 'nullable|integer|exists:donations_without_logins,id',
         ]);
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
@@ -301,6 +305,7 @@ class CbaSciController extends Controller
                     'mobile' => $validated['mobile'] ?? null,
                     'purpose' => $validated['purpose'] ?? null,
                     'purpose_details' => $validated['purpose_details'] ?? null,
+                    'edit_donation_id' => $validated['edit_donation_id'] ?? null,
                 ];
 
             SciTransaction::create([
@@ -312,6 +317,7 @@ class CbaSciController extends Controller
                 'txn_type' => 'purchase',
                 'amount' => $validated['amount'],
                 'status' => $result['status'],
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'pos_instructions' => $result['pos_instructions'],
                 'message' => $result['message'],
                 'initiated_by' => $user->id,
@@ -520,6 +526,7 @@ class CbaSciController extends Controller
                 'txn_type' => 'refund',
                 'amount' => $validated['amount'],
                 'status' => $result['status'],
+                'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'pos_instructions' => $result['pos_instructions'],
                 'message' => $result['message'],
                 'initiated_by' => $user->id,
@@ -680,6 +687,21 @@ class CbaSciController extends Controller
             return $orderId;
         }
 
+        // Completing an existing Pending donation updates that same row instead of
+        // inserting a new one — mirrors DonationController::createDonationIfApprovedPurchaseUnrecorded()'s
+        // identical Linkly-side branch.
+        if (!empty($meta['edit_donation_id'])) {
+            $editDonationId = (int) $meta['edit_donation_id'];
+            app(DonationController::class)->updateGuestDonationRecord($editDonationId, [
+                'payment_method' => 'EFT Terminal',
+                'payment_status' => 'Paid',
+                'transaction_id' => $transactionRef,
+            ]);
+            $txn->update(['donation_type' => 'guest', 'donation_id' => $editDonationId]);
+
+            return $editDonationId;
+        }
+
         if (empty($meta['donor_name'])) {
             return null;
         }
@@ -690,7 +712,12 @@ class CbaSciController extends Controller
             'email' => $meta['email'] ?? null,
             'mobile' => $meta['mobile'] ?? null,
             'amount' => $txn->amount,
-            'purpose' => $meta['purpose'] ?? 'General Donation',
+            // 'Event Donation' is this app's one sentinel for "no specific donation option
+            // chosen" — see DonationController::createDonationIfApprovedPurchaseUnrecorded()'s
+            // identical fix for why every fallback needs to agree on it. ?? first (not just
+            // ?:) — $meta['purpose'] not existing at all would otherwise raise an "Undefined
+            // array key" warning, since ?: still evaluates the left-hand lookup itself.
+            'purpose' => ($meta['purpose'] ?? '') ?: 'Event Donation',
             'purpose_details' => $meta['purpose_details'] ?? null,
             'payment_method' => 'EFT Terminal',
             'payment_status' => 'Paid',

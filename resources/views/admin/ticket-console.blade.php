@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ticket Console</title>
+    <title>Pooja Portal</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
@@ -259,7 +259,7 @@
                     @if($temple['subtitle'] ?? null)<div class="topbar-temple-sub">{{ $temple['subtitle'] }}</div>@endif
                 </div>
             </div>
-            <div class="topbar-title"><h1>Ticket Console</h1></div>
+            <div class="topbar-title"><h1>Pooja Portal</h1></div>
             <div class="topbar-right">
                 <a href="{{ route('admin.tickets.pos') }}" target="_blank" class="admin-pill"><i class="bi bi-box-arrow-up-right"></i><span>Ticket POS</span></a>
                 <div class="dropdown">
@@ -280,12 +280,19 @@
             <aside class="app-sidebar" id="appSidebar">
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link active" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
+                    {{-- Pooja Bookings keeps its own existing page/controller untouched — it's
+                         embedded via iframe below (BookingController::manageBookings()'s own
+                         ?embed=1 flag just drops its layout's sidebar/topbar) so it lives inside
+                         the Portal's shell instead of navigating away to a separate admin page. --}}
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))
+                    <button type="button" class="sidebar-link" data-pane="pane-bookings"><i class="bi bi-calendar-event"></i><span>Pooja Bookings</span></button>
+                    @endif
                     <button type="button" class="sidebar-link" data-pane="pane-types"><i class="bi bi-ticket-perforated-fill"></i><span>Ticket Types</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>All Transactions</span></button>
                     @if($canManageConsole)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
-                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
+                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Settlements</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-controllers"><i class="bi bi-people-fill"></i><span>Ticket Controllers</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
                     @endif
@@ -317,6 +324,33 @@
                                 <div class="stat-tile"><div class="stat-icon" style="background:#2a6fdb;"><i class="bi bi-ticket-perforated-fill"></i></div><div class="stat-text"><div class="label">Ticket Types</div><div class="value">{{ $tickets->count() }}</div></div></div>
                             </div>
                         </div>
+                        @if($canSettleCash)
+                        {{-- Current Settlement — replaces the old "Recent Orders" table here: the
+                             All Transactions pane already covers "what sold recently" in far more
+                             detail (filterable, searchable), so the dashboard's second card is more
+                             useful surfacing the till itself — what's expected, what's carried
+                             forward, and when it was last counted — with a direct way in to settle. --}}
+                        <div class="card-panel" style="padding:0;">
+                            <div class="p-3 pb-2"><h5 class="mb-0"><i class="bi bi-cash-stack me-1"></i>Current Settlement</h5></div>
+                            <div class="row g-2 px-3 pb-3">
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-box-arrow-in-right"></i></div><div class="stat-text"><div class="label">Opening Balance</div><div class="value">{{ number_format($cashPreview['opening_balance'], 2) }}</div></div></div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:var(--success);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Cash Received</div><div class="value">{{ number_format($cashPreview['cash_received'], 2) }}</div></div></div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:var(--maroon);"><i class="bi bi-calculator-fill"></i></div><div class="stat-text"><div class="label">Expected in Till</div><div class="value">{{ number_format($cashPreview['opening_balance'] + $cashPreview['cash_received'], 2) }}</div></div></div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-tile"><div class="stat-icon" style="background:#2a6fdb;"><i class="bi bi-clock-history"></i></div><div class="stat-text"><div class="label">Last Settled</div><div class="value" style="font-size:0.95rem;">{{ $lastSettlementDate ? $lastSettlementDate->format('d M Y') : 'Never yet' }}</div></div></div>
+                                </div>
+                            </div>
+                            <div class="px-3 pb-3">
+                                <button type="button" class="btn-save w-100" style="padding:11px;" data-pane="pane-cash-banking"><i class="bi bi-arrow-right-circle me-1"></i>Go to Settlements</button>
+                            </div>
+                        </div>
+                        @else
                         <div class="card-panel" style="padding:0;">
                             <div class="p-3 pb-0"><h5 class="mb-0"><i class="bi bi-clock-history me-1"></i>Recent Orders</h5></div>
                             <div class="table-scroll-wrap" style="max-height:360px;">
@@ -339,7 +373,15 @@
                                 </table>
                             </div>
                         </div>
+                        @endif
                     </div>
+
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))
+                    <!-- POOJA BOOKINGS (embedded, same page/controller as the standalone admin area) -->
+                    <div class="console-pane" id="pane-bookings">
+                        <iframe src="{{ route('admin.bookings.index') }}?embed=1" style="width:100%; min-height:82vh; border:0;" loading="lazy" title="Pooja Bookings"></iframe>
+                    </div>
+                    @endif
 
                     <!-- TICKET TYPES -->
                     <div class="console-pane" id="pane-types">
@@ -517,7 +559,7 @@
 
                         <div class="card-panel mt-3">
                             <div class="fw-bold mb-2">Ticket Bank Account</div>
-                            <p class="text-muted small mb-3">Leave any field blank to use the temple's global donation account from Admin &gt; Settings. Set one here only to record a different account for ticket sales specifically — used on the Cash Banking report below.</p>
+                            <p class="text-muted small mb-3">Leave any field blank to use the temple's global donation account from Admin &gt; Settings. Set one here only to record a different account for ticket sales specifically — used on the Settlements report below.</p>
                             <form action="{{ route('admin.tickets.settings.bankAccount') }}" method="POST" id="ticketBankAccountForm">
                                 @csrf
                                 <div class="row g-3">
@@ -612,17 +654,17 @@
                         ])
                     </div>
 
-                    <!-- CASH BANKING -->
+                    <!-- SETTLEMENTS -->
                     <div class="console-pane" id="pane-cash-banking">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-cash-stack"></i></div>
                             <div>
-                                <h2>Cash Banking</h2>
-                                <p>Track cash taken to the bank and reconcile what's still on hand for ticket sales.</p>
+                                <h2>Settlements</h2>
+                                <p>Count the till, reconcile what's still on hand, and review past settlements for ticket sales.</p>
                             </div>
                         </div>
                         @if($cashPreview)
-                        @include('admin.partials.cash-banking-pane', ['scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'temple' => $temple])
+                        @include('admin.partials.cash-settlement-pane', ['context' => 'console', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
                         @endif
                     </div>
 
@@ -630,7 +672,7 @@
                     <div class="console-pane" id="pane-controllers">
                         <div class="page-header">
                             <div class="page-header-icon"><i class="bi bi-people-fill"></i></div>
-                            <div><h2>Ticket Controllers</h2><p>People with access to the Ticket Console / POS.</p></div>
+                            <div><h2>Ticket Controllers</h2><p>People with access to the Pooja Portal / POS.</p></div>
                         </div>
                         <div class="card-panel mb-3">
                             <div class="fw-bold mb-2">Add a Ticket Controller</div>
@@ -697,7 +739,10 @@
                                                 @if($canTouch)
                                                 <form action="{{ route('admin.ticket-controllers.updateLevel', $tc->id) }}" method="POST" class="d-inline">
                                                     @csrf
-                                                    <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
+                                                    {{-- requestSubmit(), not submit() — the legacy .submit() method
+                                                         doesn't fire the form's 'submit' event, which is what the
+                                                         pane-restore listener needs to remember this pane before reload. --}}
+                                                    <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.requestSubmit()">
                                                         <option value="view" {{ $tc->level === 'view' ? 'selected' : '' }}>View</option>
                                                         <option value="entry" {{ $tc->level === 'entry' ? 'selected' : '' }}>Entry</option>
                                                         @if($activeRole === 'Admin')

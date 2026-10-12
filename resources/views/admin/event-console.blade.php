@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Console · {{ $event->event_name }} · SievesPOS v{{ config('sievespos.version') }}</title>
+    <title>{{ $event->event_name }} Portal · SievesPOS v{{ config('sievespos.version') }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
@@ -66,7 +66,13 @@
         .sidebar-decoration p { font-size: 0.72rem; color: var(--text-secondary); margin: 0; }
         .sidebar-decoration p strong { color: var(--text-primary); font-weight: 700; }
         .sidebar-decoration p .version { opacity: 0.75; }
-        .sidebar-decoration .copyright { margin-bottom: 2px; opacity: 0.75; }
+        .sidebar-decoration .copyright { margin-bottom: 6px; opacity: 0.75; }
+        .sidebar-decoration .powered-by-label { margin-bottom: 4px; opacity: 0.55; text-transform: uppercase; font-size: 0.62rem; letter-spacing: 0.5px; }
+        .sidebar-brand-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 6px; }
+        .sidebar-brand-row img { height: 16px; width: auto; opacity: 0.85; margin-bottom: 0; }
+        .sidebar-brand-row .version { font-size: 0.72rem; color: var(--text-secondary); opacity: 0.85; font-weight: 700; }
+        .sidebar-site-link { display: block; font-size: 0.72rem; color: var(--text-secondary); opacity: 0.75; text-decoration: none; }
+        .sidebar-site-link:hover { opacity: 1; text-decoration: underline; }
 
         .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; }
 
@@ -258,16 +264,53 @@
         .donations-filter-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
         .donations-search-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
         .donations-search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; }
-        .donations-search-wrap input { width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.9rem; min-height: 42px; color: var(--text-primary); }
-        .donations-date-input { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.86rem; min-height: 42px; color: var(--text-primary); }
-        .donations-filter-row input:focus, .donations-filter-row select:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+        .donations-search-wrap input { width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.9rem; min-height: 42px; color: var(--text-primary); }
+        .donations-date-input { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.86rem; min-height: 42px; color: var(--text-primary); }
+        .donations-filter-row input:focus, .donations-filter-row select:focus { outline: none; border-color: #adb5bd; box-shadow: 0 0 0 3px rgba(222,226,230,0.6); }
         .donations-filter-row select.donations-date-input { min-width: 150px; background: var(--white); }
-        .donations-filter-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-        .donations-filter-pills button { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 8px 16px; min-height: 38px; border-radius: 999px; font-size: 0.8rem; }
-        .donations-filter-pills button.active { background: var(--gold); border-color: var(--gold); color: white; }
-        .donations-filter-clear { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 10px 16px; min-height: 42px; border-radius: 10px; font-size: 0.85rem; }
+        .donations-filter-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+        .donations-filter-pills button { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 7px 14px; min-height: 36px; border-radius: 8px; font-size: 0.8rem; }
+        .donations-filter-pills button.active { background: #dee2e6; border-color: #ced4da; color: var(--text-primary); }
+        .donations-filter-clear { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 10px 16px; min-height: 42px; border-radius: 8px; font-size: 0.85rem; }
         .donations-filter-summary { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 2px 2px; font-size: 0.85rem; color: var(--text-secondary); }
         .donations-filter-total { font-weight: 700; color: var(--text-secondary); }
+
+        /* Multi-select pill groups (Status / Payment Method) + the Settlement dropdown —
+           each boxed separately so the three filter dimensions read as distinct groups
+           rather than one long run-on row of buttons. Pills toggle independently and
+           combine with the others and with search/date to narrow the table; a group with
+           nothing active behaves as "everything in this group" (same as its own "All"
+           pill). Neutral grey for the active state throughout — no accent colour, so a
+           filter selection reads as "on/off", not as a brand-coloured call to action. */
+        .donations-pill-groups { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+        .donations-pill-group { display: flex; flex-direction: column; gap: 7px; background: #f8f9fa; border: 1px solid #edf0f2; border-radius: 10px; padding: 10px 14px; flex: 1 1 220px; }
+        .donations-pill-group-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+        .donations-pill-group .donations-filter-pills { margin-bottom: 0; }
+        .donations-pill-group select.donations-date-input { width: 100%; }
+        .donations-multi-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--white); border: 1px solid #ced4da; color: var(--text-secondary); font-weight: 600; padding: 6px 13px; min-height: 32px; border-radius: 7px; font-size: 0.79rem; cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s; }
+        .donations-multi-pill.donations-pill-all { font-weight: 700; }
+        .donations-multi-pill.active { background: #dee2e6; border-color: #ced4da; color: var(--text-primary); }
+        .donations-multi-pill:hover { border-color: #adb5bd; }
+        .pill-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .pill-dot.dot-success { background: var(--success); }
+        .pill-dot.dot-warning { background: var(--warning); }
+        .pill-dot.dot-danger { background: #c94b4b; }
+
+        /* All Donations table: simplified columns + a clickable row opening the full
+           detail modal (everything the row itself doesn't show inline). */
+        .donations-row-clickable { cursor: pointer; }
+        .donations-row-clickable:hover { background: #fbfaf8; }
+        .btn-view-donation { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 6px 13px; border-radius: 7px; font-size: 0.8rem; }
+        .btn-view-donation:hover { border-color: #adb5bd; color: var(--text-primary); }
+        .settlement-badge { display: inline-block; background: #eef2f5; color: var(--text-secondary); border-radius: 7px; padding: 4px 10px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+        .settlement-badge.current { background: #fdf0db; color: #8A6A1E; }
+
+        /* Detail modal body */
+        .donation-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-bottom: 4px; }
+        .donation-detail-grid .ddl { display: block; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary); margin-bottom: 2px; }
+        .donation-detail-grid .ddv { display: block; font-size: 0.92rem; color: var(--text-primary); }
+        .donation-detail-breakdown { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .donation-detail-breakdown .ddl { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary); }
         .donations-filter-total .amt { font-weight: 800; color: var(--gold-hover); font-size: 1rem; }
 
         /* ---------- All Donations: clickable/sortable column headers ---------- */
@@ -308,9 +351,13 @@
         .btn-export { background: linear-gradient(135deg, #1f9d6a, #34b380); border: none; padding: 9px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; color: white; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
         .btn-export:hover { color: white; opacity: 0.92; }
 
+        {{-- Icon + visible label (unlike manage-donations.blade.php's own icon-only-circle
+             definition of these same class names) — these now live in the spacious detail
+             modal's footer, not a cramped table cell, so there's room to say what each one
+             does instead of relying purely on a tooltip. --}}
         .btn-action-edit, .btn-action-delete, .btn-action-resend, .btn-action-approve, .btn-action-checkstatus {
-            border: none; width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 0; transition: 0.15s;
-            display: inline-flex; align-items: center; justify-content: center; margin: 2px;
+            border: none; padding: 8px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; transition: 0.15s;
+            display: inline-flex; align-items: center; gap: 6px; margin: 2px;
         }
         .btn-action-edit i, .btn-action-delete i, .btn-action-resend i, .btn-action-approve i, .btn-action-checkstatus i { font-size: 0.92rem; }
         .btn-action-edit { background: rgba(200,155,60,0.14); color: var(--gold-hover); }
@@ -323,6 +370,13 @@
         .btn-action-approve:hover { background: var(--success); color: white; }
         .btn-action-checkstatus { background: var(--pending-bg); color: var(--warning); }
         .btn-action-checkstatus:hover { background: var(--warning); color: white; }
+
+        {{-- The one action a Pending transaction actually needs taken on it — solid-filled
+             and bigger than its siblings so it reads as the primary action for that row,
+             not just another item in a row of equal-weight icon buttons. --}}
+        .btn-action-approve-prominent { border: none; background: var(--success); color: white; padding: 11px 22px; border-radius: 10px; font-size: 0.9rem; font-weight: 800; display: inline-flex; align-items: center; gap: 8px; margin: 2px; box-shadow: 0 2px 10px rgba(31,157,106,0.3); }
+        .btn-action-approve-prominent i { font-size: 1.05rem; }
+        .btn-action-approve-prominent:hover { background: #178a5c; color: white; }
 
         /* ---------- Dashboard pane ---------- */
         .stat-tile { background: var(--white); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(31,42,55,0.04); border: 1px solid var(--border); display: flex; align-items: center; gap: 14px; min-width: 0; }
@@ -517,7 +571,7 @@
                         @if($switchableEvents->count())
                         <li><h6 class="dropdown-header">Switch Event</h6></li>
                         @foreach($switchableEvents as $switchEvent)
-                        <li><a class="dropdown-item" href="{{ route('admin.events.console', $switchEvent->event_id) }}"><i class="bi bi-arrow-left-right me-2"></i>{{ $switchEvent->event_name }}</a></li>
+                        <li><a class="dropdown-item" href="{{ route('admin.events.portal', $switchEvent->slug ?? $switchEvent->event_id) }}"><i class="bi bi-arrow-left-right me-2"></i>{{ $switchEvent->event_name }}</a></li>
                         @endforeach
                         <li><hr class="dropdown-divider"></li>
                         @endif
@@ -535,10 +589,9 @@
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
                     @if($canAddDonation)
-                    <button type="button" class="sidebar-link active" data-pane="pane-entry"><i class="bi bi-heart-fill"></i><span>New Donation</span></button>
                     <a href="{{ route('admin.events.pos', $event->event_id) }}" class="sidebar-link"><i class="bi bi-lightning-charge-fill"></i><span>POS Mode</span></a>
                     @endif
-                    <button type="button" class="sidebar-link {{ $canAddDonation ? '' : 'active' }}" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Transactions</span></button>
+                    <button type="button" class="sidebar-link active" data-pane="pane-table"><i class="bi bi-card-list"></i><span>All Transactions</span></button>
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-settings"><i class="bi bi-gear-fill"></i><span>Settings</span></button>
                     @endif
@@ -547,7 +600,9 @@
                     @endif
                     @if($canEditEvent)
                     <button type="button" class="sidebar-link" data-pane="pane-eft-settings"><i class="bi bi-sliders"></i><span>EFT Terminal Settings</span></button>
-                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Cash Banking</span></button>
+                    @endif
+                    @if($canSettleCash)
+                    <button type="button" class="sidebar-link" data-pane="pane-cash-banking"><i class="bi bi-cash-stack"></i><span>Settlements</span></button>
                     @endif
                     @if($canViewEventLogs)
                     <button type="button" class="sidebar-link" data-pane="pane-logs"><i class="bi bi-journal-text"></i><span>Logs</span></button>
@@ -555,8 +610,12 @@
                 </div>
                 <div class="sidebar-decoration">
                     <p class="copyright">&copy; {{ date('Y') }} {{ $temple['legal_name'] ?? $temple['name'] ?? '' }}</p>
-                    <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
-                    <p><span class="version">Powered by</span> v{{ config('sievespos.version') }} <span class="version">· Sievesvision</span></p>
+                    <p class="powered-by-label">Powered by</p>
+                    <div class="sidebar-brand-row">
+                        <img src="{{ asset('images/SievesPos_simple_logo.png') }}" alt="SievesPOS">
+                        <span class="version">v{{ config('sievespos.version') }}</span>
+                    </div>
+                    <a href="https://sievesvision.com" target="_blank" rel="noopener" class="sidebar-site-link">sievesvision.com</a>
                 </div>
             </aside>
 
@@ -564,6 +623,15 @@
                 <div class="console-body">
                 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
                 @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
+                {{-- Testing Mode only (real emails aren't actually sent there) — the same
+                     "here's the link directly, since there's no inbox to check" fallback used
+                     elsewhere for password setup links. --}}
+                @if(session('pos_pin_setup_link'))
+                <div class="alert alert-info">
+                    PIN setup link for <strong>{{ session('pos_pin_setup_link.name') }}</strong>:
+                    <a href="{{ session('pos_pin_setup_link.url') }}" target="_blank">{{ session('pos_pin_setup_link.url') }}</a>
+                </div>
+                @endif
                 <!-- DASHBOARD -->
                 <div class="console-pane {{ $canAddDonation ? '' : '' }}" id="pane-dashboard">
                     <div class="page-header">
@@ -571,6 +639,84 @@
                         <div>
                             <h2>Dashboard</h2>
                             <p>Full donation statistics for {{ $event->event_name }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-lg-6">
+                            <div class="card-panel summary-panel h-100">
+                                <h4><i class="bi bi-pie-chart-fill" style="color:var(--gold);"></i>Donation Summary</h4>
+                                <div class="summary-grid">
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-cash-coin"></i>Total Collected</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-people-fill"></i>Total Donors</div>
+                                        <div class="value">{{ $summary['total_donors'] }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-calendar-check"></i>Today's Collection</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-hourglass-split"></i>Pending Transfers</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-view-pending" data-pane="pane-table">View Pending ({{ $summary['pending_count'] }})</button>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="card-panel recent-mini-card h-100">
+                                @if($canSettleCash)
+                                {{-- Current Settlement — replaces the old "Recent Donations" list here:
+                                     the All Transactions pane already covers "what came in recently" in
+                                     far more detail (filterable, searchable), so the dashboard's second
+                                     card is more useful surfacing the till itself — what's expected,
+                                     what's carried forward, and when it was last counted — with a direct
+                                     way in to actually settle it. --}}
+                                <h4><i class="bi bi-cash-stack" style="color:var(--gold);"></i>Current Settlement</h4>
+                                <div class="summary-grid">
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-box-arrow-in-right"></i>Opening Balance</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($cashPreview['opening_balance'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-cash-coin"></i>Cash Received</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($cashPreview['cash_received'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-calculator-fill"></i>Expected in Till</div>
+                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($cashPreview['opening_balance'] + $cashPreview['cash_received'], 2) }}</div>
+                                    </div>
+                                    <div class="summary-tile">
+                                        <div class="label"><i class="bi bi-clock-history"></i>Last Settled</div>
+                                        <div class="value" style="font-size:0.98rem;">{{ $lastSettlementDate ? $lastSettlementDate->format('d M Y') : 'Never yet' }}</div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-view-pending" data-pane="pane-cash-banking"><i class="bi bi-arrow-right-circle me-1"></i>Go to Settlements</button>
+                                @else
+                                <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
+                                <div class="recent-mini-list">
+                                    @forelse($rows->take(8) as $row)
+                                        <div class="recent-mini-item">
+                                            <div class="recent-mini-top">
+                                                <span class="recent-mini-name">{{ $row->display_name }}</span>
+                                                <span class="recent-mini-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
+                                            </div>
+                                            <div class="recent-mini-bottom">
+                                                <span>{{ date('d M', strtotime($row->donation_date)) }}</span>
+                                                <span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span>
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <p class="text-muted small mb-0">No donations recorded for this event yet.</p>
+                                    @endforelse
+                                </div>
+                                <button type="button" class="btn-view-all w-100 mt-3 justify-content-center" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
+                                @endif
+                            </div>
                         </div>
                     </div>
 
@@ -661,7 +807,7 @@
                      isn't already represented by one — see EventConsoleController::show()'s
                      $eftOrphanRows docblock. Folds in what used to be a second, overlapping
                      table on the EFTPOS pane. -->
-                <div class="console-pane {{ $canAddDonation ? '' : 'active' }}" id="pane-table">
+                <div class="console-pane active" id="pane-table">
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-card-list"></i></div>
                         <div>
@@ -669,32 +815,107 @@
                             <p>Every donation and EFT terminal transaction recorded for {{ $event->event_name }}</p>
                         </div>
                         <div class="page-header-actions d-flex gap-2">
+                            @if($canAddDonation)
+                            <button type="button" class="btn-save" data-bs-toggle="modal" data-bs-target="#addTransactionModal"><i class="bi bi-plus-lg me-1"></i>Add New Transaction</button>
+                            @endif
                             <a href="{{ route('admin.donations.export', ['event_id' => $event->event_id]) }}" class="btn-export"><i class="bi bi-file-earmark-excel-fill"></i>Export to Excel</a>
                             <button type="button" class="btn-refresh" onclick="try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {} location.reload();"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
                         </div>
                     </div>
+
+                    @php
+                        $topMethod = collect($summary['method_totals'])->sortDesc()->keys()->first();
+                        $topMethodAmt = $topMethod ? $summary['method_totals'][$topMethod] : 0;
+                        $topMethodShare = $summary['paid_total'] > 0 ? round($topMethodAmt / $summary['paid_total'] * 100) : 0;
+                    @endphp
+                    <div class="row g-3 mb-3">
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--success);"><i class="bi bi-cash-coin"></i></div><div class="stat-text"><div class="label">Paid Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--warning);"><i class="bi bi-hourglass-split"></i></div><div class="stat-text"><div class="label">Pending Total</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--maroon);"><i class="bi bi-people-fill"></i></div><div class="stat-text"><div class="label">Total Donors</div><div class="value">{{ $summary['total_donors'] }}</div></div></div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-tile"><div class="stat-icon" style="background:var(--gold);"><i class="bi bi-calendar-check"></i></div><div class="stat-text"><div class="label">Today's Collection</div><div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div></div></div>
+                        </div>
+                    </div>
+
+                    @if($summary['donation_count'] > 0)
+                    <div class="row g-2 mb-3">
+                        @if($topMethod && $topMethodShare >= 40)
+                        <div class="col-md-6">
+                            <div class="card-panel py-2 px-3 d-flex align-items-center gap-2" style="border-left:4px solid var(--gold);">
+                                <i class="bi bi-pie-chart-fill" style="color:var(--gold); font-size:1.1rem;"></i>
+                                <span class="small">{{ $topMethod }} leads at <strong>{{ $topMethodShare }}%</strong> of collected funds.</span>
+                            </div>
+                        </div>
+                        @endif
+                        @if($summary['pending_count'] > 0)
+                        <div class="col-md-6">
+                            <div class="card-panel py-2 px-3 d-flex align-items-center gap-2" style="border-left:4px solid var(--warning);">
+                                <i class="bi bi-hourglass-split" style="color:var(--warning); font-size:1.1rem;"></i>
+                                <span class="small"><strong>{{ $summary['pending_count'] }}</strong> transaction{{ $summary['pending_count'] === 1 ? '' : 's' }} ({{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}) still awaiting confirmation.</span>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+
                     @php
                         $distinctStatuses = $rows->pluck('payment_status')->filter()->unique()->sort()->values();
                         $distinctPaymentMethods = $rows->pluck('payment_method')->filter()->unique()->sort()->values();
+                        // Completed + Pending are on by default — Cancelled/Failed are
+                        // available to opt into but don't clutter the view by default.
+                        $defaultActiveStatuses = ['paid', 'pending'];
+                        // For the table's own Settlement column/badge — same settlement list
+                        // the filter dropdown's own options are built from.
+                        $settlementById = $cashSettlements->keyBy('id');
                     @endphp
                     <div class="card-panel">
+                        <div class="donations-pill-groups">
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Status</span>
+                                <div class="donations-filter-pills" id="donationsStatusPills">
+                                    <button type="button" class="donations-multi-pill donations-pill-all" data-all="1">All</button>
+                                    @foreach($distinctStatuses as $status)
+                                    @php
+                                        $sv = strtolower($status);
+                                        $dotClass = match($sv) { 'paid' => 'dot-success', 'pending' => 'dot-warning', default => 'dot-danger' };
+                                    @endphp
+                                    <button type="button" class="donations-multi-pill{{ in_array($sv, $defaultActiveStatuses, true) ? ' active' : '' }}" data-value="{{ $sv }}"><span class="pill-dot {{ $dotClass }}"></span>{{ $status === 'Paid' ? 'Completed' : $status }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Payment Method</span>
+                                <div class="donations-filter-pills" id="donationsPaymentPills">
+                                    <button type="button" class="donations-multi-pill donations-pill-all active" data-all="1">All</button>
+                                    @foreach($distinctPaymentMethods as $method)
+                                    <button type="button" class="donations-multi-pill active" data-value="{{ strtolower($method) }}">{{ $method }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @if($cashSettlements->isNotEmpty())
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Settlement</span>
+                                <select class="donations-date-input" id="donationsSettlementSelect">
+                                    <option value="">All</option>
+                                    <option value="current">Current (Unsettled)</option>
+                                    @foreach($cashSettlements as $s)
+                                    <option value="{{ $s->id }}">{{ $s->period_start->format('d M') }}–{{ $s->period_end->format('d M Y') }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                        </div>
                         <div class="donations-filter-row">
                             <div class="donations-search-wrap">
                                 <i class="bi bi-search"></i>
                                 <input type="text" id="donationsSearchInput" placeholder="Search by name or email...">
                             </div>
-                            <select class="donations-date-input" id="donationsStatusFilter">
-                                <option value="">All Statuses</option>
-                                @foreach($distinctStatuses as $status)
-                                <option value="{{ strtolower($status) }}">{{ $status === 'Paid' ? 'Completed' : $status }}</option>
-                                @endforeach
-                            </select>
-                            <select class="donations-date-input" id="donationsPaymentFilter">
-                                <option value="">All Payment Methods</option>
-                                @foreach($distinctPaymentMethods as $method)
-                                <option value="{{ strtolower($method) }}">{{ $method }}</option>
-                                @endforeach
-                            </select>
                             <input type="date" class="donations-date-input" id="donationsDateFrom">
                             <span class="text-muted small">to</span>
                             <input type="date" class="donations-date-input" id="donationsDateTo">
@@ -717,17 +938,14 @@
                         <table class="console-table" id="donationsTable">
                             <thead>
                                 <tr>
-                                    <th class="sortable" data-sort="type">Type<i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                    <th class="sortable" data-sort="donationId">ID<i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                    <th class="sortable" data-sort="name">Name<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="timestamp">Date &amp; Time<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="name">Donor Name<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th>Contact</th>
-                                    @foreach($options as $opt)<th class="col-amount">{{ $opt->label }}</th>@endforeach
-                                    <th class="col-amount">Other</th>
-                                    <th class="col-amount sortable" data-sort="amount">Total<i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                    <th class="sortable" data-sort="payment">Payment<i class="bi bi-arrow-down-up sort-icon"></i></th>
-                                    <th>Txn ID</th>
-                                    <th class="sortable" data-sort="timestamp">Date<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="col-amount sortable" data-sort="amount">Amount<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="sortable" data-sort="payment">Payment Method<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th>Transaction ID</th>
                                     <th class="sortable" data-sort="status">Status<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th>Settlement</th>
                                     <th class="text-end">Actions</th>
                                 </tr>
                             </thead>
@@ -738,14 +956,18 @@
                                     // (never duplicated as a second row) purely to show which provider/
                                     // terminal took it and to offer Refund inline. See
                                     // EventConsoleController::show()'s $linklyPurchaseByDonation docblock.
-                                    $rowLinklyTxn = $row->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
-                                    $rowSciTxn = $row->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
-                                    $rowEftProvider = $rowLinklyTxn ? 'Linkly' : ($rowSciTxn ? 'SCI' : null);
-                                    $rowEftTerminalLabel = $rowLinklyTxn->eftTerminal->label ?? ($rowSciTxn->eftTerminal->label ?? null);
-                                    $rowCanRefund = $canEditEvent && (
-                                        ($rowLinklyTxn && $rowLinklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $rowLinklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
-                                        || ($rowSciTxn && $rowSciTxn->status === 'FINALISED' && $rowSciTxn->result_financial_status === 'APPROVED' && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $rowSciTxn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED')))
+                                    // Stashed onto the row itself (not just local variables) so the detail
+                                    // modal loop further down can reuse them without recomputing.
+                                    $row->_linklyTxn = $row->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
+                                    $row->_sciTxn = $row->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$row->donation_type . ':' . $row->id] ?? null) : null;
+                                    $row->_eftProvider = $row->_linklyTxn ? 'Linkly' : ($row->_sciTxn ? 'SCI' : null);
+                                    $row->_eftTerminalLabel = $row->_linklyTxn->eftTerminal->label ?? ($row->_sciTxn->eftTerminal->label ?? null);
+                                    $row->_canRefund = $canEditEvent && (
+                                        ($row->_linklyTxn && $row->_linklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $row->_linklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
+                                        || ($row->_sciTxn && $row->_sciTxn->status === 'FINALISED' && $row->_sciTxn->result_financial_status === 'APPROVED' && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $row->_sciTxn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED')))
                                     );
+                                    $row->_settlementLabel = $row->settlement_id ? (($settlementById[$row->settlement_id] ?? null)?->period_start?->format('d M') . '–' . ($settlementById[$row->settlement_id] ?? null)?->period_end?->format('d M Y')) : null;
+                                    $rowModalId = 'donationDetail' . $row->donation_type . $row->id;
                                 @endphp
                                 <tr data-donation-date="{{ date('Y-m-d', strtotime($row->donation_date)) }}"
                                     data-timestamp="{{ date('Y-m-d H:i:s', strtotime($row->created_at)) }}"
@@ -755,49 +977,28 @@
                                     data-name="{{ strtolower($row->display_name) }}"
                                     data-amount="{{ $row->amount }}"
                                     data-payment="{{ strtolower($row->payment_method) }}"
-                                    data-status="{{ strtolower($row->payment_status) }}">
-                                    <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
-                                    <td><strong>{{ $row->display_id }}</strong></td>
+                                    data-status="{{ strtolower($row->payment_status) }}"
+                                    data-settlement="{{ $row->settlement_id ?? 'current' }}"
+                                    class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $rowModalId }}">
+                                    <td>{{ date('d M Y', strtotime($row->donation_date)) }}<div class="text-muted small">{{ date('g:i A', strtotime($row->created_at)) }}</div></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
                                     <td class="col-contact">
                                         @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
                                         @if($row->email)<div class="text-muted contact-email" title="{{ $row->email }}">{{ $row->email }}</div>@endif
                                         @if(!$row->mobile && !$row->email)—@endif
                                     </td>
-                                    @foreach($options as $opt)
-                                    <td class="col-amount">@if(($row->option_amounts[$opt->id] ?? 0) > 0){{ number_format($row->option_amounts[$opt->id], 2) }}@else — @endif</td>
-                                    @endforeach
-                                    <td class="col-amount">@if($row->other_amount > 0){{ number_format($row->other_amount, 2) }}@else — @endif</td>
                                     <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
-                                    <td>
-                                        {{ $row->payment_method }}
-                                        @if($rowEftProvider)
-                                        <div class="text-muted small">{{ $rowEftProvider }}@if($rowEftTerminalLabel) · {{ $rowEftTerminalLabel }}@endif</div>
-                                        @endif
-                                    </td>
-                                    <td class="col-txn" title="{{ $row->transaction_id }}">
-                                        {{ $row->transaction_id ?: '—' }}
-                                        @if(!empty($row->linkly_txn_ref))
-                                        <div class="text-muted small" title="Linkly reference: {{ $row->linkly_txn_ref }}">Linkly: {{ $row->linkly_txn_ref }}</div>
-                                        @endif
-                                    </td>
-                                    <td>{{ date('d M Y', strtotime($row->donation_date)) }}<div class="text-muted small">{{ date('g:i A', strtotime($row->created_at)) }}</div></td>
+                                    <td>{{ $row->payment_method }}</td>
+                                    <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
-                                    <td class="text-end">
-                                        @include('admin.partials.donation-actions', ['row' => $row])
-                                        @if($rowCanRefund && $rowLinklyTxn)
-                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openEftRefundModal({{ $rowLinklyTxn->id }}, {{ $row->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                        @elseif($rowCanRefund && $rowSciTxn)
-                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $rowSciTxn->sci_transaction_id }}', {{ $row->amount }}, {{ $rowSciTxn->eft_terminal_id }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                        @endif
-                                        @if($rowSciTxn && ($rowSciTxn->merchant_receipt || $rowSciTxn->customer_receipt))
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $rowSciTxn->id }})"><i class="bi bi-receipt"></i></button>
-                                        @endif
+                                    <td><span class="settlement-badge{{ $row->settlement_id ? '' : ' current' }}">{{ $row->_settlementLabel ?? 'Current (Unsettled)' }}</span></td>
+                                    <td class="text-end" onclick="event.stopPropagation();">
+                                        <button type="button" class="btn-view-donation" data-bs-toggle="modal" data-bs-target="#{{ $rowModalId }}"><i class="bi bi-eye"></i> View</button>
                                     </td>
                                 </tr>
                                 @empty
                                 @if(($eftOrphanRows ?? collect())->isEmpty())
-                                <tr><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
                                 @endif
                                 @endforelse
                                 @if($canEditEvent)
@@ -813,10 +1014,13 @@
                                         ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
                                         : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
                                     $oDonorName = $ot->meta['donor_name'] ?? null;
+                                    $oEmail = $ot->meta['email'] ?? null;
+                                    $oMobile = $ot->meta['mobile'] ?? null;
+                                    $orphanModalId = 'eftDetail' . $orow->provider . $ot->id;
                                 @endphp
                                 <tr data-donation-date="{{ $ot->created_at->format('Y-m-d') }}"
                                     data-timestamp="{{ $ot->created_at->format('Y-m-d H:i:s') }}"
-                                    data-search="{{ strtolower($oDonorName ?? '') }}"
+                                    data-search="{{ strtolower(($oDonorName ?? '') . ' ' . ($oEmail ?? '') . ' ' . ($oMobile ?? '')) }}"
                                     data-type="eft"
                                     data-donation-id=""
                                     data-name="{{ strtolower($oDonorName ?? '') }}"
@@ -826,53 +1030,178 @@
                                          should add into the "Filtered Total" the search/filter JS sums up. --}}
                                     data-amount="0"
                                     data-payment="eft terminal"
-                                    data-status="{{ strtolower($oStatusWord) }}">
-                                    <td class="text-capitalize">{{ $oIsRefund ? 'Refund' : 'Attempt' }}</td>
-                                    <td>—</td>
-                                    <td class="col-name">{{ $oDonorName ?: '—' }}</td>
-                                    <td class="col-contact">—</td>
-                                    @foreach($options as $opt)<td class="col-amount">—</td>@endforeach
-                                    <td class="col-amount">—</td>
-                                    <td class="col-amount total">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
-                                    <td>
-                                        EFT Terminal
-                                        <div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div>
-                                    </td>
-                                    <td class="col-txn" title="{{ $oRef }}">{{ $oRef ?: '—' }}</td>
+                                    data-status="{{ strtolower($oStatusWord) }}"
+                                    data-settlement="current"
+                                    class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}">
                                     <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
+                                    <td class="col-name">{{ $oDonorName ?: '—' }} <span class="text-muted small text-capitalize">({{ $oIsRefund ? 'Refund' : 'Attempt' }})</span></td>
+                                    <td class="col-contact">
+                                        @if($oMobile)<div>{{ $oMobile }}</div>@endif
+                                        @if($oEmail)<div class="text-muted contact-email" title="{{ $oEmail }}">{{ $oEmail }}</div>@endif
+                                        @if(!$oMobile && !$oEmail)—@endif
+                                    </td>
+                                    <td class="col-amount total">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
+                                    <td>EFT Terminal<div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div></td>
+                                    <td class="col-txn" title="{{ $oRef }}">{{ $oRef ?: '—' }}</td>
                                     <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i></button>
-                                        @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i></button>
-                                        @endif
+                                    <td><span class="settlement-badge current">Current (Unsettled)</span></td>
+                                    <td class="text-end" onclick="event.stopPropagation();">
+                                        <button type="button" class="btn-view-donation" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}"><i class="bi bi-eye"></i> View</button>
                                     </td>
                                 </tr>
                                 @endforeach
                                 @endif
-                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="{{ 8 + $options->count() }}" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
+                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="9" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
                             </tbody>
                         </table>
                         </div>
                     </div>
                 </div>
 
-                @if($canAddDonation)
-                <!-- DONATIONS WORKSPACE (Quick Entry + Recent Donations combined) -->
-                <div class="console-pane active" id="pane-entry">
-                    <div class="page-header">
-                        <div class="page-header-icon"><i class="bi bi-heart-fill"></i></div>
-                        <div>
-                            <h2>Log New Donation</h2>
-                            <p>Record a new donation received for {{ $event->event_name }}</p>
-                        </div>
-                        <div class="page-header-actions">
-                            <button type="button" class="btn-view-all" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
+                {{-- Per-row detail modals — everything the simplified table above doesn't
+                     show inline (contact info, the per-option breakdown, transaction/Linkly
+                     references, EFT provider, settlement period) plus every action that used
+                     to sit in the table's own Actions column (Edit/Delete/Approve/Resend/
+                     Refund/Receipt), now all in one place per donation instead of spread
+                     across a dozen columns. Rendered as siblings of #pane-table (same
+                     reasoning as the existing Edit Donation modals — a modal can't nest
+                     inside a <tr>/<td>), re-using the _linklyTxn/_sciTxn/_canRefund/
+                     _settlementLabel the table's own row loop already computed per row. --}}
+                @foreach($rows as $row)
+                @php $rowModalId = 'donationDetail' . $row->donation_type . $row->id; @endphp
+                <div class="modal fade" id="{{ $rowModalId }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold">
+                                    {{ $row->display_name }}
+                                    <span class="text-muted small fw-normal ms-1">{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }} · {{ $row->display_id }}</span>
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="donation-detail-grid">
+                                    <div><span class="ddl">Amount</span><span class="ddv fw-bold">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span></div>
+                                    <div><span class="ddl">Status</span><span class="ddv"><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></span></div>
+                                    <div><span class="ddl">Payment Method</span><span class="ddv">{{ $row->payment_method }}@if($row->_eftProvider) · {{ $row->_eftProvider }}@if($row->_eftTerminalLabel) ({{ $row->_eftTerminalLabel }})@endif @endif</span></div>
+                                    <div><span class="ddl">Date &amp; Time</span><span class="ddv">{{ date('d M Y, g:i A', strtotime($row->created_at)) }}</span></div>
+                                    <div><span class="ddl">Settlement</span><span class="ddv">{{ $row->_settlementLabel ?? 'Current (Unsettled)' }}</span></div>
+                                    @if($row->mobile || $row->email)
+                                    <div><span class="ddl">Contact</span><span class="ddv">{{ $row->mobile }}@if($row->mobile && $row->email) · @endif{{ $row->email }}</span></div>
+                                    @endif
+                                    <div><span class="ddl">Transaction ID</span><span class="ddv">{{ $row->transaction_id ?: '—' }}@if(!empty($row->linkly_txn_ref))<div class="text-muted small">Linkly: {{ $row->linkly_txn_ref }}</div>@endif</span></div>
+                                    @if($row->payment_status === 'Paid')
+                                    {{-- Deterministic from the donation's own type+id (see
+                                         DonationReceiptService::receiptNumber()) — the exact
+                                         number the receipt email itself was sent with, not a
+                                         separately stored/editable field. --}}
+                                    <div><span class="ddl">Receipt ID</span><span class="ddv">{{ \App\Services\DonationReceiptService::receiptNumber($row->donation_type === 'devotee' ? 'D' : 'G', $row->id) }}</span></div>
+                                    @endif
+                                    @if($row->purpose && $row->purpose !== 'Event Donation')
+                                    <div><span class="ddl">Purpose</span><span class="ddv">{{ $row->purpose }}</span></div>
+                                    @endif
+                                </div>
+                                @if($options->isNotEmpty())
+                                <div class="donation-detail-breakdown">
+                                    <div class="ddl mb-1">Breakdown</div>
+                                    @foreach($options as $opt)
+                                        @if(($row->option_amounts[$opt->id] ?? 0) > 0)
+                                        <div class="d-flex justify-content-between py-1 border-bottom"><span>{{ $opt->label }}</span><span class="fw-bold">{{ number_format($row->option_amounts[$opt->id], 2) }}</span></div>
+                                        @endif
+                                    @endforeach
+                                    @if($row->other_amount > 0)
+                                    <div class="d-flex justify-content-between py-1"><span>Other</span><span class="fw-bold">{{ number_format($row->other_amount, 2) }}</span></div>
+                                    @endif
+                                </div>
+                                @endif
+                            </div>
+                            <div class="modal-footer flex-wrap justify-content-start">
+                                @include('admin.partials.donation-actions', ['row' => $row])
+                                @if($row->_canRefund && $row->_linklyTxn)
+                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openEftRefundModal({{ $row->_linklyTxn->id }}, {{ $row->amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                @elseif($row->_canRefund && $row->_sciTxn)
+                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $row->_sciTxn->sci_transaction_id }}', {{ $row->amount }}, {{ $row->_sciTxn->eft_terminal_id }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                @endif
+                                @if($row->_sciTxn && ($row->_sciTxn->merchant_receipt || $row->_sciTxn->customer_receipt))
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $row->_sciTxn->id }})"><i class="bi bi-receipt"></i></button>
+                                @endif
+                            </div>
                         </div>
                     </div>
+                </div>
+                @endforeach
 
-                    <div class="donation-grid">
-                        <div class="card-panel">
+                {{-- Detail modals for the EFT "orphan" rows (declined/cancelled/still-pending
+                     purchase attempts, and refunds — none of these have a donation of their
+                     own, so they're not part of the $rows loop above, but they deserve the
+                     exact same "click to see everything" treatment rather than being treated
+                     as second-class rows. --}}
+                @if($canEditEvent)
+                @foreach($eftOrphanRows as $orow)
+                @php
+                    $ot = $orow->txn;
+                    $oIsRefund = $ot->txn_type === 'refund';
+                    $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'SCI';
+                    $oRef = $orow->provider === 'linkly' ? $ot->pos_txn_ref : ($ot->sci_transaction_id ?: $ot->client_ref);
+                    $oTerminalLabel = $ot->eftTerminal->label ?? null;
+                    $oStatusWord = $orow->provider === 'linkly' ? $ot->status : (($ot->result_financial_status ?: $ot->status) ?? '');
+                    $oPillClass = $orow->provider === 'linkly'
+                        ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
+                        : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
+                    $oDonorName = $ot->meta['donor_name'] ?? null;
+                    $oEmail = $ot->meta['email'] ?? null;
+                    $oMobile = $ot->meta['mobile'] ?? null;
+                    $orphanModalId = 'eftDetail' . $orow->provider . $ot->id;
+                @endphp
+                <div class="modal fade" id="{{ $orphanModalId }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold">
+                                    {{ $oDonorName ?: 'EFT Terminal' }}
+                                    <span class="text-muted small fw-normal ms-1 text-capitalize">{{ $oIsRefund ? 'Refund' : 'Attempt' }}</span>
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="donation-detail-grid">
+                                    <div><span class="ddl">Amount</span><span class="ddv fw-bold">{{ $ot->amount !== null ? ($temple['currency'] ?? '') . ' ' . number_format($ot->amount, 2) : '—' }}</span></div>
+                                    <div><span class="ddl">Status</span><span class="ddv"><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></span></div>
+                                    <div><span class="ddl">Payment Method</span><span class="ddv">EFT Terminal · {{ $oProvider }}@if($oTerminalLabel) ({{ $oTerminalLabel }})@endif</span></div>
+                                    <div><span class="ddl">Date &amp; Time</span><span class="ddv">{{ $ot->created_at->format('d M Y, g:i A') }}</span></div>
+                                    @if($oMobile || $oEmail)
+                                    <div><span class="ddl">Contact</span><span class="ddv">{{ $oMobile }}@if($oMobile && $oEmail) · @endif{{ $oEmail }}</span></div>
+                                    @endif
+                                    <div><span class="ddl">Reference</span><span class="ddv">{{ $oRef ?: '—' }}</span></div>
+                                </div>
+                            </div>
+                            <div class="modal-footer flex-wrap justify-content-start">
+                                @if($oRef)
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText('{{ $oRef }}'); showToast('Reference copied to clipboard');"><i class="bi bi-clipboard"></i> Copy Reference</button>
+                                @endif
+                                @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i> View Receipt</button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+                @endif
+
+                @if($canAddDonation)
+                <!-- ADD TRANSACTION (the former standalone "New Donation" pane, now a modal
+                     reachable from the All Transactions pane's own "Add New Transaction"
+                     button — see pane-table's header below). -->
+                <div class="modal fade" id="addTransactionModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                        <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                            <div class="modal-header">
+                                <h5 class="modal-title fw-bold"><i class="bi bi-heart-fill me-2"></i>Add Transaction</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                        <div class="card-panel" style="box-shadow:none; border:none; padding:0;">
                             <div class="mode-toggle">
                                 <button type="button" id="qeToggleDevotee"><i class="bi bi-person-check-fill me-1"></i>Existing Devotee</button>
                                 <button type="button" class="active" id="qeToggleGuest"><i class="bi bi-person-heart me-1"></i>Guest</button>
@@ -976,50 +1305,6 @@
                                 <button type="button" class="btn-save" id="qeSaveBtn"><i class="bi bi-save2-fill me-2"></i>Save Donation</button>
                             </div>
                         </div>
-
-                        <div>
-                            <div class="card-panel summary-panel">
-                                <h4><i class="bi bi-pie-chart-fill" style="color:var(--gold);"></i>Donation Summary</h4>
-                                <div class="summary-grid">
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-cash-coin"></i>Total Collected</div>
-                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['paid_total'], 2) }}</div>
-                                    </div>
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-people-fill"></i>Total Donors</div>
-                                        <div class="value">{{ $summary['total_donors'] }}</div>
-                                    </div>
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-calendar-check"></i>Today's Collection</div>
-                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['today_total'], 2) }}</div>
-                                    </div>
-                                    <div class="summary-tile">
-                                        <div class="label"><i class="bi bi-hourglass-split"></i>Pending Transfers</div>
-                                        <div class="value">{{ $temple['currency'] ?? '' }} {{ number_format($summary['pending_total'], 2) }}</div>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn-view-pending" data-pane="pane-table">View Pending ({{ $summary['pending_count'] }})</button>
-                            </div>
-
-                            <div class="card-panel mt-3 recent-mini-card">
-                                <h4><i class="bi bi-clock-history" style="color:var(--gold);"></i>Recent Donations</h4>
-                                <div class="recent-mini-list">
-                                    @forelse($rows->take(8) as $row)
-                                        <div class="recent-mini-item">
-                                            <div class="recent-mini-top">
-                                                <span class="recent-mini-name">{{ $row->display_name }}</span>
-                                                <span class="recent-mini-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
-                                            </div>
-                                            <div class="recent-mini-bottom">
-                                                <span>{{ date('d M', strtotime($row->donation_date)) }}</span>
-                                                <span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span>
-                                            </div>
-                                        </div>
-                                    @empty
-                                        <p class="text-muted small mb-0">No donations recorded for this event yet.</p>
-                                    @endforelse
-                                </div>
-                                <button type="button" class="btn-view-all w-100 mt-3 justify-content-center" data-pane="pane-table"><i class="bi bi-list-ul me-1"></i>View All Donations</button>
                             </div>
                         </div>
                     </div>
@@ -1295,7 +1580,7 @@
                         <div class="page-header-icon"><i class="bi bi-people-fill"></i></div>
                         <div>
                             <h2>Event Coordinators</h2>
-                            <p>People with console access to {{ $event->event_name }}</p>
+                            <p>People with portal access to {{ $event->event_name }}</p>
                         </div>
                     </div>
 
@@ -1372,7 +1657,11 @@
                                         <form action="{{ route('admin.events.coordinators.updateLevel', [$event->event_id, $coord->id]) }}" method="POST" class="d-inline">
                                             @csrf
                                             <input type="hidden" name="return_context" value="console">
-                                            <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
+                                            {{-- requestSubmit(), not submit() — the legacy .submit() method doesn't
+                                                 fire the form's 'submit' event at all, which is what the pane-restore
+                                                 listener below needs to remember "stay on Event Coordinators" before
+                                                 the page reloads. --}}
+                                            <select name="level" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.requestSubmit()">
                                                 <option value="view" {{ $coord->level === 'view' ? 'selected' : '' }}>View</option>
                                                 <option value="entry" {{ $coord->level === 'entry' ? 'selected' : '' }}>Entry</option>
                                                 <option value="pos" {{ $coord->level === 'pos' ? 'selected' : '' }}>POS</option>
@@ -1436,7 +1725,7 @@
                                     @csrf
                                     <input type="hidden" name="return_context" value="console">
                                     <div class="modal-header border-0 pb-0">
-                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Override POS Username/PIN — <span id="posCredCoordName"></span></h5>
+                                        <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock-fill text-warning me-2"></i>POS Access — <span id="posCredCoordName"></span></h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body py-3">
@@ -1444,17 +1733,13 @@
                                             <label class="form-label fw-semibold">POS Username</label>
                                             <input type="text" name="username" id="posCredUsername" class="form-control rounded-3" minlength="6" maxlength="10" placeholder="6-10 characters">
                                         </div>
-                                        <div class="row g-3 mb-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold">New PIN</label>
-                                                <input type="text" name="new_pin" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label fw-semibold">Confirm New PIN</label>
-                                                <input type="text" name="new_pin_confirmation" class="form-control rounded-3" inputmode="numeric" pattern="\d{6}" maxlength="6" placeholder="6 digits">
-                                            </div>
+                                        {{-- No PIN field, ever — only the account holder can set their own PIN, by
+                                             opening the one-time link this checkbox sends them (see
+                                             EventCoordinatorController::overridePosCredentials()'s own docblock). --}}
+                                        <div class="form-check mb-3">
+                                            <input type="checkbox" name="send_pin_link" value="1" id="posCredSendPinLink" class="form-check-input">
+                                            <label class="form-check-label" for="posCredSendPinLink">Send this person a PIN setup/reset link</label>
                                         </div>
-                                        <p class="text-muted small mt-n2 mb-3">Leave both PIN fields blank to keep the current PIN and only update the username.</p>
                                         <hr>
                                         <div class="mb-1">
                                             <label class="form-label fw-semibold">Your password <span class="text-muted fw-normal">(to confirm this change)</span></label>
@@ -1476,8 +1761,7 @@
                             document.getElementById('posCredCoordName').textContent = name;
                             document.getElementById('posCredUsername').value = username || '';
                             document.getElementById('posCredForm').querySelector('input[name="current_password"]').value = '';
-                            document.getElementById('posCredForm').querySelector('input[name="new_pin"]').value = '';
-                            document.getElementById('posCredForm').querySelector('input[name="new_pin_confirmation"]').value = '';
+                            document.getElementById('posCredForm').querySelector('input[name="send_pin_link"]').checked = false;
                             new bootstrap.Modal(document.getElementById('posCredModal')).show();
                         }
                     </script>
@@ -1513,17 +1797,17 @@
                 </div>
                 @endif
 
-                @if($canEditEvent)
-                <!-- CASH BANKING -->
+                @if($canSettleCash)
+                <!-- SETTLEMENTS -->
                 <div class="console-pane" id="pane-cash-banking">
                     <div class="page-header">
                         <div class="page-header-icon"><i class="bi bi-cash-stack"></i></div>
                         <div>
-                            <h2>Cash Banking</h2>
-                            <p>Track cash taken to the bank and reconcile what's still on hand for {{ $event->event_name }}.</p>
+                            <h2>Settlements</h2>
+                            <p>Count the till, reconcile what's still on hand, and review past settlements for {{ $event->event_name }}.</p>
                         </div>
                     </div>
-                    @include('admin.partials.cash-banking-pane', ['scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'temple' => $temple])
+                    @include('admin.partials.cash-settlement-pane', ['context' => 'console', 'scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
                 </div>
                 @endif
 
@@ -1691,8 +1975,9 @@
     @if($canEditDonation)
         @foreach($rows->where('donation_type', 'devotee') as $row)
         {{-- An EFT Terminal donation can't be edited (see donation-actions.blade.php's own
-             docblock) — no point rendering a form for it that the server would just reject. --}}
-        @continue($row->payment_method === 'EFT Terminal')
+             docblock), and neither can a completed (Paid) one of any method — no point
+             rendering a form the Actions button no longer even links to. --}}
+        @continue($row->payment_method === 'EFT Terminal' || $row->payment_status === 'Paid')
         <div class="modal fade" id="editDevoteeDonationModal{{ $row->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">
@@ -1765,7 +2050,8 @@
         @endforeach
 
         @foreach($rows->where('donation_type', 'guest') as $row)
-        @continue($row->payment_method === 'EFT Terminal')
+        {{-- Same guard as the devotee edit modals above — see that loop's own comment. --}}
+        @continue($row->payment_method === 'EFT Terminal' || $row->payment_status === 'Paid')
         <div class="modal fade" id="editGuestDonationModal{{ $row->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg rounded-4">
@@ -1978,7 +2264,14 @@
         // refreshTerminalsList()), which would silently drop a listener attached directly to
         // any one form. A 'submit' event bubbles, so this still catches every terminal card's
         // form (rename/set default/remove/pair/unpair) even ones added after that refresh.
-        document.getElementById('pane-eft-settings').addEventListener('submit', function (e) {
+        {{-- #pane-eft-settings only renders for $canEditEvent — an entry/pos-level
+             coordinator doesn't get it at all, so this must be null-guarded like every
+             other getElementById() call here; left unguarded, it threw and silently
+             halted the rest of this script block, including the @if($canAddDonation)
+             code further down that populates the Add Transaction modal's payment method
+             list — the actual cause of that dropdown showing empty for anyone below
+             $canEditEvent. --}}
+        document.getElementById('pane-eft-settings') && document.getElementById('pane-eft-settings').addEventListener('submit', function (e) {
             if (e.target.tagName === 'FORM') {
                 try { localStorage.setItem('consoleActivePane', 'pane-eft-settings'); } catch (err) {}
             }
@@ -2031,15 +2324,18 @@
             });
         })();
 
-        // All Donations: client-side search + status/payment/date filter over the already-
-        // rendered table (the event's own donation list is a bounded, single-page dataset —
-        // no need for a server round-trip). Quick pills just set the two date inputs and
-        // re-filter. The visible-rows total is recomputed on every filter change, not just
-        // shown once, so it always reflects exactly what's currently on screen.
+        // All Donations: client-side search + multi-select status/payment/settlement +
+        // date filter over the already-rendered table (the event's own donation list is a
+        // bounded, single-page dataset — no need for a server round-trip). Status and
+        // Payment Method are multi-select pill groups (each pill toggles independently,
+        // plus an "All" pill that re-selects every value in that group at once); Settlement
+        // is a single-value dropdown instead, since viewing one period at a time is the
+        // normal case. All three combine via AND with each other and with search/date.
+        // Quick date pills just set the two date inputs and re-filter. The visible-rows
+        // total is recomputed on every filter change, not just shown once, so it always
+        // reflects exactly what's on screen.
         (function () {
             const searchInput = document.getElementById('donationsSearchInput');
-            const statusFilter = document.getElementById('donationsStatusFilter');
-            const paymentFilter = document.getElementById('donationsPaymentFilter');
             const dateFrom = document.getElementById('donationsDateFrom');
             const dateTo = document.getElementById('donationsDateTo');
             const clearBtn = document.getElementById('donationsFilterClear');
@@ -2047,27 +2343,50 @@
             const totalEl = document.getElementById('donationsFilterTotal');
             const noMatchRow = document.getElementById('donationsNoMatchRow');
             const pillsWrap = document.getElementById('donationsQuickFilters');
+            const settlementSelect = document.getElementById('donationsSettlementSelect');
             if (!searchInput) { return; }
             const rows = Array.from(document.querySelectorAll('#donationsTable tbody tr[data-donation-date]'));
             const pills = pillsWrap ? Array.from(pillsWrap.querySelectorAll('button')) : [];
             const donationsCurrency = @json($temple['currency'] ?? '');
 
+            // One Set per multi-select group, keyed by the group's own dataset field name.
+            // Each group's "All" pill isn't itself a filterable value — clicking it just
+            // re-activates every real pill in that group; its own active/inactive look is
+            // then kept in sync (on exactly when nothing else in the group is excluded).
+            const multiGroups = [
+                { wrapId: 'donationsStatusPills', field: 'status' },
+                { wrapId: 'donationsPaymentPills', field: 'payment' },
+            ].map(function (g) {
+                const wrap = document.getElementById(g.wrapId);
+                const allButtons = wrap ? Array.from(wrap.querySelectorAll('.donations-multi-pill')) : [];
+                const allPill = allButtons.find(function (b) { return b.dataset.all; }) || null;
+                const buttons = allButtons.filter(function (b) { return !b.dataset.all; });
+                const active = new Set(buttons.filter(function (b) { return b.classList.contains('active'); }).map(function (b) { return b.dataset.value; }));
+                return { field: g.field, buttons: buttons, allPill: allPill, active: active };
+            }).filter(function (g) { return g.buttons.length; });
+
+            function syncAllPill(g) {
+                if (g.allPill) { g.allPill.classList.toggle('active', g.active.size === g.buttons.length); }
+            }
+            multiGroups.forEach(syncAllPill);
+
             function applyFilters() {
                 const term = (searchInput.value || '').trim().toLowerCase();
-                const status = statusFilter && statusFilter.value ? statusFilter.value : null;
-                const payment = paymentFilter && paymentFilter.value ? paymentFilter.value : null;
                 const from = dateFrom.value || null;
                 const to = dateTo.value || null;
+                const settlementValue = settlementSelect ? settlementSelect.value : '';
                 let visible = 0;
                 let totalAmount = 0;
                 rows.forEach(function (row) {
                     const matchesSearch = !term || row.dataset.search.indexOf(term) !== -1;
-                    const matchesStatus = !status || row.dataset.status === status;
-                    const matchesPayment = !payment || row.dataset.payment === payment;
+                    const matchesGroups = multiGroups.every(function (g) {
+                        return g.active.size === 0 || g.active.has(row.dataset[g.field]);
+                    });
+                    const matchesSettlement = !settlementValue || row.dataset.settlement === settlementValue;
                     const rowDate = row.dataset.donationDate;
                     const matchesFrom = !from || rowDate >= from;
                     const matchesTo = !to || rowDate <= to;
-                    const show = matchesSearch && matchesStatus && matchesPayment && matchesFrom && matchesTo;
+                    const show = matchesSearch && matchesGroups && matchesSettlement && matchesFrom && matchesTo;
                     row.style.display = show ? '' : 'none';
                     if (show) { visible++; totalAmount += parseFloat(row.dataset.amount) || 0; }
                 });
@@ -2079,6 +2398,31 @@
                         : '';
                 }
             }
+
+            multiGroups.forEach(function (g) {
+                g.buttons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const value = btn.dataset.value;
+                        if (g.active.has(value)) {
+                            g.active.delete(value);
+                            btn.classList.remove('active');
+                        } else {
+                            g.active.add(value);
+                            btn.classList.add('active');
+                        }
+                        syncAllPill(g);
+                        applyFilters();
+                    });
+                });
+                if (g.allPill) {
+                    g.allPill.addEventListener('click', function () {
+                        g.buttons.forEach(function (b) { g.active.add(b.dataset.value); b.classList.add('active'); });
+                        syncAllPill(g);
+                        applyFilters();
+                    });
+                }
+            });
+            if (settlementSelect) { settlementSelect.addEventListener('change', applyFilters); }
 
             function isoDate(d) {
                 return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -2115,9 +2459,6 @@
                 });
             });
             searchInput.addEventListener('input', applyFilters);
-            [statusFilter, paymentFilter].forEach(function (el) {
-                if (el) { el.addEventListener('change', applyFilters); }
-            });
             [dateFrom, dateTo].forEach(function (el) {
                 el.addEventListener('change', function () {
                     pills.forEach(function (b) { b.classList.remove('active'); });
@@ -2127,9 +2468,12 @@
             if (clearBtn) {
                 clearBtn.addEventListener('click', function () {
                     searchInput.value = '';
-                    if (statusFilter) { statusFilter.value = ''; }
-                    if (paymentFilter) { paymentFilter.value = ''; }
-                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    multiGroups.forEach(function (g) {
+                        g.active.clear();
+                        g.buttons.forEach(function (b) { g.active.add(b.dataset.value); b.classList.add('active'); });
+                        syncAllPill(g);
+                    });
+                    if (settlementSelect) { settlementSelect.value = ''; }
                     const allPill = pillsWrap.querySelector('[data-range="all"]');
                     if (allPill) { allPill.classList.add('active'); }
                     setQuickRange('all');
@@ -2244,8 +2588,8 @@
         const EVENT_OPTIONS = @json($eventOptionsForJs);
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
-        const STORE_DEVOTEE_URL = @json(route('admin.events.console.storeDevotee', $event->event_id));
-        const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
+        const STORE_DEVOTEE_URL = @json(route('admin.events.portal.storeDevotee', $event->event_id));
+        const STORE_GUEST_URL = @json(route('admin.events.portal.storeGuest', $event->event_id));
         const EVENT_ID = {{ $event->event_id }};
         const QUICK_AMOUNTS = [101, 501, 1001, 2001];
         const REQUIRE_EMAIL = @json((bool) $event->require_donor_email);
@@ -2276,9 +2620,13 @@
             devoteeFields.style.display = 'none';
         });
 
-        // Payment method select, respecting the configured enabled list.
+        // Payment method select, respecting the configured enabled list — minus EFT
+        // Terminal even if an admin has it enabled for this event's payment methods
+        // elsewhere: a real terminal charge needs the POS page's own pairing/polling flow,
+        // not this quick-entry modal, so it's never offered as a choice here.
         const paymentSelect = document.getElementById('qePaymentMethod');
-        (ENABLED_PAYMENT_METHODS.length ? ENABLED_PAYMENT_METHODS : ['Cash']).forEach(function (m) {
+        const quickEntryPaymentMethods = ENABLED_PAYMENT_METHODS.filter(function (m) { return m !== 'EFT Terminal'; });
+        (quickEntryPaymentMethods.length ? quickEntryPaymentMethods : ['Cash']).forEach(function (m) {
             const opt = document.createElement('option');
             opt.value = m === 'Bank Transfer' ? 'Bank Transfer' : m;
             opt.textContent = m;
@@ -2561,6 +2909,11 @@
                     if (result.status >= 200 && result.status < 300 && result.data.success) {
                         showToast(result.data.message || 'Saved.');
                         resetQuickEntry();
+                        // Reload so the new transaction (and the summary/insights tiles
+                        // above it) show up immediately in the table this was opened
+                        // from — same reasoning as the Refresh button nearby.
+                        try { localStorage.setItem('consoleActivePane', 'pane-table'); } catch (e) {}
+                        setTimeout(function () { location.reload(); }, 900);
                     } else {
                         showToast(result.data.message || 'Failed to save.', true);
                     }

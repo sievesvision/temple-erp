@@ -821,6 +821,7 @@ class StaffController extends Controller
                 'purpose' => $request->purpose,
                 'purpose_details' => 'Recorded at Staff Counter',
                 'payment_method' => 'Cash',
+                'source_channel' => \App\Services\TransactionChannel::STAFF_COUNTER,
                 'transaction_id' => 'OFFLINE-DON-' . strtoupper(uniqid()),
                 'donation_date' => date('Y-m-d'),
                 'created_at' => now(),

@@ -35,6 +35,8 @@ protected $fillable = [
     'two_factor_enabled',
     'pos_pin_failed_attempts',
     'pos_pin_locked_at',
+    'pos_pin',
+    'pos_pin_set_at',
     'preferred_eft_terminal_id',
 ];
 
@@ -62,6 +64,8 @@ protected $fillable = [
             'password_changed_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
             'pos_pin_locked_at' => 'datetime',
+            'pos_pin' => 'hashed',
+            'pos_pin_set_at' => 'datetime',
         ];
     }
 
@@ -75,11 +79,6 @@ protected $fillable = [
     {
         $url = route('admin-reset.form', ['token' => $token, 'email' => $this->email]);
         Mail::to($this->email)->send(new AdminPasswordResetLinkMail($this->name, $url));
-    }
-
-    public function posPins()
-    {
-        return $this->hasMany(PosPin::class);
     }
 
     /**

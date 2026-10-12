@@ -2,59 +2,46 @@
 
 namespace Tests\Feature;
 
-use App\Models\PosPin;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
- * PIN login — a faster alternative to email+password for POS-only accounts. The account is
- * identified by a short username FIRST, so the PIN only ever needs to be checked against that
- * one account's own PosPin rows (one per destination) — see AuthController::
- * attemptPosPinLogin()'s own docblock for why this makes the destination known immediately
- * and scopes the failed-attempt lockout to that one account.
+ * PIN login — a faster alternative to email+password for POS-only accounts. One
+ * organisation-level PIN per account (users.pos_pin), checked once; which destination(s)
+ * it opens is resolved fresh from the account's own current role grants
+ * (AuthController::possiblePosDestinations()), never from anything the PIN itself
+ * "remembers" — see attemptPosPinLogin()'s own docblock.
  */
 class PosPinLoginTest extends TestCase
 {
-    private function posLevelCoordinatorWithPin(string $username = 'sieves', string $pin = '123456'): array
+    /**
+     * The route's own throttle:10,1 would otherwise accumulate across every test method in
+     * this class — the testing cache driver is 'array' (in-memory per process, see
+     * phpunit.xml), which RefreshDatabase never touches, so without this a later test could
+     * be falsely 429'd by an earlier one's POSTs.
+     */
+    protected function setUp(): void
     {
-        $user = User::factory()->create([
-            'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
-            'username' => $username,
-        ]);
-        $eventId = DB::table('events')->insertGetId([
-            'event_name' => 'Pin Test Event', 'event_date' => now()->addMonth()->toDateString(),
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('event_coordinators')->insert([
-            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'pos',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        PosPin::create([
-            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
-            'pin' => Hash::make($pin), 'pin_set_at' => now(),
-        ]);
-        return [$user, $eventId];
+        parent::setUp();
+        \Illuminate\Support\Facades\Cache::flush();
     }
 
-    private function adminLevelCoordinatorWithPin(string $username = 'sieves', string $pin = '123456'): array
+    private function coordinatorWithPin(string $level, string $username = 'sieves', string $pin = '123456'): array
     {
         $user = User::factory()->create([
             'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
-            'username' => $username,
+            'username' => $username, 'pos_pin' => Hash::make($pin), 'pos_pin_set_at' => now(),
         ]);
         $eventId = DB::table('events')->insertGetId([
             'event_name' => 'Pin Test Event', 'event_date' => now()->addMonth()->toDateString(),
+            'slug' => 'pin-test-event-' . uniqid(),
             'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('event_coordinators')->insert([
-            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'admin',
+            'user_id' => $user->id, 'event_id' => $eventId, 'level' => $level,
             'created_at' => now(), 'updated_at' => now(),
-        ]);
-        PosPin::create([
-            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
-            'pin' => Hash::make($pin), 'pin_set_at' => now(),
         ]);
         return [$user, $eventId];
     }
@@ -67,7 +54,7 @@ class PosPinLoginTest extends TestCase
      */
     public function test_an_admin_level_coordinator_can_log_in_with_a_pin_and_lands_on_pos_mode(): void
     {
-        [$user, $eventId] = $this->adminLevelCoordinatorWithPin();
+        [$user, $eventId] = $this->coordinatorWithPin('admin');
 
         $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
@@ -84,22 +71,7 @@ class PosPinLoginTest extends TestCase
      */
     public function test_an_entry_level_coordinator_can_log_in_with_a_pin_and_lands_on_pos_mode(): void
     {
-        $user = User::factory()->create([
-            'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
-            'username' => 'sieves',
-        ]);
-        $eventId = DB::table('events')->insertGetId([
-            'event_name' => 'Pin Test Event', 'event_date' => now()->addMonth()->toDateString(),
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('event_coordinators')->insert([
-            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'entry',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        PosPin::create([
-            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
-            'pin' => Hash::make('123456'), 'pin_set_at' => now(),
-        ]);
+        [$user, $eventId] = $this->coordinatorWithPin('entry');
 
         $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
@@ -109,38 +81,24 @@ class PosPinLoginTest extends TestCase
 
     /**
      * 'view' is the one level still excluded (see AuthController::possiblePosDestinations()'s
-     * own docblock) — the POS page a PIN login lands on 403s a 'view'-level coordinator, so a
-     * stray PosPin row for one (shouldn't normally exist — the settings screen never offers
-     * it) must still never be allowed to complete a login.
+     * own docblock) — the POS page a PIN login lands on 403s a 'view'-level coordinator. The
+     * PIN itself is correct here (it's the same one organisation-level PIN), so this must be
+     * rejected by destination resolution finding nothing, not by the PIN hash check.
      */
     public function test_a_view_level_coordinator_cannot_use_a_pos_pin(): void
     {
-        $user = User::factory()->create([
-            'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
-            'username' => 'sieves',
-        ]);
-        $eventId = DB::table('events')->insertGetId([
-            'event_name' => 'Pin Test Event', 'event_date' => now()->addMonth()->toDateString(),
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        DB::table('event_coordinators')->insert([
-            'user_id' => $user->id, 'event_id' => $eventId, 'level' => 'view',
-            'created_at' => now(), 'updated_at' => now(),
-        ]);
-        PosPin::create([
-            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => $eventId,
-            'pin' => Hash::make('123456'), 'pin_set_at' => now(),
-        ]);
+        $this->coordinatorWithPin('view');
 
         $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
         $response->assertSessionHasErrors('pin');
+        $this->assertStringContainsString('no POS access', session('errors')->first('pin'));
         $this->assertGuest();
     }
 
     public function test_correct_username_and_pin_logs_in_and_lands_on_that_exact_event(): void
     {
-        [$user, $eventId] = $this->posLevelCoordinatorWithPin();
+        [$user, $eventId] = $this->coordinatorWithPin('pos');
 
         $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
 
@@ -149,28 +107,40 @@ class PosPinLoginTest extends TestCase
         $this->assertSame('Event Coordinator', session('active_role'));
     }
 
-    public function test_a_dual_destination_account_is_sent_straight_to_the_pin_that_matched_not_a_grid(): void
+    /**
+     * One PIN, two qualifying destinations (an event plus ticket sales): the generic login
+     * page has nothing to disambiguate with, so it goes to the picker grid — but the SAME
+     * account's event-specific bookmark URL carries enough context to skip straight past it
+     * (see showPosLogin()'s docblock on the context_type/context_slug hidden fields).
+     */
+    public function test_a_dual_destination_account_goes_to_the_picker_or_straight_to_a_bookmarked_destination(): void
     {
-        [$user, $eventId] = $this->posLevelCoordinatorWithPin('sieves', '123456');
+        [$user, $eventId] = $this->coordinatorWithPin('pos', 'sieves', '123456');
+        $slug = DB::table('events')->where('event_id', $eventId)->value('slug');
         DB::table('ticket_controllers')->insert(['user_id' => $user->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
-        PosPin::create([
-            'user_id' => $user->id, 'destination_type' => 'tickets', 'destination_id' => null,
-            'pin' => Hash::make('456789'), 'pin_set_at' => now(),
-        ]);
 
-        // The event PIN opens the event directly...
+        // No context — two qualifying destinations, so the picker grid.
         $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response->assertRedirect(route('pos.select'));
+
+        // Reached through this event's own bookmarked login page — straight there, no picker.
+        auth()->logout();
+        $response = $this->post(route('pos.pin-login'), [
+            'username' => 'sieves', 'pin' => '123456', 'context_type' => 'event', 'context_slug' => $slug,
+        ]);
         $response->assertRedirect(route('admin.events.pos', $eventId));
 
-        // ...and the ticket PIN, for the SAME account, opens ticket sales directly instead.
+        // Reached through the tickets bookmark — straight to tickets instead.
         auth()->logout();
-        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '456789']);
+        $response = $this->post(route('pos.pin-login'), [
+            'username' => 'sieves', 'pin' => '123456', 'context_type' => 'tickets',
+        ]);
         $response->assertRedirect(route('admin.tickets.pos'));
     }
 
     public function test_wrong_pin_for_a_real_username_fails_with_a_generic_message(): void
     {
-        $this->posLevelCoordinatorWithPin('sieves', '123456');
+        $this->coordinatorWithPin('pos', 'sieves', '123456');
 
         $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '000000']);
 
@@ -188,28 +158,31 @@ class PosPinLoginTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_a_pin_belonging_to_a_destination_whose_access_was_revoked_no_longer_works(): void
+    /**
+     * A correct PIN for an account with NO qualifying destination at all (every assignment
+     * revoked, or none ever granted) is rejected with a distinct, specific message — safe to
+     * be specific here since it only ever shows after a correct PIN, so it reveals nothing
+     * useful to someone merely guessing.
+     */
+    public function test_a_correct_pin_with_no_remaining_pos_access_is_rejected_specifically(): void
     {
-        $user = User::factory()->create([
+        User::factory()->create([
             'role' => 'Event Coordinator', 'mobile' => fake()->unique()->numerify('04########'),
-            'username' => 'sieves',
+            'username' => 'sieves', 'pos_pin' => Hash::make('654321'), 'pos_pin_set_at' => now(),
         ]);
-        PosPin::create([
-            'user_id' => $user->id, 'destination_type' => 'event', 'destination_id' => 999999,
-            'pin' => Hash::make('654321'), 'pin_set_at' => now(),
-        ]);
-        // No matching event_coordinators row — access was removed after the PIN was set.
+        // No event_coordinators/ticket_controllers rows at all.
 
         $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '654321']);
 
         $response->assertSessionHasErrors('pin');
+        $this->assertStringContainsString('no POS access', session('errors')->first('pin'));
         $this->assertGuest();
     }
 
     public function test_five_wrong_attempts_lock_out_only_that_one_account(): void
     {
-        [$victim] = $this->posLevelCoordinatorWithPin('sieves', '123456');
-        $this->posLevelCoordinatorWithPin('other', '111111');
+        [$victim] = $this->coordinatorWithPin('pos', 'sieves', '123456');
+        $this->coordinatorWithPin('pos', 'other', '111111');
 
         for ($i = 0; $i < 5; $i++) {
             $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '999999']);
@@ -228,9 +201,26 @@ class PosPinLoginTest extends TestCase
         $this->assertAuthenticated();
     }
 
+    /**
+     * A lockout older than POS_PIN_LOCKOUT_MINUTES self-clears on the next attempt — a
+     * counter shouldn't stay dead until an admin happens to notice.
+     */
+    public function test_lockout_auto_expires_after_the_configured_window(): void
+    {
+        [$victim] = $this->coordinatorWithPin('pos', 'sieves', '123456');
+        $victim->update(['pos_pin_failed_attempts' => 5, 'pos_pin_locked_at' => now()->subMinutes(16)]);
+
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+
+        $this->assertAuthenticated();
+        $victim->refresh();
+        $this->assertNull($victim->pos_pin_locked_at);
+        $this->assertSame(0, $victim->pos_pin_failed_attempts);
+    }
+
     public function test_a_successful_email_login_clears_that_accounts_pin_lockout(): void
     {
-        [$user] = $this->posLevelCoordinatorWithPin('sieves', '123456');
+        [$user] = $this->coordinatorWithPin('pos', 'sieves', '123456');
         $user->update(['pos_pin_failed_attempts' => 5, 'pos_pin_locked_at' => now()]);
 
         $this->post(route('login.post'), ['email' => $user->email, 'password' => 'password']);
@@ -238,5 +228,23 @@ class PosPinLoginTest extends TestCase
         $user->refresh();
         $this->assertNull($user->pos_pin_locked_at);
         $this->assertSame(0, $user->pos_pin_failed_attempts);
+    }
+
+    /**
+     * A coarse per-IP backstop on top of the per-account lockout above — matters because the
+     * account lockout alone doesn't stop someone spraying many different usernames from one
+     * IP.
+     */
+    public function test_rapid_attempts_from_one_ip_are_throttled(): void
+    {
+        $this->coordinatorWithPin('pos', 'sieves', '123456');
+
+        for ($i = 0; $i < 10; $i++) {
+            $response = $this->post(route('pos.pin-login'), ['username' => 'nobody' . $i, 'pin' => '000000']);
+            $response->assertStatus(302);
+        }
+
+        $response = $this->post(route('pos.pin-login'), ['username' => 'sieves', 'pin' => '123456']);
+        $response->assertStatus(429);
     }
 }

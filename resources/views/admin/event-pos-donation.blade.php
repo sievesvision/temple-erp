@@ -676,7 +676,10 @@
             </div>
             @endif
             @if($canReturnToConsole)
-            <a href="{{ route('admin.events.console', $event->event_id) }}" class="pos-topbar-btn" title="Back to console"><i class="bi bi-gear-fill"></i></a>
+            <a href="{{ route('admin.events.portal', $event->slug ?? $event->event_id) }}" class="pos-topbar-btn" title="Back to portal"><i class="bi bi-gear-fill"></i></a>
+            @endif
+            @if($canSettleCash)
+            <button type="button" class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal" title="Settle Till"><i class="bi bi-cash-stack"></i></button>
             @endif
             <!-- Always visible, regardless of whether a terminal is currently paired — the
                  Switch button near Pay only ever shows up while "EFT Terminal" is the selected
@@ -702,6 +705,18 @@
     </header>
 
     <div class="pos-main">
+        @if($editDonation)
+        <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600;">
+            <i class="bi bi-arrow-repeat" style="font-size:1.2rem;"></i>
+            <span style="flex:1;">Completing a pending transaction for {{ $editDonation->donor_name }} ({{ $temple['currency'] ?? '' }} {{ number_format($editDonation->amount, 2) }}) — review the details below and Save Donation to confirm it.</span>
+            {{-- IS_EDITING is set from the server-rendered $editDonation, not from form state —
+                 the Donor Details card's own Clear button only resets fields, it can't drop out
+                 of edit mode. This is the only way back to a plain new entry. --}}
+            <a href="{{ route('admin.events.pos', $event->event_id) }}" style="flex-shrink:0; display:flex; align-items:center; gap:5px; padding:5px 11px; font-size:0.78rem; font-weight:700; color:#8A6A1E; background:#fff; border:1.5px solid rgba(184,134,58,0.4); border-radius:7px; text-decoration:none;" title="Cancel completing this transaction and start a new entry">
+                <i class="bi bi-x-lg"></i>Close &amp; New Entry
+            </a>
+        </div>
+        @endif
         <div class="pos-grid">
             <div class="pos-col-left">
                 <div class="pos-card">
@@ -955,6 +970,22 @@
         </div>
     </div>
 
+    @if($canSettleCash)
+    <div class="modal fade" id="settleTillModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Settle Till</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="settleTillModalBody">
+                    @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'currentTransactions' => $currentTransactions, 'lastSettlementDate' => $lastSettlementDate, 'canEditCurrentTransactions' => $canEditCurrentTransactions, 'temple' => $temple])
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
          otherwise a fix shipped here never reaches an already-open POS tab or a browser
@@ -975,7 +1006,7 @@
             'name' => $pendingEftRecovery->meta['donor_name'] ?? 'Guest',
             'email' => $pendingEftRecovery->meta['email'] ?? '',
             'mobile' => $pendingEftRecovery->meta['mobile'] ?? '',
-            'purpose' => $pendingEftRecovery->meta['purpose'] ?? 'General Donation',
+            'purpose' => ($pendingEftRecovery->meta['purpose'] ?? '') ?: 'Event Donation',
             'purposeDetails' => $pendingEftRecovery->meta['purpose_details'] ?? '',
         ] : null;
     @endphp
@@ -999,7 +1030,13 @@
         const EVENT_OPTIONS = @json($eventOptionsForJs);
         const ENABLED_PAYMENT_METHODS = @json($effectivePaymentMethods);
         const CSRF_TOKEN = @json(csrf_token());
-        const STORE_GUEST_URL = @json(route('admin.events.console.storeGuest', $event->event_id));
+        const STORE_GUEST_URL = @json(route('admin.events.portal.storeGuest', $event->event_id));
+        // Non-null only when reached via the Current Period Transactions pane's own
+        // pending-donation link (?edit_id=) — see PosDonationController::show()'s own
+        // server-side re-verification of this before it's ever trusted here.
+        const EDIT_DONATION = @json($editDonation);
+        const IS_EDITING = !!EDIT_DONATION;
+        const UPDATE_GUEST_URL = @json($editDonation ? route('admin.donations.updateGuest', $editDonation->id) : null);
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
         const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
         const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));
@@ -1368,6 +1405,33 @@
             };
         }
 
+        // Prefill the form from the pending transaction being completed — set once, before
+        // any tier/amount interaction, so it sticks unless the operator actively changes
+        // something (same "review and correct" intent as the Current Period Transactions
+        // table's own edit link). Guest-only (see PosDonationController::show()), so every
+        // field here maps straight onto the plain donor fields, never the tiers UI.
+        if (IS_EDITING) {
+            document.getElementById('posGuestName').value = EDIT_DONATION.donor_name || '';
+            document.getElementById('posGuestEmail').value = EDIT_DONATION.email || '';
+            document.getElementById('posGuestMobile').value = EDIT_DONATION.mobile || '';
+            amountInput.value = parseFloat(EDIT_DONATION.amount).toFixed(2);
+            document.getElementById('posDetails').value = EDIT_DONATION.purpose_details || '';
+            purposeValue = EDIT_DONATION.purpose || purposeValue;
+
+            // Stored as the raw enum value ('Bank') — mapped back to this page's own UI
+            // method key ('Bank Transfer') the same way submitGuestDonation() maps it the
+            // other way when saving (see its own payment_method line).
+            const editUiMethod = EDIT_DONATION.payment_method === 'Bank' ? 'Bank Transfer' : EDIT_DONATION.payment_method;
+            const editMethodBtn = Array.prototype.find.call(methodRow.querySelectorAll('.pos-method-btn'), function (b) { return b.dataset.method === editUiMethod; });
+            if (editMethodBtn && !editMethodBtn.classList.contains('disabled')) {
+                methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
+                editMethodBtn.classList.add('active');
+                selectedMethod = editUiMethod;
+            }
+
+            updatePosSummary();
+        }
+
         let toastHideTimer = null;
         function showToast(message, isError) {
             // A warning/error interrupts with a real popup — easy to miss as a bottom-corner
@@ -1484,7 +1548,10 @@
                 headerTitleError: document.getElementById('eftModalHeaderTitleError'),
             },
             buildStartBody: function (attempt) {
-                return { purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '' };
+                return {
+                    purpose: attempt.purpose || '', purpose_details: attempt.purposeDetails || '',
+                    edit_donation_id: attempt.editDonationId || '',
+                };
             },
             onToast: function (message, isError) { showToast(message, isError); },
             onApproved: function (donationId, resultAmounts, attempt) {
@@ -1667,7 +1734,11 @@
             const body = new URLSearchParams();
             body.set('event_id', EVENT_ID);
             body.set('amount', amount.toFixed(2));
-            body.set('selections_json', JSON.stringify(selections));
+            // Completing an existing Pending donation has no tiered-option breakdown to save
+            // (that's an edit to the donation row itself, via admin.donations.updateGuest —
+            // see UPDATE_GUEST_URL below), so selections_json only ever applies when creating
+            // a brand new one.
+            if (!IS_EDITING) { body.set('selections_json', JSON.stringify(selections)); }
             // Cash, UPI and an EFT terminal all confirm the money on the spot, so those record
             // as Paid immediately. A Bank Transfer claim can't be verified at the counter — it
             // sits Pending until an admin checks the account and approves it, same as the
@@ -1678,7 +1749,9 @@
             // an EFT Terminal payment (see DonationController::linkLedgerToDonation()).
             if (linklySessionId) { body.set('linkly_session_id', linklySessionId); }
             body.set('donor_name', name);
-            body.set('donation_date', today);
+            // Preserves the original donation's own date when completing it — only a brand
+            // new entry gets today's date.
+            body.set('donation_date', IS_EDITING ? EDIT_DONATION.donation_date : today);
             body.set('email', emailValue);
             body.set('mobile', mobileValue);
             body.set('payment_method', selectedMethod === 'Bank Transfer' ? 'Bank' : selectedMethod);
@@ -1686,7 +1759,15 @@
             body.set('purpose', purposeValue);
             body.set('purpose_details', document.getElementById('posDetails').value);
 
-            fetch(STORE_GUEST_URL, {
+            // Completing an existing Pending transaction (reached via the Current Period
+            // Transactions pane's own pending-donation link) updates that same row through
+            // the pre-existing admin.donations.updateGuest route instead of creating a new
+            // one — DonationController::updateGuestDonation() now has the same JSON-response
+            // branch as storeGuestDonation() specifically so this fetch()-based flow can
+            // target either one interchangeably.
+            const targetUrl = IS_EDITING ? UPDATE_GUEST_URL : STORE_GUEST_URL;
+
+            fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body.toString(),
@@ -1695,6 +1776,15 @@
                 .then(function (result) {
                     btn.disabled = false;
                     if (result.status >= 200 && result.status < 300 && result.data.success) {
+                        if (IS_EDITING) {
+                            // The completed row no longer matches PosDonationController::show()'s
+                            // own Pending-only ?edit_id lookup — a plain reload back to the bare
+                            // POS URL drops the now-stale banner/prefill and refreshes the
+                            // Current Period Transactions list to reflect it.
+                            showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2));
+                            window.location.href = window.location.pathname;
+                            return;
+                        }
                         // Cash/Bank Transfer aren't verified on the spot by a terminal, so they
                         // get a clear center-screen confirmation instead of the quieter corner
                         // toast (UPI/EFT Terminal already have their own on-screen confirmation —
@@ -1768,6 +1858,9 @@
                         purpose: purposeValue,
                         purposeDetails: document.getElementById('posDetails').value,
                         terminalId: selectedTerminal.id,
+                        // Completing an existing Pending donation — see CbaSciController::
+                        // createRecordIfApprovedAndUnrecorded()'s own branch on this.
+                        editDonationId: IS_EDITING ? EDIT_DONATION.id : null,
                     });
                     return;
                 }
@@ -1783,6 +1876,9 @@
                     // gets the chance to — see createDonationIfApprovedPurchaseUnrecorded().
                     purpose: purposeValue,
                     purposeDetails: document.getElementById('posDetails').value,
+                    // Completing an existing Pending donation — threaded through to
+                    // startEftCharge()'s own identical field.
+                    editDonationId: IS_EDITING ? EDIT_DONATION.id : null,
                 });
                 return;
             }
@@ -1813,6 +1909,7 @@
             startBody.set('purpose', attempt.purpose || '');
             startBody.set('purpose_details', attempt.purposeDetails || '');
             startBody.set('is_anonymous', isAnonymousDonation() ? '1' : '0');
+            if (attempt.editDonationId) { startBody.set('edit_donation_id', attempt.editDonationId); }
             const startTerminal = defaultTerminal();
             if (startTerminal) { startBody.set('terminal_id', startTerminal.id); }
 
@@ -2052,5 +2149,65 @@
     </script>
 
     @include('admin.partials.eft-terminal-settings-modal')
+
+    @if($canSettleCash)
+    @php
+        // Built as a plain variable rather than inline inside @json() below — an array
+        // literal with nested ['key'] syntax inside @json()'s own argument trips up Blade's
+        // bracket-balance check (see the identical $pendingEftRecoveryForJs pattern earlier
+        // on this same page for the same reason).
+        $settleTillPaneUrl = route('admin.cash-settlement.pane', ['scope' => 'event', 'event_id' => $event->event_id, 'context' => 'pos']);
+    @endphp
+    <script>
+        // The Settle Till modal's own markup was rendered once, at this page's own last
+        // load — opening it later (no navigation in between) would otherwise keep showing
+        // whatever "Current Period Transactions" snapshot that was, missing anything
+        // recorded since (a sale from another station, a public donation-page submission).
+        // Refetch the whole widget fresh every time the modal opens instead.
+        (function () {
+            const modalEl = document.getElementById('settleTillModal');
+            const bodyEl = document.getElementById('settleTillModalBody');
+            if (!modalEl || !bodyEl) { return; }
+            const paneUrl = @json($settleTillPaneUrl);
+
+            modalEl.addEventListener('show.bs.modal', function () {
+                bodyEl.style.opacity = '0.5';
+                fetch(paneUrl, { headers: { 'Accept': 'text/html' } })
+                    .then(function (res) { return res.ok ? res.text() : Promise.reject(); })
+                    .then(function (html) {
+                        bodyEl.innerHTML = html;
+                        bodyEl.style.opacity = '1';
+                        // A <script> tag set via innerHTML never executes on its own (by
+                        // design) — recreating each one as a fresh element and swapping it
+                        // in is the standard way to force it to run, which is what wires up
+                        // the pane's own search/settle-form JS again on the freshly
+                        // fetched markup.
+                        bodyEl.querySelectorAll('script').forEach(function (oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(function (attr) { newScript.setAttribute(attr.name, attr.value); });
+                            newScript.textContent = oldScript.textContent;
+                            oldScript.replaceWith(newScript);
+                        });
+                    })
+                    .catch(function () {
+                        bodyEl.style.opacity = '1';
+                        showToast('Could not refresh — showing the last loaded figures.', true);
+                    });
+            });
+        })();
+    </script>
+    @endif
+
+    {{-- This page is a classic form POST + redirect for Settle Till (unlike the AJAX-driven
+         donation/EFT flows above), so its result only ever reaches the browser as a session
+         flash — reused through the same corner toast() every other confirmation on this
+         page already uses, rather than a different-looking banner just for this one form. --}}
+    @if(session('success') || session('error'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            showToast(@json(session('success', session('error'))), {{ session('error') ? 'true' : 'false' }});
+        });
+    </script>
+    @endif
 </body>
 </html>

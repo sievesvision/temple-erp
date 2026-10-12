@@ -58,7 +58,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
             'eft_terminal_id' => $sciTerminal->id, 'amount' => 34, 'status' => 'FINALISED', 'result_financial_status' => 'APPROVED',
         ]);
 
-        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
+        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/portal");
 
         $response->assertOk();
         $response->assertSee('CONSOLELINK1');
@@ -75,7 +75,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $this->defaultEftTerminal();
         $eventId = $this->createEvent();
 
-        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/console");
+        $response = $this->actingAs($this->adminUser())->get("/admin/events/{$eventId}/portal");
 
         $response->assertOk();
         $response->assertSee('data-pane="pane-eft-settings"', false);
@@ -105,7 +105,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
             'eft_terminal_id' => $sciTerminal->id, 'amount' => 40, 'status' => 'FINALISED', 'result_financial_status' => 'APPROVED',
         ]);
 
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+        $response = $this->actingAs($this->adminUser())->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee('CONSOLETIX1');
@@ -118,7 +118,7 @@ class EftConsoleTransactionHistoryTest extends TestCase
         Setting::set('linkly_mode', 'sandbox');
         $this->defaultEftTerminal();
 
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+        $response = $this->actingAs($this->adminUser())->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee('data-pane="pane-eft-settings"', false);

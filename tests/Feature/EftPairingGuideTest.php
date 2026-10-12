@@ -60,7 +60,7 @@ class EftPairingGuideTest extends TestCase
     {
         EftTerminal::factory()->create(['key' => 'guide-check-terminal']);
 
-        $response = $this->actingAs($this->adminUser())->get('/admin/manage-tickets');
+        $response = $this->actingAs($this->adminUser())->get('/admin/pooja/portal');
 
         $response->assertOk();
         $response->assertSee(route('eft.pairing-guide'), false);

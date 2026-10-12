@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Event;
 use App\Models\LinklyTransaction;
 use App\Models\RolePermission;
 use App\Models\SciTransaction;
@@ -23,6 +24,15 @@ class EventConsoleController extends Controller
 {
     public function show($eventId)
     {
+        // {event} accepts a slug (every in-app link) or a raw numeric event_id (anything
+        // bookmarked/printed before the slug existed) — resolve once up front so every
+        // lookup below can keep working off the numeric id as it always has.
+        $resolvedEvent = Event::where('slug', $eventId)->first() ?? Event::find($eventId);
+        if (!$resolvedEvent) {
+            abort(404, 'Event not found.');
+        }
+        $eventId = $resolvedEvent->event_id;
+
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
 
@@ -52,6 +62,15 @@ class EventConsoleController extends Controller
         $event = $breakdown['event'];
         $options = $breakdown['options'];
         $rows = $breakdown['rows'];
+
+        // Tags each row with whichever settlement claimed it (or null — still in the
+        // current, unsettled period) — lets the All Transactions pane's own Settlement
+        // filter work entirely client-side over these already-rendered rows. See
+        // CashSettlementService::settlementKeyMap()'s own docblock.
+        $settlementKeyMap = \App\Services\CashSettlementService::settlementKeyMap('event', $event->event_id);
+        $rows->each(function ($row) use ($settlementKeyMap) {
+            $row->settlement_id = $settlementKeyMap[$row->donation_type . ':' . $row->id] ?? null;
+        });
 
         $paidRows = $rows->where('payment_status', 'Paid');
         $pendingRows = $rows->where('payment_status', 'Pending');
@@ -129,13 +148,13 @@ class EventConsoleController extends Controller
                 ->where('event_coordinators.user_id', $user->id)
                 ->where('events.event_id', '!=', $event->event_id)
                 ->orderBy('events.event_date')
-                ->select('events.event_id', 'events.event_name')
+                ->select('events.event_id', 'events.event_name', 'events.slug')
                 ->get();
         } else {
             $switchableEvents = DB::table('events')
                 ->where('event_id', '!=', $event->event_id)
                 ->orderBy('event_date')
-                ->select('event_id', 'event_name')
+                ->select('event_id', 'event_name', 'slug')
                 ->get();
         }
 
@@ -254,16 +273,28 @@ class EventConsoleController extends Controller
         $canManageRegistryLevel = \App\Services\EftTerminalAccess::canManageRegistry($user, $activeRole);
         $isSystemAdmin = $activeRole === 'Admin';
 
-        // Cash Banking pane — same admin tier as Settings/Coordinators/EFTPOS/Logs above.
+        // Cash Banking pane — its own gate, broader than $canEditEvent: an entry (and,
+        // via the POS page, pos) level coordinator can settle the till too, just without
+        // seeing past settlements — see CashSettlementService::canSettle()/canViewHistory().
+        $canSettleCash = \App\Services\CashSettlementService::canSettle('event', $event->event_id, $user, $activeRole);
+        $canViewCashHistory = \App\Services\CashSettlementService::canViewHistory('event', $event->event_id, $user, $activeRole);
         $cashPreview = null;
         $cashBankings = collect();
         $cashSettlements = collect();
-        if ($canEditEvent) {
-            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id);
+        $currentTransactions = collect();
+        $lastSettlementDate = null;
+        if ($canSettleCash) {
+            $cashPane = \App\Services\CashSettlementService::paneData('event', $event->event_id, $canViewCashHistory);
             $cashPreview = $cashPane['cashPreview'];
             $cashBankings = $cashPane['cashBankings'];
             $cashSettlements = $cashPane['cashSettlements'];
+            $currentTransactions = $cashPane['currentTransactions'];
+            $lastSettlementDate = $cashPane['lastSettlementDate'];
         }
+        // Same bar $canEditDonation already uses — the current-period Cash transactions
+        // list in the Settle Till widget reuses the exact same edit capability/routes, so
+        // whoever can edit a donation at all can edit one from in there too.
+        $canEditCurrentTransactions = $canEditDonation;
 
         $temple = Setting::templeBranding();
 
@@ -277,6 +308,11 @@ class EventConsoleController extends Controller
             'cashPreview',
             'cashBankings',
             'cashSettlements',
+            'currentTransactions',
+            'lastSettlementDate',
+            'canSettleCash',
+            'canViewCashHistory',
+            'canEditCurrentTransactions',
             'devotees',
             'enabledPaymentMethods',
             'globalPaymentMethods',

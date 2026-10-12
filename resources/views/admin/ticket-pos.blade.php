@@ -333,7 +333,10 @@
             <div class="pos-subtitle">Sell &amp; Print Tickets</div>
         </div>
         @if($canManageConsole)
-        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Ticket Console"><i class="bi bi-grid-1x2-fill"></i></a>
+        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i></a>
+        @endif
+        @if($canSettleCash)
+        <button type="button" class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal" title="Settle Till"><i class="bi bi-cash-stack"></i></button>
         @endif
         <!-- Always visible, regardless of whether a terminal is currently paired — the Switch
              button near Pay only ever shows up while "EFT Terminal" is the selected payment
@@ -385,7 +388,7 @@
                     </span>
                 </button>
                 @empty
-                <p class="text-muted text-center py-4">No active ticket types — add one in the Ticket Console.</p>
+                <p class="text-muted text-center py-4">No active ticket types — add one in the Pooja Portal.</p>
                 @endforelse
             </div>
         </div>
@@ -551,6 +554,22 @@
             </div>
         </div>
     </div>
+
+    @if($canSettleCash)
+    <div class="modal fade" id="settleTillModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Settle Till</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="settleTillModalBody">
+                    @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
@@ -1428,5 +1447,56 @@
     </script>
 
     @include('admin.partials.eft-terminal-settings-modal')
+
+    @if($canSettleCash)
+    @php
+        // Built as a plain variable — see event-pos-donation.blade.php's identical comment
+        // on why an inline array literal inside @json()'s own argument isn't safe here.
+        $settleTillPaneUrl = route('admin.cash-settlement.pane', ['scope' => 'tickets', 'context' => 'pos']);
+    @endphp
+    <script>
+        // See event-pos-donation.blade.php's identical script for why — the modal's own
+        // markup is stale page-load-time HTML otherwise, missing any Cash sale recorded
+        // since (from another station, or the public donation page).
+        (function () {
+            const modalEl = document.getElementById('settleTillModal');
+            const bodyEl = document.getElementById('settleTillModalBody');
+            if (!modalEl || !bodyEl) { return; }
+            const paneUrl = @json($settleTillPaneUrl);
+
+            modalEl.addEventListener('show.bs.modal', function () {
+                bodyEl.style.opacity = '0.5';
+                fetch(paneUrl, { headers: { 'Accept': 'text/html' } })
+                    .then(function (res) { return res.ok ? res.text() : Promise.reject(); })
+                    .then(function (html) {
+                        bodyEl.innerHTML = html;
+                        bodyEl.style.opacity = '1';
+                        bodyEl.querySelectorAll('script').forEach(function (oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(function (attr) { newScript.setAttribute(attr.name, attr.value); });
+                            newScript.textContent = oldScript.textContent;
+                            oldScript.replaceWith(newScript);
+                        });
+                    })
+                    .catch(function () {
+                        bodyEl.style.opacity = '1';
+                        showToast('Could not refresh — showing the last loaded figures.', true);
+                    });
+            });
+        })();
+    </script>
+    @endif
+
+    {{-- This page is a classic form POST + redirect for Settle Till (unlike the AJAX-driven
+         ticket sale/EFT flows above), so its result only ever reaches the browser as a
+         session flash — reused through the same corner toast() every other confirmation on
+         this page already uses, rather than a different-looking banner just for this form. --}}
+    @if(session('success') || session('error'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            showToast(@json(session('success', session('error'))), {{ session('error') ? 'true' : 'false' }});
+        });
+    </script>
+    @endif
 </body>
 </html>
