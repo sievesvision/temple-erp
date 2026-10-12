@@ -2034,7 +2034,14 @@
         // refreshTerminalsList()), which would silently drop a listener attached directly to
         // any one form. A 'submit' event bubbles, so this still catches every terminal card's
         // form (rename/set default/remove/pair/unpair) even ones added after that refresh.
-        document.getElementById('pane-eft-settings').addEventListener('submit', function (e) {
+        {{-- #pane-eft-settings only renders for $canEditEvent — an entry/pos-level
+             coordinator doesn't get it at all, so this must be null-guarded like every
+             other getElementById() call here; left unguarded, it threw and silently
+             halted the rest of this script block, including the @if($canAddDonation)
+             code further down that populates the Add Transaction modal's payment method
+             list — the actual cause of that dropdown showing empty for anyone below
+             $canEditEvent. --}}
+        document.getElementById('pane-eft-settings') && document.getElementById('pane-eft-settings').addEventListener('submit', function (e) {
             if (e.target.tagName === 'FORM') {
                 try { localStorage.setItem('consoleActivePane', 'pane-eft-settings'); } catch (err) {}
             }
