@@ -563,7 +563,7 @@
                     <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Settle Till</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" id="settleTillModalBody">
                     @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
                 </div>
             </div>
@@ -1447,6 +1447,45 @@
     </script>
 
     @include('admin.partials.eft-terminal-settings-modal')
+
+    @if($canSettleCash)
+    @php
+        // Built as a plain variable — see event-pos-donation.blade.php's identical comment
+        // on why an inline array literal inside @json()'s own argument isn't safe here.
+        $settleTillPaneUrl = route('admin.cash-settlement.pane', ['scope' => 'tickets', 'context' => 'pos']);
+    @endphp
+    <script>
+        // See event-pos-donation.blade.php's identical script for why — the modal's own
+        // markup is stale page-load-time HTML otherwise, missing any Cash sale recorded
+        // since (from another station, or the public donation page).
+        (function () {
+            const modalEl = document.getElementById('settleTillModal');
+            const bodyEl = document.getElementById('settleTillModalBody');
+            if (!modalEl || !bodyEl) { return; }
+            const paneUrl = @json($settleTillPaneUrl);
+
+            modalEl.addEventListener('show.bs.modal', function () {
+                bodyEl.style.opacity = '0.5';
+                fetch(paneUrl, { headers: { 'Accept': 'text/html' } })
+                    .then(function (res) { return res.ok ? res.text() : Promise.reject(); })
+                    .then(function (html) {
+                        bodyEl.innerHTML = html;
+                        bodyEl.style.opacity = '1';
+                        bodyEl.querySelectorAll('script').forEach(function (oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(function (attr) { newScript.setAttribute(attr.name, attr.value); });
+                            newScript.textContent = oldScript.textContent;
+                            oldScript.replaceWith(newScript);
+                        });
+                    })
+                    .catch(function () {
+                        bodyEl.style.opacity = '1';
+                        showToast('Could not refresh — showing the last loaded figures.', true);
+                    });
+            });
+        })();
+    </script>
+    @endif
 
     {{-- This page is a classic form POST + redirect for Settle Till (unlike the AJAX-driven
          ticket sale/EFT flows above), so its result only ever reaches the browser as a

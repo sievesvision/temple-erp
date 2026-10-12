@@ -972,7 +972,7 @@
                     <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Settle Till</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" id="settleTillModalBody">
                     @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'currentTransactions' => $currentTransactions, 'lastSettlementDate' => $lastSettlementDate, 'canEditCurrentTransactions' => $canEditCurrentTransactions, 'temple' => $temple])
                 </div>
             </div>
@@ -2143,6 +2143,54 @@
     </script>
 
     @include('admin.partials.eft-terminal-settings-modal')
+
+    @if($canSettleCash)
+    @php
+        // Built as a plain variable rather than inline inside @json() below — an array
+        // literal with nested ['key'] syntax inside @json()'s own argument trips up Blade's
+        // bracket-balance check (see the identical $pendingEftRecoveryForJs pattern earlier
+        // on this same page for the same reason).
+        $settleTillPaneUrl = route('admin.cash-settlement.pane', ['scope' => 'event', 'event_id' => $event->event_id, 'context' => 'pos']);
+    @endphp
+    <script>
+        // The Settle Till modal's own markup was rendered once, at this page's own last
+        // load — opening it later (no navigation in between) would otherwise keep showing
+        // whatever "Current Period Transactions" snapshot that was, missing anything
+        // recorded since (a sale from another station, a public donation-page submission).
+        // Refetch the whole widget fresh every time the modal opens instead.
+        (function () {
+            const modalEl = document.getElementById('settleTillModal');
+            const bodyEl = document.getElementById('settleTillModalBody');
+            if (!modalEl || !bodyEl) { return; }
+            const paneUrl = @json($settleTillPaneUrl);
+
+            modalEl.addEventListener('show.bs.modal', function () {
+                bodyEl.style.opacity = '0.5';
+                fetch(paneUrl, { headers: { 'Accept': 'text/html' } })
+                    .then(function (res) { return res.ok ? res.text() : Promise.reject(); })
+                    .then(function (html) {
+                        bodyEl.innerHTML = html;
+                        bodyEl.style.opacity = '1';
+                        // A <script> tag set via innerHTML never executes on its own (by
+                        // design) — recreating each one as a fresh element and swapping it
+                        // in is the standard way to force it to run, which is what wires up
+                        // the pane's own search/settle-form JS again on the freshly
+                        // fetched markup.
+                        bodyEl.querySelectorAll('script').forEach(function (oldScript) {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(function (attr) { newScript.setAttribute(attr.name, attr.value); });
+                            newScript.textContent = oldScript.textContent;
+                            oldScript.replaceWith(newScript);
+                        });
+                    })
+                    .catch(function () {
+                        bodyEl.style.opacity = '1';
+                        showToast('Could not refresh — showing the last loaded figures.', true);
+                    });
+            });
+        })();
+    </script>
+    @endif
 
     {{-- This page is a classic form POST + redirect for Settle Till (unlike the AJAX-driven
          donation/EFT flows above), so its result only ever reaches the browser as a session

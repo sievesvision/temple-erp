@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\CashBanking;
 use App\Models\CashSettlement;
 use App\Models\Event;
+use App\Models\RolePermission;
 use App\Models\Setting;
 use App\Services\AuditLogService;
 use App\Services\CashSettlementService;
+use App\Services\EventCoordinatorLevel;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -67,6 +69,60 @@ class CashSettlementController extends Controller
         AuditLogService::log('Updated ticket bank account settings');
 
         return redirect()->back()->with('success', 'Ticket bank account settings saved.');
+    }
+
+    /**
+     * Re-renders the Settle Till widget with live data — the POS page's own #settleTillModal
+     * is already-rendered page markup, so opening it (no navigation, no server round-trip)
+     * would otherwise keep showing whatever "Current Period Transactions" snapshot was on
+     * screen at the page's own last load, missing anything recorded since (a sale from
+     * another station, a public donation-page submission). The modal's own JS fetches this
+     * on every `show.bs.modal` and swaps it in — see event-pos-donation.blade.php/
+     * ticket-pos.blade.php's own small script right after #settleTillModal.
+     */
+    public function pane(Request $request)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        $scope = $request->input('scope');
+        $eventId = null;
+
+        if ($scope === 'event') {
+            $event = Event::findOrFail((int) $request->input('event_id'));
+            if (!$this->canManageEventCash($event, $user, $activeRole)) {
+                abort(403, 'Unauthorized access.');
+            }
+            $eventId = $event->event_id;
+        } elseif ($scope === 'tickets') {
+            if (!$this->canManageTicketsCash($user, $activeRole)) {
+                abort(403, 'Unauthorized access.');
+            }
+        } else {
+            abort(422, 'Unknown scope.');
+        }
+
+        $canViewCashHistory = CashSettlementService::canViewHistory($scope, $eventId, $user, $activeRole);
+        $paneData = CashSettlementService::paneData($scope, $eventId, $canViewCashHistory);
+
+        // Same bar PosDonationController/EventConsoleController use for this same widget —
+        // kept in sync by hand since there's no single shared helper for it yet. Tickets
+        // scope has no edit route for an order at all, so it's always false there.
+        $canEditCurrentTransactions = false;
+        if ($scope === 'event') {
+            $coordinatorLevel = $activeRole === 'Event Coordinator' ? EventCoordinatorLevel::of($eventId, $user->id) : null;
+            $canEditCurrentTransactions = $activeRole === 'Admin'
+                || RolePermission::can($activeRole, 'donations', 'edit')
+                || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
+        }
+
+        return view('admin.partials.cash-settlement-pane', array_merge($paneData, [
+            'scope' => $scope,
+            'eventId' => $eventId,
+            'canViewCashHistory' => $canViewCashHistory,
+            'canEditCurrentTransactions' => $canEditCurrentTransactions,
+            'context' => $request->input('context', 'pos'),
+            'temple' => Setting::templeBranding(),
+        ]))->render();
     }
 
     public function recordBanking(Request $request)

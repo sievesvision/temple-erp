@@ -753,6 +753,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff
     // Shared by both the event- and tickets-scoped Cash Banking panes — which scope a
     // submission means is carried in the form itself (see CashSettlementController::
     // resolveScopeFromRequest()), re-checked against that scope's own access gate.
+    Route::get('/admin/cash-settlement/pane', [\App\Http\Controllers\CashSettlementController::class, 'pane'])->name('admin.cash-settlement.pane');
     Route::post('/admin/cash-settlement/banking', [\App\Http\Controllers\CashSettlementController::class, 'recordBanking'])->name('admin.cash-settlement.recordBanking');
     Route::post('/admin/cash-settlement/run', [\App\Http\Controllers\CashSettlementController::class, 'runSettlement'])->name('admin.cash-settlement.run');
     Route::post('/admin/cash-settlement/{settlement}', [\App\Http\Controllers\CashSettlementController::class, 'updateSettlement'])->name('admin.cash-settlement.update');
