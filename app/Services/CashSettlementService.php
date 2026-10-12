@@ -127,15 +127,27 @@ class CashSettlementService
      */
     private static function claimedTransactionKeys(string $scope, ?int $eventId): array
     {
-        $keys = [];
-        CashSettlement::where('scope', $scope)->where('event_id', $eventId)->pluck('transaction_refs')
-            ->each(function ($refs) use (&$keys) {
-                foreach ((array) $refs as $ref) {
-                    $keys[$ref['type'] . ':' . $ref['id']] = true;
+        return array_fill_keys(array_keys(self::settlementKeyMap($scope, $eventId)), true);
+    }
+
+    /**
+     * The same snapshot as claimedTransactionKeys(), but naming WHICH settlement claimed
+     * each {type, id} (as "type:id" => settlement id) rather than just whether one did —
+     * used by the Portal's All Transactions pane to tag every row with the settlement it
+     * belongs to (or "current" when absent from this map), so a Settlement filter there can
+     * work entirely client-side over the already-rendered rows.
+     */
+    public static function settlementKeyMap(string $scope, ?int $eventId): array
+    {
+        $map = [];
+        CashSettlement::where('scope', $scope)->where('event_id', $eventId)->get(['id', 'transaction_refs'])
+            ->each(function ($settlement) use (&$map) {
+                foreach ((array) $settlement->transaction_refs as $ref) {
+                    $map[$ref['type'] . ':' . $ref['id']] = $settlement->id;
                 }
             });
 
-        return $keys;
+        return $map;
     }
 
     /**

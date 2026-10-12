@@ -973,7 +973,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    @include('admin.partials.cash-settlement-pane', ['scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'currentTransactions' => $currentTransactions, 'lastSettlementDate' => $lastSettlementDate, 'canEditCurrentTransactions' => $canEditCurrentTransactions, 'temple' => $temple])
+                    @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'currentTransactions' => $currentTransactions, 'lastSettlementDate' => $lastSettlementDate, 'canEditCurrentTransactions' => $canEditCurrentTransactions, 'temple' => $temple])
                 </div>
             </div>
         </div>

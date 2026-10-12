@@ -268,6 +268,19 @@
         .donations-filter-clear { background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 10px 16px; min-height: 42px; border-radius: 10px; font-size: 0.85rem; }
         .donations-filter-summary { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 2px 2px; font-size: 0.85rem; color: var(--text-secondary); }
         .donations-filter-total { font-weight: 700; color: var(--text-secondary); }
+
+        /* Multi-select pill groups (Method / Status / Settlement) — each pill toggles
+           independently, combining with the others and with search/date to narrow the
+           table; a group with nothing active behaves as "everything in this group". */
+        .donations-pill-groups { display: flex; flex-wrap: wrap; gap: 18px 28px; margin-bottom: 14px; padding: 2px; }
+        .donations-pill-group { display: flex; flex-direction: column; gap: 7px; }
+        .donations-pill-group-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+        .donations-pill-group .donations-filter-pills { margin-bottom: 0; }
+        .donations-multi-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--white); border: 1.5px solid var(--border); color: var(--text-secondary); font-weight: 700; padding: 7px 14px; min-height: 36px; border-radius: 999px; font-size: 0.8rem; cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s; }
+        .donations-multi-pill .pill-check { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--border); display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; flex-shrink: 0; background: var(--white); }
+        .donations-multi-pill.active { background: rgba(200,155,60,0.12); border-color: var(--gold); color: var(--text-primary); }
+        .donations-multi-pill.active .pill-check { background: var(--gold); border-color: var(--gold); color: #fff; }
+        .donations-multi-pill:hover { border-color: var(--gold); }
         .donations-filter-total .amt { font-weight: 800; color: var(--gold-hover); font-size: 1rem; }
 
         /* ---------- All Donations: clickable/sortable column headers ---------- */
@@ -780,25 +793,46 @@
                     @php
                         $distinctStatuses = $rows->pluck('payment_status')->filter()->unique()->sort()->values();
                         $distinctPaymentMethods = $rows->pluck('payment_method')->filter()->unique()->sort()->values();
+                        // Completed + Pending are on by default — Cancelled/Failed are
+                        // available to opt into but don't clutter the view by default.
+                        $defaultActiveStatuses = ['paid', 'pending'];
                     @endphp
                     <div class="card-panel">
+                        <div class="donations-pill-groups">
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Status</span>
+                                <div class="donations-filter-pills" id="donationsStatusPills">
+                                    @foreach($distinctStatuses as $status)
+                                    @php $sv = strtolower($status); @endphp
+                                    <button type="button" class="donations-multi-pill{{ in_array($sv, $defaultActiveStatuses, true) ? ' active' : '' }}" data-value="{{ $sv }}"><span class="pill-check">✓</span>{{ $status === 'Paid' ? 'Completed' : $status }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Payment Method</span>
+                                <div class="donations-filter-pills" id="donationsPaymentPills">
+                                    @foreach($distinctPaymentMethods as $method)
+                                    <button type="button" class="donations-multi-pill active" data-value="{{ strtolower($method) }}"><span class="pill-check">✓</span>{{ $method }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @if($cashSettlements->isNotEmpty())
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Settlement</span>
+                                <div class="donations-filter-pills" id="donationsSettlementPills">
+                                    <button type="button" class="donations-multi-pill active" data-value="current"><span class="pill-check">✓</span>Current (Unsettled)</button>
+                                    @foreach($cashSettlements as $s)
+                                    <button type="button" class="donations-multi-pill active" data-value="{{ $s->id }}"><span class="pill-check">✓</span>{{ $s->period_start->format('d M') }}–{{ $s->period_end->format('d M Y') }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
+                        </div>
                         <div class="donations-filter-row">
                             <div class="donations-search-wrap">
                                 <i class="bi bi-search"></i>
                                 <input type="text" id="donationsSearchInput" placeholder="Search by name or email...">
                             </div>
-                            <select class="donations-date-input" id="donationsStatusFilter">
-                                <option value="">All Statuses</option>
-                                @foreach($distinctStatuses as $status)
-                                <option value="{{ strtolower($status) }}">{{ $status === 'Paid' ? 'Completed' : $status }}</option>
-                                @endforeach
-                            </select>
-                            <select class="donations-date-input" id="donationsPaymentFilter">
-                                <option value="">All Payment Methods</option>
-                                @foreach($distinctPaymentMethods as $method)
-                                <option value="{{ strtolower($method) }}">{{ $method }}</option>
-                                @endforeach
-                            </select>
                             <input type="date" class="donations-date-input" id="donationsDateFrom">
                             <span class="text-muted small">to</span>
                             <input type="date" class="donations-date-input" id="donationsDateTo">
@@ -859,7 +893,8 @@
                                     data-name="{{ strtolower($row->display_name) }}"
                                     data-amount="{{ $row->amount }}"
                                     data-payment="{{ strtolower($row->payment_method) }}"
-                                    data-status="{{ strtolower($row->payment_status) }}">
+                                    data-status="{{ strtolower($row->payment_status) }}"
+                                    data-settlement="{{ $row->settlement_id ?? 'current' }}">
                                     <td>{{ $row->donation_type === 'devotee' ? 'Devotee' : 'Guest' }}</td>
                                     <td><strong>{{ $row->display_id }}</strong></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
@@ -930,7 +965,8 @@
                                          should add into the "Filtered Total" the search/filter JS sums up. --}}
                                     data-amount="0"
                                     data-payment="eft terminal"
-                                    data-status="{{ strtolower($oStatusWord) }}">
+                                    data-status="{{ strtolower($oStatusWord) }}"
+                                    data-settlement="current">
                                     <td class="text-capitalize">{{ $oIsRefund ? 'Refund' : 'Attempt' }}</td>
                                     <td>—</td>
                                     <td class="col-name">{{ $oDonorName ?: '—' }}</td>
@@ -1579,7 +1615,7 @@
                             <p>Count the till, reconcile what's still on hand, and review past settlements for {{ $event->event_name }}.</p>
                         </div>
                     </div>
-                    @include('admin.partials.cash-settlement-pane', ['scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
+                    @include('admin.partials.cash-settlement-pane', ['context' => 'console', 'scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
                 </div>
                 @endif
 
@@ -2094,15 +2130,16 @@
             });
         })();
 
-        // All Donations: client-side search + status/payment/date filter over the already-
-        // rendered table (the event's own donation list is a bounded, single-page dataset —
-        // no need for a server round-trip). Quick pills just set the two date inputs and
-        // re-filter. The visible-rows total is recomputed on every filter change, not just
-        // shown once, so it always reflects exactly what's currently on screen.
+        // All Donations: client-side search + multi-select status/payment/settlement +
+        // date filter over the already-rendered table (the event's own donation list is a
+        // bounded, single-page dataset — no need for a server round-trip). Each pill group
+        // (Status, Payment Method, Settlement) toggles independently and combines with the
+        // others via AND; a group with every pill off is treated the same as every pill on
+        // (nothing in that dimension to exclude). Quick date pills just set the two date
+        // inputs and re-filter. The visible-rows total is recomputed on every filter
+        // change, not just shown once, so it always reflects exactly what's on screen.
         (function () {
             const searchInput = document.getElementById('donationsSearchInput');
-            const statusFilter = document.getElementById('donationsStatusFilter');
-            const paymentFilter = document.getElementById('donationsPaymentFilter');
             const dateFrom = document.getElementById('donationsDateFrom');
             const dateTo = document.getElementById('donationsDateTo');
             const clearBtn = document.getElementById('donationsFilterClear');
@@ -2115,22 +2152,33 @@
             const pills = pillsWrap ? Array.from(pillsWrap.querySelectorAll('button')) : [];
             const donationsCurrency = @json($temple['currency'] ?? '');
 
+            // One Set per multi-select group, keyed by the group's own dataset field name.
+            const multiGroups = [
+                { wrapId: 'donationsStatusPills', field: 'status' },
+                { wrapId: 'donationsPaymentPills', field: 'payment' },
+                { wrapId: 'donationsSettlementPills', field: 'settlement' },
+            ].map(function (g) {
+                const wrap = document.getElementById(g.wrapId);
+                const buttons = wrap ? Array.from(wrap.querySelectorAll('.donations-multi-pill')) : [];
+                const active = new Set(buttons.filter(function (b) { return b.classList.contains('active'); }).map(function (b) { return b.dataset.value; }));
+                return { field: g.field, buttons: buttons, active: active };
+            }).filter(function (g) { return g.buttons.length; });
+
             function applyFilters() {
                 const term = (searchInput.value || '').trim().toLowerCase();
-                const status = statusFilter && statusFilter.value ? statusFilter.value : null;
-                const payment = paymentFilter && paymentFilter.value ? paymentFilter.value : null;
                 const from = dateFrom.value || null;
                 const to = dateTo.value || null;
                 let visible = 0;
                 let totalAmount = 0;
                 rows.forEach(function (row) {
                     const matchesSearch = !term || row.dataset.search.indexOf(term) !== -1;
-                    const matchesStatus = !status || row.dataset.status === status;
-                    const matchesPayment = !payment || row.dataset.payment === payment;
+                    const matchesGroups = multiGroups.every(function (g) {
+                        return g.active.size === 0 || g.active.has(row.dataset[g.field]);
+                    });
                     const rowDate = row.dataset.donationDate;
                     const matchesFrom = !from || rowDate >= from;
                     const matchesTo = !to || rowDate <= to;
-                    const show = matchesSearch && matchesStatus && matchesPayment && matchesFrom && matchesTo;
+                    const show = matchesSearch && matchesGroups && matchesFrom && matchesTo;
                     row.style.display = show ? '' : 'none';
                     if (show) { visible++; totalAmount += parseFloat(row.dataset.amount) || 0; }
                 });
@@ -2142,6 +2190,22 @@
                         : '';
                 }
             }
+
+            multiGroups.forEach(function (g) {
+                g.buttons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const value = btn.dataset.value;
+                        if (g.active.has(value)) {
+                            g.active.delete(value);
+                            btn.classList.remove('active');
+                        } else {
+                            g.active.add(value);
+                            btn.classList.add('active');
+                        }
+                        applyFilters();
+                    });
+                });
+            });
 
             function isoDate(d) {
                 return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -2178,9 +2242,6 @@
                 });
             });
             searchInput.addEventListener('input', applyFilters);
-            [statusFilter, paymentFilter].forEach(function (el) {
-                if (el) { el.addEventListener('change', applyFilters); }
-            });
             [dateFrom, dateTo].forEach(function (el) {
                 el.addEventListener('change', function () {
                     pills.forEach(function (b) { b.classList.remove('active'); });
@@ -2190,9 +2251,10 @@
             if (clearBtn) {
                 clearBtn.addEventListener('click', function () {
                     searchInput.value = '';
-                    if (statusFilter) { statusFilter.value = ''; }
-                    if (paymentFilter) { paymentFilter.value = ''; }
-                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    multiGroups.forEach(function (g) {
+                        g.active.clear();
+                        g.buttons.forEach(function (b) { g.active.add(b.dataset.value); b.classList.add('active'); });
+                    });
                     const allPill = pillsWrap.querySelector('[data-range="all"]');
                     if (allPill) { allPill.classList.add('active'); }
                     setQuickRange('all');

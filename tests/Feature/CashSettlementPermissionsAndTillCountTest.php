@@ -119,13 +119,32 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response->assertDontSee('bi-pencil-fill', false);
     }
 
-    public function test_entry_level_coordinator_sees_full_history_on_the_pos_page(): void
+    /**
+     * The POS page's Settle Till popup never shows settlement history, regardless of role
+     * — just the one-line "last settled / carried forward" fact. Full history (and editing
+     * a past settlement) lives on the Console's own Settlements pane instead.
+     */
+    public function test_no_role_sees_settlement_history_on_the_pos_page_only_the_last_settled_summary(): void
     {
         $eventId = $this->makeEvent();
         $entry = $this->coordinator($eventId, 'entry');
         CashSettlementService::run('event', $eventId, $entry->id, 50.0, 0.0, null);
 
         $response = $this->actingAs($entry)->get(route('admin.events.pos', $eventId));
+
+        $response->assertOk();
+        $response->assertDontSee('Settlement History');
+        $response->assertSee('Last settled:');
+        $response->assertSee('Carried forward:');
+    }
+
+    public function test_entry_level_coordinator_sees_full_settlement_history_on_the_console_page(): void
+    {
+        $eventId = $this->makeEvent();
+        $entry = $this->coordinator($eventId, 'entry');
+        CashSettlementService::run('event', $eventId, $entry->id, 50.0, 0.0, null);
+
+        $response = $this->actingAs($entry)->get(route('admin.events.portal', $eventId));
 
         $response->assertOk();
         $response->assertSee('Settlement History');
@@ -253,13 +272,29 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_entry_level_ticket_controller_sees_full_history_on_the_ticket_pos_page(): void
+    public function test_entry_level_ticket_controller_sees_no_history_on_the_ticket_pos_page(): void
     {
         $entry = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
         DB::table('ticket_controllers')->insert(['user_id' => $entry->id, 'level' => 'entry', 'created_at' => now(), 'updated_at' => now()]);
         CashSettlementService::run('tickets', null, $entry->id, 0.0, 0.0, null);
 
         $response = $this->actingAs($entry)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertDontSee('Settlement History');
+        $response->assertSee('Last settled:');
+    }
+
+    public function test_admin_level_ticket_controller_sees_full_history_on_the_ticket_console_page(): void
+    {
+        // admin-level, not entry — an entry-level Ticket Controller is redirected straight
+        // to the POS page (TicketController::manageTickets()) and never reaches the console
+        // at all.
+        $ticketAdmin = User::factory()->create(['role' => 'Ticket Controller', 'mobile' => fake()->unique()->numerify('04########')]);
+        DB::table('ticket_controllers')->insert(['user_id' => $ticketAdmin->id, 'level' => 'admin', 'created_at' => now(), 'updated_at' => now()]);
+        CashSettlementService::run('tickets', null, $ticketAdmin->id, 0.0, 0.0, null);
+
+        $response = $this->actingAs($ticketAdmin)->get(route('admin.tickets.index'));
 
         $response->assertOk();
         $response->assertSee('Settlement History');

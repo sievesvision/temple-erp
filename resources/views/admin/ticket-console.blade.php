@@ -636,7 +636,7 @@
                             </div>
                         </div>
                         @if($cashPreview)
-                        @include('admin.partials.cash-settlement-pane', ['scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
+                        @include('admin.partials.cash-settlement-pane', ['context' => 'console', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
                         @endif
                     </div>
 

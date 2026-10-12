@@ -6,6 +6,10 @@
      This is the live, not-yet-settled period only — a settlement/method/status filterable
      view of EVERY transaction (not just the current period) lives on the Portal's own All
      Transactions pane instead (event-console.blade.php), not here.
+     $context ('pos'|'console', default 'console') — on the POS page's Settle Till popup,
+     nobody (not even admin/entry) sees settlement history, just the one-line "last settled/
+     carried forward" fact plus the till-count form itself; the Console's own Settlements
+     pane is where full history (and editing a past settlement's figures) actually lives.
      Expects: $scope ('event'|'tickets'), $eventId (nullable), $cashPreview (array from
      CashSettlementService::preview()), $cashBankings, $cashSettlements (collections —
      empty when $canViewCashHistory is false), $canViewCashHistory (bool — false for a
@@ -17,6 +21,7 @@
     $expected = round($cashPreview['opening_balance'] + $cashPreview['cash_received'], 2);
     $formId = 'settleTillForm_' . $scope . '_' . ($eventId ?? 'tickets');
     $canEditCurrentTransactions = $canEditCurrentTransactions ?? false;
+    $context = $context ?? 'console';
     $baseUrl = $scope === 'event' ? route('admin.events.pos', $eventId) : route('admin.tickets.pos');
 @endphp
 
@@ -68,7 +73,7 @@
     </div>
 </div>
 
-@if(!$canViewCashHistory)
+@if($context === 'pos' || !$canViewCashHistory)
 <div class="cs-card mb-3 d-flex align-items-center gap-2">
     <i class="bi bi-clock-history" style="font-size:1.2rem;color:#B7791F;"></i>
     <div class="small">
@@ -210,7 +215,7 @@
     </form>
 </div>
 
-@if($canViewCashHistory)
+@if($canViewCashHistory && $context !== 'pos')
 <div class="cs-card mb-3">
     <div class="fw-bold mb-2"><i class="bi bi-journal-check me-1"></i>Settlement History</div>
     @forelse($cashSettlements as $settlement)

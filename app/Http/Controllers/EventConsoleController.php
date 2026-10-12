@@ -63,6 +63,15 @@ class EventConsoleController extends Controller
         $options = $breakdown['options'];
         $rows = $breakdown['rows'];
 
+        // Tags each row with whichever settlement claimed it (or null — still in the
+        // current, unsettled period) — lets the All Transactions pane's own Settlement
+        // filter work entirely client-side over these already-rendered rows. See
+        // CashSettlementService::settlementKeyMap()'s own docblock.
+        $settlementKeyMap = \App\Services\CashSettlementService::settlementKeyMap('event', $event->event_id);
+        $rows->each(function ($row) use ($settlementKeyMap) {
+            $row->settlement_id = $settlementKeyMap[$row->donation_type . ':' . $row->id] ?? null;
+        });
+
         $paidRows = $rows->where('payment_status', 'Paid');
         $pendingRows = $rows->where('payment_status', 'Pending');
         $todayRows = $paidRows->where('donation_date', now()->toDateString());
