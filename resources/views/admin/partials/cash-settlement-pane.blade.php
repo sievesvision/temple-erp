@@ -24,6 +24,25 @@
     .cash-settle-widget .cs-card { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; padding: 18px 20px; }
     .cash-settle-widget .btn-cs-save { background: linear-gradient(135deg, #b8863a, #d4a05a); color: #fff; border: none; border-radius: 40px; padding: 10px 28px; font-weight: 700; }
     .cash-settle-widget .btn-cs-save:hover { color: #fff; filter: brightness(1.05); }
+    .cash-settle-widget .cs-table-wrap { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; overflow: hidden; }
+    .cash-settle-widget .cs-table-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid #f0ece6; }
+    .cash-settle-widget .cs-search-wrap { position: relative; }
+    .cash-settle-widget .cs-search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a89a86; font-size: 0.85rem; }
+    .cash-settle-widget .cs-search-input { border: 1px solid #e8e0d4; border-radius: 40px; padding: 7px 14px 7px 32px; font-size: 0.85rem; min-width: 220px; background: #faf8f5; }
+    .cash-settle-widget .cs-search-input:focus { outline: none; border-color: #C89B3C; background: #fff; }
+    .cash-settle-widget .cs-table { width: 100%; border-collapse: collapse; margin: 0; }
+    .cash-settle-widget .cs-table thead th { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; background: #faf8f5; padding: 10px 20px; text-align: left; border-bottom: 1px solid #f0ece6; }
+    .cash-settle-widget .cs-table tbody td { padding: 10px 20px; border-bottom: 1px solid #f5f0ea; font-size: 0.88rem; vertical-align: middle; }
+    .cash-settle-widget .cs-table tbody tr:last-child td { border-bottom: none; }
+    .cash-settle-widget .cs-table tbody tr.cs-row:hover { background: #faf8f5; }
+    .cash-settle-widget .cs-icon-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #e8e0d4; background: #fff; display: inline-flex; align-items: center; justify-content: center; color: #7b6b5a; }
+    .cash-settle-widget .cs-icon-btn:hover { background: #faf8f5; border-color: #C89B3C; color: #C89B3C; }
+    .cash-settle-widget .cs-icon-btn.cs-save-btn { color: #1f9d6a; border-color: rgba(31,157,106,0.3); }
+    .cash-settle-widget .cs-icon-btn.cs-save-btn:hover { background: #f0fbf6; }
+    .cash-settle-widget .cs-icon-btn.cs-cancel-btn { color: #c94b4b; border-color: rgba(201,75,75,0.3); }
+    .cash-settle-widget .cs-icon-btn.cs-cancel-btn:hover { background: #fdf3f3; }
+    .cash-settle-widget .cs-edit-row input.form-control { font-size: 0.85rem; padding: 6px 10px; }
+    .cash-settle-widget .cs-empty-state { padding: 40px 20px; text-align: center; color: #a0907e; }
 </style>
 
 <div class="row g-3 mb-3">
@@ -38,11 +57,6 @@
     </div>
 </div>
 
-<p class="text-muted small">
-    Period: {{ $cashPreview['period_start']->format('d M Y') }} &ndash; {{ $cashPreview['period_end']->format('d M Y') }} (since the last settlement, or the beginning if none has been run yet).
-    Count the till now and settle below — the per-{{ $scope === 'event' ? 'donation-type' : 'ticket-type' }} figures are for visibility only, since a till count is always one lump sum, never split by category.
-</p>
-
 @if(count($cashPreview['breakdown']))
 <div class="cs-card mb-3">
     <div class="fw-bold mb-2"><i class="bi bi-tags-fill me-1"></i>Cash Received by {{ $scope === 'event' ? 'Donation Type' : 'Ticket Type' }} (this period)</div>
@@ -56,16 +70,23 @@
 @endif
 
 @php $canEditCurrentTransactions = $canEditCurrentTransactions ?? false; @endphp
-<div class="cs-card mb-3">
-    <div class="fw-bold mb-2"><i class="bi bi-list-check me-1"></i>Current Period Transactions ({{ $currentTransactions->count() }})</div>
-    <p class="text-muted small mb-2">Every Cash, Paid {{ $scope === 'event' ? 'donation' : 'ticket order' }} counted in "Cash Received" above — review these before you settle@if($canEditCurrentTransactions), and fix anything that's wrong@endif.</p>
+<div class="cs-table-wrap mb-3">
+    <div class="cs-table-head">
+        <div class="fw-bold"><i class="bi bi-list-check me-1"></i>Current Period Transactions ({{ $currentTransactions->count() }})</div>
+        @if($currentTransactions->isNotEmpty())
+        <div class="cs-search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" class="cs-search-input" id="csTxnSearch_{{ $formId }}" placeholder="Search by name or purpose...">
+        </div>
+        @endif
+    </div>
     @if($currentTransactions->isEmpty())
-        <p class="text-muted mb-0">Nothing recorded in this period yet.</p>
+        <div class="cs-empty-state">Nothing recorded in this period yet.</div>
     @else
     <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
+        <table class="cs-table" id="csTxnTable_{{ $formId }}">
             <thead>
-                <tr class="text-muted small text-uppercase">
+                <tr>
                     <th>Date</th>
                     <th>{{ $scope === 'event' ? 'Donor' : 'Customer' }}</th>
                     <th>{{ $scope === 'event' ? 'Purpose' : 'Order' }}</th>
@@ -76,19 +97,57 @@
             <tbody>
                 @if($scope === 'event')
                     @foreach($currentTransactions as $row)
-                    <tr>
+                    @php $rowKey = $row->donation_type . '-' . $row->id; @endphp
+                    <tr class="cs-row" data-search="{{ strtolower($row->display_name . ' ' . $row->purpose) }}" data-edit-id="csEdit_{{ $rowKey }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }}</td>
                         <td>{{ $row->display_name }}</td>
                         <td>{{ $row->purpose ?: '—' }}</td>
                         <td class="text-end fw-bold">{{ $fmt($row->amount) }}</td>
                         @if($canEditCurrentTransactions)
-                        <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#txnEdit{{ $row->donation_type }}{{ $row->id }}">Edit</button></td>
+                        <td class="text-end"><button type="button" class="cs-icon-btn cs-edit-toggle" data-target="csEdit_{{ $rowKey }}" title="Edit"><i class="bi bi-pencil-fill"></i></button></td>
                         @endif
                     </tr>
+                    @if($canEditCurrentTransactions)
+                    <tr class="cs-edit-row" id="csEdit_{{ $rowKey }}" style="display:none;">
+                        <td colspan="5">
+                            @if($row->donation_type === 'devotee')
+                            <form action="{{ route('admin.donations.updateDevotee', $row->id) }}" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
+                                @csrf
+                                <input type="hidden" name="event_id" value="{{ $eventId }}">
+                                <input type="hidden" name="payment_mode" value="Cash">
+                                <input type="hidden" name="payment_status" value="Paid">
+                                <input type="hidden" name="donation_date" value="{{ $row->donation_date }}">
+                                <input type="hidden" name="transaction_id" value="{{ $row->transaction_id }}">
+                                <input type="hidden" name="remarks" value="{{ $row->remarks }}">
+                                <div class="text-muted small flex-shrink-0" style="min-width:140px;" title="Devotee name isn't editable here"><i class="bi bi-lock-fill me-1" style="font-size:0.7rem;"></i>{{ $row->display_name }}</div>
+                                <div><input type="text" name="purpose" class="form-control form-control-sm" value="{{ $row->purpose }}" placeholder="Purpose" style="min-width:160px;"></div>
+                                <div><input type="number" step="0.01" min="0" name="amount" class="form-control form-control-sm" value="{{ $row->amount }}" placeholder="Amount" style="width:110px;" required></div>
+                                <button type="submit" class="cs-icon-btn cs-save-btn" title="Save"><i class="bi bi-check-lg"></i></button>
+                                <button type="button" class="cs-icon-btn cs-cancel-btn cs-edit-cancel" data-target="csEdit_{{ $rowKey }}" title="Cancel"><i class="bi bi-x-lg"></i></button>
+                            </form>
+                            @else
+                            <form action="{{ route('admin.donations.updateGuest', $row->id) }}" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
+                                @csrf
+                                <input type="hidden" name="event_id" value="{{ $eventId }}">
+                                <input type="hidden" name="payment_method" value="Cash">
+                                <input type="hidden" name="payment_status" value="Paid">
+                                <input type="hidden" name="donation_date" value="{{ $row->donation_date }}">
+                                <input type="hidden" name="transaction_id" value="{{ $row->transaction_id }}">
+                                <input type="hidden" name="purpose_details" value="{{ $row->purpose_details }}">
+                                <div><input type="text" name="donor_name" class="form-control form-control-sm" value="{{ $row->donor_name }}" placeholder="Donor name" style="min-width:140px;" required></div>
+                                <div><input type="text" name="purpose" class="form-control form-control-sm" value="{{ $row->purpose }}" placeholder="Purpose" style="min-width:160px;" required></div>
+                                <div><input type="number" step="0.01" min="0" name="amount" class="form-control form-control-sm" value="{{ $row->amount }}" placeholder="Amount" style="width:110px;" required></div>
+                                <button type="submit" class="cs-icon-btn cs-save-btn" title="Save"><i class="bi bi-check-lg"></i></button>
+                                <button type="button" class="cs-icon-btn cs-cancel-btn cs-edit-cancel" data-target="csEdit_{{ $rowKey }}" title="Cancel"><i class="bi bi-x-lg"></i></button>
+                            </form>
+                            @endif
+                        </td>
+                    </tr>
+                    @endif
                     @endforeach
                 @else
                     @foreach($currentTransactions as $row)
-                    <tr>
+                    <tr class="cs-row" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
                         <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
                         <td>Order #{{ $row->id }}</td>
@@ -99,101 +158,11 @@
             </tbody>
         </table>
     </div>
-    @if($scope === 'tickets')
-    <p class="text-muted small fst-italic mt-2 mb-0">Ticket orders can't be edited here yet — refund from the Pooja Portal's All Orders list if one needs correcting.</p>
-    @endif
     @endif
 </div>
 
-@if($canEditCurrentTransactions && $scope === 'event')
-    @foreach($currentTransactions->where('donation_type', 'devotee') as $row)
-    <div class="modal fade" id="txnEditdevotee{{ $row->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" style="border-radius:20px;">
-                <form action="{{ route('admin.donations.updateDevotee', $row->id) }}" method="POST">
-                    @csrf
-                    <div class="modal-header"><h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Devotee Donation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                    <div class="modal-body">
-                        <input type="hidden" name="event_id" value="{{ $eventId }}">
-                        <div class="mb-3"><label class="form-label small">Devotee</label><input type="text" class="form-control" value="{{ $row->display_name }}" disabled></div>
-                        <div class="row g-3 mb-3">
-                            <div class="col-6"><label class="form-label small">Amount ({{ $currency }})</label><input type="number" step="0.01" name="amount" class="form-control" value="{{ $row->amount }}" required></div>
-                            <div class="col-6"><label class="form-label small">Date</label><input type="date" name="donation_date" class="form-control" value="{{ $row->donation_date }}" required></div>
-                        </div>
-                        <div class="row g-3 mb-3">
-                            <div class="col-6">
-                                <label class="form-label small">Payment Mode</label>
-                                <select name="payment_mode" class="form-select" required>
-                                    @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Terminal', 'Stripe'] as $mode)
-                                    <option value="{{ $mode }}" {{ $row->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small">Status</label>
-                                <select name="payment_status" class="form-select" required>
-                                    @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
-                                    <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3"><label class="form-label small">Purpose</label><input type="text" name="purpose" class="form-control" value="{{ $row->purpose }}"></div>
-                        <div class="mb-0"><label class="form-label small">Remarks</label><textarea name="remarks" rows="2" class="form-control">{{ $row->remarks }}</textarea></div>
-                    </div>
-                    <div class="modal-footer"><button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn-cs-save">Save Changes</button></div>
-                </form>
-            </div>
-        </div>
-    </div>
-    @endforeach
-
-    @foreach($currentTransactions->where('donation_type', 'guest') as $row)
-    <div class="modal fade" id="txnEditguest{{ $row->id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" style="border-radius:20px;">
-                <form action="{{ route('admin.donations.updateGuest', $row->id) }}" method="POST">
-                    @csrf
-                    <div class="modal-header"><h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Guest Donation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                    <div class="modal-body">
-                        <input type="hidden" name="event_id" value="{{ $eventId }}">
-                        <div class="mb-3"><label class="form-label small">Donor Name</label><input type="text" name="donor_name" class="form-control" value="{{ $row->donor_name }}" required></div>
-                        <div class="row g-3 mb-3">
-                            <div class="col-6"><label class="form-label small">Amount ({{ $currency }})</label><input type="number" step="0.01" name="amount" class="form-control" value="{{ $row->amount }}" required></div>
-                            <div class="col-6"><label class="form-label small">Date</label><input type="date" name="donation_date" class="form-control" value="{{ $row->donation_date }}" required></div>
-                        </div>
-                        <div class="row g-3 mb-3">
-                            <div class="col-6">
-                                <label class="form-label small">Payment Method</label>
-                                <select name="payment_method" class="form-select" required>
-                                    @foreach(['Cash', 'UPI', 'Bank', 'EFT Terminal', 'Stripe'] as $method)
-                                    <option value="{{ $method }}" {{ $row->payment_method === $method ? 'selected' : '' }}>{{ $method }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small">Status</label>
-                                <select name="payment_status" class="form-select" required>
-                                    @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
-                                    <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3"><label class="form-label small">Purpose</label><input type="text" name="purpose" class="form-control" value="{{ $row->purpose }}" required></div>
-                        <div class="mb-0"><label class="form-label small">Details</label><textarea name="purpose_details" rows="2" class="form-control">{{ $row->purpose_details }}</textarea></div>
-                    </div>
-                    <div class="modal-footer"><button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn-cs-save">Save Changes</button></div>
-                </form>
-            </div>
-        </div>
-    </div>
-    @endforeach
-@endif
-
 <div class="cs-card mb-3">
-    <div class="fw-bold mb-2"><i class="bi bi-clipboard-check-fill me-1"></i>Settle Till</div>
-    <p class="text-muted small mb-3">Count every note and coin in the till, enter it below, then say how much of that you're taking to the bank. What's left is automatically carried forward as the opening balance for the next till count.</p>
+    <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settle Till</div>
     <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
         @csrf
         <input type="hidden" name="scope" value="{{ $scope }}">
@@ -351,35 +320,39 @@
         });
     });
 
-    // On the POS pages this whole widget is rendered INSIDE the "Settle Till" modal's own
-    // DOM, so each transaction's edit modal is nested inside it too — hiding the parent
-    // (display:none) hides its descendants regardless of their own shown state, and a
-    // modal using position:fixed inside another modal's transitioning .modal-dialog can
-    // also just render in the wrong place. Re-parenting each edit modal to <body> once,
-    // up front, sidesteps both: Bootstrap only ever supports one modal per DOM branch
-    // cleanly, so each one needs to be its own top-level sibling. No-op on the console
-    // pages, where these modals are already top-level.
-    document.querySelectorAll('[id^="txnEdit"].modal').forEach(function (modalEl) {
-        if (modalEl.parentElement !== document.body) {
-            document.body.appendChild(modalEl);
-        }
+    // Current Period Transactions: inline edit toggle — swaps a row for its matching
+    // <tr class="cs-edit-row"> (a plain classic form; submitting it reloads the page, same
+    // as every other form in this widget) rather than opening a separate modal.
+    document.querySelectorAll('.cs-edit-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const target = document.getElementById(btn.dataset.target);
+            if (target) target.style.display = '';
+        });
+    });
+    document.querySelectorAll('.cs-edit-cancel').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const target = document.getElementById(btn.dataset.target);
+            if (target) target.style.display = 'none';
+        });
     });
 
-    document.querySelectorAll('[id^="txnEdit"].modal').forEach(function (modalEl) {
-        let reopenParent = null;
-        modalEl.addEventListener('show.bs.modal', function () {
-            const openParent = document.querySelector('.modal.show');
-            if (openParent && openParent !== modalEl) {
-                reopenParent = openParent;
-                bootstrap.Modal.getInstance(openParent)?.hide();
-            }
+    // Current Period Transactions: client-side search — filters by the row's own
+    // data-search text (name/purpose, lowercased), and hides a row's edit form along with
+    // it so a filtered-out row never leaves an open edit form behind.
+    const txnSearch = document.getElementById('csTxnSearch_{{ $formId }}');
+    const txnTable = document.getElementById('csTxnTable_{{ $formId }}');
+    if (txnSearch && txnTable) {
+        txnSearch.addEventListener('input', function () {
+            const q = this.value.trim().toLowerCase();
+            txnTable.querySelectorAll('tbody tr.cs-row').forEach(function (row) {
+                const match = !q || (row.dataset.search || '').includes(q);
+                row.style.display = match ? '' : 'none';
+                if (!match && row.dataset.editId) {
+                    const editRow = document.getElementById(row.dataset.editId);
+                    if (editRow) { editRow.style.display = 'none'; }
+                }
+            });
         });
-        modalEl.addEventListener('hidden.bs.modal', function () {
-            if (reopenParent) {
-                bootstrap.Modal.getOrCreateInstance(reopenParent).show();
-                reopenParent = null;
-            }
-        });
-    });
+    }
 })();
 </script>

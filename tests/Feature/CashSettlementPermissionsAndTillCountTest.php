@@ -112,7 +112,11 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Ticket Buyer');
-        $response->assertSee("can't be edited here yet", false);
+        // Tickets scope has no edit route for an order, so the inline edit pencil button
+        // never renders at all for this scope — unlike the event scope's rows, which
+        // always get one when $canEditCurrentTransactions is true. (bi-pencil-fill is the
+        // icon class only that button uses — everything else on the page is unrelated.)
+        $response->assertDontSee('bi-pencil-fill', false);
     }
 
     public function test_entry_level_coordinator_sees_full_history_on_the_pos_page(): void
