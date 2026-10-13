@@ -85,6 +85,17 @@ class TicketController extends Controller
         $canDelete = RolePermission::can($activeRole, 'tickets', 'delete') || $canManageConsole;
 
         $orders = TicketOrder::with(['items', 'seller'])->orderByDesc('created_at')->get();
+
+        // Tags each order with which settlement (if any) already claimed it — same
+        // mechanism EventConsoleController uses for donations (CashSettlementService::
+        // settlementKeyMap()'s own docblock). 'ticket_order' is the literal type string
+        // CashSettlementService::run() stores for this scope (see its own transaction_refs
+        // snapshot), never the event scope's donation_type.
+        $settlementKeyMap = \App\Services\CashSettlementService::settlementKeyMap('tickets', null);
+        $orders->each(function ($order) use ($settlementKeyMap) {
+            $order->settlement_id = $settlementKeyMap['ticket_order:' . $order->id] ?? null;
+        });
+
         $totalSold = $orders->where('payment_status', 'Paid')->sum('total_amount');
 
         $todayTotal = $orders->where('payment_status', 'Paid')
