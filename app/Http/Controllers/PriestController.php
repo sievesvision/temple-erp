@@ -872,6 +872,33 @@ class PriestController extends Controller
         }
     }
 
+    /**
+     * Priest self-service cancel — scoped to a booking assigned to this priest, see the
+     * Pooja Bookings plan's Phase A. The admin cancel path (BookingController::updateStatus())
+     * stays unrestricted.
+     */
+    public function cancelPooja(Request $request, $id)
+    {
+        $user = Auth::user();
+        $priest = DB::table('priests')->where('user_id', $user->id)->first();
+        if (!$priest) {
+            return redirect()->back()->with('error', 'Priest not found.');
+        }
+
+        $booking = \App\Models\Booking::where('booking_id', $id)->where('priest_id', $priest->priest_id)->first();
+        if (!$booking) {
+            return redirect()->back()->with('error', 'Booking not found or not assigned to you.');
+        }
+
+        try {
+            (new \App\Services\BookingService())->cancel($booking, 'Priest', $user->id, $request->input('remarks'));
+
+            return redirect()->back()->with('success', "Booking #{$id} has been cancelled.");
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
     public function requestLeave(Request $request)
     {
         $user = Auth::user();

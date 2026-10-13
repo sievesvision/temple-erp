@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use App\Services\AccountSetupService;
 use App\Services\AuditLogService;
+use App\Services\BookingService;
 use App\Models\Setting;
 use App\Models\RolePermission;
 use App\Models\User;
@@ -663,136 +664,60 @@ class StaffController extends Controller
     /**
      * Counter: Process offline walk-in pooja booking.
      */
+    /**
+     * Routed through BookingService::create() (see the Pooja Bookings plan's Phase A) —
+     * this used to insert directly and invent offline_{mobile}_{uniqid}@templeconnect.com
+     * as a fake email for every walk-in, which also meant findOrCreateDevotee()-style
+     * account reuse was never possible across visits. 'Cash'/'Paid'/no-discount matches
+     * this endpoint's own prior behaviour exactly (see create()'s $applyMembershipDiscount
+     * docblock); only the identity and SQL-safe priest lookup changed.
+     */
     public function counterBookPooja(Request $request)
     {
         $request->validate([
             'pooja_id' => 'required|exists:poojas,pooja_id',
             'devotee_name' => 'required|string|max:255',
             'mobile' => 'required|digits:10',
+            'email' => 'required|email',
             'booking_date' => 'required|date|after_or_equal:today',
             'booking_time' => 'required'
         ]);
 
-        $poojaId = $request->pooja_id;
-        $devoteeName = $request->devotee_name;
-        $mobile = $request->mobile;
-        $date = $request->booking_date;
-        $time = $request->booking_time;
-
-        $pooja = DB::table('poojas')->where('pooja_id', $poojaId)->first();
-        if (!$pooja || $pooja->status !== 'Active') {
-            return response()->json(['success' => false, 'message' => 'Selected pooja is not active or not found.'], 422);
-        }
-
-        DB::beginTransaction();
         try {
-            // Find or dynamically create user/devotee records to prevent dashboard query join failures
-            $user = \App\Models\User::where('mobile', $mobile)->first();
-            if (!$user) {
-                $user = \App\Models\User::create([
-                    'name' => $devoteeName,
-                    'email' => 'offline_' . $mobile . '_' . uniqid() . '@templeconnect.com',
-                    'mobile' => $mobile,
-                    'password' => Hash::make('offline123'),
-                    'role' => 'Devotee',
-                    'status' => 'Active'
-                ]);
-                $user->email_verified_at = now();
-                $user->save();
-            }
-
-            $devotee = \App\Models\Devotee::where('user_id', $user->id)->first();
-            if (!$devotee) {
-                $devotee = \App\Models\Devotee::create([
-                    'user_id' => $user->id,
-                    'address' => 'Offline Counter walk-in',
-                    'gothra' => 'Not Specified',
-                    'nakshatra' => 'Not Specified',
-                    'gender' => 'Male',
-                    'dob' => '2000-01-01',
-                    'verified' => 1
-                ]);
-            }
-
-            // Auto assign workloads
-            $bookingController = new \App\Http\Controllers\BookingController();
-            $assignedPriestId = $bookingController->autoAssignPriest($poojaId, $date, $time);
-
-            if (!$assignedPriestId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "No active/available priests are available for {$pooja->pooja_name} on {$date} at {$time}. All priest slots are full."
-                ], 422);
-            }
-
-            $amount = $pooja->pooja_fee;
-            $totalAmount = $amount; // No discounts apply for offline counter bookings
-
-            // Create Pooja Booking
-            $bookingId = DB::table('pooja_bookings')->insertGetId([
-                'devotee_id' => $devotee->devotee_id,
-                'pooja_id' => $poojaId,
-                'priest_id' => $assignedPriestId,
-                'booking_date' => $date,
-                'booking_time' => $time,
+            $booking = (new BookingService())->create([
+                'pooja_id' => $request->pooja_id,
+                'booking_date' => $request->booking_date,
+                'booking_time' => $request->booking_time,
                 'booking_type' => 'Offline',
-                'amount' => $amount,
-                'discount_amount' => 0.00,
-                'shipping_charge' => 0.00,
-                'total_amount' => $totalAmount,
                 'payment_method' => 'Cash',
                 'payment_status' => 'Paid',
-                'booking_status' => 'Confirmed',
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-
-            // Status Log
-            DB::table('booking_status_logs')->insert([
-                'booking_id' => $bookingId,
-                'status_from' => null,
-                'status_to' => 'Confirmed',
-                'changed_by' => Auth::id(),
+                'devotee_name' => $request->devotee_name,
+                'devotee_mobile' => $request->mobile,
+                'devotee_email' => $request->email,
                 'remarks' => 'Offline booking recorded at staff counter.',
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+            ], 'Staff', Auth::id(), false);
 
-            // Payment Record
-            DB::table('booking_payments')->insert([
-                'booking_id' => $bookingId,
-                'payment_method' => 'Cash',
-                'transaction_id' => 'OFFLINE-' . strtoupper(uniqid()),
-                'amount' => $totalAmount,
-                'status' => 'Paid',
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-
-            // Fetch priest name for printing
             $priestName = DB::table('users')
-                ->where('id', DB::table('priests')->where('priest_id', $assignedPriestId)->value('user_id'))
+                ->where('id', DB::table('priests')->where('priest_id', $booking->priest_id)->value('user_id'))
                 ->value('name');
-
-            DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Offline Pooja Booking registered successfully.',
                 'booking_details' => [
-                    'booking_id' => $bookingId,
-                    'pooja_name' => $pooja->pooja_name,
-                    'devotee_name' => $devoteeName,
-                    'mobile' => $mobile,
-                    'date' => $date,
-                    'time' => $time,
+                    'booking_id' => $booking->booking_id,
+                    'pooja_name' => DB::table('poojas')->where('pooja_id', $request->pooja_id)->value('pooja_name'),
+                    'devotee_name' => $request->devotee_name,
+                    'mobile' => $request->mobile,
+                    'date' => $request->booking_date,
+                    'time' => $request->booking_time,
                     'priest_name' => $priestName,
-                    'amount' => number_format($totalAmount, 2)
+                    'amount' => number_format($booking->total_amount, 2)
                 ]
             ]);
-
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to process counter booking: ' . $e->getMessage()

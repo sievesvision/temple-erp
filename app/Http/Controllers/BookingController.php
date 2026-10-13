@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use App\Services\AuditLogService;
 use App\Services\NotificationService;
+use App\Services\PriestAvailabilityService;
 use App\Models\Setting;
 use App\Models\RolePermission;
 
@@ -391,6 +392,33 @@ class BookingController extends Controller
     }
 
     /**
+     * Devotee self-service cancel — scoped to their own booking, see the Pooja Bookings
+     * plan's Phase A. The admin cancel path (updateStatus() below) stays unrestricted.
+     */
+    public function cancelBooking(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        $devotee = DB::table('devotees')->where('user_id', $user->id)->first();
+        $booking = \App\Models\Booking::where('booking_id', $id)->first();
+
+        if (!$booking || !$devotee || $booking->devotee_id !== $devotee->devotee_id) {
+            return redirect()->back()->with('error', 'Booking not found or not yours to cancel.');
+        }
+
+        try {
+            (new \App\Services\BookingService())->cancel($booking, 'Devotee', $user->id, $request->input('remarks'));
+
+            return redirect()->back()->with('success', "Booking #{$id} has been cancelled.");
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
      * Admin: Manage Bookings Control Panel
      */
     public function manageBookings(Request $request)
@@ -727,184 +755,25 @@ class BookingController extends Controller
     // ============================================
 
     /**
-     * Workload-Balanced Auto Priest Assignment
+     * Workload-Balanced Auto Priest Assignment — delegates to PriestAvailabilityService
+     * (see the Pooja Bookings plan's Phase A), which also fixes a real bug this method
+     * used to carry: the old inline isPriestAvailable() below selected poojas.duration_
+     * minutes, a column that has never existed, so every availability check threw a SQL
+     * error. Signature kept identical (3 args) since StaffController::counterBookPooja()
+     * still calls this via `new BookingController()->autoAssignPriest(...)`.
      */
     public function autoAssignPriest($poojaId, $date, $time)
     {
-        $activePriestsQuery = DB::table('priests')
-            ->whereIn('employment_status', ['Active', 'On Leave']);
-
-        if (Auth::check()) {
-            $activePriestsQuery->where('user_id', '!=', Auth::id());
-        }
-
-        $activePriests = $activePriestsQuery->get();
-
-        $candidatePriests = [];
-
-        foreach ($activePriests as $priest) {
-            if ($this->isPriestAvailable($priest->priest_id, $poojaId, $date, $time)) {
-                // Count how many bookings they have on that date
-                $bookingsCount = DB::table('pooja_bookings')
-                    ->where('priest_id', $priest->priest_id)
-                    ->where('booking_date', $date)
-                    ->where('booking_status', '!=', 'Cancelled')
-                    ->count();
-
-                $candidatePriests[] = [
-                    'priest_id' => $priest->priest_id,
-                    'bookings_count' => $bookingsCount
-                ];
-            }
-        }
-
-        if (count($candidatePriests) === 0) {
-            return null;
-        }
-
-        // Sort candidates by workload ascending (workload balance)
-        usort($candidatePriests, function($a, $b) {
-            return $a['bookings_count'] <=> $b['bookings_count'];
-        });
-
-        return $candidatePriests[0]['priest_id'];
+        return PriestAvailabilityService::autoAssignPriest($poojaId, $date, $time, Auth::id());
     }
 
     /**
-     * Check if a priest is available based on overlap and capacity rules
+     * Check if a priest is available based on overlap and capacity rules — delegates to
+     * PriestAvailabilityService; see autoAssignPriest()'s docblock above.
      */
     public function isPriestAvailable($priestId, $poojaId, $date, $time)
     {
-        $pooja = DB::table('poojas')->where('pooja_id', $poojaId)->first();
-        if (!$pooja) return false;
-
-        $priest = DB::table('priests')->where('priest_id', $priestId)->first();
-        if (!$priest || !in_array($priest->employment_status, ['Active', 'On Leave'])) return false;
-
-        // Check if the priest has an approved leave request covering the selected date
-        $onLeave = DB::table('leave_requests')
-            ->where('priest_id', $priestId)
-            ->where('status', 'Approved')
-            ->where('start_date', '<=', $date)
-            ->where('end_date', '>=', $date)
-            ->exists();
-        if ($onLeave) return false;
-
-        // Self Booking Prevention: Exclude logged-in priest from any booking check
-        if (Auth::check()) {
-            $priestRecord = DB::table('priests')->where('user_id', Auth::id())->first();
-            if ($priestRecord && $priestRecord->priest_id == $priestId) {
-                return false;
-            }
-        }
-
-        $startTime = strtotime("$date $time");
-        $poojaName = strtoupper($pooja->pooja_name);
-
-        // Determine duration
-        $durationMinutes = $pooja->duration_minutes ?? 30;
-        if (str_contains($poojaName, 'ARCHANA')) {
-            $durationMinutes = 15;
-        } elseif (str_contains($poojaName, 'ABHISHEKA')) {
-            $durationMinutes = 60;
-        }
-        $endTime = $startTime + ($durationMinutes * 60);
-
-        // Get existing bookings
-        $existingBookings = DB::table('pooja_bookings')
-            ->join('poojas', 'pooja_bookings.pooja_id', '=', 'poojas.pooja_id')
-            ->where('pooja_bookings.priest_id', $priestId)
-            ->where('pooja_bookings.booking_date', $date)
-            ->where('pooja_bookings.booking_status', '!=', 'Cancelled')
-            ->select('pooja_bookings.*', 'poojas.pooja_name', 'poojas.duration_minutes')
-            ->get();
-
-        // Special Rules: Homa and Satyanarayana (Half-Day Block)
-        $isHoma = str_contains($poojaName, 'HOMA');
-        $isSatyanarayana = str_contains($poojaName, 'SATYANARAYANA');
-
-        if ($isHoma || $isSatyanarayana) {
-            $reqHour = (int)date('H', $startTime);
-            $reqSlot = $reqHour < 14 ? 'Morning' : 'Afternoon';
-
-            // Strict timeslot boundaries
-            if ($reqSlot === 'Morning' && ($reqHour < 6 || $reqHour >= 14)) return false;
-            if ($reqSlot === 'Afternoon' && ($reqHour < 14 || $reqHour >= 20)) return false;
-
-            $homaCount = 0;
-            $satyanarayanaCount = 0;
-
-            foreach ($existingBookings as $b) {
-                $bName = strtoupper($b->pooja_name);
-                $bTime = strtotime("$date $b->booking_time");
-                $bHour = (int)date('H', $bTime);
-                $bSlot = $bHour < 14 ? 'Morning' : 'Afternoon';
-
-                if ($bSlot === $reqSlot) {
-                    return false; // Morning/Afternoon slot already taken by another puja
-                }
-
-                if (str_contains($bName, 'HOMA')) {
-                    $homaCount++;
-                }
-                if (str_contains($bName, 'SATYANARAYANA')) {
-                    $satyanarayanaCount++;
-                }
-            }
-
-            if ($isHoma && $homaCount >= 2) return false;
-            if ($isSatyanarayana && $satyanarayanaCount >= 2) return false;
-
-            return true;
-        }
-
-        // General overlap rules
-        $hourStartStr = date('H:00:00', $startTime);
-        $hourEndStr = date('H:59:59', $startTime);
-        $archanaCount = 0;
-
-        foreach ($existingBookings as $b) {
-            $bName = strtoupper($b->pooja_name);
-            $bStartTime = strtotime("$date $b->booking_time");
-
-            // Overlap with Half-day pujas
-            if (str_contains($bName, 'HOMA') || str_contains($bName, 'SATYANARAYANA')) {
-                $bHour = (int)date('H', $bStartTime);
-                $bSlot = $bHour < 14 ? 'Morning' : 'Afternoon';
-                $reqHour = (int)date('H', $startTime);
-                $reqSlot = $reqHour < 14 ? 'Morning' : 'Afternoon';
-
-                if ($bSlot === $reqSlot) {
-                    return false; // Overlaps with half-day slots
-                }
-            }
-
-            // Normal Puja overlap check
-            $bDuration = $b->duration_minutes ?? 30;
-            if (str_contains($bName, 'ARCHANA')) $bDuration = 15;
-            elseif (str_contains($bName, 'ABHISHEKA')) $bDuration = 60;
-
-            $bEndTime = $bStartTime + ($bDuration * 60);
-
-            if (($startTime >= $bStartTime && $startTime < $bEndTime) ||
-                ($endTime > $bStartTime && $endTime <= $bEndTime) ||
-                ($bStartTime >= $startTime && $bStartTime < $endTime)) {
-                return false; // Collision
-            }
-
-            // Archana Hourly Limit check
-            if (str_contains($poojaName, 'ARCHANA') && str_contains($bName, 'ARCHANA')) {
-                if ($b->booking_time >= $hourStartStr && $b->booking_time <= $hourEndStr) {
-                    $archanaCount++;
-                }
-            }
-        }
-
-        if (str_contains($poojaName, 'ARCHANA') && $archanaCount >= 4) {
-            return false; // Max 4 Archana per hour
-        }
-
-        return true;
+        return PriestAvailabilityService::isPriestAvailable($priestId, $poojaId, $date, $time, Auth::id());
     }
 
     /**

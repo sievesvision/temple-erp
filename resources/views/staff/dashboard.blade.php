@@ -863,7 +863,13 @@
                     <label class="form-label fw-semibold text-secondary">Mobile Number (10 digits)</label>
                     <input type="text" id="pooja_mobile" class="form-control rounded-3" placeholder="10 Digit Contact No." required pattern="[0-9]{10}">
                   </div>
-                  
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold text-secondary">Email</label>
+                    <input type="email" id="pooja_email" class="form-control rounded-3" placeholder="devotee@example.com" required>
+                    <div class="form-text">Used to confirm the booking and set up their account login.</div>
+                  </div>
+
                   <div class="mb-3">
                     <label class="form-label fw-semibold text-secondary">Pooja Service</label>
                     @php
@@ -1327,19 +1333,25 @@
         
         const devoteeName = $('#pooja_devotee_name').val().trim();
         const mobile = $('#pooja_mobile').val().trim();
+        const email = $('#pooja_email').val().trim();
         const poojaId = $('#pooja_id').val();
         const bookingDate = $('#pooja_booking_date').val();
         const bookingTime = $('#pooja_booking_time').val();
-        
+
         // Basic validation
-        if (!devoteeName || !mobile || !poojaId || !bookingDate || !bookingTime) {
+        if (!devoteeName || !mobile || !email || !poojaId || !bookingDate || !bookingTime) {
           $('#offlinePoojaForm').addClass('was-validated');
           alert('Please fill out all fields correctly.');
           return;
         }
-        
+
         if (!/^\d{10}$/.test(mobile)) {
           alert('Please enter a valid 10-digit mobile number.');
+          return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          alert('Please enter a valid email address.');
           return;
         }
 
@@ -1356,6 +1368,7 @@
             pooja_id: poojaId,
             devotee_name: devoteeName,
             mobile: mobile,
+            email: email,
             booking_date: bookingDate,
             booking_time: bookingTime
           },

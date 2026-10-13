@@ -855,6 +855,7 @@ Route::middleware(['auth', 'role.devotee'])->group(function () {
     Route::post('/devotee/book-pooja', [BookingController::class, 'storeBooking'])->name('devotee.book-pooja.post');
     Route::post('/devotee/book_pooja', [BookingController::class, 'storeBooking']);
     Route::get('/devotee/booking/receipt/{id}', [BookingController::class, 'downloadReceipt'])->name('devotee.bookings.receipt');
+    Route::post('/devotee/bookings/{id}/cancel', [BookingController::class, 'cancelBooking'])->name('devotee.bookings.cancel');
 
     // Devotee Payment Routes
     Route::get('/devotee/payment', [DevoteeController::class, 'showPaymentPage'])->name('devotee.payment');
@@ -880,6 +881,7 @@ Route::middleware(['auth', 'role.priest'])->group(function () {
     Route::post('/priest/attendance/present', [PriestController::class, 'markPresent'])->name('priest.attendance.present');
     Route::post('/priest/attendance/end', [PriestController::class, 'endWork'])->name('priest.attendance.end');
     Route::post('/priest/pooja/complete/{id}', [PriestController::class, 'completePooja'])->name('priest.pooja.complete');
+    Route::post('/priest/bookings/{id}/cancel', [PriestController::class, 'cancelPooja'])->name('priest.bookings.cancel');
     Route::post('/priest/leave/request', [PriestController::class, 'requestLeave'])->name('priest.leave.request');
 });
 
