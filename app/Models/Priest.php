@@ -18,4 +18,9 @@ class Priest extends Model
     protected $keyType = 'string';
 
     protected $guarded = [];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }

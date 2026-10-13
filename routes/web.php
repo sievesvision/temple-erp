@@ -577,6 +577,7 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/bookings/override-priest/{id}', [BookingController::class, 'overridePriest'])->name('admin.bookings.override-priest');
     Route::post('/admin/bookings/reschedule/{id}', [BookingController::class, 'reschedule'])->name('admin.bookings.reschedule');
     Route::post('/admin/bookings/status/{id}', [BookingController::class, 'updateStatus'])->name('admin.bookings.update-status');
+    Route::post('/admin/bookings/confirm-notify/{id}', [BookingController::class, 'confirmAndNotify'])->name('admin.bookings.confirm-notify');
 
     // Event CRUD & Scheduling Routes
     Route::get('/admin/manage-events', [\App\Http\Controllers\EventController::class, 'manageEvents'])->name('admin.events.index');

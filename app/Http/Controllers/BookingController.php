@@ -297,6 +297,17 @@ class BookingController extends Controller
 
             DB::commit();
 
+            // Email counterpart to the in-app notify() calls above — see the Pooja
+            // Bookings plan's Phase B. Every booking created here starts Pending (see the
+            // insert above), so only the "needs attention" email applies; the confirmation
+            // email is sent later, once an admin/priest actually confirms it.
+            foreach ($createdBookings as $createdBookingId) {
+                $createdBooking = \App\Models\Booking::find($createdBookingId);
+                if ($createdBooking) {
+                    \App\Services\BookingNotificationService::notifyCreated($createdBooking, 'Devotee');
+                }
+            }
+
             if (in_array($request->payment_method, ['UPI', 'Razorpay'])) {
                 return redirect()->route('devotee.payment', [
                     'type' => 'pooja',
@@ -416,6 +427,56 @@ class BookingController extends Controller
         } catch (\RuntimeException $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * Admin "Confirm & Send Email" action on a Pending booking — sets it Confirmed and
+     * emails the devotee the confirmation (pooja/date/time/priest/cost + both payment
+     * options). See the Pooja Bookings plan's Phase B.
+     */
+    public function confirmAndNotify(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user || !RolePermission::can(session('active_role', $user->role), 'bookings', 'edit')) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $booking = \App\Models\Booking::where('booking_id', $id)->first();
+        if (!$booking) {
+            return redirect()->back()->with('error', 'Booking not found.');
+        }
+
+        if ($booking->booking_status !== 'Pending') {
+            return redirect()->back()->with('error', "Booking #{$id} is not Pending.");
+        }
+
+        DB::beginTransaction();
+        try {
+            $previousStatus = $booking->booking_status;
+            $booking->booking_status = 'Confirmed';
+            $booking->save();
+
+            DB::table('booking_status_logs')->insert([
+                'booking_id' => $id,
+                'status_from' => $previousStatus,
+                'status_to' => 'Confirmed',
+                'changed_by' => $user->id,
+                'remarks' => 'Confirmed by admin, confirmation email sent.',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            AuditLogService::log("Pooja booking #{$id} confirmed and notified by admin.");
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to confirm booking: ' . $e->getMessage());
+        }
+
+        \App\Services\BookingNotificationService::sendConfirmation($booking->fresh());
+
+        return redirect()->back()->with('success', "Booking #{$id} confirmed and confirmation email sent.");
     }
 
     /**

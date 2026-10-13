@@ -179,6 +179,11 @@ class BookingService
 
             DB::commit();
 
+            BookingNotificationService::notifyCreated($booking, $createdByRole);
+            if ($bookingStatus === 'Confirmed') {
+                BookingNotificationService::sendConfirmation($booking);
+            }
+
             return $booking;
         } catch (\Throwable $e) {
             DB::rollBack();

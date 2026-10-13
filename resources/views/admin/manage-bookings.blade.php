@@ -413,6 +413,15 @@
                                 <i class="bi bi-sliders"></i> Status
                             </button>
 
+                            @if($booking->booking_status === 'Pending')
+                            <form method="POST" action="{{ route('admin.bookings.confirm-notify', $booking->booking_id) }}" style="display:inline;" onsubmit="return confirm('Confirm this booking and email the devotee the confirmation?');">
+                                @csrf
+                                <button type="submit" class="btn-action confirm" style="background:#d1fae5; color:#065f46;">
+                                    <i class="bi bi-envelope-check"></i> Confirm &amp; Send Email
+                                </button>
+                            </form>
+                            @endif
+
                             <a href="{{ route('devotee.bookings.receipt', $booking->booking_id) }}" class="btn-action view text-decoration-none">
                                 <i class="bi bi-file-earmark-arrow-down"></i> Receipt
                             </a>
