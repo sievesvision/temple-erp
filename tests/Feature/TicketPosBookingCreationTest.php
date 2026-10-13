@@ -11,12 +11,12 @@ use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
- * Phase E of the Pooja Bookings plan: pooja booking tiles live in the Ticket POS's main
- * item grid, alongside the Archana tickets — same category tabs, same search bar, no
- * separate "Book Pooja" topbar button. Tapping a pooja tile opens a booking-details popup
- * (date/time/priest/devotee/payment); tapping an Archana ticket tile still opens the
- * existing quantity popup. Both post through admin.bookings.store / the ticket order
- * endpoint respectively. See the plan's own Tests section.
+ * Phase E of the Pooja Bookings plan: Archana tickets and pooja bookings each get their
+ * own main-menu panel on the Ticket POS (never mixed in one grid), each with its own
+ * category tabs grouping its items into labeled sections. Tapping a pooja tile opens a
+ * booking-details popup (date/time/priest/devotee/payment); tapping an Archana ticket
+ * tile still opens the existing quantity popup. Both post through admin.bookings.store /
+ * the ticket order endpoint respectively. See the plan's own Tests section.
  */
 class TicketPosBookingCreationTest extends TestCase
 {
@@ -53,7 +53,7 @@ class TicketPosBookingCreationTest extends TestCase
         ]);
     }
 
-    public function test_pooja_tiles_appear_in_the_main_item_grid_with_a_book_badge_not_a_topbar_button(): void
+    public function test_archana_and_poojas_have_separate_main_menu_panels_not_a_shared_topbar_button(): void
     {
         $admin = $this->admin();
         $pooja = $this->activePooja();
@@ -62,12 +62,25 @@ class TicketPosBookingCreationTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('posBookPoojaBtn', false);
+        $response->assertSee('pos-main-menu-btn', false);
+        $response->assertSee('data-menu="archana"', false);
+        $response->assertSee('data-menu="poojas"', false);
         $response->assertSee('pos-item-tile-pooja', false);
-        $response->assertSee('tile-book-badge', false);
         $response->assertSee($pooja->pooja_name);
     }
 
-    public function test_the_main_grid_has_a_search_bar_and_category_tabs_spanning_tickets_and_poojas(): void
+    public function test_pooja_tiles_no_longer_show_a_book_badge(): void
+    {
+        $admin = $this->admin();
+        $this->activePooja();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertDontSee('tile-book-badge', false);
+    }
+
+    public function test_the_poojas_menu_groups_items_into_labeled_category_sections(): void
     {
         $admin = $this->admin();
         $pooja = Pooja::create([
@@ -76,15 +89,33 @@ class TicketPosBookingCreationTest extends TestCase
             'pooja_fee' => 45,
             'status' => 'Active',
         ]);
+        Pooja::create([
+            'pooja_name' => 'POS Grid Abishekam Pooja',
+            'category' => 'Sponsored Abishekams',
+            'pooja_fee' => 60,
+            'status' => 'Active',
+        ]);
 
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
         $response->assertSee('posItemsSearch', false);
-        $response->assertSee('posCategoryTabs', false);
+        $response->assertSee('pos-category-heading', false);
         $response->assertSee('data-category="Festivals"', false);
+        $response->assertSee('data-category="Sponsored Abishekams"', false);
         $response->assertSee('Custom Pooja');
         $response->assertSee($pooja->pooja_name);
+    }
+
+    public function test_pooja_name_renders_in_normal_case_not_forced_uppercase(): void
+    {
+        $admin = $this->admin();
+        $this->activePooja();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('pos-item-tile-pooja .tile-name', false);
     }
 
     public function test_pooja_tiles_and_the_custom_pooja_tile_are_hidden_without_bookings_add_permission(): void
@@ -101,6 +132,7 @@ class TicketPosBookingCreationTest extends TestCase
         // any tile uses them) — check for actual rendered tile markup instead.
         $response->assertDontSee('class="pos-item-tile pos-item-tile-pooja', false);
         $response->assertDontSee('<span class="tile-name">Custom Pooja</span>', false);
+        $response->assertDontSee('data-menu="poojas"', false);
     }
 
     public function test_the_ticket_pos_booking_form_creates_a_confirmed_booking_via_ajax(): void

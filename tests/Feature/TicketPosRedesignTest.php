@@ -67,20 +67,20 @@ class TicketPosRedesignTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertSee('posCategoryTabs', false);
+        $response->assertSee('<div class="pos-category-tabs" data-menu="archana">', false);
         $response->assertSee('data-category="Archana"', false);
         $response->assertSee('data-category="Pooja"', false);
         $response->assertSee('>Archana<', false);
     }
 
-    public function test_no_category_tabs_render_when_no_ticket_has_a_category(): void
+    public function test_no_category_tabs_render_when_only_one_ticket_category_exists(): void
     {
         $admin = $this->admin();
         // The standard Archana catalog (seeded by migration, category='Archana') and the
         // 42-pooja rate-card catalog (category='Sponsored Poojas' etc.) both exist in every
-        // environment including a fresh test database, and pooja tiles now feed the same
-        // merged category-tab list as tickets — null both out here so this test can still
-        // exercise the real "nothing has a category" case in isolation.
+        // environment including a fresh test database — null/deactivate both here so this
+        // test can exercise the real "only one category" case (tabs are redundant with a
+        // single group) in isolation.
         Ticket::query()->update(['category' => null]);
         // poojas.category is NOT NULL (defaults to 'General') — deactivating every pooja
         // keeps them out of $bookingPoojas entirely instead, same end result for this test.
@@ -90,10 +90,10 @@ class TicketPosRedesignTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        // 'posCategoryTabs' alone would also match the page's own static JS (which always
-        // references the id regardless of whether the element exists) — check the actual
-        // HTML element instead.
-        $response->assertDontSee('id="posCategoryTabs"', false);
+        // A bare 'pos-category-tabs' would also match the page's own static CSS rule
+        // (always present regardless of whether any tab bar renders) — check for the
+        // actual rendered element instead.
+        $response->assertDontSee('<div class="pos-category-tabs"', false);
     }
 
     public function test_ticket_description_is_shown_on_its_tile(): void

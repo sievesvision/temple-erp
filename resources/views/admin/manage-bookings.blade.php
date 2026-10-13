@@ -684,9 +684,9 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">Payment Method</label>
                         <select name="payment_method" class="form-select" required>
-                            <option value="Cash" selected>Cash at Temple (paid now)</option>
-                            <option value="Counter">Office Counter (paid now)</option>
-                            <option value="Bank">Bank Transfer (pending)</option>
+                            <option value="Cash" selected>Cash at Temple</option>
+                            <option value="Counter">Office Counter</option>
+                            <option value="Bank">Bank Transfer (pay later)</option>
                         </select>
                     </div>
                     <div class="small text-muted">

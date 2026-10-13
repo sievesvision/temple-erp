@@ -58,23 +58,47 @@
         @media (min-width: 900px) { .pos-body { flex-direction: row; } }
 
         .pos-items-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
+
+        {{-- Main menu — the top-level "what am I looking at" choice (Archana vs Poojas),
+             kept visually heavier/more prominent than the category filter chips below it
+             so the hierarchy reads at a glance: menu first, then narrow within it. --}}
+        .pos-main-menu { display: flex; gap: 10px; margin-bottom: 14px; }
+        .pos-main-menu-btn {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 16px; border-radius: var(--radius-md); border: 1.5px solid var(--border);
+            background: var(--white); color: var(--text-primary); font-weight: 800; font-size: 0.95rem;
+            font-family: 'Playfair Display', Georgia, serif;
+        }
+        .pos-main-menu-btn.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
+        .pos-main-menu-btn i { font-size: 1.05rem; }
+
+        {{-- Category filter chips — a narrower, lighter-weight affordance than the main
+             menu above, so the two never compete for attention. Rounded-rect rather than
+             a full pill, matching the rest of the page's own corner-radius scale. --}}
+        .pos-category-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 2px; }
+        .pos-category-tab {
+            flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+            background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.82rem;
+        }
+        .pos-category-tab.active { border-color: var(--maroon); background: color-mix(in srgb, var(--maroon) 10%, white); color: var(--maroon); }
+        .pos-item-tile.pos-category-hidden { display: none; }
+
+        {{-- Each category gets its own labeled section instead of one undifferentiated
+             grid — this is what keeps "All" from looking like a messy wall of tiles: every
+             group is clearly headed, and a section disappears entirely (not just its tiles)
+             once a filter/search leaves nothing in it. --}}
+        .pos-category-section { margin-bottom: 22px; }
+        .pos-category-section:last-child { margin-bottom: 0; }
+        .pos-category-section.pos-section-hidden { display: none; }
+        .pos-category-heading {
+            font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;
+            color: var(--text-secondary); margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1.5px solid var(--border);
+        }
         {{-- Wider minimum than before (was 180px) — every tile is now a fixed, uniform
              height (see .pos-item-tile below) and reads left-to-right rather than
              top-to-bottom, so a wider column gives the description line real room instead
              of forcing the grid to grow taller to fit it. --}}
-        .pos-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-
-        {{-- Category tabs — only rendered at all when the catalog actually has categories
-             assigned (see Ticket::category, set from the Pooja Portal's Ticket Types pane).
-             A plain horizontal scroller, not a dropdown, so switching categories stays a
-             single tap on a touchscreen counter. --}}
-        .pos-category-tabs { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
-        .pos-category-tab {
-            flex-shrink: 0; padding: 9px 18px; border-radius: 999px; border: 1.5px solid var(--border);
-            background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.86rem;
-        }
-        .pos-category-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
-        .pos-item-tile.pos-category-hidden { display: none; }
+        .pos-category-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
         .tile-description {
             font-size: 0.72rem; line-height: 1.3; color: var(--text-secondary); font-weight: 500;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -125,16 +149,12 @@
         .pos-items-search input { padding-left: 38px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); }
         .pos-items-empty { display: none; }
 
-        {{-- Pooja booking tiles share the exact tile frame tickets use, but swap the
-             --tile-accent to gold (a booking, not a till sale) and trade the cart quantity
-             badge for a "Book" ribbon, so which tiles open a booking form vs. add to the
-             Order pane is obvious without reading each label. --}}
+        {{-- Pooja booking tiles share the exact tile frame tickets use, with the
+             --tile-accent kept gold on the icon circle/price badge (still visibly "a
+             pooja, not a ticket") but the name itself in plain black, normal case —
+             easier to read at a glance than an all-caps coloured title. --}}
         .pos-item-tile-pooja { --tile-accent: var(--gold-hover); }
-        .tile-book-badge {
-            position: absolute; top: -8px; right: -8px; background: var(--gold-hover); color: #fff; font-weight: 800;
-            font-size: 0.68rem; padding: 4px 9px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-            border: 2px solid #fff; z-index: 1; display: flex; align-items: center; gap: 3px; white-space: nowrap;
-        }
+        .pos-item-tile-pooja .tile-name { color: #1a1a1a; text-transform: none; }
         .pos-item-tile-custom { border-style: dashed; }
         .pos-item-tile-custom .tile-image-wrap i { color: var(--gold-hover); }
 
@@ -402,94 +422,131 @@
     <div class="pos-body">
         <div class="pos-items-pane">
             @php
-                $ticketCategories = $tickets->pluck('category')->filter();
-                $poojaCategories = ($bookingPoojas ?? collect())->pluck('category')->filter();
-                $allCategories = $ticketCategories->merge($poojaCategories)->unique()->sort()->values();
+                $ticketsByCategory = $tickets->groupBy(fn($t) => $t->category ?: 'Archana');
+                $poojasByCategory = ($bookingPoojas ?? collect())->groupBy(fn($p) => $p->category ?: 'General');
             @endphp
+
+            {{-- Main menu — Archana (tickets) and Poojas (bookings) are deliberately never
+                 shown in the same grid: different transaction model entirely (instant
+                 till sale vs. a booking popup), so mixing them read as clutter. --}}
+            <div class="pos-main-menu" id="posMainMenu">
+                <button type="button" class="pos-main-menu-btn active" data-menu="archana"><i class="bi bi-flower1"></i> Archana</button>
+                @if($canCreateBookings)
+                <button type="button" class="pos-main-menu-btn" data-menu="poojas"><i class="bi bi-journal-bookmark-fill"></i> Poojas</button>
+                @endif
+            </div>
+
             <div class="pos-items-search">
                 <i class="bi bi-search"></i>
-                <input type="text" id="posItemsSearch" class="form-control" placeholder="Search archanas, poojas, bookings...">
+                <input type="text" id="posItemsSearch" class="form-control" placeholder="Search...">
             </div>
-            @if($allCategories->isNotEmpty())
-            <div class="pos-category-tabs" id="posCategoryTabs">
+
+            @if($ticketsByCategory->keys()->count() > 1)
+            <div class="pos-category-tabs" data-menu="archana">
                 <button type="button" class="pos-category-tab active" data-category="">All</button>
-                @foreach($allCategories as $cat)
+                @foreach($ticketsByCategory->keys()->sort() as $cat)
                 <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
                 @endforeach
             </div>
             @endif
-            <div class="pos-items-grid" id="itemsGrid">
-                @forelse($tickets as $ticket)
-                @php $accent = $ticket->background_color ?: '#6B0F1A'; @endphp
-                <button type="button" class="pos-item-tile" data-type="ticket" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}" data-category="{{ $ticket->category }}"
-                    style="--tile-accent: {{ $accent }};">
-                    <span class="tile-qty-badge">0</span>
-                    <span class="tile-frame">
-                        <span class="tile-corner tl"></span>
-                        <span class="tile-corner tr"></span>
-                        <span class="tile-corner bl"></span>
-                        <span class="tile-corner br"></span>
-                        <span class="tile-image-wrap">
-                            @if($ticket->image)
-                            <img src="{{ $ticket->image }}" alt="">
-                            @elseif($temple['logo'] ?? null)
-                            <img src="{{ $temple['logo'] }}" alt="">
-                            @else
-                            <i class="bi bi-flower1"></i>
-                            @endif
-                        </span>
-                        <span class="tile-text">
-                            <span class="tile-name">{{ $ticket->name }}</span>
-                            @if($ticket->description)
-                            <span class="tile-description">{{ $ticket->description }}</span>
-                            @endif
-                            <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
-                        </span>
-                    </span>
-                </button>
-                @empty
-                <p class="text-muted text-center py-4">No active ticket types — add one in the Pooja Portal.</p>
-                @endforelse
-
-                {{-- Pooja booking tiles — same grid, same tile frame, but a gold "Book"
-                     ribbon instead of a cart quantity badge (tapping opens the booking
-                     details popup instead of adding a line to the Order pane), so it's
-                     visually obvious at a glance which items are an instant sale and which
-                     open a booking. See the Pooja Bookings plan Phases A-F. --}}
-                @if($canCreateBookings)
-                <button type="button" class="pos-item-tile pos-item-tile-pooja pos-item-tile-custom" data-type="pooja" data-is-custom="1" data-id="" data-name="Custom Pooja" data-price="" data-category="">
-                    <span class="tile-book-badge"><i class="bi bi-calendar-plus"></i> Book</span>
-                    <span class="tile-frame">
-                        <span class="tile-corner tl"></span>
-                        <span class="tile-corner tr"></span>
-                        <span class="tile-corner bl"></span>
-                        <span class="tile-corner br"></span>
-                        <span class="tile-image-wrap"><i class="bi bi-plus-circle"></i></span>
-                        <span class="tile-text">
-                            <span class="tile-name">Custom Pooja</span>
-                            <span class="tile-description">Not in the list — describe it and set your own fee</span>
-                        </span>
-                    </span>
-                </button>
-                @foreach($bookingPoojas as $pooja)
-                <button type="button" class="pos-item-tile pos-item-tile-pooja" data-type="pooja" data-is-custom="0" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-price="{{ $pooja->pooja_fee }}" data-category="{{ $pooja->category }}">
-                    <span class="tile-book-badge"><i class="bi bi-calendar-plus"></i> Book</span>
-                    <span class="tile-frame">
-                        <span class="tile-corner tl"></span>
-                        <span class="tile-corner tr"></span>
-                        <span class="tile-corner bl"></span>
-                        <span class="tile-corner br"></span>
-                        <span class="tile-image-wrap"><i class="bi bi-journal-bookmark-fill"></i></span>
-                        <span class="tile-text">
-                            <span class="tile-name">{{ $pooja->pooja_name }}</span>
-                            @if($pooja->description)
-                            <span class="tile-description">{{ $pooja->description }}</span>
-                            @endif
-                            <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($pooja->pooja_fee, 2) }}</span>
-                        </span>
-                    </span>
-                </button>
+            @if($canCreateBookings && $poojasByCategory->keys()->count() > 1)
+            <div class="pos-category-tabs d-none" data-menu="poojas">
+                <button type="button" class="pos-category-tab active" data-category="">All</button>
+                @foreach($poojasByCategory->keys()->sort() as $cat)
+                <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
                 @endforeach
+            </div>
+            @endif
+
+            <div id="itemsGrid">
+                {{-- ARCHANA MENU --}}
+                <div class="pos-menu-panel" data-menu="archana">
+                    @forelse($ticketsByCategory as $category => $categoryTickets)
+                    <div class="pos-category-section" data-category="{{ $category }}">
+                        <h6 class="pos-category-heading">{{ $category }}</h6>
+                        <div class="pos-category-tiles">
+                            @foreach($categoryTickets as $ticket)
+                            @php $accent = $ticket->background_color ?: '#6B0F1A'; @endphp
+                            <button type="button" class="pos-item-tile" data-type="ticket" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}"
+                                style="--tile-accent: {{ $accent }};">
+                                <span class="tile-qty-badge">0</span>
+                                <span class="tile-frame">
+                                    <span class="tile-corner tl"></span>
+                                    <span class="tile-corner tr"></span>
+                                    <span class="tile-corner bl"></span>
+                                    <span class="tile-corner br"></span>
+                                    <span class="tile-image-wrap">
+                                        @if($ticket->image)
+                                        <img src="{{ $ticket->image }}" alt="">
+                                        @elseif($temple['logo'] ?? null)
+                                        <img src="{{ $temple['logo'] }}" alt="">
+                                        @else
+                                        <i class="bi bi-flower1"></i>
+                                        @endif
+                                    </span>
+                                    <span class="tile-text">
+                                        <span class="tile-name">{{ $ticket->name }}</span>
+                                        @if($ticket->description)
+                                        <span class="tile-description">{{ $ticket->description }}</span>
+                                        @endif
+                                        <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
+                                    </span>
+                                </span>
+                            </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    @empty
+                    <p class="text-muted text-center py-4">No active ticket types — add one in the Pooja Portal.</p>
+                    @endforelse
+                </div>
+
+                {{-- POOJAS MENU --}}
+                @if($canCreateBookings)
+                <div class="pos-menu-panel d-none" data-menu="poojas">
+                    <div class="pos-category-section" data-category="">
+                        <div class="pos-category-tiles">
+                            <button type="button" class="pos-item-tile pos-item-tile-pooja pos-item-tile-custom" data-type="pooja" data-is-custom="1" data-id="" data-name="Custom Pooja" data-price="">
+                                <span class="tile-frame">
+                                    <span class="tile-corner tl"></span>
+                                    <span class="tile-corner tr"></span>
+                                    <span class="tile-corner bl"></span>
+                                    <span class="tile-corner br"></span>
+                                    <span class="tile-image-wrap"><i class="bi bi-plus-circle"></i></span>
+                                    <span class="tile-text">
+                                        <span class="tile-name">Custom Pooja</span>
+                                        <span class="tile-description">Not in the list — describe it and set your own fee</span>
+                                    </span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    @foreach($poojasByCategory as $category => $categoryPoojas)
+                    <div class="pos-category-section" data-category="{{ $category }}">
+                        <h6 class="pos-category-heading">{{ $category }}</h6>
+                        <div class="pos-category-tiles">
+                            @foreach($categoryPoojas as $pooja)
+                            <button type="button" class="pos-item-tile pos-item-tile-pooja" data-type="pooja" data-is-custom="0" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-price="{{ $pooja->pooja_fee }}">
+                                <span class="tile-frame">
+                                    <span class="tile-corner tl"></span>
+                                    <span class="tile-corner tr"></span>
+                                    <span class="tile-corner bl"></span>
+                                    <span class="tile-corner br"></span>
+                                    <span class="tile-image-wrap"><i class="bi bi-journal-bookmark-fill"></i></span>
+                                    <span class="tile-text">
+                                        <span class="tile-name">{{ $pooja->pooja_name }}</span>
+                                        @if($pooja->description)
+                                        <span class="tile-description">{{ $pooja->description }}</span>
+                                        @endif
+                                        <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($pooja->pooja_fee, 2) }}</span>
+                                    </span>
+                                </span>
+                            </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
                 @endif
             </div>
             <p class="pos-items-empty text-muted text-center py-4 d-none" id="posItemsEmpty">Nothing matches your search.</p>
@@ -743,9 +800,9 @@
                         <div class="mb-0">
                             <label class="form-label fw-bold">Payment Method</label>
                             <select name="payment_method" class="form-select" required>
-                                <option value="Cash" selected>Cash at Temple (paid now)</option>
-                                <option value="Counter">Office Counter (paid now)</option>
-                                <option value="Bank">Bank Transfer (pending)</option>
+                                <option value="Cash" selected>Cash at Temple</option>
+                                <option value="Counter">Office Counter</option>
+                                <option value="Bank">Bank Transfer (pay later)</option>
                             </select>
                         </div>
                     </div>
@@ -978,45 +1035,89 @@
             }
         });
 
-        // Search + category tabs — plain client-side show/hide against each tile's own
-        // data-category/data-name, same "no server round-trip for something this cheap"
-        // approach as the cart/quantity logic already on this page. The Custom Pooja tile
-        // is pinned — always visible regardless of category, never hidden by search either,
-        // since it's not a catalog name match candidate.
+        // Main menu (Archana / Poojas) + per-menu category tabs + search — plain
+        // client-side show/hide, same "no server round-trip for something this cheap"
+        // approach as the cart/quantity logic already on this page. Archana and Poojas
+        // never share a grid or a category-tab bar; switching the menu swaps both the
+        // visible panel and which tab bar applies. Within a panel, each category is its
+        // own labeled section — a whole section (not just its tiles) hides once nothing
+        // in it matches the active category/search, which is what keeps "All" from
+        // reading as a messy, undifferentiated wall of tiles. The Custom Pooja tile's
+        // own section (data-category="") is exempt from category filtering — it's pinned,
+        // visible under every pooja category tab — but still respects search.
         (function () {
-            const tabs = document.getElementById('posCategoryTabs');
+            const mainMenu = document.getElementById('posMainMenu');
             const searchInput = document.getElementById('posItemsSearch');
             const emptyMsg = document.getElementById('posItemsEmpty');
-            const tiles = Array.from(document.querySelectorAll('#itemsGrid .pos-item-tile'));
+            const panels = document.querySelectorAll('#itemsGrid .pos-menu-panel');
+            const tabBars = document.querySelectorAll('.pos-category-tabs');
+            let activeMenu = 'archana';
             let activeCategory = '';
+
+            function activeTabBar() {
+                return document.querySelector('.pos-category-tabs[data-menu="' + activeMenu + '"]');
+            }
 
             function applyFilters() {
                 const q = searchInput.value.trim().toLowerCase();
+                const panel = document.querySelector('.pos-menu-panel[data-menu="' + activeMenu + '"]');
                 let anyVisible = false;
-                tiles.forEach(function (tile) {
-                    if (tile.classList.contains('pos-item-tile-custom')) { anyVisible = true; return; }
-                    const matchesCategory = !activeCategory || tile.dataset.category === activeCategory;
-                    const matchesSearch = !q || tile.dataset.name.toLowerCase().includes(q);
-                    const visible = matchesCategory && matchesSearch;
-                    tile.classList.toggle('pos-category-hidden', !visible);
-                    if (visible) { anyVisible = true; }
-                });
+                if (panel) {
+                    panel.querySelectorAll('.pos-category-section').forEach(function (section) {
+                        const isPinned = section.dataset.category === '';
+                        const matchesCategory = isPinned || !activeCategory || section.dataset.category === activeCategory;
+                        let sectionHasVisible = false;
+                        section.querySelectorAll('.pos-item-tile').forEach(function (tile) {
+                            const matchesSearch = !q || tile.dataset.name.toLowerCase().includes(q);
+                            const visible = matchesCategory && matchesSearch;
+                            tile.classList.toggle('pos-category-hidden', !visible);
+                            if (visible) { sectionHasVisible = true; }
+                        });
+                        section.classList.toggle('pos-section-hidden', !sectionHasVisible);
+                        if (sectionHasVisible) { anyVisible = true; }
+                    });
+                }
                 emptyMsg.classList.toggle('d-none', anyVisible);
             }
 
-            if (tabs) {
-                tabs.querySelectorAll('.pos-category-tab').forEach(function (tab) {
-                    tab.addEventListener('click', function () {
-                        tabs.querySelectorAll('.pos-category-tab').forEach(function (t) { t.classList.remove('active'); });
-                        tab.classList.add('active');
-                        activeCategory = tab.dataset.category || '';
-                        applyFilters();
-                    });
+            function setActiveMenu(menu) {
+                activeMenu = menu;
+                activeCategory = '';
+                mainMenu.querySelectorAll('.pos-main-menu-btn').forEach(function (btn) {
+                    btn.classList.toggle('active', btn.dataset.menu === menu);
                 });
+                panels.forEach(function (panel) {
+                    panel.classList.toggle('d-none', panel.dataset.menu !== menu);
+                });
+                tabBars.forEach(function (bar) {
+                    bar.classList.toggle('d-none', bar.dataset.menu !== menu);
+                    bar.querySelectorAll('.pos-category-tab').forEach(function (t, i) { t.classList.toggle('active', i === 0); });
+                });
+                searchInput.value = '';
+                applyFilters();
             }
+
+            mainMenu.addEventListener('click', function (e) {
+                const btn = e.target.closest('.pos-main-menu-btn');
+                if (btn) { setActiveMenu(btn.dataset.menu); }
+            });
+
+            tabBars.forEach(function (bar) {
+                bar.addEventListener('click', function (e) {
+                    const tab = e.target.closest('.pos-category-tab');
+                    if (!tab || bar.dataset.menu !== activeMenu) { return; }
+                    bar.querySelectorAll('.pos-category-tab').forEach(function (t) { t.classList.remove('active'); });
+                    tab.classList.add('active');
+                    activeCategory = tab.dataset.category || '';
+                    applyFilters();
+                });
+            });
+
             if (searchInput) {
                 searchInput.addEventListener('input', applyFilters);
             }
+
+            applyFilters();
         })();
         document.getElementById('qtyModalPlus').addEventListener('click', function () {
             const el = document.getElementById('qtyModalValue');
