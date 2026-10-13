@@ -476,6 +476,24 @@ class TicketController extends Controller
                 ->get()
             : collect();
 
+        // The Poojas menu's default "Recent" tab — whichever pooja types were booked most
+        // recently (across every entry point, not just this page), so the counter's most
+        // commonly re-booked items are the first thing they see rather than hunting through
+        // categories. Distinct on pooja_id (MAX(created_at) per pooja), newest first,
+        // capped at 8 — a quick-pick list, not a full history.
+        $recentPoojaIds = $canCreateBookings
+            ? \Illuminate\Support\Facades\DB::table('pooja_bookings')
+                ->join('poojas', 'pooja_bookings.pooja_id', '=', 'poojas.pooja_id')
+                ->where('poojas.status', 'Active')
+                ->where('poojas.category', '!=', 'Custom')
+                ->selectRaw('pooja_bookings.pooja_id, MAX(pooja_bookings.created_at) as last_booked')
+                ->groupBy('pooja_bookings.pooja_id')
+                ->orderByDesc('last_booked')
+                ->limit(8)
+                ->pluck('pooja_bookings.pooja_id')
+                ->all()
+            : [];
+
         // Settle Till widget — entry-level Ticket Controllers only ever reach this page
         // (never the full console, see manageTickets()'s redirect), so this is their only
         // way to settle the till; tickets has no separate pos tier, so entry gets full
@@ -499,7 +517,7 @@ class TicketController extends Controller
         return view('admin.ticket-pos', compact(
             'tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin',
             'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate',
-            'canCreateBookings', 'bookingPoojas', 'bookingPriests'
+            'canCreateBookings', 'bookingPoojas', 'bookingPriests', 'recentPoojaIds'
         ));
     }
 

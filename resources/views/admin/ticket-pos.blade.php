@@ -16,6 +16,10 @@
                every border needs to actually register against the white/cream around it. */
             --border: #D9CBB0; --shade: #F2ECE0; --text-primary: #1F2A37;
             --text-secondary: #6B7280; --success: #10B981; --error: #EF4444;
+            /* A cooler accent for the Archana/Poojas toggle, deliberately not maroon/gold —
+               those are already spoken for by the ticket tiles and payment buttons, and a
+               third, blocking maroon panel at the very top of the screen read as too heavy. */
+            --accent-blue: #2563EB; --accent-blue-tint: #EFF4FF;
             /* One shared radius scale, deliberately tighter than the old 12-22px range — a
                terminal/POS screen reads as more purposeful with crisp, moderate corners than
                with soft app-style bubbles. */
@@ -60,17 +64,18 @@
         .pos-items-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 
         {{-- Main menu — the top-level "what am I looking at" choice (Archana vs Poojas),
-             kept visually heavier/more prominent than the category filter chips below it
-             so the hierarchy reads at a glance: menu first, then narrow within it. --}}
-        .pos-main-menu { display: flex; gap: 10px; margin-bottom: 14px; }
+             a compact segmented toggle, not a pair of full-width blocks — it only ever has
+             two options, so it doesn't need to claim the whole row, and a light blue accent
+             (rather than the maroon already used everywhere else on this page) keeps it from
+             reading as another heavy, blocking panel. --}}
+        .pos-main-menu { display: inline-flex; gap: 2px; margin-bottom: 14px; padding: 3px; border-radius: var(--radius-sm); background: var(--shade); border: 1px solid var(--border); }
         .pos-main-menu-btn {
-            flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 12px 16px; border-radius: var(--radius-md); border: 1.5px solid var(--border);
-            background: var(--white); color: var(--text-primary); font-weight: 800; font-size: 0.95rem;
-            font-family: 'Playfair Display', Georgia, serif;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 7px 16px; border-radius: 6px; border: none;
+            background: transparent; color: var(--text-secondary); font-weight: 700; font-size: 0.84rem;
         }
-        .pos-main-menu-btn.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
-        .pos-main-menu-btn i { font-size: 1.05rem; }
+        .pos-main-menu-btn.active { background: var(--white); color: var(--accent-blue); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+        .pos-main-menu-btn i { font-size: 0.92rem; }
 
         {{-- Category filter chips — a narrower, lighter-weight affordance than the main
              menu above, so the two never compete for attention. Rounded-rect rather than
@@ -424,6 +429,11 @@
             @php
                 $ticketsByCategory = $tickets->groupBy(fn($t) => $t->category ?: 'Archana');
                 $poojasByCategory = ($bookingPoojas ?? collect())->groupBy(fn($p) => $p->category ?: 'General');
+                // Preserves $recentPoojaIds' own most-recent-first order (a plain ->whereIn()
+                // would sort by pooja_id instead).
+                $recentPoojas = collect($recentPoojaIds ?? [])
+                    ->map(fn($id) => ($bookingPoojas ?? collect())->firstWhere('pooja_id', $id))
+                    ->filter();
             @endphp
 
             {{-- Main menu — Archana (tickets) and Poojas (bookings) are deliberately never
@@ -449,9 +459,14 @@
                 @endforeach
             </div>
             @endif
-            @if($canCreateBookings && $poojasByCategory->keys()->count() > 1)
+            @if($canCreateBookings && ($poojasByCategory->keys()->count() > 1 || $recentPoojas->isNotEmpty()))
             <div class="pos-category-tabs d-none" data-menu="poojas">
+                @if($recentPoojas->isNotEmpty())
+                <button type="button" class="pos-category-tab active" data-category="__recent__"><i class="bi bi-clock-history"></i> Recent</button>
+                <button type="button" class="pos-category-tab" data-category="">All</button>
+                @else
                 <button type="button" class="pos-category-tab active" data-category="">All</button>
+                @endif
                 @foreach($poojasByCategory->keys()->sort() as $cat)
                 <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
                 @endforeach
@@ -521,6 +536,31 @@
                             </button>
                         </div>
                     </div>
+                    @if($recentPoojas->isNotEmpty())
+                    <div class="pos-category-section" data-category="__recent__">
+                        <h6 class="pos-category-heading"><i class="bi bi-clock-history me-1"></i>Recently Booked</h6>
+                        <div class="pos-category-tiles">
+                            @foreach($recentPoojas as $pooja)
+                            <button type="button" class="pos-item-tile pos-item-tile-pooja" data-type="pooja" data-is-custom="0" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-price="{{ $pooja->pooja_fee }}">
+                                <span class="tile-frame">
+                                    <span class="tile-corner tl"></span>
+                                    <span class="tile-corner tr"></span>
+                                    <span class="tile-corner bl"></span>
+                                    <span class="tile-corner br"></span>
+                                    <span class="tile-image-wrap"><i class="bi bi-journal-bookmark-fill"></i></span>
+                                    <span class="tile-text">
+                                        <span class="tile-name">{{ $pooja->pooja_name }}</span>
+                                        @if($pooja->description)
+                                        <span class="tile-description">{{ $pooja->description }}</span>
+                                        @endif
+                                        <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($pooja->pooja_fee, 2) }}</span>
+                                    </span>
+                                </span>
+                            </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
                     @foreach($poojasByCategory as $category => $categoryPoojas)
                     <div class="pos-category-section" data-category="{{ $category }}">
                         <h6 class="pos-category-heading">{{ $category }}</h6>
@@ -799,11 +839,8 @@
                         </div>
                         <div class="mb-0">
                             <label class="form-label fw-bold">Payment Method</label>
-                            <select name="payment_method" class="form-select" required>
-                                <option value="Cash" selected>Cash at Temple</option>
-                                <option value="Counter">Office Counter</option>
-                                <option value="Bank">Bank Transfer (pay later)</option>
-                            </select>
+                            <div class="pos-method-row" id="bpMethodRow"></div>
+                            <input type="hidden" name="payment_method" id="bp_payment_method" value="Cash">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1081,6 +1118,15 @@
             }
 
             function setActiveMenu(menu) {
+                // Switching to Poojas clears and closes any in-progress ticket order — the
+                // two are different transaction types entirely (a till sale vs. a booking),
+                // so carrying a half-built ticket cart across into booking mode would just
+                // be confusing state sitting behind the scenes.
+                if (menu === 'poojas' && typeof resetCart === 'function' && Object.keys(cart).length) {
+                    resetCart();
+                }
+                document.querySelector('.pos-cart-pane')?.classList.remove('expanded');
+
                 activeMenu = menu;
                 activeCategory = '';
                 mainMenu.querySelectorAll('.pos-main-menu-btn').forEach(function (btn) {
@@ -1090,8 +1136,18 @@
                     panel.classList.toggle('d-none', panel.dataset.menu !== menu);
                 });
                 tabBars.forEach(function (bar) {
-                    bar.classList.toggle('d-none', bar.dataset.menu !== menu);
-                    bar.querySelectorAll('.pos-category-tab').forEach(function (t, i) { t.classList.toggle('active', i === 0); });
+                    const isActiveBar = bar.dataset.menu === menu;
+                    bar.classList.toggle('d-none', !isActiveBar);
+                    if (isActiveBar) {
+                        // Default to "Recent" when it exists (see the recently-booked
+                        // section below) rather than "All", so the counter's most commonly
+                        // re-booked poojas are the very first thing they see.
+                        const recentTab = bar.querySelector('.pos-category-tab[data-category="__recent__"]');
+                        bar.querySelectorAll('.pos-category-tab').forEach(function (t) {
+                            t.classList.toggle('active', recentTab ? t === recentTab : t === bar.querySelector('.pos-category-tab'));
+                        });
+                        activeCategory = recentTab ? '__recent__' : '';
+                    }
                 });
                 searchInput.value = '';
                 applyFilters();
@@ -1261,6 +1317,11 @@
         // handlers below and the SCI module (sci-action-framework.js) both attach listeners
         // to the SAME cancel/status elements, so each must no-op on a click that isn't theirs.
         let activeEftProvider = null;
+        // What the current/last EFT Terminal charge is actually for — a ticket order (the
+        // default) or a pooja booking — so pollEftTransaction's single shared success
+        // handler knows whether to open a print view + clear the cart, or close the booking
+        // popup. Set right before starting each charge (ticket PAY button / startBookingEftPurchase).
+        let eftPurchaseKind = 'ticket_order';
         let eftModalLastSignature = null;
         let eftModalKeysSignature = null;
         function showEftModal(amount) {
@@ -1441,6 +1502,7 @@
                     }
                 }
                 btn.disabled = true;
+                eftPurchaseKind = 'ticket_order';
 
                 if (selectedMethod === 'EFT Terminal') {
                     if (selectedTerminal.provider === 'cba_sci') {
@@ -1616,6 +1678,17 @@
                     }
                     if (data.success) {
                         clearEftAttempt();
+                        if (eftPurchaseKind === 'pooja_booking') {
+                            setEftModalStatus(['PAYMENT APPROVED', data.auth_code ? 'Auth ' + data.auth_code : 'Booking confirmed…'], 'success');
+                            setTimeout(function () {
+                                hideEftModal();
+                                if (typeof window.finishBookingPopup === 'function') {
+                                    window.finishBookingPopup('Booking #' + data.donation_id + ' created, confirmed and paid on the terminal.');
+                                }
+                                eftPurchaseKind = 'ticket_order';
+                            }, 1200);
+                            return;
+                        }
                         setEftModalStatus(['PAYMENT APPROVED', data.auth_code ? 'Auth ' + data.auth_code : 'Printing…'], 'success');
                         setTimeout(function () {
                             hideEftModal();
@@ -1627,12 +1700,14 @@
                         setEftModalStatus(['RESULT UNKNOWN', 'Check the terminal/bank statement before retrying'], 'error');
                         setTimeout(hideEftModal, 2600);
                         btn.disabled = false;
+                        if (eftPurchaseKind === 'pooja_booking' && btn.dataset.originalText) { btn.innerHTML = btn.dataset.originalText; }
                         showToast(data.message || 'No final result was received — check before retrying.', true);
                     } else {
                         clearEftAttempt();
                         setEftModalStatus(['PAYMENT DECLINED', data.message || ''], 'error');
                         setTimeout(hideEftModal, 1800);
                         btn.disabled = false;
+                        if (eftPurchaseKind === 'pooja_booking' && btn.dataset.originalText) { btn.innerHTML = btn.dataset.originalText; }
                         showToast(data.message || 'Card declined.', true);
                     }
                 })
@@ -1759,6 +1834,8 @@
             const customFee = document.getElementById('pp_custom_fee');
             const selectedName = document.getElementById('bp_selected_name');
             const selectedFee = document.getElementById('bp_selected_fee');
+            let selectedTileFee = 0;
+            let selectedTileName = '';
 
             window.openBookingPopup = function (tile) {
                 // No CAN_SELL gate here deliberately — that flag is about selling tickets,
@@ -1777,6 +1854,8 @@
                     customFee.value = '';
                     selectedName.textContent = 'Custom Pooja';
                     selectedFee.textContent = 'Describe it and set a fee below';
+                    selectedTileFee = 0;
+                    selectedTileName = 'Custom Pooja';
                 } else {
                     isCustomField.value = '0';
                     poojaIdField.value = tile.dataset.id;
@@ -1785,7 +1864,9 @@
                     customLabel.required = false;
                     customFee.required = false;
                     selectedName.textContent = tile.dataset.name;
-                    selectedFee.textContent = CURRENCY_CODE + ' ' + parseFloat(tile.dataset.price).toFixed(2);
+                    selectedTileFee = parseFloat(tile.dataset.price) || 0;
+                    selectedTileName = tile.dataset.name;
+                    selectedFee.textContent = CURRENCY_CODE + ' ' + selectedTileFee.toFixed(2);
                 }
 
                 errorBox.classList.add('d-none');
@@ -1801,7 +1882,56 @@
                 customFee.required = false;
                 selectedName.textContent = '';
                 selectedFee.textContent = '';
+                selectedTileFee = 0;
+                selectedTileName = '';
             }
+
+            // Payment method row — Cash / Bank Transfer / EFT Terminal, same button style
+            // and EFT Terminal availability check the ticket cart's own PAYMENT_METHODS row
+            // already uses (methodRow/eftTerminalAvailable() are defined earlier on this
+            // page). "Office Counter" isn't offered here — just the three real-world ways a
+            // booking actually gets paid at this counter.
+            const bpMethodRow = document.getElementById('bpMethodRow');
+            const bpPaymentMethodField = document.getElementById('bp_payment_method');
+            const bpMethods = [
+                { value: 'Cash', label: 'Cash', icon: 'bi-cash-coin' },
+                { value: 'Bank', label: 'Bank Transfer', icon: 'bi-bank2' },
+                { value: 'EFT Terminal', label: 'EFT Terminal', icon: 'bi-credit-card-2-front-fill' },
+            ];
+            bpMethods.forEach(function (m) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const disabled = m.value === 'EFT Terminal' && !eftTerminalAvailable();
+                btn.className = 'pos-method-btn' + (m.value === 'Cash' ? ' active' : '') + (disabled ? ' disabled' : '');
+                btn.innerHTML = '<i class="bi ' + m.icon + '"></i>' + m.label;
+                btn.dataset.method = m.value;
+                if (disabled) { btn.title = 'No EFT terminal is currently paired.'; }
+                btn.addEventListener('click', function () {
+                    if (btn.classList.contains('disabled')) { return; }
+                    bpMethodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    bpPaymentMethodField.value = m.value;
+                });
+                bpMethodRow.appendChild(btn);
+            });
+
+            // Called once the booking popup's own form-reset path runs (Cash/Bank success,
+            // or an EFT Terminal booking's approval — see pollEftTransaction's
+            // 'pooja_booking' branch below) — the one place that closes the modal and clears
+            // its state, so both payment paths end up in the same place.
+            window.finishBookingPopup = function (message) {
+                showToast(message || 'Booking created.', false);
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+                form.reset();
+                preferredWrapper.classList.add('d-none');
+                resetPoojaPicker();
+                bpMethodRow.querySelectorAll('.pos-method-btn').forEach(function (b, i) { b.classList.toggle('active', i === 0); });
+                bpPaymentMethodField.value = 'Cash';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = submitBtnOriginalText;
+            };
+
+            const submitBtnOriginalText = submitBtn.innerHTML;
 
             form.addEventListener('submit', function (e) {
                 e.preventDefault();
@@ -1819,8 +1949,12 @@
                 }
 
                 submitBtn.disabled = true;
-                const originalText = submitBtn.innerHTML;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating…';
+
+                if (bpPaymentMethodField.value === 'EFT Terminal') {
+                    startBookingEftPurchase(submitBtn);
+                    return;
+                }
 
                 fetch(STORE_BOOKING_URL, {
                     method: 'POST',
@@ -1829,26 +1963,108 @@
                 })
                     .then(function (res) { return res.json(); })
                     .then(function (data) {
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalText;
                         if (data.success) {
-                            showToast(data.message || 'Booking created.', false);
-                            bootstrap.Modal.getInstance(modalEl)?.hide();
-                            form.reset();
-                            preferredWrapper.classList.add('d-none');
-                            resetPoojaPicker();
+                            window.finishBookingPopup(data.message);
                         } else {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = submitBtnOriginalText;
                             errorBox.textContent = data.message || 'Could not create the booking.';
                             errorBox.classList.remove('d-none');
                         }
                     })
                     .catch(function () {
                         submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalText;
+                        submitBtn.innerHTML = submitBtnOriginalText;
                         errorBox.textContent = 'Could not reach the server — please try again.';
                         errorBox.classList.remove('d-none');
                     });
             });
+
+            // ---------- Pay the booking on the EFT terminal ----------
+            // Reuses the exact same charge-start/poll/modal machinery the ticket cart's own
+            // EFT Terminal option already drives (startEftCharge, pollEftTransaction, the
+            // #eftModalOverlay) — see pollEftTransaction's eftPurchaseKind branch for how the
+            // shared success handler tells a booking apart from a ticket order. Linkly only
+            // for now (same as the ticket cart's own CBA SCI branch, not yet mirrored here).
+            function startBookingEftPurchase(btn) {
+                // pollEftTransaction lives outside this IIFE's scope, so it can't see
+                // submitBtnOriginalText directly — stash it on the button itself instead.
+                btn.dataset.originalText = submitBtnOriginalText;
+                if (!eftTerminalAvailable()) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitBtnOriginalText;
+                    errorBox.textContent = 'No EFT terminal is currently paired.';
+                    errorBox.classList.remove('d-none');
+                    return;
+                }
+                const selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
+                if (selectedTerminal && selectedTerminal.provider === 'cba_sci') {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitBtnOriginalText;
+                    errorBox.textContent = 'This terminal (CBA Smart Terminal) isn\'t yet supported for pooja bookings — please use Cash or Bank Transfer, or switch to a Linkly terminal.';
+                    errorBox.classList.remove('d-none');
+                    return;
+                }
+
+                const amount = isCustomField.value === '1' ? (parseFloat(customFee.value) || 0) : selectedTileFee;
+                if (amount <= 0) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitBtnOriginalText;
+                    errorBox.textContent = 'Enter a fee greater than zero before charging the terminal.';
+                    errorBox.classList.remove('d-none');
+                    return;
+                }
+
+                eftPurchaseKind = 'pooja_booking';
+                activeEftProvider = 'linkly';
+                eftPollCancelled = false;
+                eftCurrentSessionId = null;
+                eftConsecutiveTransientErrors = 0;
+                showEftModal(amount);
+
+                const startBody = new URLSearchParams();
+                startBody.set('record_type', 'pooja_booking');
+                startBody.set('amount', amount.toFixed(2));
+                startBody.set('client_ref', newClientRef());
+                startBody.set('pooja_id', poojaIdField.value || '');
+                startBody.set('custom_pooja', isCustomField.value);
+                startBody.set('custom_pooja_label', customLabel.value || '');
+                startBody.set('custom_fee', customFee.value || '');
+                startBody.set('booking_date', form.querySelector('[name="booking_date"]').value);
+                startBody.set('booking_time', form.querySelector('[name="booking_time"]').value);
+                startBody.set('priest_option', priestOption.value);
+                startBody.set('preferred_priest_id', form.querySelector('[name="preferred_priest_id"]')?.value || '');
+                startBody.set('devotee_name', form.querySelector('[name="devotee_name"]').value);
+                startBody.set('devotee_mobile', form.querySelector('[name="devotee_mobile"]').value);
+                startBody.set('devotee_email', form.querySelector('[name="devotee_email"]').value);
+                if (selectedTerminalId) { startBody.set('terminal_id', selectedTerminalId); }
+
+                fetch(EFT_CHARGE_START_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: startBody.toString(),
+                })
+                    .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
+                    .then(function (result) {
+                        if (!(result.status >= 200 && result.status < 300 && result.data.success)) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = submitBtnOriginalText;
+                            hideEftModal();
+                            errorBox.textContent = result.data.message || 'Could not start the terminal transaction.';
+                            errorBox.classList.remove('d-none');
+                            return;
+                        }
+                        eftCurrentSessionId = result.data.session_id;
+                        pollEftTransaction(result.data.session_id, btn, amount, Date.now());
+                    })
+                    .catch(function () {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = submitBtnOriginalText;
+                        hideEftModal();
+                        errorBox.textContent = 'Could not reach the EFT terminal — please try again.';
+                        errorBox.classList.remove('d-none');
+                    });
+            }
         })();
     </script>
     @endif

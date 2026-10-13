@@ -170,6 +170,45 @@ class BookingController extends Controller
     }
 
     /**
+     * Server-side creation of a pooja booking once an EFT Terminal purchase for it is
+     * confirmed approved — called from DonationController::
+     * createDonationIfApprovedPurchaseUnrecorded(), the same "details captured in the
+     * ledger row's meta at startEftCharge() time" pattern TicketController::
+     * createOrderFromLedgerMeta() already uses for a ticket order paid the same way.
+     * pooja_id in $meta is already resolved (including the Custom Pooja anchor id) by
+     * startEftCharge() itself, so this never needs to re-resolve it.
+     */
+    public function createBookingFromLedgerMeta(array $meta, string $transactionId): ?int
+    {
+        if (empty($meta['pooja_id']) || empty($meta['booking_date']) || empty($meta['booking_time'])) {
+            return null;
+        }
+
+        try {
+            $booking = (new BookingService())->create([
+                'pooja_id' => $meta['pooja_id'],
+                'custom_pooja_label' => $meta['custom_pooja_label'] ?? null,
+                'custom_fee' => $meta['custom_fee'] ?? null,
+                'booking_date' => $meta['booking_date'],
+                'booking_time' => $meta['booking_time'],
+                'booking_type' => 'Offline',
+                'payment_method' => 'EFT Terminal',
+                'payment_status' => 'Paid',
+                'priest_option' => $meta['priest_option'] ?? 'auto',
+                'preferred_priest_id' => $meta['preferred_priest_id'] ?? null,
+                'devotee_name' => $meta['devotee_name'] ?? '',
+                'devotee_mobile' => $meta['devotee_mobile'] ?? '',
+                'devotee_email' => $meta['devotee_email'] ?? '',
+                'remarks' => "Booking created by {$meta['created_by_role']} via EFT Terminal (transaction {$transactionId}).",
+            ], $meta['created_by_role'] ?? 'Staff', $meta['created_by_user_id'] ?? null);
+
+            return $booking->booking_id;
+        } catch (\RuntimeException $e) {
+            return null;
+        }
+    }
+
+    /**
      * Devotee Book Pooja Page
      */
     public function bookPoojaPage()
