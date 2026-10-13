@@ -28,11 +28,20 @@ class SystemUserController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
+        // Kiosk Device accounts aren't people — they're a per-device service identity
+        // KioskDeviceService::register() creates purely so kiosk API calls have an
+        // Auth::user() to read (unusable password, never signed in via the login form, see
+        // that method's own docblock). Already fully managed from the Kiosk Devices page
+        // (name, pairing, revoke); listing them here would just be noise with no admin
+        // action that actually applies to them (no email to reset, no real "last login").
         $query = User::query()
+            ->where('role', '!=', 'Kiosk Device')
             ->select('id', 'name', 'email', 'mobile', 'username', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled', 'pos_pin_locked_at');
 
+        $filterableRoles = array_values(array_diff(RolePermission::roles(), ['Kiosk Device']));
+
         $roleFilter = $request->get('role');
-        if ($roleFilter && in_array($roleFilter, RolePermission::roles(), true)) {
+        if ($roleFilter && in_array($roleFilter, $filterableRoles, true)) {
             // Match either the account's stored primary role, or a granted role via its
             // pivot table — a user whose primary role is Devotee but who also holds a
             // Committee/Event Coordinator/etc. grant should still show up under that filter.
@@ -66,8 +75,8 @@ class SystemUserController extends Controller
         }
 
         $users = $query->orderBy('name')->paginate(25)->withQueryString();
-        $roles = RolePermission::roles();
-        $creatableRoles = array_values(array_diff($roles, ['Event Coordinator', 'Ticket Controller', 'Kiosk Device']));
+        $roles = $filterableRoles;
+        $creatableRoles = array_values(array_diff($filterableRoles, ['Event Coordinator', 'Ticket Controller']));
 
         return view('admin.system-users', compact('users', 'roles', 'creatableRoles', 'roleFilter', 'statusFilter', 'search'));
     }

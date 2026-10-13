@@ -71,6 +71,50 @@ class SystemUsersPageRedesignTest extends TestCase
         $response->assertDontSee('Active Person');
     }
 
+    /**
+     * A Kiosk Device's "user" is a synthetic service account KioskDeviceService::register()
+     * creates purely so kiosk API calls have an Auth::user() to read — unusable password,
+     * never signed in via the login form. It's fully managed from the Kiosk Devices page
+     * already; it has no business showing up in a list of people an admin would reset a
+     * password for or deactivate.
+     */
+    public function test_kiosk_device_service_accounts_are_excluded_from_the_list(): void
+    {
+        $admin = $this->admin();
+        User::factory()->create([
+            'name' => 'Kiosk — Front Counter', 'role' => 'Kiosk Device', 'status' => 'Active',
+            'email' => 'kiosk-' . uniqid() . '@kiosk.local', 'mobile' => null, 'username' => null,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.users.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('Kiosk — Front Counter');
+    }
+
+    public function test_kiosk_device_is_not_offered_as_a_role_filter_option(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.users.index'));
+
+        $response->assertOk();
+        $response->assertDontSee('<option value="Kiosk Device">', false);
+    }
+
+    public function test_filtering_by_role_kiosk_device_is_ignored_not_a_dead_end(): void
+    {
+        $admin = $this->admin();
+        User::factory()->create(['name' => 'Active Person', 'status' => 'Active', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $response = $this->actingAs($admin)->get(route('admin.users.index', ['role' => 'Kiosk Device']));
+
+        $response->assertOk();
+        // An unrecognised/excluded role filter value falls back to "no role filter" rather
+        // than silently matching nothing.
+        $response->assertSee('Active Person');
+    }
+
     public function test_detail_modal_shows_mobile_pos_username_and_2fa_status(): void
     {
         $admin = $this->admin();
