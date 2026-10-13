@@ -459,12 +459,14 @@ class TicketController extends Controller
         // actually applies to — showing it to everyone else would just be a dead-end 403.
         $canManagePosPin = (bool) app(AuthController::class)->possiblePosDestinations($user);
 
-        // "Book Pooja" topbar button (Pooja Bookings plan Phase E) — same grid check the
-        // Pooja Portal's own "Create Booking" button (Phase D) already uses, not a fixed
-        // role list, so whoever an admin grants 'bookings'->'add' to sees it here too.
+        // Pooja booking tiles live in the same item grid as tickets (Pooja Bookings plan
+        // Phase E) — same grid check the Pooja Portal's own "Create Booking" button
+        // (Phase D) already uses, not a fixed role list, so whoever an admin grants
+        // 'bookings'->'add' to sees them here too. The 'Custom' anchor row is excluded —
+        // it gets its own pinned tile, not a $0 catalog entry.
         $canCreateBookings = \App\Models\RolePermission::can($activeRole, 'bookings', 'add');
         $bookingPoojas = $canCreateBookings
-            ? \Illuminate\Support\Facades\DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get()
+            ? \Illuminate\Support\Facades\DB::table('poojas')->where('status', 'Active')->where('category', '!=', 'Custom')->orderBy('pooja_name')->get()
             : collect();
         $bookingPriests = $canCreateBookings
             ? \Illuminate\Support\Facades\DB::table('priests')

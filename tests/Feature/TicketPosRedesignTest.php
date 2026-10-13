@@ -76,10 +76,15 @@ class TicketPosRedesignTest extends TestCase
     public function test_no_category_tabs_render_when_no_ticket_has_a_category(): void
     {
         $admin = $this->admin();
-        // The standard Archana catalog (seeded by migration, category='Archana') exists in
-        // every environment including a fresh test database — null it out here so this test
-        // can still exercise the real "nothing has a category" case in isolation.
+        // The standard Archana catalog (seeded by migration, category='Archana') and the
+        // 42-pooja rate-card catalog (category='Sponsored Poojas' etc.) both exist in every
+        // environment including a fresh test database, and pooja tiles now feed the same
+        // merged category-tab list as tickets — null both out here so this test can still
+        // exercise the real "nothing has a category" case in isolation.
         Ticket::query()->update(['category' => null]);
+        // poojas.category is NOT NULL (defaults to 'General') — deactivating every pooja
+        // keeps them out of $bookingPoojas entirely instead, same end result for this test.
+        \App\Models\Pooja::query()->update(['status' => 'Inactive']);
         Ticket::create(['name' => 'Plain Ticket', 'price' => 10, 'status' => 'Active']);
 
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));

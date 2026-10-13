@@ -75,33 +75,6 @@
         }
         .pos-category-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
         .pos-item-tile.pos-category-hidden { display: none; }
-
-        {{-- Pooja picker (inside the "Book Pooja" modal) — a single-select grid of cards,
-             same visual language as the ticket tiles above but its own simpler classes
-             (no cart/quantity state, just select-one), so it can't collide with the ticket
-             grid's own JS. --}}
-        .pooja-picker-search { position: relative; margin-bottom: 10px; }
-        .pooja-picker-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
-        .pooja-picker-search input { padding-left: 38px; }
-        .pooja-category-tabs { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
-        .pooja-category-tab {
-            flex-shrink: 0; padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--border);
-            background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.78rem; cursor: pointer;
-        }
-        .pooja-category-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
-        .pooja-tiles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding: 2px; }
-        .pooja-tile {
-            border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--white);
-            text-align: left; display: flex; flex-direction: column; gap: 3px;
-        }
-        .pooja-tile:hover { border-color: var(--maroon); }
-        .pooja-tile.selected { border-color: var(--maroon); background: color-mix(in srgb, var(--maroon) 8%, white); box-shadow: 0 0 0 2px var(--maroon); }
-        .pooja-tile .pt-name { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); line-height: 1.25; }
-        .pooja-tile .pt-fee { font-size: 0.78rem; color: var(--maroon); font-weight: 700; }
-        .pooja-tile.pooja-hidden { display: none; }
-        .pooja-tile.pooja-tile-custom { border-style: dashed; }
-        .pooja-tile.pooja-tile-custom .pt-name { color: var(--maroon); }
-        .pooja-picker-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 10px 4px; display: none; }
         .tile-description {
             font-size: 0.72rem; line-height: 1.3; color: var(--text-secondary); font-weight: 500;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -145,6 +118,25 @@
         .tile-price-badge { background: var(--tile-accent); color: #fff; border-radius: 8px; padding: 4px 12px; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.84rem; margin-top: auto; }
         .tile-qty-badge { position: absolute; top: -8px; right: -8px; background: var(--tile-accent); color: #fff; font-weight: 800; font-size: 0.85rem; min-width: 28px; height: 28px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 2px solid #fff; z-index: 1; }
         .pos-item-tile.in-cart .tile-qty-badge { display: flex; }
+
+        {{-- Search bar above the grid, same bordered-field look as the rest of the page. --}}
+        .pos-items-search { position: relative; margin-bottom: 12px; }
+        .pos-items-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+        .pos-items-search input { padding-left: 38px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); }
+        .pos-items-empty { display: none; }
+
+        {{-- Pooja booking tiles share the exact tile frame tickets use, but swap the
+             --tile-accent to gold (a booking, not a till sale) and trade the cart quantity
+             badge for a "Book" ribbon, so which tiles open a booking form vs. add to the
+             Order pane is obvious without reading each label. --}}
+        .pos-item-tile-pooja { --tile-accent: var(--gold-hover); }
+        .tile-book-badge {
+            position: absolute; top: -8px; right: -8px; background: var(--gold-hover); color: #fff; font-weight: 800;
+            font-size: 0.68rem; padding: 4px 9px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            border: 2px solid #fff; z-index: 1; display: flex; align-items: center; gap: 3px; white-space: nowrap;
+        }
+        .pos-item-tile-custom { border-style: dashed; }
+        .pos-item-tile-custom .tile-image-wrap i { color: var(--gold-hover); }
 
         /* Desktop/landscape-tablet: a normal full-height sidebar, exactly as before. Below
            900px this same element becomes a collapsible bottom sheet instead (see the mobile
@@ -379,9 +371,6 @@
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
-        @if($canCreateBookings)
-        <button type="button" class="pos-topbar-btn" id="posBookPoojaBtn" data-bs-toggle="modal" data-bs-target="#bookPoojaModal" title="Book Pooja"><i class="bi bi-calendar-plus-fill"></i></button>
-        @endif
         <!-- Always visible, regardless of whether a terminal is currently paired — the Switch
              button near Pay only ever shows up while "EFT Terminal" is the selected payment
              method (and that method stays disabled with nothing paired to pick), so it's not a
@@ -412,11 +401,19 @@
 
     <div class="pos-body">
         <div class="pos-items-pane">
-            @php $ticketCategories = $tickets->pluck('category')->filter()->unique()->sort()->values(); @endphp
-            @if($ticketCategories->isNotEmpty())
+            @php
+                $ticketCategories = $tickets->pluck('category')->filter();
+                $poojaCategories = ($bookingPoojas ?? collect())->pluck('category')->filter();
+                $allCategories = $ticketCategories->merge($poojaCategories)->unique()->sort()->values();
+            @endphp
+            <div class="pos-items-search">
+                <i class="bi bi-search"></i>
+                <input type="text" id="posItemsSearch" class="form-control" placeholder="Search archanas, poojas, bookings...">
+            </div>
+            @if($allCategories->isNotEmpty())
             <div class="pos-category-tabs" id="posCategoryTabs">
                 <button type="button" class="pos-category-tab active" data-category="">All</button>
-                @foreach($ticketCategories as $cat)
+                @foreach($allCategories as $cat)
                 <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
                 @endforeach
             </div>
@@ -424,7 +421,7 @@
             <div class="pos-items-grid" id="itemsGrid">
                 @forelse($tickets as $ticket)
                 @php $accent = $ticket->background_color ?: '#6B0F1A'; @endphp
-                <button type="button" class="pos-item-tile" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}" data-category="{{ $ticket->category }}"
+                <button type="button" class="pos-item-tile" data-type="ticket" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}" data-category="{{ $ticket->category }}"
                     style="--tile-accent: {{ $accent }};">
                     <span class="tile-qty-badge">0</span>
                     <span class="tile-frame">
@@ -453,7 +450,49 @@
                 @empty
                 <p class="text-muted text-center py-4">No active ticket types — add one in the Pooja Portal.</p>
                 @endforelse
+
+                {{-- Pooja booking tiles — same grid, same tile frame, but a gold "Book"
+                     ribbon instead of a cart quantity badge (tapping opens the booking
+                     details popup instead of adding a line to the Order pane), so it's
+                     visually obvious at a glance which items are an instant sale and which
+                     open a booking. See the Pooja Bookings plan Phases A-F. --}}
+                @if($canCreateBookings)
+                <button type="button" class="pos-item-tile pos-item-tile-pooja pos-item-tile-custom" data-type="pooja" data-is-custom="1" data-id="" data-name="Custom Pooja" data-price="" data-category="">
+                    <span class="tile-book-badge"><i class="bi bi-calendar-plus"></i> Book</span>
+                    <span class="tile-frame">
+                        <span class="tile-corner tl"></span>
+                        <span class="tile-corner tr"></span>
+                        <span class="tile-corner bl"></span>
+                        <span class="tile-corner br"></span>
+                        <span class="tile-image-wrap"><i class="bi bi-plus-circle"></i></span>
+                        <span class="tile-text">
+                            <span class="tile-name">Custom Pooja</span>
+                            <span class="tile-description">Not in the list — describe it and set your own fee</span>
+                        </span>
+                    </span>
+                </button>
+                @foreach($bookingPoojas as $pooja)
+                <button type="button" class="pos-item-tile pos-item-tile-pooja" data-type="pooja" data-is-custom="0" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-price="{{ $pooja->pooja_fee }}" data-category="{{ $pooja->category }}">
+                    <span class="tile-book-badge"><i class="bi bi-calendar-plus"></i> Book</span>
+                    <span class="tile-frame">
+                        <span class="tile-corner tl"></span>
+                        <span class="tile-corner tr"></span>
+                        <span class="tile-corner bl"></span>
+                        <span class="tile-corner br"></span>
+                        <span class="tile-image-wrap"><i class="bi bi-journal-bookmark-fill"></i></span>
+                        <span class="tile-text">
+                            <span class="tile-name">{{ $pooja->pooja_name }}</span>
+                            @if($pooja->description)
+                            <span class="tile-description">{{ $pooja->description }}</span>
+                            @endif
+                            <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($pooja->pooja_fee, 2) }}</span>
+                        </span>
+                    </span>
+                </button>
+                @endforeach
+                @endif
             </div>
+            <p class="pos-items-empty text-muted text-center py-4 d-none" id="posItemsEmpty">Nothing matches your search.</p>
         </div>
 
         <div class="pos-cart-pane">
@@ -630,37 +669,21 @@
                     <div class="modal-body">
                         <div id="bookPoojaError" class="alert alert-danger d-none" role="alert"></div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Pooja</label>
-                            <div class="pooja-picker-search">
-                                <i class="bi bi-search"></i>
-                                <input type="text" class="form-control" id="pp_search" placeholder="Search poojas...">
-                            </div>
-                            <div class="pooja-category-tabs" id="pp_category_tabs">
-                                <button type="button" class="pooja-category-tab active" data-category="">All</button>
-                                @foreach($bookingPoojas->pluck('category')->filter()->unique()->sort() as $cat)
-                                <button type="button" class="pooja-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
-                                @endforeach
-                            </div>
-                            <div class="pooja-tiles-grid" id="pp_tiles_grid">
-                                <button type="button" class="pooja-tile pooja-tile-custom" data-id="custom" data-name="Custom Pooja" data-category="" data-fee="">
-                                    <span class="pt-name"><i class="bi bi-plus-circle me-1"></i>Custom Pooja</span>
-                                    <span class="pt-fee">Not in the list</span>
-                                </button>
-                                @foreach($bookingPoojas as $pooja)
-                                <button type="button" class="pooja-tile" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-category="{{ $pooja->category }}" data-fee="{{ $pooja->pooja_fee }}">
-                                    <span class="pt-name">{{ $pooja->pooja_name }}</span>
-                                    <span class="pt-fee">{{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}</span>
-                                </button>
-                                @endforeach
-                            </div>
-                            <div class="pooja-picker-empty" id="pp_empty">No poojas match your search.</div>
-                            <input type="hidden" name="pooja_id" id="pp_pooja_id" required>
-                            <input type="hidden" name="custom_pooja" id="pp_is_custom" value="0">
-                            <div id="pp_custom_fields" class="d-none mt-2">
-                                <input type="text" name="custom_pooja_label" id="pp_custom_label" class="form-control mb-2" placeholder="Describe the pooja...">
-                                <input type="number" name="custom_fee" id="pp_custom_fee" class="form-control" placeholder="Fee ({{ $temple['currency'] }})" step="0.01" min="0">
-                            </div>
+                        {{-- The pooja itself is picked by tapping its tile in the main grid
+                             (see openBookingPopup()) — this just confirms the choice and,
+                             for Custom Pooja, collects the description and fee. --}}
+                        <div class="mb-3 p-3" style="background:var(--shade); border-radius:10px;">
+                            <div class="small text-muted fw-bold text-uppercase" style="letter-spacing:.04em; font-size:.7rem;">Booking</div>
+                            <div class="fw-bold fs-5" id="bp_selected_name" style="color:var(--maroon);"></div>
+                            <div class="small text-muted" id="bp_selected_fee"></div>
+                        </div>
+                        <input type="hidden" name="pooja_id" id="pp_pooja_id" required>
+                        <input type="hidden" name="custom_pooja" id="pp_is_custom" value="0">
+                        <div id="pp_custom_fields" class="d-none mb-3">
+                            <label class="form-label fw-bold">Describe the Pooja</label>
+                            <input type="text" name="custom_pooja_label" id="pp_custom_label" class="form-control mb-2" placeholder="Describe the pooja...">
+                            <label class="form-label fw-bold">Fee ({{ $temple['currency'] }})</label>
+                            <input type="number" name="custom_fee" id="pp_custom_fee" class="form-control" placeholder="0.00" step="0.01" min="0">
                         </div>
 
                         <div class="row g-3 mb-3">
@@ -942,26 +965,53 @@
         }
         document.getElementById('itemsGrid').addEventListener('click', function (e) {
             const tile = e.target.closest('.pos-item-tile');
-            if (tile) { openQtyModal(tile); }
+            if (!tile) { return; }
+            if (tile.dataset.type === 'pooja') {
+                if (typeof openBookingPopup === 'function') { openBookingPopup(tile); }
+            } else {
+                openQtyModal(tile);
+            }
         });
 
-        // Category tabs — a plain client-side show/hide against each tile's own
-        // data-category, same "no server round-trip for something this cheap" approach as
-        // the cart/quantity logic already on this page.
+        // Search + category tabs — plain client-side show/hide against each tile's own
+        // data-category/data-name, same "no server round-trip for something this cheap"
+        // approach as the cart/quantity logic already on this page. The Custom Pooja tile
+        // is pinned — always visible regardless of category, never hidden by search either,
+        // since it's not a catalog name match candidate.
         (function () {
             const tabs = document.getElementById('posCategoryTabs');
-            if (!tabs) { return; }
+            const searchInput = document.getElementById('posItemsSearch');
+            const emptyMsg = document.getElementById('posItemsEmpty');
             const tiles = Array.from(document.querySelectorAll('#itemsGrid .pos-item-tile'));
-            tabs.querySelectorAll('.pos-category-tab').forEach(function (tab) {
-                tab.addEventListener('click', function () {
-                    tabs.querySelectorAll('.pos-category-tab').forEach(function (t) { t.classList.remove('active'); });
-                    tab.classList.add('active');
-                    const category = tab.dataset.category;
-                    tiles.forEach(function (tile) {
-                        tile.classList.toggle('pos-category-hidden', !!category && tile.dataset.category !== category);
+            let activeCategory = '';
+
+            function applyFilters() {
+                const q = searchInput.value.trim().toLowerCase();
+                let anyVisible = false;
+                tiles.forEach(function (tile) {
+                    if (tile.classList.contains('pos-item-tile-custom')) { anyVisible = true; return; }
+                    const matchesCategory = !activeCategory || tile.dataset.category === activeCategory;
+                    const matchesSearch = !q || tile.dataset.name.toLowerCase().includes(q);
+                    const visible = matchesCategory && matchesSearch;
+                    tile.classList.toggle('pos-category-hidden', !visible);
+                    if (visible) { anyVisible = true; }
+                });
+                emptyMsg.classList.toggle('d-none', anyVisible);
+            }
+
+            if (tabs) {
+                tabs.querySelectorAll('.pos-category-tab').forEach(function (tab) {
+                    tab.addEventListener('click', function () {
+                        tabs.querySelectorAll('.pos-category-tab').forEach(function (t) { t.classList.remove('active'); });
+                        tab.classList.add('active');
+                        activeCategory = tab.dataset.category || '';
+                        applyFilters();
                     });
                 });
-            });
+            }
+            if (searchInput) {
+                searchInput.addEventListener('input', applyFilters);
+            }
         })();
         document.getElementById('qtyModalPlus').addEventListener('click', function () {
             const el = document.getElementById('qtyModalValue');
@@ -1591,56 +1641,36 @@
                 preferredWrapper.classList.toggle('d-none', this.value !== 'preferred');
             });
 
-            // Pooja picker: search + category tabs + single-select tile grid, with a
-            // pinned "Custom Pooja" tile (see BookingService::create()'s custom_pooja_label/
-            // custom_fee support) that's always visible regardless of filters.
-            const searchInput = document.getElementById('pp_search');
-            const categoryTabs = document.getElementById('pp_category_tabs');
-            const tilesGrid = document.getElementById('pp_tiles_grid');
-            const emptyMsg = document.getElementById('pp_empty');
+            // The pooja itself is picked by tapping its tile in the main item grid (see
+            // #itemsGrid's click handler, which calls window.openBookingPopup for any
+            // data-type="pooja" tile) — this just confirms the choice and, for Custom
+            // Pooja, collects the description/fee. See BookingService::create()'s
+            // custom_pooja_label/custom_fee support.
             const poojaIdField = document.getElementById('pp_pooja_id');
             const isCustomField = document.getElementById('pp_is_custom');
             const customFields = document.getElementById('pp_custom_fields');
             const customLabel = document.getElementById('pp_custom_label');
             const customFee = document.getElementById('pp_custom_fee');
-            let activeCategory = '';
+            const selectedName = document.getElementById('bp_selected_name');
+            const selectedFee = document.getElementById('bp_selected_fee');
 
-            function applyPoojaFilters() {
-                const q = searchInput.value.trim().toLowerCase();
-                let anyVisible = false;
-                tilesGrid.querySelectorAll('.pooja-tile').forEach(function (tile) {
-                    if (tile.classList.contains('pooja-tile-custom')) { return; }
-                    const matchesCategory = !activeCategory || tile.dataset.category === activeCategory;
-                    const matchesSearch = !q || tile.dataset.name.toLowerCase().includes(q);
-                    const visible = matchesCategory && matchesSearch;
-                    tile.classList.toggle('pooja-hidden', !visible);
-                    if (visible) { anyVisible = true; }
-                });
-                emptyMsg.style.display = anyVisible ? 'none' : 'block';
-            }
+            window.openBookingPopup = function (tile) {
+                // No CAN_SELL gate here deliberately — that flag is about selling tickets,
+                // a separate permission from 'bookings'->'add', which is what gated this
+                // tile even existing in the DOM (see the canCreateBookings check around it).
+                const isCustom = tile.dataset.isCustom === '1';
 
-            searchInput.addEventListener('input', applyPoojaFilters);
-
-            categoryTabs.addEventListener('click', function (e) {
-                const tab = e.target.closest('.pooja-category-tab');
-                if (!tab) { return; }
-                categoryTabs.querySelectorAll('.pooja-category-tab').forEach(function (t) { t.classList.remove('active'); });
-                tab.classList.add('active');
-                activeCategory = tab.dataset.category || '';
-                applyPoojaFilters();
-            });
-
-            function selectTile(tile) {
-                tilesGrid.querySelectorAll('.pooja-tile').forEach(function (t) { t.classList.remove('selected'); });
-                tile.classList.add('selected');
-
-                if (tile.dataset.id === 'custom') {
+                if (isCustom) {
                     isCustomField.value = '1';
                     poojaIdField.value = '';
                     poojaIdField.required = false;
                     customFields.classList.remove('d-none');
                     customLabel.required = true;
                     customFee.required = true;
+                    customLabel.value = '';
+                    customFee.value = '';
+                    selectedName.textContent = 'Custom Pooja';
+                    selectedFee.textContent = 'Describe it and set a fee below';
                 } else {
                     isCustomField.value = '0';
                     poojaIdField.value = tile.dataset.id;
@@ -1648,26 +1678,23 @@
                     customFields.classList.add('d-none');
                     customLabel.required = false;
                     customFee.required = false;
+                    selectedName.textContent = tile.dataset.name;
+                    selectedFee.textContent = CURRENCY_CODE + ' ' + parseFloat(tile.dataset.price).toFixed(2);
                 }
-            }
 
-            tilesGrid.addEventListener('click', function (e) {
-                const tile = e.target.closest('.pooja-tile');
-                if (tile) { selectTile(tile); }
-            });
+                errorBox.classList.add('d-none');
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            };
 
             function resetPoojaPicker() {
-                tilesGrid.querySelectorAll('.pooja-tile').forEach(function (t) { t.classList.remove('selected'); });
                 poojaIdField.value = '';
                 poojaIdField.required = true;
                 isCustomField.value = '0';
                 customFields.classList.add('d-none');
                 customLabel.required = false;
                 customFee.required = false;
-                searchInput.value = '';
-                activeCategory = '';
-                categoryTabs.querySelectorAll('.pooja-category-tab').forEach(function (t, i) { t.classList.toggle('active', i === 0); });
-                applyPoojaFilters();
+                selectedName.textContent = '';
+                selectedFee.textContent = '';
             }
 
             form.addEventListener('submit', function (e) {

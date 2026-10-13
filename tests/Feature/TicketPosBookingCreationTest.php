@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
- * Phase E of the Pooja Bookings plan: the Ticket POS "Book Pooja" topbar button + modal,
- * posting to the same admin.bookings.store route Phase D's Pooja Portal modal uses. See
- * the plan's own Tests section.
+ * Phase E of the Pooja Bookings plan: pooja booking tiles live in the Ticket POS's main
+ * item grid, alongside the Archana tickets — same category tabs, same search bar, no
+ * separate "Book Pooja" topbar button. Tapping a pooja tile opens a booking-details popup
+ * (date/time/priest/devotee/payment); tapping an Archana ticket tile still opens the
+ * existing quantity popup. Both post through admin.bookings.store / the ticket order
+ * endpoint respectively. See the plan's own Tests section.
  */
 class TicketPosBookingCreationTest extends TestCase
 {
@@ -50,19 +53,21 @@ class TicketPosBookingCreationTest extends TestCase
         ]);
     }
 
-    public function test_the_book_pooja_button_shows_for_a_role_with_bookings_add_permission(): void
+    public function test_pooja_tiles_appear_in_the_main_item_grid_with_a_book_badge_not_a_topbar_button(): void
     {
         $admin = $this->admin();
-        $this->activePooja();
+        $pooja = $this->activePooja();
 
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertSee('Book Pooja');
-        $response->assertSee('bookPoojaModal', false);
+        $response->assertDontSee('posBookPoojaBtn', false);
+        $response->assertSee('pos-item-tile-pooja', false);
+        $response->assertSee('tile-book-badge', false);
+        $response->assertSee($pooja->pooja_name);
     }
 
-    public function test_the_book_pooja_modal_shows_a_searchable_grouped_grid_with_a_custom_pooja_tile(): void
+    public function test_the_main_grid_has_a_search_bar_and_category_tabs_spanning_tickets_and_poojas(): void
     {
         $admin = $this->admin();
         $pooja = Pooja::create([
@@ -75,14 +80,14 @@ class TicketPosBookingCreationTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertSee('pp_search', false);
-        $response->assertSee('pooja-category-tabs', false);
+        $response->assertSee('posItemsSearch', false);
+        $response->assertSee('posCategoryTabs', false);
+        $response->assertSee('data-category="Festivals"', false);
         $response->assertSee('Custom Pooja');
-        $response->assertSee('data-category="' . $pooja->category . '"', false);
         $response->assertSee($pooja->pooja_name);
     }
 
-    public function test_the_book_pooja_button_is_hidden_without_bookings_add_permission(): void
+    public function test_pooja_tiles_and_the_custom_pooja_tile_are_hidden_without_bookings_add_permission(): void
     {
         RolePermission::where('role', 'Committee')->where('resource', 'bookings')->update(['can_add' => false]);
         $committee = User::factory()->create(['role' => 'Committee', 'mobile' => fake()->unique()->numerify('04########')]);
@@ -91,7 +96,11 @@ class TicketPosBookingCreationTest extends TestCase
         $response = $this->actingAs($committee)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertDontSee('bookPoojaModal', false);
+        // Bare substrings like 'pos-item-tile-pooja' or 'Custom Pooja' would also match the
+        // page's own static CSS rule / JS comments (always present, regardless of whether
+        // any tile uses them) — check for actual rendered tile markup instead.
+        $response->assertDontSee('class="pos-item-tile pos-item-tile-pooja', false);
+        $response->assertDontSee('<span class="tile-name">Custom Pooja</span>', false);
     }
 
     public function test_the_ticket_pos_booking_form_creates_a_confirmed_booking_via_ajax(): void
