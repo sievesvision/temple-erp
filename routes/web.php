@@ -885,6 +885,7 @@ Route::middleware(['auth', 'role.priest'])->group(function () {
     Route::post('/priest/attendance/present', [PriestController::class, 'markPresent'])->name('priest.attendance.present');
     Route::post('/priest/attendance/end', [PriestController::class, 'endWork'])->name('priest.attendance.end');
     Route::post('/priest/pooja/complete/{id}', [PriestController::class, 'completePooja'])->name('priest.pooja.complete');
+    Route::post('/priest/bookings/store', [PriestController::class, 'createBooking'])->name('priest.bookings.store');
     Route::post('/priest/bookings/{id}/cancel', [PriestController::class, 'cancelPooja'])->name('priest.bookings.cancel');
     Route::post('/priest/leave/request', [PriestController::class, 'requestLeave'])->name('priest.leave.request');
 });

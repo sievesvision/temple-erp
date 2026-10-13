@@ -164,9 +164,14 @@ class PriestController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        // Active poojas for the "Book a Pooja" form (Pooja Bookings plan Phase F) — this
+        // priest's own slot, no priest picker needed since it's already them.
+        $poojas = DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get();
+
         return view('priest.dashboard', compact(
             'user',
             'priest',
+            'poojas',
             'todayBookings',
             'upcomingBookings',
             'completedBookings',
@@ -869,6 +874,52 @@ class PriestController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Failed to complete pooja: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Priest Portal "Book a Pooja" (Pooja Bookings plan Phase F) — same single-screen
+     * form as Phases D/E, but priest_id is pre-filled to this priest (no priest picker)
+     * and posts to its own route rather than admin.bookings.store, since a Priest doesn't
+     * hold 'bookings'->'add' on the Role Permissions grid by default and this is their own
+     * slot, not a grid-gated capability. $createdByRole = 'Priest' → auto-Confirmed.
+     */
+    public function createBooking(Request $request)
+    {
+        $user = Auth::user();
+        $priest = DB::table('priests')->where('user_id', $user->id)->first();
+        if (!$priest) {
+            return redirect()->back()->with('error', 'Priest record not found.');
+        }
+
+        $maxDate = date('Y-m-d', strtotime('+10 days'));
+        $validated = $request->validate([
+            'pooja_id' => 'required|exists:poojas,pooja_id',
+            'booking_date' => 'required|date|after_or_equal:today|before_or_equal:' . $maxDate,
+            'booking_time' => 'required',
+            'devotee_name' => 'required|string|max:255',
+            'devotee_mobile' => 'required|digits:10',
+            'devotee_email' => 'required|email|max:255',
+            'payment_method' => 'required|in:Cash,Counter,Bank',
+        ]);
+
+        try {
+            $booking = (new \App\Services\BookingService())->create([
+                'pooja_id' => $validated['pooja_id'],
+                'booking_date' => $validated['booking_date'],
+                'booking_time' => $validated['booking_time'],
+                'booking_type' => 'Offline',
+                'payment_method' => $validated['payment_method'],
+                'priest_id' => $priest->priest_id,
+                'devotee_name' => $validated['devotee_name'],
+                'devotee_mobile' => $validated['devotee_mobile'],
+                'devotee_email' => $validated['devotee_email'],
+                'remarks' => 'Booking created by Priest via the Priest Portal.',
+            ], 'Priest', $user->id);
+
+            return redirect()->back()->with('success', "Booking #{$booking->booking_id} created and Confirmed.");
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage())->withInput();
         }
     }
 

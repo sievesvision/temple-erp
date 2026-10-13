@@ -91,7 +91,12 @@
     <div class="row g-4">
       <div class="col-12">
         <div class="table-wrap">
-          <div class="card-header"><i class="bi bi-clock-history text-warning me-2"></i> Today's Assigned Poojas</div>
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="bi bi-clock-history text-warning me-2"></i> Today's Assigned Poojas</span>
+            <button type="button" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold" data-bs-toggle="modal" data-bs-target="#priestBookPoojaModal">
+              <i class="bi bi-calendar-plus"></i> Book a Pooja
+            </button>
+          </div>
           <div class="table-responsive">
             <table class="table align-middle">
               <thead>
@@ -179,6 +184,84 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOOK A POOJA MODAL (Pooja Bookings plan Phase F) — same single-screen form as the
+         Pooja Portal/Ticket POS (Phases D/E), priest pre-filled to this priest. Plain form
+         post + redirect, matching this page's own "Pooja Completed" action above. -->
+    <div class="modal fade" id="priestBookPoojaModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:20px;">
+          <form method="POST" action="{{ route('priest.bookings.store') }}">
+            @csrf
+            <div class="modal-header border-0 pb-0">
+              <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus me-2 text-warning"></i> Book a Pooja</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+              <div class="mb-3">
+                <label class="form-label fw-bold">Pooja</label>
+                <select name="pooja_id" class="form-select" required>
+                  <option value="" selected disabled>Select pooja</option>
+                  @foreach($poojas as $pooja)
+                    <option value="{{ $pooja->pooja_id }}">{{ $pooja->pooja_name }} — {{ $temple['currency'] ?? '' }} {{ number_format($pooja->pooja_fee, 2) }}</option>
+                  @endforeach
+                </select>
+              </div>
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Booking Date</label>
+                  <input type="date" name="booking_date" class="form-control" min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d', strtotime('+10 days')) }}" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Time Slot</label>
+                  <select name="booking_time" class="form-select" required>
+                    <option value="" selected disabled>Select</option>
+                    <option value="06:00:00">06:00 AM</option>
+                    <option value="07:00:00">07:00 AM</option>
+                    <option value="08:00:00">08:00 AM</option>
+                    <option value="09:00:00">09:00 AM</option>
+                    <option value="10:00:00">10:00 AM</option>
+                    <option value="11:00:00">11:00 AM</option>
+                    <option value="12:00:00">12:00 PM</option>
+                    <option value="14:00:00">02:00 PM</option>
+                    <option value="15:00:00">03:00 PM</option>
+                    <option value="16:00:00">04:00 PM</option>
+                    <option value="17:00:00">05:00 PM</option>
+                  </select>
+                </div>
+              </div>
+              <hr>
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Devotee Name</label>
+                  <input type="text" name="devotee_name" class="form-control" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">Mobile</label>
+                  <input type="text" name="devotee_mobile" class="form-control" pattern="[0-9]{10}" placeholder="10 digits" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">Email</label>
+                  <input type="email" name="devotee_email" class="form-control" required>
+                </div>
+              </div>
+              <div class="mb-0">
+                <label class="form-label fw-bold">Payment Method</label>
+                <select name="payment_method" class="form-select" required>
+                  <option value="Cash" selected>Cash at Temple</option>
+                  <option value="Counter">Office Counter</option>
+                  <option value="Bank">Bank Transfer</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold">Create Booking</button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
