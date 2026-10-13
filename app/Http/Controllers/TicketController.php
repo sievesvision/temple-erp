@@ -459,6 +459,21 @@ class TicketController extends Controller
         // actually applies to — showing it to everyone else would just be a dead-end 403.
         $canManagePosPin = (bool) app(AuthController::class)->possiblePosDestinations($user);
 
+        // "Book Pooja" topbar button (Pooja Bookings plan Phase E) — same grid check the
+        // Pooja Portal's own "Create Booking" button (Phase D) already uses, not a fixed
+        // role list, so whoever an admin grants 'bookings'->'add' to sees it here too.
+        $canCreateBookings = \App\Models\RolePermission::can($activeRole, 'bookings', 'add');
+        $bookingPoojas = $canCreateBookings
+            ? \Illuminate\Support\Facades\DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get()
+            : collect();
+        $bookingPriests = $canCreateBookings
+            ? \Illuminate\Support\Facades\DB::table('priests')
+                ->join('users', 'priests.user_id', '=', 'users.id')
+                ->whereIn('priests.employment_status', ['Active', 'On Leave'])
+                ->select('priests.*', 'users.name')
+                ->get()
+            : collect();
+
         // Settle Till widget — entry-level Ticket Controllers only ever reach this page
         // (never the full console, see manageTickets()'s redirect), so this is their only
         // way to settle the till; tickets has no separate pos tier, so entry gets full
@@ -481,7 +496,8 @@ class TicketController extends Controller
 
         return view('admin.ticket-pos', compact(
             'tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin',
-            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate'
+            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate',
+            'canCreateBookings', 'bookingPoojas', 'bookingPriests'
         ));
     }
 

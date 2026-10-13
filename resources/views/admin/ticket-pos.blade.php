@@ -352,6 +352,9 @@
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
+        @if($canCreateBookings)
+        <button type="button" class="pos-topbar-btn" id="posBookPoojaBtn" data-bs-toggle="modal" data-bs-target="#bookPoojaModal" title="Book Pooja"><i class="bi bi-calendar-plus-fill"></i></button>
+        @endif
         <!-- Always visible, regardless of whether a terminal is currently paired — the Switch
              button near Pay only ever shows up while "EFT Terminal" is the selected payment
              method (and that method stays disabled with nothing paired to pick), so it's not a
@@ -579,6 +582,103 @@
                 <div class="modal-body" id="settleTillModalBody">
                     @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
                 </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- "Book Pooja" (Pooja Bookings plan Phase E) — same form/fields as the Pooja
+         Portal's Create Booking modal (Phase D), posting to the same admin.bookings.store
+         route; submitted via AJAX here since that's this page's own convention
+         (storeOrder etc.), rather than a plain form post. --}}
+    @if($canCreateBookings)
+    <div class="modal fade" id="bookPoojaModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                <form id="bookPoojaForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold"><i class="bi bi-calendar-plus-fill me-2"></i>Book Pooja</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="bookPoojaError" class="alert alert-danger d-none" role="alert"></div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Pooja</label>
+                            <select name="pooja_id" class="form-select" required>
+                                <option value="" selected disabled>Select pooja</option>
+                                @foreach($bookingPoojas as $pooja)
+                                    <option value="{{ $pooja->pooja_id }}">{{ $pooja->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Booking Date</label>
+                                <input type="date" name="booking_date" class="form-control" min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d', strtotime('+10 days')) }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Time Slot</label>
+                                <select name="booking_time" class="form-select" required>
+                                    <option value="" selected disabled>Select</option>
+                                    <option value="06:00:00">06:00 AM</option>
+                                    <option value="07:00:00">07:00 AM</option>
+                                    <option value="08:00:00">08:00 AM</option>
+                                    <option value="09:00:00">09:00 AM</option>
+                                    <option value="10:00:00">10:00 AM</option>
+                                    <option value="11:00:00">11:00 AM</option>
+                                    <option value="12:00:00">12:00 PM</option>
+                                    <option value="14:00:00">02:00 PM</option>
+                                    <option value="15:00:00">03:00 PM</option>
+                                    <option value="16:00:00">04:00 PM</option>
+                                    <option value="17:00:00">05:00 PM</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Priest</label>
+                            <select name="priest_option" id="posbp_priest_option" class="form-select">
+                                <option value="auto" selected>Auto-assign (workload balanced)</option>
+                                <option value="preferred">Choose a specific priest</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 d-none" id="posbp_preferred_priest_wrapper">
+                            <label class="form-label fw-bold">Preferred Priest</label>
+                            <select name="preferred_priest_id" class="form-select">
+                                <option value="">Select priest</option>
+                                @foreach($bookingPriests as $priest)
+                                    <option value="{{ $priest->priest_id }}">{{ $priest->name }} ({{ $priest->specialization }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <hr>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Devotee Name</label>
+                                <input type="text" name="devotee_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Mobile</label>
+                                <input type="text" name="devotee_mobile" class="form-control" pattern="[0-9]{10}" placeholder="10 digits" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold">Email</label>
+                                <input type="email" name="devotee_email" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label fw-bold">Payment Method</label>
+                            <select name="payment_method" class="form-select" required>
+                                <option value="Cash" selected>Cash at Temple</option>
+                                <option value="Counter">Office Counter</option>
+                                <option value="Bank">Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold" id="bookPoojaSubmitBtn">Create Booking</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1420,6 +1520,59 @@
         document.addEventListener('DOMContentLoaded', function () {
             showToast(@json(session('success', session('error'))), {{ session('error') ? 'true' : 'false' }});
         });
+    </script>
+    @endif
+
+    @if($canCreateBookings)
+    <script>
+        (function () {
+            const form = document.getElementById('bookPoojaForm');
+            if (!form) { return; }
+            const errorBox = document.getElementById('bookPoojaError');
+            const submitBtn = document.getElementById('bookPoojaSubmitBtn');
+            const priestOption = document.getElementById('posbp_priest_option');
+            const preferredWrapper = document.getElementById('posbp_preferred_priest_wrapper');
+            const modalEl = document.getElementById('bookPoojaModal');
+            const STORE_BOOKING_URL = @json(route('admin.bookings.store'));
+
+            priestOption.addEventListener('change', function () {
+                preferredWrapper.classList.toggle('d-none', this.value !== 'preferred');
+            });
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                errorBox.classList.add('d-none');
+                submitBtn.disabled = true;
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating…';
+
+                fetch(STORE_BOOKING_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+                    body: new FormData(form),
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                        if (data.success) {
+                            showToast(data.message || 'Booking created.', false);
+                            bootstrap.Modal.getInstance(modalEl)?.hide();
+                            form.reset();
+                            preferredWrapper.classList.add('d-none');
+                        } else {
+                            errorBox.textContent = data.message || 'Could not create the booking.';
+                            errorBox.classList.remove('d-none');
+                        }
+                    })
+                    .catch(function () {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                        errorBox.textContent = 'Could not reach the server — please try again.';
+                        errorBox.classList.remove('d-none');
+                    });
+            });
+        })();
     </script>
     @endif
 </body>
