@@ -116,9 +116,9 @@
                     <th>Date</th>
                     <th>{{ $scope === 'event' ? 'Donor' : 'Customer' }}</th>
                     <th>{{ $scope === 'event' ? 'Purpose' : 'Order' }}</th>
-                    @if($scope === 'event')<th>Method</th><th>Status</th>@endif
+                    @if($scope === 'event')<th>Method</th><th>Status</th>@else<th>Method</th>@endif
                     <th class="text-end">Amount</th>
-                    @if($canEditCurrentTransactions)<th></th>@endif
+                    @if($canEditCurrentTransactions || $scope !== 'event')<th></th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -173,7 +173,11 @@
                         <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
                         <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
                         <td>Order #{{ $row->id }}</td>
+                        <td>{{ $row->payment_method }}</td>
                         <td class="text-end fw-bold">{{ $fmt($row->total_amount) }}</td>
+                        <td class="text-end">
+                            <a href="{{ route('admin.tickets.print', $row->id) }}" target="_blank" class="cs-icon-btn" title="Print Receipt"><i class="bi bi-printer-fill"></i></a>
+                        </td>
                     </tr>
                     @endforeach
                 @endif

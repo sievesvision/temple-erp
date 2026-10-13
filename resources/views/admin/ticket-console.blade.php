@@ -104,6 +104,9 @@
              pattern/class names already established on the Donations "All Transactions"
              pane (event-console.blade.php), reused verbatim here for visual/behavioural
              consistency rather than inventing a second filter idiom for the same job. --}}
+        .donations-filter-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+        .donations-filter-pills button { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 7px 14px; min-height: 36px; border-radius: 8px; font-size: 0.8rem; }
+        .donations-filter-pills button.active { background: #dee2e6; border-color: #ced4da; color: var(--text-primary); }
         .donations-filter-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
         .donations-search-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
         .donations-search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; }
@@ -306,7 +309,6 @@
             </div>
             <div class="topbar-title"><h1>Pooja Portal</h1></div>
             <div class="topbar-right">
-                <a href="{{ route('admin.tickets.pos') }}" target="_blank" class="admin-pill"><i class="bi bi-box-arrow-up-right"></i><span>Ticket POS</span></a>
                 <div class="dropdown">
                     <button class="admin-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle"></i><span>{{ \Illuminate\Support\Str::limit(auth()->user()->name ?? 'User', 14) }}</span>
@@ -325,6 +327,7 @@
             <aside class="app-sidebar" id="appSidebar">
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link active" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
+                    <a href="{{ route('admin.tickets.pos') }}" class="sidebar-link"><i class="bi bi-lightning-charge-fill"></i><span>Ticket POS</span></a>
                     {{-- Pooja Bookings keeps its own existing page/controller untouched — it's
                          embedded via iframe below (BookingController::manageBookings()'s own
                          ?embed=1 flag just drops its layout's sidebar/topbar) so it lives inside

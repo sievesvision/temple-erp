@@ -7,7 +7,6 @@
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link href="{{ asset('vendor/fonts/inter/inter.css') }}" rel="stylesheet">
-    <link href="{{ asset('vendor/fonts/ibm-plex-mono/ibm-plex-mono.css') }}" rel="stylesheet">
     <link href="{{ asset('vendor/fonts/dm-sans-playfair/dm-sans-playfair.css') }}" rel="stylesheet">
     <style>
         :root {
@@ -53,28 +52,17 @@
              match the label's extra space above the box. --}}
         .pos-actions-main-row { display: flex; gap: 10px; align-items: flex-end; }
         .pos-actions-main-row .pos-save-btn { flex: 1 1 0; width: auto; }
-        .pos-terminal-mini-wrap { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-        .pos-terminal-mini-label { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-primary); }
-        .pos-terminal-mini-btn {
-            flex: 1; min-width: 0; min-height: 56px; padding: 0 10px;
-            border-radius: var(--radius-md); border: 1.5px solid var(--gold);
-            background: var(--cream); color: var(--text-primary); font-weight: 700; font-size: 0.88rem;
-            display: flex; align-items: center; gap: 6px; width: 100%;
-        }
-        .pos-terminal-mini-btn i.bi-pc-display { font-size: 1.05rem; color: var(--gold-hover); flex-shrink: 0; }
-        .pos-terminal-mini-divider { width: 1.5px; align-self: stretch; background: rgba(201,149,46,0.4); flex-shrink: 0; }
-        .pos-terminal-mini-btn-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; text-align: left; }
-        .pos-terminal-mini-chevron { flex-shrink: 0; color: var(--text-secondary); font-size: 0.8rem; }
-        .pos-terminal-mini-btn:active { background: #F2E4C4; }
-        .pos-terminal-switch-btn { flex-shrink: 0; padding: 7px 14px; border-radius: var(--radius-sm); border: 1.5px solid var(--maroon); background: transparent; color: var(--maroon); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
-        .pos-terminal-switch-btn:hover { background: var(--maroon); color: #fff; }
 
         /* ---------- Full-width POS: items grid on the left, cart panel on the right ---------- */
         .pos-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
         @media (min-width: 900px) { .pos-body { flex-direction: row; } }
 
         .pos-items-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
-        .pos-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+        {{-- Wider minimum than before (was 180px) — every tile is now a fixed, uniform
+             height (see .pos-item-tile below) and reads left-to-right rather than
+             top-to-bottom, so a wider column gives the description line real room instead
+             of forcing the grid to grow taller to fit it. --}}
+        .pos-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 
         {{-- Category tabs — only rendered at all when the catalog actually has categories
              assigned (see Ticket::category, set from the Pooja Portal's Ticket Types pane).
@@ -88,27 +76,29 @@
         .pos-category-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
         .pos-item-tile.pos-category-hidden { display: none; }
         .tile-description {
-            font-size: 0.7rem; line-height: 1.25; color: var(--text-secondary); font-weight: 500;
+            font-size: 0.72rem; line-height: 1.3; color: var(--text-secondary); font-weight: 500;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-            text-transform: none; padding: 0 2px;
+            text-transform: none; width: 100%;
         }
 
-        /* Each tile is a miniature version of the temple's own printed ticket design — an
-           ornate bordered card themed by the ticket's own background_color (see App\Models\
-           Ticket), with a circular image frame, the ticket name, and a price badge — rather
-           than a plain photo-background button, so the POS page itself looks like the physical
-           tickets it's selling. */
+        /* Every tile is now a fixed, uniform, landscape-oriented card (image left, text
+           right) rather than the old auto-height portrait layout — same reasoning the
+           Donations/System Users tables already apply: a consistent row height reads far
+           faster at a glance than cards that grow/shrink with how much description text
+           happens to be on each one, and the extra width gives the description room to
+           actually show instead of being squeezed under a tall, narrow name. */
         .pos-item-tile {
-            position: relative; border-radius: var(--radius-md); padding: 8px; border: none; cursor: pointer;
-            text-align: center; background: color-mix(in srgb, var(--tile-accent) 12%, white);
+            position: relative; border-radius: var(--radius-md); padding: 0; border: none; cursor: pointer;
+            background: color-mix(in srgb, var(--tile-accent) 12%, white); height: 112px;
             box-shadow: 0 2px 8px rgba(31,42,55,0.08); transition: transform 0.1s;
         }
         .pos-item-tile:active { transform: scale(0.97); }
         .pos-item-tile.in-cart { box-shadow: 0 0 0 3px var(--tile-accent), 0 4px 14px rgba(31,42,55,0.16); }
         .tile-frame {
-            position: relative; border: 1.5px solid color-mix(in srgb, var(--tile-accent) 55%, white);
-            border-radius: var(--radius-sm); padding: 14px 10px 12px; background: color-mix(in srgb, var(--tile-accent) 4%, white);
-            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            position: relative; height: 100%; box-sizing: border-box;
+            border: 1.5px solid color-mix(in srgb, var(--tile-accent) 55%, white);
+            border-radius: var(--radius-sm); padding: 10px 14px; background: color-mix(in srgb, var(--tile-accent) 4%, white);
+            display: flex; align-items: center; gap: 12px; text-align: left;
         }
         .tile-corner { position: absolute; width: 14px; height: 14px; border: var(--tile-accent) solid; opacity: 0.6; }
         .tile-corner.tl { top: 4px; left: 4px; border-width: 2px 0 0 2px; }
@@ -116,17 +106,17 @@
         .tile-corner.bl { bottom: 4px; left: 4px; border-width: 0 0 2px 2px; }
         .tile-corner.br { bottom: 4px; right: 4px; border-width: 0 2px 2px 0; }
         .tile-image-wrap {
-            width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+            width: 60px; height: 60px; border-radius: 50%; flex-shrink: 0;
             background: color-mix(in srgb, var(--tile-accent) 16%, white);
             border: 2px solid color-mix(in srgb, var(--tile-accent) 50%, white);
             display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
         .tile-image-wrap img { width: 100%; height: 100%; object-fit: cover; }
-        .tile-image-wrap i { font-size: 1.6rem; color: var(--tile-accent); }
-        .tile-name { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 0.95rem; line-height: 1.2; color: var(--tile-accent); text-transform: uppercase; min-height: 2.3em; display: flex; align-items: center; }
-        .tile-price-badge { background: var(--tile-accent); color: #fff; border-radius: 8px; padding: 5px 14px; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 0.88rem; }
-        .tile-mantra { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; color: color-mix(in srgb, var(--tile-accent) 80%, black); opacity: 0.75; }
-        .tile-qty-badge { position: absolute; top: -8px; right: -8px; background: var(--tile-accent); color: #fff; font-weight: 800; font-size: 0.85rem; min-width: 28px; height: 28px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 2px solid #fff; }
+        .tile-image-wrap i { font-size: 1.5rem; color: var(--tile-accent); }
+        .tile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+        .tile-name { font-family: 'Playfair Display', Georgia, serif; font-weight: 800; font-size: 0.92rem; line-height: 1.2; color: var(--tile-accent); text-transform: uppercase; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tile-price-badge { background: var(--tile-accent); color: #fff; border-radius: 8px; padding: 4px 12px; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.84rem; margin-top: auto; }
+        .tile-qty-badge { position: absolute; top: -8px; right: -8px; background: var(--tile-accent); color: #fff; font-weight: 800; font-size: 0.85rem; min-width: 28px; height: 28px; border-radius: 50%; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3); border: 2px solid #fff; z-index: 1; }
         .pos-item-tile.in-cart .tile-qty-badge { display: flex; }
 
         /* Desktop/landscape-tablet: a normal full-height sidebar, exactly as before. Below
@@ -174,16 +164,16 @@
         .cart-line { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
         .cart-line-info { flex: 1; min-width: 0; }
         .cart-line-name { font-weight: 700; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .cart-line-unit { font-size: 0.76rem; color: var(--text-secondary); font-family: 'IBM Plex Mono', monospace; }
+        .cart-line-unit { font-size: 0.76rem; color: var(--text-secondary); font-family: 'Inter', sans-serif; }
         .cart-line-qty-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
         .cart-qty-btn { width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); font-size: 1rem; font-weight: 800; color: var(--gold-hover); }
-        .cart-qty-input { width: 40px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; padding: 4px 2px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; }
-        .cart-line-total { width: 66px; text-align: right; font-weight: 700; font-family: 'IBM Plex Mono', monospace; font-size: 0.88rem; flex-shrink: 0; }
+        .cart-qty-input { width: 40px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; padding: 4px 2px; font-weight: 700; font-family: 'Inter', sans-serif; }
+        .cart-line-total { width: 66px; text-align: right; font-weight: 700; font-family: 'Inter', sans-serif; font-size: 0.88rem; flex-shrink: 0; }
         .cart-line-remove { width: 30px; height: 30px; border-radius: 8px; border: none; background: var(--error); color: #fff; font-size: 0.85rem; flex-shrink: 0; }
 
         .pos-cart-footer { flex-shrink: 0; padding: 12px 18px 16px; border-top: 2px solid var(--border); }
         .cart-total-row { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.3rem; color: var(--text-primary); padding: 6px 0 12px; }
-        .cart-total-row span:last-child { font-family: 'IBM Plex Mono', 'Inter', monospace; }
+        .cart-total-row span:last-child { font-family: 'Inter', sans-serif; }
 
         .pos-field-label { display: block; font-weight: 700; font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
         .pos-input { width: 100%; padding: 9px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 600; color: var(--text-primary); background: var(--white); min-height: 38px; }
@@ -228,10 +218,10 @@
         .qty-modal { background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 340px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); overflow: hidden; text-align: center; }
         .qty-modal-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 16px 20px; font-weight: 800; font-size: 1.05rem; }
         .qty-modal-body { padding: 24px 22px; }
-        .qty-modal-price { color: var(--gold-hover); font-weight: 700; font-family: 'IBM Plex Mono', monospace; margin-bottom: 18px; }
+        .qty-modal-price { color: var(--gold-hover); font-weight: 700; font-family: 'Inter', sans-serif; margin-bottom: 18px; }
         .qty-modal-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 22px; }
         .qty-modal-btn { width: 54px; height: 54px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--cream); font-size: 1.6rem; font-weight: 800; color: var(--gold-hover); }
-        .qty-modal-value { font-size: 2rem; font-weight: 800; font-family: 'IBM Plex Mono', monospace; min-width: 60px; }
+        .qty-modal-value { font-size: 2rem; font-weight: 800; font-family: 'Inter', sans-serif; min-width: 60px; }
         .qty-modal-actions { display: flex; gap: 10px; }
         .qty-modal-cancel { flex: 1; padding: 13px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; }
         .qty-modal-confirm { flex: 2; padding: 13px; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; }
@@ -267,7 +257,7 @@
              long Action Framework response (mx51's "13.37" full-element test case among them)
              used to push the whole modal past the viewport instead of scrolling internally. --}}
         .eft-modal-body { padding: 22px 22px 20px; overflow-y: auto; min-height: 0; }
-        .eft-modal-amount { font-family: 'IBM Plex Mono', 'Inter', monospace; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
+        .eft-modal-amount { font-family: 'Inter', sans-serif; font-variant-numeric: tabular-nums; font-size: 2.4rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
         .eft-modal-status-box { background: var(--cream); border: 2px solid var(--border); border-radius: var(--radius-md); padding: 16px; min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; margin-bottom: 16px; transition: background-color .15s, border-color .15s; }
         .eft-modal-status-box.success { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.4); }
         .eft-modal-status-box.error { background: #FEF3F2; border-color: #FEE4E2; flex-direction: row; justify-content: flex-start; text-align: left; }
@@ -421,12 +411,13 @@
                             <i class="bi bi-flower1"></i>
                             @endif
                         </span>
-                        <span class="tile-name">{{ $ticket->name }}</span>
-                        @if($ticket->description)
-                        <span class="tile-description">{{ $ticket->description }}</span>
-                        @endif
-                        <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
-                        <span class="tile-mantra">&#2384; GANAPATHAYE NAMAHA</span>
+                        <span class="tile-text">
+                            <span class="tile-name">{{ $ticket->name }}</span>
+                            @if($ticket->description)
+                            <span class="tile-description">{{ $ticket->description }}</span>
+                            @endif
+                            <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
+                        </span>
                     </span>
                 </button>
                 @empty
@@ -461,18 +452,12 @@
                 <div class="pos-method-row" id="posMethodRow"></div>
 
                 <div class="pos-actions-main-row">
-                    {{-- Only relevant while "EFT Terminal" is the selected method — see
-                         updatePosTerminalStatus() in the script below, which shows/hides this
-                         and keeps the name in sync with the picker. --}}
-                    <div class="pos-terminal-mini-wrap" id="posTerminalMiniWrap" hidden>
-                        <span class="pos-terminal-mini-label">EFT Terminal</span>
-                        <button type="button" class="pos-terminal-mini-btn" id="posTerminalSwitchBtn" title="Tap to switch terminal">
-                            <i class="bi bi-pc-display"></i>
-                            <span class="pos-terminal-mini-divider"></span>
-                            <span class="pos-terminal-mini-btn-name" id="posTerminalMiniName">—</span>
-                            <i class="bi bi-chevron-down pos-terminal-mini-chevron"></i>
-                        </button>
-                    </div>
+                    {{-- Which terminal a sale charges to is now set once from the EFT Terminal
+                         Settings icon in the topbar (or the Pooja Portal's own "This Computer's
+                         EFT Terminal" picker) — not re-picked per sale here. The PAY button's
+                         own label already names the active terminal (see updatePosSaveBtnLabel()
+                         in the script below), so the operator always sees it without a second
+                         control to tap. --}}
                     @if($canSell)
                     <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-credit-card-2-front-fill me-2"></i>PAY {{ $temple['currency'] ?? '' }} 0.00</button>
                     @else
@@ -519,20 +504,6 @@
         </div>
     </div>
 
-    <!-- Terminal picker — which EFT terminal THIS station uses, saved per-browser so two
-         computers can each pick a different one and run concurrent counters. -->
-    <div class="qty-modal-overlay" id="terminalModalOverlay">
-        <div class="qty-modal">
-            <div class="qty-modal-header">This Station's EFT Terminal</div>
-            <div class="qty-modal-body">
-                <div id="terminalModalList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;"></div>
-                <a href="#" onclick="event.preventDefault(); openEftTerminalSettingsModal();" class="d-block small mb-3"><i class="bi bi-gear me-1"></i>Open EFT Terminal Settings (pair or add a terminal)</a>
-                <div class="qty-modal-actions">
-                    <button type="button" class="qty-modal-cancel" id="terminalModalCancel">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <div class="eft-modal-overlay" id="eftModalOverlay">
         <div class="eft-modal" role="dialog" aria-modal="true" aria-labelledby="eftModalHeaderTitle">
@@ -656,12 +627,10 @@
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
         const CAN_SELL = @json($canSell);
         const PENDING_EFT_RECOVERY = @json($pendingEftRecoveryForJs);
-        // Mutable (not const) — the terminal picker replaces this wholesale with a freshly
-        // live-checked list every time it's opened (see CBA_SCI_PICKER_REFRESH_URL below);
-        // this initial server-rendered value only ever matters for the very first paint,
-        // before the picker has ever been opened.
-        let EFT_TERMINALS = @json($eftTerminalsForJs);
-        const CBA_SCI_PICKER_REFRESH_URL = @json(route('admin.cba-sci.terminal-picker.refresh'));
+        // Server-rendered once at page load — which terminal to use is resolved from this
+        // (loadSelectedTerminalId()) and never re-fetched live on this page anymore; the
+        // live pairing check now happens only on the actual EFT Terminal Settings screen.
+        const EFT_TERMINALS = @json($eftTerminalsForJs);
         const CBA_SCI_CHARGE_START_URL = @json(route('admin.cba-sci.charge.start'));
         const CBA_SCI_CHARGE_STATUS_URL_BASE = @json(url('/admin/cba-sci/charge/status'));
         const CBA_SCI_CHARGE_ACTION_URL_BASE = @json(url('/admin/cba-sci/charge/action'));
@@ -696,124 +665,19 @@
             const def = EFT_TERMINALS.find(function (t) { return t.is_default; }) || EFT_TERMINALS[0];
             return def ? String(def.id) : null;
         }
-        function saveSelectedTerminalId(id) {
-            try { sessionStorage.setItem(TERMINAL_SESSION_KEY, id); } catch (e) {}
-        }
         let selectedTerminalId = loadSelectedTerminalId();
         function currentTerminalLabel() {
             const t = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
             return t ? t.label : 'No terminal';
         }
-        // Keeps the terminal-switch icon's tooltip in sync with whichever terminal is actually
-        // selected — printed right on the button (truncated with an ellipsis if it's long; the
-        // full name is still in the title tooltip and in the picker this button opens). Whether
-        // it shows AT ALL depends on "EFT Terminal" actually being the selected payment method —
-        // see updatePosTerminalStatus() below, defined once `selectedMethod` exists further down.
+        // Which terminal is "current" is resolved once from loadSelectedTerminalId() (the
+        // Pooja Portal's own "This Computer's EFT Terminal" setting, or the registry default)
+        // and never re-picked from this page — this just keeps the Pay button's own label in
+        // sync with that, called from updatePosTerminalStatus() whenever the method changes.
         function updateTerminalStatusName() {
-            const label = currentTerminalLabel();
-            const nameEl = document.getElementById('posTerminalMiniName');
-            if (nameEl) { nameEl.textContent = label; }
-            const btn = document.getElementById('posTerminalSwitchBtn');
-            if (btn) { btn.title = 'Current terminal: ' + label + ' — tap to switch'; }
-            // Single choke point for every path that can change which terminal is current
-            // (initial load, method switch, the terminal picker itself) — the Pay button's
-            // own "on {terminal} Terminal" text stays correct regardless of which triggered it.
             if (typeof updatePosSaveBtnLabel === 'function') { updatePosSaveBtnLabel(); }
         }
         const SCI_LOGO_URL = @json(asset('images/sci-logo.jpg'));
-
-        // Only ever lists PAIRED terminals — an unpaired one can't take a payment, and pairing/
-        // repairing one is now exclusively done from the EFT Terminal Settings page, not from
-        // this picker.
-        function renderTerminalModalList() {
-            const list = document.getElementById('terminalModalList');
-            list.innerHTML = '';
-            const pairedTerminals = EFT_TERMINALS.filter(function (t) { return t.paired; });
-            if (!pairedTerminals.length) {
-                list.innerHTML = '<p class="text-muted small mb-0">No paired terminals yet — pair one from Settings.</p>';
-                return;
-            }
-            pairedTerminals.forEach(function (t) {
-                const card = document.createElement('div');
-                const isSelected = String(t.id) === String(selectedTerminalId);
-                // A big button-style option, not a plain checkbox row — the whole card is
-                // clickable, and the selected one is unmistakably highlighted (border/fill +
-                // filled check + a "Selected" tag), not just a small tick easy to miss.
-                card.style.cssText = 'width:100%; padding:12px 16px; border-radius:8px; cursor:pointer; margin-bottom:10px; border:2px solid ' + (isSelected ? 'var(--maroon)' : 'var(--border)') + '; background:' + (isSelected ? 'var(--cream)' : 'var(--white)') + ';';
-                card.setAttribute('role', 'button');
-                card.setAttribute('tabindex', '0');
-
-                const top = document.createElement('div');
-                top.style.cssText = 'display:flex; align-items:center; gap:10px; font-size:0.95rem; font-weight:700;';
-                const providerMark = t.provider === 'cba_sci'
-                    ? '<img src="' + SCI_LOGO_URL + '" alt="SCI" style="width:18px; height:18px; border-radius:4px; object-fit:cover; flex-shrink:0;">'
-                    : '<span class="badge-pill badge-provider">LINKLY CLOUD</span>';
-                const checkCircle = '<span style="width:22px; height:22px; border-radius:50%; border:2px solid ' + (isSelected ? 'var(--maroon)' : 'var(--border)') + '; background:' + (isSelected ? 'var(--maroon)' : 'var(--white)') + '; color:#fff; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.8rem;">' + (isSelected ? '&#10003;' : '') + '</span>';
-                top.innerHTML = checkCircle +
-                    providerMark +
-                    '<span>' + t.label + (t.is_default ? ' <span style="font-size:0.7rem; color:var(--text-secondary);">· default</span>' : '') + '</span>' +
-                    (isSelected ? '<span style="margin-left:auto; font-size:0.68rem; font-weight:800; color:var(--maroon); text-transform:uppercase; letter-spacing:0.04em;">Selected</span>' : '');
-                card.appendChild(top);
-
-                if (t.provider === 'cba_sci' && t.sci_pairing_id) {
-                    const details = document.createElement('div');
-                    details.style.cssText = 'margin-top:4px; padding-left:32px; font-size:0.78rem; color:var(--text-secondary);';
-                    details.textContent = 'Pairing ID: ' + t.sci_pairing_id;
-                    card.appendChild(details);
-                }
-
-                function selectThisTerminal() {
-                    selectedTerminalId = String(t.id);
-                    saveSelectedTerminalId(selectedTerminalId);
-                    updateTerminalStatusName();
-                    document.getElementById('terminalModalOverlay').classList.remove('active');
-                }
-                card.addEventListener('click', selectThisTerminal);
-                card.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectThisTerminal(); }
-                });
-
-                list.appendChild(card);
-            });
-        }
-        // mx51's certification checklist requires a live GET /pairing-info check at the moment
-        // the pairing/terminal screen is opened, not a flag cached from page load that only
-        // ever changes once someone presses Unpair — EftTerminalController::index() already
-        // does this for the admin registry page; this is the same check for the POS's own
-        // terminal picker, which previously never ran it at all.
-        function refreshTerminalPicker() {
-            const list = document.getElementById('terminalModalList');
-            if (list) { list.innerHTML = '<p class="text-muted small mb-0"><span class="spinner-border spinner-border-sm me-2"></span>Checking terminal status…</p>'; }
-            fetch(CBA_SCI_PICKER_REFRESH_URL, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
-            })
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    if (data && data.success && Array.isArray(data.terminals)) {
-                        EFT_TERMINALS = data.terminals;
-                    }
-                    renderTerminalModalList();
-                    updateTerminalStatusName();
-                    updateEftMethodAvailability();
-                })
-                .catch(function () {
-                    // Still show whatever was last known rather than leaving the modal stuck
-                    // on the loading message if the live check itself can't be reached.
-                    renderTerminalModalList();
-                });
-        }
-        // Shown immediately on open (own loading state) rather than blocking the click.
-        const posTerminalSwitchBtn = document.getElementById('posTerminalSwitchBtn');
-        if (posTerminalSwitchBtn) {
-            posTerminalSwitchBtn.addEventListener('click', function () {
-                document.getElementById('terminalModalOverlay').classList.add('active');
-                refreshTerminalPicker();
-            });
-        }
-        document.getElementById('terminalModalCancel').addEventListener('click', function () {
-            document.getElementById('terminalModalOverlay').classList.remove('active');
-        });
 
         // ---------- Cart ----------
         let cart = {}; // ticket_id -> {id, name, price, quantity}
@@ -1017,13 +881,9 @@
             if (m === posDefaultMethod) { selectedMethod = m; }
         });
 
-        // Only relevant while "EFT Terminal" is the selected method — a compact icon sitting
-        // right next to Complete Sale, not a whole extra row above it, and not a topbar icon
-        // easily mistaken for Settings/Account either (both previous designs).
-        const posTerminalStatus = document.getElementById('posTerminalMiniWrap');
+        // Keeps the Pay button's own label in sync with the selected method/terminal —
+        // called on every method switch (and once here for the initial default method).
         function updatePosTerminalStatus() {
-            if (!posTerminalStatus) { return; }
-            posTerminalStatus.hidden = selectedMethod !== 'EFT Terminal';
             updateTerminalStatusName();
         }
         updatePosTerminalStatus();
@@ -1038,31 +898,7 @@
         }
         updateEftSettingsTopbarBtn();
         if (posEftSettingsTopbarBtn) {
-            // Straight to pairing/settings itself — the terminal picker (Switch, above the Pay
-            // button) is the separate, optional "which terminal does this station use" list,
-            // not a required stop on the way to Settings.
             posEftSettingsTopbarBtn.addEventListener('click', function () { openEftTerminalSettingsModal(); });
-        }
-
-        // Re-run whenever the picker's own live refresh updates EFT_TERMINALS (e.g. the
-        // previously-paired terminal was just unpaired/removed elsewhere) — switches away from
-        // EFT Terminal automatically if it was selected and just became unavailable.
-        function updateEftMethodAvailability() {
-            const btn = methodRow.querySelector('.pos-method-btn[data-method="EFT Terminal"]');
-            if (!btn) { return; }
-            const available = eftTerminalAvailable();
-            btn.classList.toggle('disabled', !available);
-            btn.title = available ? '' : 'No EFT terminal is currently paired.';
-            if (!available && selectedMethod === 'EFT Terminal') {
-                methodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
-                const fallbackBtn = Array.prototype.find.call(methodRow.querySelectorAll('.pos-method-btn'), function (b) { return !b.classList.contains('disabled'); });
-                if (fallbackBtn) {
-                    fallbackBtn.classList.add('active');
-                    selectedMethod = fallbackBtn.dataset.method;
-                }
-            }
-            updatePosTerminalStatus();
-            updateEftSettingsTopbarBtn();
         }
 
         let toastHideTimer = null;
