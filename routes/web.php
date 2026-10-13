@@ -124,6 +124,13 @@ Route::post('/set-new-password', [AuthController::class, 'resetPasswordLink'])->
 // strict role.admin group with its own inline check instead: the general dashboard stats
 // stay Admin-only, while the chat tabs are gated by the same 'chats' permission the
 // sidebar link and ChatController's API routes already use.
+// Bare /admin — a natural URL to land on/bookmark, but never a page of its own. Logged-in
+// users bounce straight to the dashboard; the 'auth' middleware's own redirectTo (login)
+// handles everyone else, same as hitting any other admin.* route unauthenticated.
+Route::get('/admin', function () {
+    return redirect()->route('admin.dashboard');
+})->middleware('auth')->name('admin.root');
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/dashboard', function () {
         $currentUser = \Illuminate\Support\Facades\Auth::user();

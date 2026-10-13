@@ -29,7 +29,7 @@ class SystemUserController extends Controller
         }
 
         $query = User::query()
-            ->select('id', 'name', 'email', 'username', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled', 'pos_pin_locked_at');
+            ->select('id', 'name', 'email', 'mobile', 'username', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled', 'pos_pin_locked_at');
 
         $roleFilter = $request->get('role');
         if ($roleFilter && in_array($roleFilter, RolePermission::roles(), true)) {
@@ -47,6 +47,16 @@ class SystemUserController extends Controller
             }
         }
 
+        // Defaults to Active-only, same "don't drown the common case in noise" rule the
+        // All Transactions pane applies to Cancelled/Failed — an admin almost always wants
+        // the people who can currently log in; a deactivated account is the opt-in case.
+        $statusFilter = $request->get('status', 'Active');
+        if (in_array($statusFilter, ['Active', 'Inactive'], true)) {
+            $query->where('status', $statusFilter);
+        } else {
+            $statusFilter = 'all';
+        }
+
         $search = $request->get('search');
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -59,7 +69,7 @@ class SystemUserController extends Controller
         $roles = RolePermission::roles();
         $creatableRoles = array_values(array_diff($roles, ['Event Coordinator', 'Ticket Controller', 'Kiosk Device']));
 
-        return view('admin.system-users', compact('users', 'roles', 'creatableRoles', 'roleFilter', 'search'));
+        return view('admin.system-users', compact('users', 'roles', 'creatableRoles', 'roleFilter', 'statusFilter', 'search'));
     }
 
     /**
