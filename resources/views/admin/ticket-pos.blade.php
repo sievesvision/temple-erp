@@ -76,6 +76,23 @@
         .pos-items-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
         .pos-items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
 
+        {{-- Category tabs — only rendered at all when the catalog actually has categories
+             assigned (see Ticket::category, set from the Pooja Portal's Ticket Types pane).
+             A plain horizontal scroller, not a dropdown, so switching categories stays a
+             single tap on a touchscreen counter. --}}
+        .pos-category-tabs { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+        .pos-category-tab {
+            flex-shrink: 0; padding: 9px 18px; border-radius: 999px; border: 1.5px solid var(--border);
+            background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.86rem;
+        }
+        .pos-category-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
+        .pos-item-tile.pos-category-hidden { display: none; }
+        .tile-description {
+            font-size: 0.7rem; line-height: 1.25; color: var(--text-secondary); font-weight: 500;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+            text-transform: none; padding: 0 2px;
+        }
+
         /* Each tile is a miniature version of the temple's own printed ticket design — an
            ornate bordered card themed by the ticket's own background_color (see App\Models\
            Ticket), with a circular image frame, the ticket name, and a price badge — rather
@@ -123,6 +140,12 @@
            sometimes nothing at all. That's the exact "order button hides the items" bug. */
         .pos-cart-pane { width: 100%; flex-shrink: 0; background: var(--white); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
         @media (min-width: 900px) { .pos-cart-pane { width: 400px; } }
+        {{-- The cart only ever renders once an item has been added (see renderCart()'s own
+             .has-items toggle) — an empty "Order" panel sitting on screen all day was chrome
+             the operator had to look past on every sale, and the items grid now reclaims
+             its full width/height until there's actually an order in progress. --}}
+        .pos-cart-pane:not(.has-items) { display: none; }
+        .pos-body:has(.pos-cart-pane:not(.has-items)) .pos-items-pane { padding-bottom: 18px; }
         .pos-cart-header { padding: 16px 18px; font-weight: 800; font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
         .pos-cart-header-summary { display: none; margin-left: auto; align-items: center; gap: 10px; font-weight: 700; font-size: 0.92rem; color: var(--gold-hover); }
         .pos-cart-header-chevron { display: none; transition: transform 0.2s; color: var(--text-secondary); }
@@ -175,9 +198,13 @@
         .pos-method-btn.disabled { opacity: 0.45; cursor: not-allowed; }
         .pos-method-btn.disabled.active { border-color: var(--border); background: var(--shade); color: var(--text-secondary); box-shadow: none; }
 
-        .pos-save-btn { width: 100%; padding: 16px; border-radius: var(--radius-md); border: none; background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; font-weight: 800; font-size: 1.1rem; box-shadow: 0 10px 26px rgba(200,155,60,0.35); min-height: 56px; }
+        {{-- Solid maroon, same as event-pos-donation's own PAY button — the two POS pages'
+             primary action now reads as one shared brand colour instead of each inventing
+             its own (this one was gold, donations' was maroon). --}}
+        .pos-save-btn { width: 100%; padding: 16px; border-radius: var(--radius-md); border: none; background: var(--maroon); color: white; font-weight: 800; font-size: 1.1rem; box-shadow: 0 10px 26px rgba(107,15,26,0.3); min-height: 56px; }
         .pos-save-btn:disabled { opacity: 0.55; }
         .pos-save-btn:active { transform: scale(0.98); }
+        .pos-save-btn-terminal { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: rgba(255,255,255,0.72); display: block; }
 
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
@@ -335,9 +362,6 @@
         @if($canManageConsole)
         <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i></a>
         @endif
-        @if($canSettleCash)
-        <button type="button" class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal" title="Settle Till"><i class="bi bi-cash-stack"></i></button>
-        @endif
         <!-- Always visible, regardless of whether a terminal is currently paired — the Switch
              button near Pay only ever shows up while "EFT Terminal" is the selected payment
              method (and that method stays disabled with nothing paired to pick), so it's not a
@@ -351,7 +375,13 @@
             <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
                 <i class="bi bi-person-fill"></i>
             </button>
+            {{-- Settle Till used to be its own standalone topbar icon — folded in here instead
+                 so the topbar carries only navigation/device-setup chrome, with everything
+                 account/shift-related (PIN, till, logout) in one place. --}}
             <ul class="dropdown-menu dropdown-menu-end">
+                @if($canSettleCash)
+                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#settleTillModal"><i class="bi bi-cash-stack me-2"></i>Settle Till</a></li>
+                @endif
                 @if($canManagePosPin)
                 <li><a class="dropdown-item" href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage POS PIN</a></li>
                 @endif
@@ -362,10 +392,19 @@
 
     <div class="pos-body">
         <div class="pos-items-pane">
+            @php $ticketCategories = $tickets->pluck('category')->filter()->unique()->sort()->values(); @endphp
+            @if($ticketCategories->isNotEmpty())
+            <div class="pos-category-tabs" id="posCategoryTabs">
+                <button type="button" class="pos-category-tab active" data-category="">All</button>
+                @foreach($ticketCategories as $cat)
+                <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
+                @endforeach
+            </div>
+            @endif
             <div class="pos-items-grid" id="itemsGrid">
                 @forelse($tickets as $ticket)
                 @php $accent = $ticket->background_color ?: '#6B0F1A'; @endphp
-                <button type="button" class="pos-item-tile" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}"
+                <button type="button" class="pos-item-tile" data-id="{{ $ticket->id }}" data-name="{{ $ticket->name }}" data-price="{{ $ticket->price }}" data-category="{{ $ticket->category }}"
                     style="--tile-accent: {{ $accent }};">
                     <span class="tile-qty-badge">0</span>
                     <span class="tile-frame">
@@ -383,6 +422,9 @@
                             @endif
                         </span>
                         <span class="tile-name">{{ $ticket->name }}</span>
+                        @if($ticket->description)
+                        <span class="tile-description">{{ $ticket->description }}</span>
+                        @endif
                         <span class="tile-price-badge">{{ $temple['currency'] ?? '' }} {{ number_format($ticket->price, 2) }}</span>
                         <span class="tile-mantra">&#2384; GANAPATHAYE NAMAHA</span>
                     </span>
@@ -432,7 +474,7 @@
                         </button>
                     </div>
                     @if($canSell)
-                    <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-printer-fill me-2"></i>Complete Sale &amp; Print</button>
+                    <button type="button" class="pos-save-btn" id="posSaveBtn"><i class="bi bi-credit-card-2-front-fill me-2"></i>PAY {{ $temple['currency'] ?? '' }} 0.00</button>
                     @else
                     <button type="button" class="pos-save-btn" disabled title="View-only access"><i class="bi bi-eye-fill me-2"></i>View Only</button>
                     @endif
@@ -673,6 +715,10 @@
             if (nameEl) { nameEl.textContent = label; }
             const btn = document.getElementById('posTerminalSwitchBtn');
             if (btn) { btn.title = 'Current terminal: ' + label + ' — tap to switch'; }
+            // Single choke point for every path that can change which terminal is current
+            // (initial load, method switch, the terminal picker itself) — the Pay button's
+            // own "on {terminal} Terminal" text stays correct regardless of which triggered it.
+            if (typeof updatePosSaveBtnLabel === 'function') { updatePosSaveBtnLabel(); }
         }
         const SCI_LOGO_URL = @json(asset('images/sci-logo.jpg'));
 
@@ -806,7 +852,13 @@
                 tile.querySelector('.tile-qty-badge').textContent = qty;
             });
 
+            // The cart panel itself only appears once there's something to check out —
+            // an empty "Order" sidebar/sheet permanently on screen was dead chrome the
+            // operator had to look past on every single sale.
+            document.querySelector('.pos-cart-pane').classList.toggle('has-items', lines.length > 0);
+
             recalcCartTotal();
+            updatePosSaveBtnLabel();
         }
 
         function recalcCartTotal() {
@@ -876,6 +928,25 @@
             const tile = e.target.closest('.pos-item-tile');
             if (tile) { openQtyModal(tile); }
         });
+
+        // Category tabs — a plain client-side show/hide against each tile's own
+        // data-category, same "no server round-trip for something this cheap" approach as
+        // the cart/quantity logic already on this page.
+        (function () {
+            const tabs = document.getElementById('posCategoryTabs');
+            if (!tabs) { return; }
+            const tiles = Array.from(document.querySelectorAll('#itemsGrid .pos-item-tile'));
+            tabs.querySelectorAll('.pos-category-tab').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    tabs.querySelectorAll('.pos-category-tab').forEach(function (t) { t.classList.remove('active'); });
+                    tab.classList.add('active');
+                    const category = tab.dataset.category;
+                    tiles.forEach(function (tile) {
+                        tile.classList.toggle('pos-category-hidden', !!category && tile.dataset.category !== category);
+                    });
+                });
+            });
+        })();
         document.getElementById('qtyModalPlus').addEventListener('click', function () {
             const el = document.getElementById('qtyModalValue');
             el.textContent = parseInt(el.textContent, 10) + 1;
@@ -897,6 +968,23 @@
         const methodRow = document.getElementById('posMethodRow');
         let selectedMethod = null;
         const methodIcons = { Cash: 'bi-cash-coin', UPI: 'bi-phone-fill', 'Bank Transfer': 'bi-bank2', 'EFT Terminal': 'bi-credit-card-2-front-fill' };
+
+        // The Pay button's own label/icon track the live cart total and selected method,
+        // same pattern as event-pos-donation's PAY {amount} — called from recalcCartTotal()
+        // (quantity changes) and updatePosTerminalStatus() (method/terminal changes), so it
+        // never goes stale regardless of which changed first.
+        function updatePosSaveBtnLabel() {
+            const saveBtn = document.getElementById('posSaveBtn');
+            if (!saveBtn) { return; }
+            let amt = 0;
+            Object.values(cart).forEach(function (line) { amt += line.price * line.quantity; });
+            const amtText = CURRENCY_CODE + ' ' + amt.toFixed(2);
+            if (selectedMethod === 'EFT Terminal') {
+                saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY ' + amtText + '<span class="pos-save-btn-terminal">on ' + currentTerminalLabel() + ' Terminal</span>';
+            } else {
+                saveBtn.innerHTML = '<i class="bi bi-credit-card-2-front-fill me-2"></i>PAY ' + amtText;
+            }
+        }
         const PAYMENT_METHODS = @json($paymentMethods);
         const posMethodList = PAYMENT_METHODS.length ? PAYMENT_METHODS : ['Cash'];
         // EFT Terminal is the fastest, most reconciliation-friendly method when it's on offer

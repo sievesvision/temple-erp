@@ -301,6 +301,7 @@ class TicketController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'category' => 'nullable|string|max:100',
             'price' => 'required|numeric|min:0.01',
             'status' => 'required|in:Active,Inactive',
             'sort_order' => 'nullable|integer|min:0',
@@ -326,6 +327,7 @@ class TicketController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'category' => 'nullable|string|max:100',
             'price' => 'required|numeric|min:0.01',
             'status' => 'required|in:Active,Inactive',
             'sort_order' => 'nullable|integer|min:0',

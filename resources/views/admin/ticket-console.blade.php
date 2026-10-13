@@ -449,9 +449,15 @@
                                             <div>
                                                 <div class="fw-bold">{{ $ticket->name }}</div>
                                                 <div class="small text-muted">{{ number_format($ticket->price, 2) }}</div>
+                                                @if($ticket->category)
+                                                <span class="settlement-badge mt-1 d-inline-block">{{ $ticket->category }}</span>
+                                                @endif
                                             </div>
                                             <span class="status-pill status-{{ $ticket->status === 'Active' ? 'paid' : 'cancelled' }}">{{ $ticket->status }}</span>
                                         </div>
+                                        @if($ticket->description)
+                                        <div class="small text-muted mt-2">{{ \Illuminate\Support\Str::limit($ticket->description, 90) }}</div>
+                                        @endif
                                         <div class="mt-2 text-end">
                                             @if($canEdit)
                                             <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editTicketModal{{ $ticket->id }}"><i class="bi bi-pencil-fill"></i></button>
@@ -1066,6 +1072,15 @@
                 <div class="modal-body">
                     <div class="mb-3"><label class="form-label">Name</label><input type="text" name="name" class="form-control" required></div>
                     <div class="mb-3"><label class="form-label">Description (optional)</label><textarea name="description" class="form-control" rows="2"></textarea></div>
+                    <div class="mb-3">
+                        <label class="form-label">Category (optional)</label>
+                        <input type="text" name="category" class="form-control" list="ticketCategoryOptions" placeholder="e.g. Archana, Pooja, Special">
+                        <datalist id="ticketCategoryOptions">
+                            @foreach($tickets->pluck('category')->filter()->unique()->sort() as $cat)
+                            <option value="{{ $cat }}">
+                            @endforeach
+                        </datalist>
+                    </div>
                     <div class="mb-3"><label class="form-label">Price</label><input type="number" step="0.01" min="0.01" name="price" class="form-control" required></div>
                     <div class="row">
                         <div class="col-6 mb-3"><label class="form-label">Background Colour</label><input type="color" name="background_color" class="form-control form-control-color w-100" value="#C89B3C"></div>
@@ -1095,6 +1110,10 @@
                 <div class="modal-body">
                     <div class="mb-3"><label class="form-label">Name</label><input type="text" name="name" class="form-control" value="{{ $ticket->name }}" required></div>
                     <div class="mb-3"><label class="form-label">Description (optional)</label><textarea name="description" class="form-control" rows="2">{{ $ticket->description }}</textarea></div>
+                    <div class="mb-3">
+                        <label class="form-label">Category (optional)</label>
+                        <input type="text" name="category" class="form-control" value="{{ $ticket->category }}" list="ticketCategoryOptions" placeholder="e.g. Archana, Pooja, Special">
+                    </div>
                     <div class="mb-3"><label class="form-label">Price</label><input type="number" step="0.01" min="0.01" name="price" class="form-control" value="{{ $ticket->price }}" required></div>
                     <div class="row">
                         <div class="col-6 mb-3"><label class="form-label">Background Colour</label><input type="color" name="background_color" class="form-control form-control-color w-100" value="{{ $ticket->background_color ?: '#C89B3C' }}"></div>
