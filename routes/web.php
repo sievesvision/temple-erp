@@ -544,7 +544,18 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/qr-link/update/{id}', [\App\Http\Controllers\QrLinkController::class, 'update'])->name('admin.qrlinks.update');
     Route::delete('/admin/qr-link/delete/{id}', [\App\Http\Controllers\QrLinkController::class, 'destroy'])->name('admin.qrlinks.delete');
 
-    // System Users (cross-role account list + admin-triggered password reset)
+    Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
+
+    // Leave Requests Route (Admin management)
+    Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');
+    Route::post('/admin/leaves/status/{id}', [PriestController::class, 'updateLeaveStatus'])->name('admin.leaves.status');
+});
+
+// ============================================
+// SYSTEM USERS (Admin full access; Committee restricted to lower-authority roles only —
+// see SystemUserController's own role-hierarchy checks, built on RolePermission::levels())
+// ============================================
+Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::get('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'index'])->name('admin.users.index');
     Route::post('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'store'])->name('admin.users.store');
     Route::post('/admin/users/{targetUser}', [\App\Http\Controllers\SystemUserController::class, 'update'])->name('admin.users.update');
@@ -555,11 +566,6 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/users/{targetUser}/username', [\App\Http\Controllers\SystemUserController::class, 'setUsername'])->name('admin.users.set-username');
     Route::post('/admin/users/{targetUser}/pos-pin/reset-lockout', [\App\Http\Controllers\SystemUserController::class, 'resetPosPinLockout'])->name('admin.pos-pin.reset-lockout');
     Route::post('/admin/users/{targetUser}/pos-pin/send-setup-link', [\App\Http\Controllers\SystemUserController::class, 'sendPosPinSetupLink'])->name('admin.pos-pin.send-setup-link');
-    Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
-
-    // Leave Requests Route (Admin management)
-    Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');
-    Route::post('/admin/leaves/status/{id}', [PriestController::class, 'updateLeaveStatus'])->name('admin.leaves.status');
 });
 
 // ============================================

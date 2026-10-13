@@ -358,9 +358,14 @@
                         <button type="button" class="su-btn-action" onclick="openAccessModal({{ $u->id }}, {{ json_encode($u->name) }})">
                             <i class="bi bi-calendar-check"></i> Event &amp; Ticket Access
                         </button>
+                        @if($canManageAll)
+                        {{-- admin.logs.index stays Admin-only (the full system-wide audit
+                             log, not scoped to this one user) — hidden rather than left as
+                             a dead-end click for a restricted Committee viewer. --}}
                         <a href="{{ route('admin.logs.index', ['search' => $u->name]) }}" class="su-btn-action">
                             <i class="bi bi-clock-history"></i> View Activity
                         </a>
+                        @endif
                         <form action="{{ route('admin.users.send-reset-link', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Send a password reset link to {{ $u->email }}?')">
                             @csrf
                             <button type="submit" class="su-btn-action purple"><i class="bi bi-envelope-arrow-up"></i> Send Reset Link</button>
