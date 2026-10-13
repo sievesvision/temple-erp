@@ -884,7 +884,12 @@
                 });
             }
 
-            document.querySelectorAll('.pos-item-tile').forEach(function (tile) {
+            // Scoped to ticket tiles only — pooja tiles share the .pos-item-tile base class
+            // but have no .tile-qty-badge (they're not cart/quantity items), so including
+            // them here throws on the missing badge and silently aborts the rest of
+            // renderCart() (the cart pane never gets marked .has-items, the qty modal never
+            // closes — exactly the "popup stays, cart doesn't show" symptom this fixes).
+            document.querySelectorAll('.pos-item-tile[data-type="ticket"]').forEach(function (tile) {
                 const id = tile.dataset.id;
                 const qty = (cart[id] && cart[id].quantity) || 0;
                 tile.classList.toggle('in-cart', qty > 0);
