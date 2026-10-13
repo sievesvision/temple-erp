@@ -75,6 +75,33 @@
         }
         .pos-category-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
         .pos-item-tile.pos-category-hidden { display: none; }
+
+        {{-- Pooja picker (inside the "Book Pooja" modal) — a single-select grid of cards,
+             same visual language as the ticket tiles above but its own simpler classes
+             (no cart/quantity state, just select-one), so it can't collide with the ticket
+             grid's own JS. --}}
+        .pooja-picker-search { position: relative; margin-bottom: 10px; }
+        .pooja-picker-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+        .pooja-picker-search input { padding-left: 38px; }
+        .pooja-category-tabs { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+        .pooja-category-tab {
+            flex-shrink: 0; padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--border);
+            background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.78rem; cursor: pointer;
+        }
+        .pooja-category-tab.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }
+        .pooja-tiles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding: 2px; }
+        .pooja-tile {
+            border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--white);
+            text-align: left; display: flex; flex-direction: column; gap: 3px;
+        }
+        .pooja-tile:hover { border-color: var(--maroon); }
+        .pooja-tile.selected { border-color: var(--maroon); background: color-mix(in srgb, var(--maroon) 8%, white); box-shadow: 0 0 0 2px var(--maroon); }
+        .pooja-tile .pt-name { font-weight: 700; font-size: 0.82rem; color: var(--text-primary); line-height: 1.25; }
+        .pooja-tile .pt-fee { font-size: 0.78rem; color: var(--maroon); font-weight: 700; }
+        .pooja-tile.pooja-hidden { display: none; }
+        .pooja-tile.pooja-tile-custom { border-style: dashed; }
+        .pooja-tile.pooja-tile-custom .pt-name { color: var(--maroon); }
+        .pooja-picker-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 10px 4px; display: none; }
         .tile-description {
             font-size: 0.72rem; line-height: 1.3; color: var(--text-secondary); font-weight: 500;
             display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -593,7 +620,7 @@
          (storeOrder etc.), rather than a plain form post. --}}
     @if($canCreateBookings)
     <div class="modal fade" id="bookPoojaModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
                 <form id="bookPoojaForm">
                     <div class="modal-header">
@@ -602,19 +629,40 @@
                     </div>
                     <div class="modal-body">
                         <div id="bookPoojaError" class="alert alert-danger d-none" role="alert"></div>
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">Pooja</label>
-                            <select name="pooja_id" class="form-select" required>
-                                <option value="" selected disabled>Select pooja</option>
-                                @foreach($bookingPoojas->groupBy(fn($p) => $p->category ?: 'General') as $categoryName => $categoryPoojas)
-                                    <optgroup label="{{ $categoryName }}">
-                                        @foreach($categoryPoojas as $pooja)
-                                            <option value="{{ $pooja->pooja_id }}">{{ $pooja->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}</option>
-                                        @endforeach
-                                    </optgroup>
+                            <div class="pooja-picker-search">
+                                <i class="bi bi-search"></i>
+                                <input type="text" class="form-control" id="pp_search" placeholder="Search poojas...">
+                            </div>
+                            <div class="pooja-category-tabs" id="pp_category_tabs">
+                                <button type="button" class="pooja-category-tab active" data-category="">All</button>
+                                @foreach($bookingPoojas->pluck('category')->filter()->unique()->sort() as $cat)
+                                <button type="button" class="pooja-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
                                 @endforeach
-                            </select>
+                            </div>
+                            <div class="pooja-tiles-grid" id="pp_tiles_grid">
+                                <button type="button" class="pooja-tile pooja-tile-custom" data-id="custom" data-name="Custom Pooja" data-category="" data-fee="">
+                                    <span class="pt-name"><i class="bi bi-plus-circle me-1"></i>Custom Pooja</span>
+                                    <span class="pt-fee">Not in the list</span>
+                                </button>
+                                @foreach($bookingPoojas as $pooja)
+                                <button type="button" class="pooja-tile" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-category="{{ $pooja->category }}" data-fee="{{ $pooja->pooja_fee }}">
+                                    <span class="pt-name">{{ $pooja->pooja_name }}</span>
+                                    <span class="pt-fee">{{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}</span>
+                                </button>
+                                @endforeach
+                            </div>
+                            <div class="pooja-picker-empty" id="pp_empty">No poojas match your search.</div>
+                            <input type="hidden" name="pooja_id" id="pp_pooja_id" required>
+                            <input type="hidden" name="custom_pooja" id="pp_is_custom" value="0">
+                            <div id="pp_custom_fields" class="d-none mt-2">
+                                <input type="text" name="custom_pooja_label" id="pp_custom_label" class="form-control mb-2" placeholder="Describe the pooja...">
+                                <input type="number" name="custom_fee" id="pp_custom_fee" class="form-control" placeholder="Fee ({{ $temple['currency'] }})" step="0.01" min="0">
+                            </div>
                         </div>
+
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Booking Date</label>
@@ -639,7 +687,7 @@
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Priest</label>
+                            <label class="form-label fw-bold">Priest <span class="text-muted fw-normal">(optional)</span></label>
                             <select name="priest_option" id="posbp_priest_option" class="form-select">
                                 <option value="auto" selected>Auto-assign (workload balanced)</option>
                                 <option value="preferred">Choose a specific priest</option>
@@ -672,9 +720,9 @@
                         <div class="mb-0">
                             <label class="form-label fw-bold">Payment Method</label>
                             <select name="payment_method" class="form-select" required>
-                                <option value="Cash" selected>Cash at Temple</option>
-                                <option value="Counter">Office Counter</option>
-                                <option value="Bank">Bank Transfer</option>
+                                <option value="Cash" selected>Cash at Temple (paid now)</option>
+                                <option value="Counter">Office Counter (paid now)</option>
+                                <option value="Bank">Bank Transfer (pending)</option>
                             </select>
                         </div>
                     </div>
@@ -1543,9 +1591,100 @@
                 preferredWrapper.classList.toggle('d-none', this.value !== 'preferred');
             });
 
+            // Pooja picker: search + category tabs + single-select tile grid, with a
+            // pinned "Custom Pooja" tile (see BookingService::create()'s custom_pooja_label/
+            // custom_fee support) that's always visible regardless of filters.
+            const searchInput = document.getElementById('pp_search');
+            const categoryTabs = document.getElementById('pp_category_tabs');
+            const tilesGrid = document.getElementById('pp_tiles_grid');
+            const emptyMsg = document.getElementById('pp_empty');
+            const poojaIdField = document.getElementById('pp_pooja_id');
+            const isCustomField = document.getElementById('pp_is_custom');
+            const customFields = document.getElementById('pp_custom_fields');
+            const customLabel = document.getElementById('pp_custom_label');
+            const customFee = document.getElementById('pp_custom_fee');
+            let activeCategory = '';
+
+            function applyPoojaFilters() {
+                const q = searchInput.value.trim().toLowerCase();
+                let anyVisible = false;
+                tilesGrid.querySelectorAll('.pooja-tile').forEach(function (tile) {
+                    if (tile.classList.contains('pooja-tile-custom')) { return; }
+                    const matchesCategory = !activeCategory || tile.dataset.category === activeCategory;
+                    const matchesSearch = !q || tile.dataset.name.toLowerCase().includes(q);
+                    const visible = matchesCategory && matchesSearch;
+                    tile.classList.toggle('pooja-hidden', !visible);
+                    if (visible) { anyVisible = true; }
+                });
+                emptyMsg.style.display = anyVisible ? 'none' : 'block';
+            }
+
+            searchInput.addEventListener('input', applyPoojaFilters);
+
+            categoryTabs.addEventListener('click', function (e) {
+                const tab = e.target.closest('.pooja-category-tab');
+                if (!tab) { return; }
+                categoryTabs.querySelectorAll('.pooja-category-tab').forEach(function (t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+                activeCategory = tab.dataset.category || '';
+                applyPoojaFilters();
+            });
+
+            function selectTile(tile) {
+                tilesGrid.querySelectorAll('.pooja-tile').forEach(function (t) { t.classList.remove('selected'); });
+                tile.classList.add('selected');
+
+                if (tile.dataset.id === 'custom') {
+                    isCustomField.value = '1';
+                    poojaIdField.value = '';
+                    poojaIdField.required = false;
+                    customFields.classList.remove('d-none');
+                    customLabel.required = true;
+                    customFee.required = true;
+                } else {
+                    isCustomField.value = '0';
+                    poojaIdField.value = tile.dataset.id;
+                    poojaIdField.required = true;
+                    customFields.classList.add('d-none');
+                    customLabel.required = false;
+                    customFee.required = false;
+                }
+            }
+
+            tilesGrid.addEventListener('click', function (e) {
+                const tile = e.target.closest('.pooja-tile');
+                if (tile) { selectTile(tile); }
+            });
+
+            function resetPoojaPicker() {
+                tilesGrid.querySelectorAll('.pooja-tile').forEach(function (t) { t.classList.remove('selected'); });
+                poojaIdField.value = '';
+                poojaIdField.required = true;
+                isCustomField.value = '0';
+                customFields.classList.add('d-none');
+                customLabel.required = false;
+                customFee.required = false;
+                searchInput.value = '';
+                activeCategory = '';
+                categoryTabs.querySelectorAll('.pooja-category-tab').forEach(function (t, i) { t.classList.toggle('active', i === 0); });
+                applyPoojaFilters();
+            }
+
             form.addEventListener('submit', function (e) {
                 e.preventDefault();
                 errorBox.classList.add('d-none');
+
+                if (!poojaIdField.value && isCustomField.value !== '1') {
+                    errorBox.textContent = 'Please select a pooja, or choose Custom Pooja.';
+                    errorBox.classList.remove('d-none');
+                    return;
+                }
+                if (isCustomField.value === '1' && (!customLabel.value.trim() || customFee.value === '' || Number(customFee.value) < 0)) {
+                    errorBox.textContent = 'Please describe the custom pooja and enter a fee.';
+                    errorBox.classList.remove('d-none');
+                    return;
+                }
+
                 submitBtn.disabled = true;
                 const originalText = submitBtn.innerHTML;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating…';
@@ -1564,6 +1703,7 @@
                             bootstrap.Modal.getInstance(modalEl)?.hide();
                             form.reset();
                             preferredWrapper.classList.add('d-none');
+                            resetPoojaPicker();
                         } else {
                             errorBox.textContent = data.message || 'Could not create the booking.';
                             errorBox.classList.remove('d-none');

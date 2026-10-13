@@ -82,8 +82,11 @@ class PriestPortalBookingCreationTest extends TestCase
         $this->assertSame($priest->priest_id, $booking->priest_id);
     }
 
-    public function test_a_priest_cannot_book_themselves_for_a_slot_they_are_already_on_leave_for(): void
+    public function test_a_priest_on_leave_can_still_book_but_ends_up_unassigned(): void
     {
+        // Priest assignment is never mandatory (see BookingService::resolvePriest()) — a
+        // priest booking themselves into a slot they're on leave for no longer blocks the
+        // booking, it just goes through with priest_id left null rather than being them.
         [$user, $priest] = $this->loggedInPriest();
         $pooja = $this->activePooja();
         $date = now()->addDay()->toDateString();
@@ -107,7 +110,9 @@ class PriestPortalBookingCreationTest extends TestCase
             'payment_method' => 'Cash',
         ]);
 
-        $response->assertSessionHas('error');
-        $this->assertSame(0, Booking::count());
+        $response->assertSessionHas('success');
+        $booking = Booking::first();
+        $this->assertNotNull($booking);
+        $this->assertNull($booking->priest_id);
     }
 }

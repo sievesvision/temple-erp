@@ -871,9 +871,15 @@
                   </div>
 
                   <div class="mb-3">
-                    <label class="form-label fw-semibold text-secondary">Pooja Service</label>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <label class="form-label fw-semibold text-secondary mb-0">Pooja Service</label>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="pooja_is_custom">
+                        <label class="form-check-label small text-secondary" for="pooja_is_custom">Custom pooja (not in the list)</label>
+                      </div>
+                    </div>
                     @php
-                      $activePoojas = DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name', 'asc')->get();
+                      $activePoojas = DB::table('poojas')->where('status', 'Active')->where('category', '!=', 'Custom')->orderBy('pooja_name', 'asc')->get();
                     @endphp
                     <select id="pooja_id" class="form-select rounded-3" required>
                       <option value="" selected disabled>Select Pooja</option>
@@ -887,6 +893,10 @@
                         </optgroup>
                       @endforeach
                     </select>
+                    <div id="pooja_custom_fields" class="d-none mt-2">
+                      <input type="text" id="pooja_custom_label" class="form-control rounded-3 mb-2" placeholder="Describe the pooja...">
+                      <input type="number" id="pooja_custom_fee" class="form-control rounded-3" placeholder="Fee ({{ $temple['currency'] }})" step="0.01" min="0">
+                    </div>
                   </div>
 
                   <div class="row g-3 mb-4">
@@ -1328,6 +1338,13 @@
     @endif
 
     @if(request()->get('tab') === 'counter')
+      // Toggle between the catalog select and the custom pooja fields
+      $('#pooja_is_custom').on('change', function() {
+        const custom = $(this).is(':checked');
+        $('#pooja_id').toggleClass('d-none', custom).prop('required', !custom);
+        $('#pooja_custom_fields').toggleClass('d-none', !custom);
+      });
+
       // Pooja booking submit
       $('#btnBookPoojaOffline').on('click', function(e) {
         e.preventDefault();
@@ -1338,14 +1355,26 @@
         const devoteeName = $('#pooja_devotee_name').val().trim();
         const mobile = $('#pooja_mobile').val().trim();
         const email = $('#pooja_email').val().trim();
+        const isCustom = $('#pooja_is_custom').is(':checked');
         const poojaId = $('#pooja_id').val();
+        const customLabel = $('#pooja_custom_label').val().trim();
+        const customFee = $('#pooja_custom_fee').val();
         const bookingDate = $('#pooja_booking_date').val();
         const bookingTime = $('#pooja_booking_time').val();
 
         // Basic validation
-        if (!devoteeName || !mobile || !email || !poojaId || !bookingDate || !bookingTime) {
+        if (!devoteeName || !mobile || !email || !bookingDate || !bookingTime) {
           $('#offlinePoojaForm').addClass('was-validated');
           alert('Please fill out all fields correctly.');
+          return;
+        }
+        if (isCustom && (!customLabel || customFee === '' || customFee < 0)) {
+          alert('Please describe the custom pooja and enter a fee.');
+          return;
+        }
+        if (!isCustom && !poojaId) {
+          $('#offlinePoojaForm').addClass('was-validated');
+          alert('Please select a pooja, or check "Custom pooja".');
           return;
         }
 
@@ -1370,6 +1399,9 @@
           data: {
             _token: '{{ csrf_token() }}',
             pooja_id: poojaId,
+            custom_pooja: isCustom ? 1 : 0,
+            custom_pooja_label: customLabel,
+            custom_fee: customFee,
             devotee_name: devoteeName,
             mobile: mobile,
             email: email,

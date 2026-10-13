@@ -114,7 +114,7 @@
                 @forelse($todayBookings as $booking)
                 <tr>
                   <td><strong>BK{{ str_pad($booking->booking_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
-                  <td>{{ $booking->pooja_name }}</td>
+                  <td>{{ $booking->custom_pooja_label ?: $booking->pooja_name }}</td>
                   <td class="fw-bold text-warning">{{ date('h:i A', strtotime($booking->booking_time)) }}</td>
                   <td>{{ $booking->devotee_name }}</td>
                   <td>{{ $booking->devotee_mobile }}</td>
@@ -162,7 +162,7 @@
                 @forelse($upcomingBookings as $booking)
                 <tr>
                   <td><strong>BK{{ str_pad($booking->booking_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
-                  <td>{{ $booking->pooja_name }}</td>
+                  <td>{{ $booking->custom_pooja_label ?: $booking->pooja_name }}</td>
                   <td>
                     <div class="fw-semibold">{{ date('d M Y', strtotime($booking->booking_date)) }}</div>
                     <div class="small text-muted">{{ date('h:i A', strtotime($booking->booking_time)) }}</div>
@@ -255,9 +255,9 @@
               <div class="mb-0">
                 <label class="form-label fw-bold">Payment Method</label>
                 <select name="payment_method" class="form-select" required>
-                  <option value="Cash" selected>Cash at Temple</option>
-                  <option value="Counter">Office Counter</option>
-                  <option value="Bank">Bank Transfer</option>
+                  <option value="Cash" selected>Cash at Temple (paid now)</option>
+                  <option value="Counter">Office Counter (paid now)</option>
+                  <option value="Bank">Bank Transfer (pending)</option>
                 </select>
               </div>
             </div>
@@ -866,7 +866,7 @@
             @forelse($todayBookings as $booking)
             <tr>
               <td><strong>BK{{ str_pad($booking->booking_id, 5, '0', STR_PAD_LEFT) }}</strong></td>
-              <td>{{ $booking->pooja_name }}</td>
+              <td>{{ $booking->custom_pooja_label ?: $booking->pooja_name }}</td>
               <td class="fw-bold text-warning">{{ date('h:i A', strtotime($booking->booking_time)) }}</td>
               <td>{{ $booking->devotee_name }}</td>
               <td>{{ $booking->devotee_mobile }}</td>

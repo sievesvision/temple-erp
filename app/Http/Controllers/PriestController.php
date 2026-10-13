@@ -165,8 +165,10 @@ class PriestController extends Controller
             ->get();
 
         // Active poojas for the "Book a Pooja" form (Pooja Bookings plan Phase F) — this
-        // priest's own slot, no priest picker needed since it's already them.
-        $poojas = DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get();
+        // priest's own slot, no priest picker needed since it's already them. The
+        // 'Custom' anchor row is excluded — custom-fee booking is a counter capability,
+        // not offered here.
+        $poojas = DB::table('poojas')->where('status', 'Active')->where('category', '!=', 'Custom')->orderBy('pooja_name')->get();
 
         return view('priest.dashboard', compact(
             'user',
@@ -903,6 +905,10 @@ class PriestController extends Controller
             'payment_method' => 'required|in:Cash,Counter,Bank',
         ]);
 
+        // Same "collected at the counter = Paid now" rule as the Pooja Portal/Ticket POS/
+        // Staff counter — Bank Transfer is the one method still Pending until confirmed.
+        $paymentStatus = in_array($validated['payment_method'], ['Cash', 'Counter'], true) ? 'Paid' : 'Pending';
+
         try {
             $booking = (new \App\Services\BookingService())->create([
                 'pooja_id' => $validated['pooja_id'],
@@ -910,6 +916,7 @@ class PriestController extends Controller
                 'booking_time' => $validated['booking_time'],
                 'booking_type' => 'Offline',
                 'payment_method' => $validated['payment_method'],
+                'payment_status' => $paymentStatus,
                 'priest_id' => $priest->priest_id,
                 'devotee_name' => $validated['devotee_name'],
                 'devotee_mobile' => $validated['devotee_mobile'],

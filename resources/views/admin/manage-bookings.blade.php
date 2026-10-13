@@ -375,7 +375,7 @@
                             <div class="fw-bold">{{ $booking->devotee_name }}</div>
                             <div class="small text-muted">{{ $booking->devotee_mobile }}</div>
                         </td>
-                        <td>{{ $booking->pooja_name }}</td>
+                        <td>{{ $booking->custom_pooja_label ?: $booking->pooja_name }}</td>
                         <td>
                             <div>{{ date('d M Y', strtotime($booking->booking_date)) }}</div>
                             <div class="small text-muted">{{ date('h:i A', strtotime($booking->booking_time)) }}</div>
@@ -388,7 +388,11 @@
                             @endif
                         </td>
                         <td>
+                            @if($booking->priest_name)
                             <div><i class="bi bi-person-heart text-warning"></i> {{ $booking->priest_name }}</div>
+                            @else
+                            <div class="text-muted small"><i class="bi bi-person-dash"></i> Not yet assigned</div>
+                            @endif
                         </td>
                         <td>
                             <div class="fw-bold">{{ $temple['currency'] }} {{ number_format($booking->total_amount, 2) }}</div>
@@ -600,8 +604,14 @@
                 </div>
                 <div class="modal-body pt-3">
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Pooja</label>
-                        <select name="pooja_id" class="form-select" required>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label fw-bold mb-0">Pooja</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="cb_is_custom" name="custom_pooja" value="1">
+                                <label class="form-check-label small text-muted" for="cb_is_custom">Custom pooja (not in the list)</label>
+                            </div>
+                        </div>
+                        <select name="pooja_id" id="cb_pooja_id" class="form-select" required>
                             <option value="" selected disabled>Select pooja</option>
                             @foreach($poojas->groupBy(fn($p) => $p->category ?: 'General') as $categoryName => $categoryPoojas)
                                 <optgroup label="{{ $categoryName }}">
@@ -611,6 +621,10 @@
                                 </optgroup>
                             @endforeach
                         </select>
+                        <div id="cb_custom_fields" class="d-none mt-2">
+                            <input type="text" name="custom_pooja_label" id="cb_custom_label" class="form-control mb-2" placeholder="Describe the pooja...">
+                            <input type="number" name="custom_fee" id="cb_custom_fee" class="form-control" placeholder="Fee ({{ $temple['currency'] }})" step="0.01" min="0">
+                        </div>
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
@@ -636,11 +650,12 @@
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Priest</label>
+                        <label class="form-label fw-bold">Priest <span class="text-muted fw-normal">(optional)</span></label>
                         <select name="priest_option" id="cb_priest_option" class="form-select">
                             <option value="auto" selected>Auto-assign (workload balanced)</option>
                             <option value="preferred">Choose a specific priest</option>
                         </select>
+                        <div class="small text-muted mt-1">If no priest is available for this slot, the booking is still created unassigned — you can assign one later.</div>
                     </div>
                     <div class="mb-3 d-none" id="cb_preferred_priest_wrapper">
                         <label class="form-label fw-bold">Preferred Priest</label>
@@ -669,9 +684,9 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">Payment Method</label>
                         <select name="payment_method" class="form-select" required>
-                            <option value="Cash" selected>Cash at Temple</option>
-                            <option value="Counter">Office Counter</option>
-                            <option value="Bank">Bank Transfer</option>
+                            <option value="Cash" selected>Cash at Temple (paid now)</option>
+                            <option value="Counter">Office Counter (paid now)</option>
+                            <option value="Bank">Bank Transfer (pending)</option>
                         </select>
                     </div>
                     <div class="small text-muted">
@@ -725,6 +740,14 @@
         // Create Booking modal: toggle the preferred-priest select
         $('#cb_priest_option').on('change', function() {
             $('#cb_preferred_priest_wrapper').toggleClass('d-none', $(this).val() !== 'preferred');
+        });
+
+        // Create Booking modal: toggle between the catalog select and custom pooja fields
+        $('#cb_is_custom').on('change', function() {
+            const custom = $(this).is(':checked');
+            $('#cb_pooja_id').toggleClass('d-none', custom).prop('required', !custom);
+            $('#cb_custom_fields').toggleClass('d-none', !custom);
+            $('#cb_custom_label, #cb_custom_fee').prop('required', custom);
         });
 
         // Populate Assign modal

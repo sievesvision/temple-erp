@@ -82,6 +82,14 @@ class BookingService
      * devotee_mobile + devotee_email (routed through findOrCreateDevotee()), payment_status
      * (default Pending), remarks (optional, logged on the initial status row).
      *
+     * Custom pooja (something not in the catalog — the counter enters its own description
+     * and fee at booking time): pass custom_pooja_label (string) and custom_fee (numeric);
+     * $data['pooja_id'] must still point at the permanent "Custom Pooja" catalog row
+     * (Setting::get('custom_pooja_id')) so every existing join on pooja_id keeps working.
+     * custom_fee overrides the catalog fee outright and skips the membership discount
+     * (there's no sensible "% off" on a one-off improvised price); custom_pooja_label
+     * overrides the pooja's own name everywhere this booking is displayed or emailed.
+     *
      * $applyMembershipDiscount defaults to true (a devotee's own membership discount is
      * real and should apply everywhere they're recognised); StaffController's counter-
      * booking refactor passes false to keep its pre-existing "no discount for walk-ins"
@@ -113,15 +121,19 @@ class BookingService
 
         $assignedPriestId = $this->resolvePriest($data, $pooja->pooja_id, $date, $time);
 
+        $customPoojaLabel = trim((string) ($data['custom_pooja_label'] ?? ''));
+        $customFee = isset($data['custom_fee']) && $data['custom_fee'] !== '' ? (float) $data['custom_fee'] : null;
+        $displayName = $customPoojaLabel !== '' ? $customPoojaLabel : $pooja->pooja_name;
+
         $discountPercentage = 0;
-        if ($applyMembershipDiscount && $devotee->membership_id) {
+        if ($customFee === null && $applyMembershipDiscount && $devotee->membership_id) {
             $membership = DB::table('memberships')->where('membership_id', $devotee->membership_id)->first();
             if ($membership && $membership->status === 'Active') {
                 $discountPercentage = $membership->discount_percentage ?? 0;
             }
         }
 
-        $amount = $pooja->pooja_fee;
+        $amount = $customFee ?? $pooja->pooja_fee;
         $discountAmount = round(($amount * $discountPercentage) / 100, 2);
         $shippingCharge = ($bookingType === 'Online') ? 200.00 : 0.00;
         $totalAmount = $amount - $discountAmount + $shippingCharge;
@@ -135,6 +147,7 @@ class BookingService
             $booking = Booking::create([
                 'devotee_id' => $devotee->devotee_id,
                 'pooja_id' => $pooja->pooja_id,
+                'custom_pooja_label' => $customPoojaLabel !== '' ? $customPoojaLabel : null,
                 'priest_id' => $assignedPriestId,
                 'booking_date' => $date,
                 'booking_time' => $time,
@@ -166,12 +179,12 @@ class BookingService
             ]);
 
             $devoteeUserId = $devotee->user_id;
-            NotificationService::notify($devoteeUserId, "Your pooja booking for {$pooja->pooja_name} on {$date} has been placed. Status: {$bookingStatus}.");
+            NotificationService::notify($devoteeUserId, "Your pooja booking for {$displayName} on {$date} has been placed. Status: {$bookingStatus}.");
             NotificationService::notifyAdmin("New booking created by {$createdByRole} (Booking ID #{$booking->booking_id}).");
             if ($assignedPriestId) {
                 $priestUserId = DB::table('priests')->where('priest_id', $assignedPriestId)->value('user_id');
                 if ($priestUserId) {
-                    NotificationService::notify($priestUserId, "You've been assigned pooja booking #{$booking->booking_id} ({$pooja->pooja_name}) on {$date} at {$time}.");
+                    NotificationService::notify($priestUserId, "You've been assigned pooja booking #{$booking->booking_id} ({$displayName}) on {$date} at {$time}.");
                 }
             }
 
@@ -243,34 +256,30 @@ class BookingService
     }
 
     /**
-     * Explicit priest_id wins (a priest booking their own slot); otherwise the same
-     * preferred-vs-auto choice storeBooking() already offers the devotee wizard.
+     * Priest assignment is never mandatory — a booking is still created even when nobody
+     * can be resolved (left unassigned, priest_id null; an admin can assign one later from
+     * Manage Bookings' "Reassign Priest" action). Explicit priest_id wins (a priest booking
+     * their own slot); otherwise the same preferred-vs-auto choice storeBooking() already
+     * offers the devotee wizard. A specific choice that turns out to be unavailable falls
+     * back to unassigned rather than blocking the whole booking, same as "no one available"
+     * on auto-assign.
      */
-    private function resolvePriest(array $data, $poojaId, $date, $time): string
+    private function resolvePriest(array $data, $poojaId, $date, $time): ?string
     {
         if (!empty($data['priest_id'])) {
-            if (!PriestAvailabilityService::isPriestAvailable($data['priest_id'], $poojaId, $date, $time)) {
-                throw new \RuntimeException('Selected priest is not available for this slot.');
-            }
-
-            return $data['priest_id'];
+            return PriestAvailabilityService::isPriestAvailable($data['priest_id'], $poojaId, $date, $time)
+                ? $data['priest_id']
+                : null;
         }
 
         $priestOption = $data['priest_option'] ?? 'auto';
 
         if ($priestOption === 'preferred' && !empty($data['preferred_priest_id'])) {
-            if (!PriestAvailabilityService::isPriestAvailable($data['preferred_priest_id'], $poojaId, $date, $time)) {
-                throw new \RuntimeException('Selected priest is not available for this slot.');
-            }
-
-            return $data['preferred_priest_id'];
+            return PriestAvailabilityService::isPriestAvailable($data['preferred_priest_id'], $poojaId, $date, $time)
+                ? $data['preferred_priest_id']
+                : null;
         }
 
-        $assigned = PriestAvailabilityService::autoAssignPriest($poojaId, $date, $time);
-        if (!$assigned) {
-            throw new \RuntimeException('No active priests are available for this pooja at the selected date/time. All priest slots are full.');
-        }
-
-        return $assigned;
+        return PriestAvailabilityService::autoAssignPriest($poojaId, $date, $time);
     }
 }

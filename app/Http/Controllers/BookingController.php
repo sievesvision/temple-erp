@@ -23,7 +23,7 @@ class BookingController extends Controller
      */
     public function showPublicBookingPage()
     {
-        $poojas = DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get();
+        $poojas = DB::table('poojas')->where('status', 'Active')->where('category', '!=', 'Custom')->orderBy('pooja_name')->get();
 
         return view('frontend.book-a-pooja', [
             'poojas' => $poojas,
@@ -93,8 +93,12 @@ class BookingController extends Controller
         }
 
         $maxDate = date('Y-m-d', strtotime('+10 days'));
+        $isCustom = $request->boolean('custom_pooja');
+
         $validated = $request->validate([
-            'pooja_id' => 'required|exists:poojas,pooja_id',
+            'pooja_id' => $isCustom ? 'nullable' : 'required|exists:poojas,pooja_id',
+            'custom_pooja_label' => 'required_if:custom_pooja,1|nullable|string|max:255',
+            'custom_fee' => 'required_if:custom_pooja,1|nullable|numeric|min:0',
             'booking_date' => 'required|date|after_or_equal:today|before_or_equal:' . $maxDate,
             'booking_time' => 'required',
             'devotee_name' => 'required|string|max:255',
@@ -105,13 +109,31 @@ class BookingController extends Controller
             'payment_method' => 'required|in:Cash,Counter,Bank',
         ]);
 
+        // Cash/Counter means the devotee paid right there at the counter — mark it Paid
+        // immediately rather than leaving it Pending (which previously meant every POS/
+        // Portal booking sat unpaid until someone manually flipped it later). Bank Transfer
+        // is the one method that's genuinely still pending until the transfer is confirmed.
+        $paymentStatus = in_array($validated['payment_method'], ['Cash', 'Counter'], true) ? 'Paid' : 'Pending';
+
+        $poojaId = $isCustom ? (int) Setting::get('custom_pooja_id') : $validated['pooja_id'];
+        if ($isCustom && !$poojaId) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Custom pooja is not available right now — please contact an admin.'], 422);
+            }
+
+            return redirect()->back()->with('error', 'Custom pooja is not available right now — please contact an admin.')->withInput();
+        }
+
         try {
             $booking = (new BookingService())->create([
-                'pooja_id' => $validated['pooja_id'],
+                'pooja_id' => $poojaId,
+                'custom_pooja_label' => $isCustom ? $validated['custom_pooja_label'] : null,
+                'custom_fee' => $isCustom ? $validated['custom_fee'] : null,
                 'booking_date' => $validated['booking_date'],
                 'booking_time' => $validated['booking_time'],
                 'booking_type' => 'Offline',
                 'payment_method' => $validated['payment_method'],
+                'payment_status' => $paymentStatus,
                 'priest_option' => $validated['priest_option'] ?? 'auto',
                 'preferred_priest_id' => $validated['preferred_priest_id'] ?? null,
                 'devotee_name' => $validated['devotee_name'],
@@ -120,13 +142,15 @@ class BookingController extends Controller
                 'remarks' => "Booking created by {$activeRole} via the Pooja Portal/Ticket POS.",
             ], $activeRole, $user->id);
 
+            $displayName = $isCustom ? $validated['custom_pooja_label'] : DB::table('poojas')->where('pooja_id', $poojaId)->value('pooja_name');
+
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => true,
                     'message' => "Booking #{$booking->booking_id} created and Confirmed.",
                     'booking' => [
                         'booking_id' => $booking->booking_id,
-                        'pooja_name' => DB::table('poojas')->where('pooja_id', $validated['pooja_id'])->value('pooja_name'),
+                        'pooja_name' => $displayName,
                         'devotee_name' => $validated['devotee_name'],
                         'booking_date' => $booking->booking_date,
                         'booking_time' => $booking->booking_time,
@@ -171,6 +195,7 @@ class BookingController extends Controller
         // Get active poojas
         $poojas = DB::table('poojas')
             ->where('status', 'Active')
+            ->where('category', '!=', 'Custom')
             ->get();
 
         // Get active priests for Gold/Platinum preferred selection
@@ -347,29 +372,18 @@ class BookingController extends Controller
                 $shippingCharge = ($bookingType === 'Online') ? 200.00 : 0.00;
                 $totalAmount = $amount - $discountAmount + $shippingCharge;
 
-                // Priest Assignment
+                // Priest Assignment — never mandatory. A preferred priest who turns out to
+                // be unavailable, or no one at all on auto-assign, just leaves the booking
+                // unassigned (priest_id null) rather than blocking it; an admin can assign
+                // one later from Manage Bookings' "Reassign Priest" action.
                 $assignedPriestId = null;
 
                 if ($priestOption === 'preferred' && $prefPriestId) {
-                    // Check availability of preferred priest
-                    if (!$this->isPriestAvailable($prefPriestId, $poojaId, $date, $time)) {
-                        $priestRecord = DB::table('priests')->where('user_id', Auth::id())->first();
-                        if ($priestRecord && $priestRecord->priest_id == $prefPriestId) {
-                            throw new \Exception("No eligible priest available for selected slot.");
-                        }
-                        throw new \Exception("Selected priest is not available for {$pooja->pooja_name} on {$date} at {$time}.");
+                    if ($this->isPriestAvailable($prefPriestId, $poojaId, $date, $time)) {
+                        $assignedPriestId = $prefPriestId;
                     }
-                    $assignedPriestId = $prefPriestId;
                 } else {
-                    // Auto assign least busy priest
                     $assignedPriestId = $this->autoAssignPriest($poojaId, $date, $time);
-                    if (!$assignedPriestId) {
-                        $priestRecord = DB::table('priests')->where('user_id', Auth::id())->first();
-                        if ($priestRecord) {
-                            throw new \Exception("No eligible priest available for selected slot.");
-                        }
-                        throw new \Exception("No active priests are available for {$pooja->pooja_name} on {$date} at {$time}. All priest slots are full.");
-                    }
                 }
 
                 // Create Pooja Booking record
@@ -435,7 +449,7 @@ class BookingController extends Controller
             foreach ($createdBookings as $createdBookingId) {
                 $createdBooking = \App\Models\Booking::find($createdBookingId);
                 if ($createdBooking) {
-                    \App\Services\BookingNotificationService::notifyCreated($createdBooking, 'Devotee');
+                    BookingNotificationService::notifyCreated($createdBooking, 'Devotee');
                 }
             }
 
@@ -471,8 +485,10 @@ class BookingController extends Controller
             ->join('poojas', 'pooja_bookings.pooja_id', '=', 'poojas.pooja_id')
             ->join('devotees', 'pooja_bookings.devotee_id', '=', 'devotees.devotee_id')
             ->join('users as devotee_user', 'devotees.user_id', '=', 'devotee_user.id')
-            ->join('priests', 'pooja_bookings.priest_id', '=', 'priests.priest_id')
-            ->join('users as priest_user', 'priests.user_id', '=', 'priest_user.id')
+            // LEFT JOIN — priest assignment is optional, an inner join here would silently
+            // make an unassigned booking's receipt unreachable (first() finds nothing).
+            ->leftJoin('priests', 'pooja_bookings.priest_id', '=', 'priests.priest_id')
+            ->leftJoin('users as priest_user', 'priests.user_id', '=', 'priest_user.id')
             ->where('pooja_bookings.booking_id', $id)
             ->select(
                 'pooja_bookings.*',
@@ -505,12 +521,12 @@ class BookingController extends Controller
         $receipt .= "--------------------------------------------------\n";
         $receipt .= "Devotee Name : " . $booking->devotee_name . "\n";
         $receipt .= "Mobile       : " . $booking->devotee_mobile . "\n";
-        $receipt .= "Pooja Name   : " . $booking->pooja_name . "\n";
+        $receipt .= "Pooja Name   : " . ($booking->custom_pooja_label ?: $booking->pooja_name) . "\n";
         $receipt .= "Pooja Mode   : " . $booking->booking_type . "\n";
         if ($booking->booking_type === 'Online') {
             $receipt .= "Delivery Addr: " . $booking->delivery_address . "\n";
         }
-        $receipt .= "Assigned Priest: " . $booking->priest_name . "\n";
+        $receipt .= "Assigned Priest: " . ($booking->priest_name ?: 'Not yet assigned') . "\n";
         $receipt .= "--------------------------------------------------\n";
         $receipt .= "Pooja Base Price  : " . $currency . " " . number_format($booking->amount, 2) . "\n";
         $receipt .= "Membership Discount: -" . $currency . " " . number_format($booking->discount_amount, 2) . "\n";
@@ -605,7 +621,7 @@ class BookingController extends Controller
             return redirect()->back()->with('error', 'Failed to confirm booking: ' . $e->getMessage());
         }
 
-        \App\Services\BookingNotificationService::sendConfirmation($booking->fresh());
+        BookingNotificationService::sendConfirmation($booking->fresh());
 
         return redirect()->back()->with('success', "Booking #{$id} confirmed and confirmation email sent.");
     }
@@ -624,8 +640,10 @@ class BookingController extends Controller
             ->join('poojas', 'pooja_bookings.pooja_id', '=', 'poojas.pooja_id')
             ->join('devotees', 'pooja_bookings.devotee_id', '=', 'devotees.devotee_id')
             ->join('users as devotee_user', 'devotees.user_id', '=', 'devotee_user.id')
-            ->join('priests', 'pooja_bookings.priest_id', '=', 'priests.priest_id')
-            ->join('users as priest_user', 'priests.user_id', '=', 'priest_user.id')
+            // LEFT JOIN — priest assignment is optional (see BookingService::resolvePriest()),
+            // an inner join here would silently drop every unassigned booking from this list.
+            ->leftJoin('priests', 'pooja_bookings.priest_id', '=', 'priests.priest_id')
+            ->leftJoin('users as priest_user', 'priests.user_id', '=', 'priest_user.id')
             ->select(
                 'pooja_bookings.*',
                 'poojas.pooja_name',
@@ -675,8 +693,9 @@ class BookingController extends Controller
 
         // Active poojas for the "Create Booking" modal (Phase D) — the page never needed
         // this list before, since it only ever viewed/managed bookings already created
-        // elsewhere.
-        $poojas = DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get();
+        // elsewhere. The 'Custom' anchor row is excluded — it's offered via its own
+        // toggle in the modal, not as a $0 catalog pick.
+        $poojas = DB::table('poojas')->where('status', 'Active')->where('category', '!=', 'Custom')->orderBy('pooja_name')->get();
         $canAddBookings = RolePermission::can($user ? session('active_role', $user->role) : null, 'bookings', 'add');
 
         // Utilization metrics

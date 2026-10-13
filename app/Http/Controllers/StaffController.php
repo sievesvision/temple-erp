@@ -674,8 +674,12 @@ class StaffController extends Controller
      */
     public function counterBookPooja(Request $request)
     {
+        $isCustom = $request->boolean('custom_pooja');
+
         $request->validate([
-            'pooja_id' => 'required|exists:poojas,pooja_id',
+            'pooja_id' => $isCustom ? 'nullable' : 'required|exists:poojas,pooja_id',
+            'custom_pooja_label' => 'required_if:custom_pooja,1|nullable|string|max:255',
+            'custom_fee' => 'required_if:custom_pooja,1|nullable|numeric|min:0',
             'devotee_name' => 'required|string|max:255',
             'mobile' => 'required|digits:10',
             'email' => 'required|email',
@@ -683,9 +687,16 @@ class StaffController extends Controller
             'booking_time' => 'required'
         ]);
 
+        $poojaId = $isCustom ? (int) Setting::get('custom_pooja_id') : $request->pooja_id;
+        if ($isCustom && !$poojaId) {
+            return response()->json(['success' => false, 'message' => 'Custom pooja is not available right now — please contact an admin.'], 422);
+        }
+
         try {
             $booking = (new BookingService())->create([
-                'pooja_id' => $request->pooja_id,
+                'pooja_id' => $poojaId,
+                'custom_pooja_label' => $isCustom ? $request->custom_pooja_label : null,
+                'custom_fee' => $isCustom ? $request->custom_fee : null,
                 'booking_date' => $request->booking_date,
                 'booking_time' => $request->booking_time,
                 'booking_type' => 'Offline',
@@ -706,12 +717,12 @@ class StaffController extends Controller
                 'message' => 'Offline Pooja Booking registered successfully.',
                 'booking_details' => [
                     'booking_id' => $booking->booking_id,
-                    'pooja_name' => DB::table('poojas')->where('pooja_id', $request->pooja_id)->value('pooja_name'),
+                    'pooja_name' => $isCustom ? $request->custom_pooja_label : DB::table('poojas')->where('pooja_id', $poojaId)->value('pooja_name'),
                     'devotee_name' => $request->devotee_name,
                     'mobile' => $request->mobile,
                     'date' => $request->booking_date,
                     'time' => $request->booking_time,
-                    'priest_name' => $priestName,
+                    'priest_name' => $priestName ?: 'Not yet assigned',
                     'amount' => number_format($booking->total_amount, 2)
                 ]
             ]);

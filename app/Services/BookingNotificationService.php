@@ -40,7 +40,7 @@ class BookingNotificationService
 
             $mailable = new BookingCreatedMail(
                 $booking->booking_id,
-                $booking->pooja->pooja_name ?? 'Pooja',
+                $booking->custom_pooja_label ?: ($booking->pooja->pooja_name ?? 'Pooja'),
                 $booking->devotee->user->name ?? 'Devotee',
                 $booking->devotee->user->mobile ?? '',
                 $booking->booking_date,
@@ -72,7 +72,7 @@ class BookingNotificationService
             $mailable = new BookingConfirmationMail(
                 $booking->booking_id,
                 $booking->devotee->user->name ?? 'Devotee',
-                $booking->pooja->pooja_name ?? 'Pooja',
+                $booking->custom_pooja_label ?: ($booking->pooja->pooja_name ?? 'Pooja'),
                 $booking->booking_date,
                 $booking->booking_time,
                 $booking->priest->user->name ?? null,

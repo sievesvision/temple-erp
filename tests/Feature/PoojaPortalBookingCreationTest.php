@@ -137,8 +137,11 @@ class PoojaPortalBookingCreationTest extends TestCase
         $this->assertSame('Confirmed', Booking::first()->booking_status);
     }
 
-    public function test_preferred_priest_who_is_unavailable_is_rejected_with_a_clear_error(): void
+    public function test_preferred_priest_who_is_unavailable_leaves_the_second_booking_unassigned(): void
     {
+        // Priest assignment is never mandatory (see BookingService::resolvePriest()) — a
+        // preferred priest who turns out to be unavailable no longer blocks the booking,
+        // it just goes through with priest_id left null.
         $admin = User::factory()->create(['role' => 'Admin']);
         $priest = $this->activePriest();
         $pooja = $this->activePooja();
@@ -169,7 +172,8 @@ class PoojaPortalBookingCreationTest extends TestCase
             'payment_method' => 'Cash',
         ]);
 
-        $response->assertSessionHas('error');
-        $this->assertSame(1, Booking::count());
+        $response->assertSessionHas('success');
+        $this->assertSame(2, Booking::count());
+        $this->assertNull(Booking::orderByDesc('booking_id')->first()->priest_id);
     }
 }

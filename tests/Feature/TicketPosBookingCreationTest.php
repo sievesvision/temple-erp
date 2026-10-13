@@ -62,6 +62,26 @@ class TicketPosBookingCreationTest extends TestCase
         $response->assertSee('bookPoojaModal', false);
     }
 
+    public function test_the_book_pooja_modal_shows_a_searchable_grouped_grid_with_a_custom_pooja_tile(): void
+    {
+        $admin = $this->admin();
+        $pooja = Pooja::create([
+            'pooja_name' => 'POS Grid Festival Pooja',
+            'category' => 'Festivals',
+            'pooja_fee' => 45,
+            'status' => 'Active',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('pp_search', false);
+        $response->assertSee('pooja-category-tabs', false);
+        $response->assertSee('Custom Pooja');
+        $response->assertSee('data-category="' . $pooja->category . '"', false);
+        $response->assertSee($pooja->pooja_name);
+    }
+
     public function test_the_book_pooja_button_is_hidden_without_bookings_add_permission(): void
     {
         RolePermission::where('role', 'Committee')->where('resource', 'bookings')->update(['can_add' => false]);
