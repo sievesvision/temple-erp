@@ -104,8 +104,13 @@ class OrganisationTransactionsTest extends TestCase
     {
         $admin = $this->admin();
         $terminal = $this->defaultEftTerminal();
-        $operatorA = User::factory()->create(['mobile' => fake()->unique()->numerify('04########')]);
-        $operatorB = User::factory()->create(['mobile' => fake()->unique()->numerify('04########')]);
+        // Explicit, plain names rather than Faker's default — fake()->name() occasionally
+        // generates a name with an apostrophe (e.g. "O'Connell"), which Blade's {{ }}
+        // HTML-escapes to "O&#039;Connell" in the rendered page; a raw substr_count() against
+        // the un-escaped name then intermittently finds zero matches and fails, even though
+        // the filtering itself is correct. This was flaky in CI for exactly that reason.
+        $operatorA = User::factory()->create(['name' => 'Operator Alpha Test', 'mobile' => fake()->unique()->numerify('04########')]);
+        $operatorB = User::factory()->create(['name' => 'Operator Beta Test', 'mobile' => fake()->unique()->numerify('04########')]);
         LinklyTransaction::create(['pos_txn_ref' => 'oa', 'client_ref' => 'oa', 'linkly_session_id' => 's-oa', 'txn_type' => 'purchase', 'event_id' => null, 'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'approved', 'initiated_by' => $operatorA->id]);
         LinklyTransaction::create(['pos_txn_ref' => 'ob', 'client_ref' => 'ob', 'linkly_session_id' => 's-ob', 'txn_type' => 'purchase', 'event_id' => null, 'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'approved', 'initiated_by' => $operatorB->id]);
 
