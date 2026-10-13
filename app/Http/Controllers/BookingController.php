@@ -9,11 +9,70 @@ use Illuminate\Support\Facades\Response;
 use App\Services\AuditLogService;
 use App\Services\NotificationService;
 use App\Services\PriestAvailabilityService;
+use App\Services\BookingNotificationService;
+use App\Services\BookingService;
+use App\Services\RecaptchaService;
 use App\Models\Setting;
 use App\Models\RolePermission;
 
 class BookingController extends Controller
 {
+    /**
+     * Public (no-login) booking page — a trimmed, single-pooja version of the devotee
+     * wizard. See the Pooja Bookings plan's Phase C.
+     */
+    public function showPublicBookingPage()
+    {
+        $poojas = DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get();
+
+        return view('frontend.book-a-pooja', [
+            'poojas' => $poojas,
+            'temple' => Setting::templeBranding(),
+        ]);
+    }
+
+    /**
+     * Store a public (no-login) booking — Offline/temple-visit only, auto-assigned
+     * priest, Bank Transfer or Cash at Temple. Devotee name/mobile/email are all
+     * mandatory (unlike the optional-per-event donation form), and the booking always
+     * starts Pending (see BookingService::create()'s role→status rule).
+     */
+    public function storePublicBooking(Request $request)
+    {
+        if (!RecaptchaService::verify($request->input('g-recaptcha-response'), $request->ip())) {
+            return redirect()->back()->withErrors(['g-recaptcha-response' => 'Please complete the reCAPTCHA verification.'])->withInput();
+        }
+
+        $maxDate = date('Y-m-d', strtotime('+10 days'));
+        $validated = $request->validate([
+            'pooja_id' => 'required|exists:poojas,pooja_id',
+            'booking_date' => 'required|date|after_or_equal:today|before_or_equal:' . $maxDate,
+            'booking_time' => 'required',
+            'devotee_name' => 'required|string|max:255',
+            'devotee_mobile' => 'required|digits:10',
+            'devotee_email' => 'required|email|max:255',
+            'payment_method' => 'required|in:Bank,Cash',
+        ]);
+
+        try {
+            $booking = (new BookingService())->create([
+                'pooja_id' => $validated['pooja_id'],
+                'booking_date' => $validated['booking_date'],
+                'booking_time' => $validated['booking_time'],
+                'booking_type' => 'Offline',
+                'payment_method' => $validated['payment_method'],
+                'devotee_name' => $validated['devotee_name'],
+                'devotee_mobile' => $validated['devotee_mobile'],
+                'devotee_email' => $validated['devotee_email'],
+                'remarks' => 'Booked publicly, no login.',
+            ], 'Public', null);
+
+            return redirect()->back()->with('success_booking', "Thank you! Your pooja booking (#{$booking->booking_id}) has been recorded and is pending confirmation. We'll email you once it's confirmed, with payment details.");
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage())->withInput();
+        }
+    }
+
     /**
      * Devotee Book Pooja Page
      */

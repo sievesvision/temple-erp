@@ -37,6 +37,8 @@ Route::get('/', function () {
 })->name('home');
 
 Route::post('/donate-without-login', [\App\Http\Controllers\DonationController::class, 'storePublic'])->name('donate.without.login');
+Route::get('/book-a-pooja', [BookingController::class, 'showPublicBookingPage'])->name('booking.public.show');
+Route::post('/book-a-pooja', [BookingController::class, 'storePublicBooking'])->name('booking.public.store');
 Route::get('/donate/stripe/success', [\App\Http\Controllers\DonationController::class, 'stripeSuccess'])->name('donate.stripe.success');
 Route::get('/donate/stripe/cancel', [\App\Http\Controllers\DonationController::class, 'stripeCancel'])->name('donate.stripe.cancel');
 Route::post('/stripe/webhook', [\App\Http\Controllers\DonationController::class, 'stripeWebhook'])->name('stripe.webhook');
