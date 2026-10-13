@@ -581,6 +581,13 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/bookings/status/{id}', [BookingController::class, 'updateStatus'])->name('admin.bookings.update-status');
     Route::post('/admin/bookings/confirm-notify/{id}', [BookingController::class, 'confirmAndNotify'])->name('admin.bookings.confirm-notify');
 
+    // Pooja Catalog Management Routes — what a booking is made *against* (name/fee/
+    // category/description), distinct from the booking records above.
+    Route::get('/admin/manage-poojas', [\App\Http\Controllers\PoojaController::class, 'manage'])->name('admin.poojas.index');
+    Route::post('/admin/pooja/store', [\App\Http\Controllers\PoojaController::class, 'store'])->name('admin.poojas.store');
+    Route::post('/admin/pooja/update/{id}', [\App\Http\Controllers\PoojaController::class, 'update'])->name('admin.poojas.update');
+    Route::delete('/admin/pooja/delete/{id}', [\App\Http\Controllers\PoojaController::class, 'destroy'])->name('admin.poojas.delete');
+
     // Event CRUD & Scheduling Routes
     Route::get('/admin/manage-events', [\App\Http\Controllers\EventController::class, 'manageEvents'])->name('admin.events.index');
     Route::post('/admin/event/store', [\App\Http\Controllers\EventController::class, 'store'])->name('admin.events.store');

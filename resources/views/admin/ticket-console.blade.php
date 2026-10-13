@@ -335,6 +335,9 @@
                     @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))
                     <button type="button" class="sidebar-link" data-pane="pane-bookings"><i class="bi bi-calendar-event"></i><span>Pooja Bookings</span></button>
                     @endif
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'poojas', 'view'))
+                    <button type="button" class="sidebar-link" data-pane="pane-poojas"><i class="bi bi-journal-bookmark-fill"></i><span>Manage Poojas</span></button>
+                    @endif
                     <button type="button" class="sidebar-link" data-pane="pane-types"><i class="bi bi-ticket-perforated-fill"></i><span>Ticket Types</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>All Transactions</span></button>
                     @if($canManageConsole)
@@ -428,6 +431,13 @@
                     <!-- POOJA BOOKINGS (embedded, same page/controller as the standalone admin area) -->
                     <div class="console-pane" id="pane-bookings">
                         <iframe src="{{ route('admin.bookings.index') }}?embed=1" style="width:100%; min-height:82vh; border:0;" loading="lazy" title="Pooja Bookings"></iframe>
+                    </div>
+                    @endif
+
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'poojas', 'view'))
+                    <!-- MANAGE POOJAS (embedded, same page/controller as the standalone admin area) -->
+                    <div class="console-pane" id="pane-poojas">
+                        <iframe src="{{ route('admin.poojas.index') }}?embed=1" style="width:100%; min-height:82vh; border:0;" loading="lazy" title="Manage Poojas"></iframe>
                     </div>
                     @endif
 

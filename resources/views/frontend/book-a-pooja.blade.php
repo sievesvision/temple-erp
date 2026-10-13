@@ -91,10 +91,14 @@
                             <label>Pooja</label>
                             <select name="pooja_id" class="form-select" id="pb_pooja_id" required>
                                 <option value="" disabled selected>Select a pooja</option>
-                                @foreach($poojas as $pooja)
-                                    <option value="{{ $pooja->pooja_id }}" data-fee="{{ $pooja->pooja_fee }}" {{ old('pooja_id') == $pooja->pooja_id ? 'selected' : '' }}>
-                                        {{ $pooja->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}
-                                    </option>
+                                @foreach($poojas->groupBy(fn($p) => $p->category ?: 'General') as $categoryName => $categoryPoojas)
+                                    <optgroup label="{{ $categoryName }}">
+                                        @foreach($categoryPoojas as $pooja)
+                                            <option value="{{ $pooja->pooja_id }}" data-fee="{{ $pooja->pooja_fee }}" {{ old('pooja_id') == $pooja->pooja_id ? 'selected' : '' }}>
+                                                {{ $pooja->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
                                 @endforeach
                             </select>
                             <div class="pooja-fee-note" id="pb_fee_note"></div>

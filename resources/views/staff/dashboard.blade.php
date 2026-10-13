@@ -877,10 +877,14 @@
                     @endphp
                     <select id="pooja_id" class="form-select rounded-3" required>
                       <option value="" selected disabled>Select Pooja</option>
-                      @foreach($activePoojas as $pj)
-                        <option value="{{ $pj->pooja_id }}" data-price="{{ $pj->pooja_fee }}">
-                          {{ $pj->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pj->pooja_fee, 2) }}
-                        </option>
+                      @foreach($activePoojas->groupBy(fn($p) => $p->category ?: 'General') as $categoryName => $categoryPoojas)
+                        <optgroup label="{{ $categoryName }}">
+                          @foreach($categoryPoojas as $pj)
+                            <option value="{{ $pj->pooja_id }}" data-price="{{ $pj->pooja_fee }}">
+                              {{ $pj->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pj->pooja_fee, 2) }}
+                            </option>
+                          @endforeach
+                        </optgroup>
                       @endforeach
                     </select>
                   </div>

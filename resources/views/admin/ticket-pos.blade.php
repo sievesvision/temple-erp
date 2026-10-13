@@ -606,8 +606,12 @@
                             <label class="form-label fw-bold">Pooja</label>
                             <select name="pooja_id" class="form-select" required>
                                 <option value="" selected disabled>Select pooja</option>
-                                @foreach($bookingPoojas as $pooja)
-                                    <option value="{{ $pooja->pooja_id }}">{{ $pooja->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}</option>
+                                @foreach($bookingPoojas->groupBy(fn($p) => $p->category ?: 'General') as $categoryName => $categoryPoojas)
+                                    <optgroup label="{{ $categoryName }}">
+                                        @foreach($categoryPoojas as $pooja)
+                                            <option value="{{ $pooja->pooja_id }}">{{ $pooja->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}</option>
+                                        @endforeach
+                                    </optgroup>
                                 @endforeach
                             </select>
                         </div>
