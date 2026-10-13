@@ -757,6 +757,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
 // ============================================
 Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff,Event Coordinator,Ticket Controller'])->group(function () {
     Route::get('/admin/pooja/portal', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
+    Route::post('/admin/bookings/store', [BookingController::class, 'store'])->name('admin.bookings.store');
     Route::post('/admin/ticket/store', [\App\Http\Controllers\TicketController::class, 'storeTicket'])->name('admin.tickets.store');
     Route::post('/admin/ticket/update/{id}', [\App\Http\Controllers\TicketController::class, 'updateTicket'])->name('admin.tickets.update');
     Route::delete('/admin/ticket/delete/{id}', [\App\Http\Controllers\TicketController::class, 'deleteTicket'])->name('admin.tickets.delete');

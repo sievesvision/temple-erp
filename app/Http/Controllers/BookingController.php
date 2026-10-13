@@ -74,6 +74,78 @@ class BookingController extends Controller
     }
 
     /**
+     * Shared "Create Booking" action for the Pooja Portal's Manage Bookings modal (Phase D)
+     * and the Ticket POS "Book Pooja" modal (Phase E) — same form, same route, gated by
+     * the Role Permissions grid ('bookings', 'add') rather than a fixed role list, same
+     * pattern the page's own view-check already uses. Responds with JSON for an AJAX
+     * caller (Ticket POS) or a redirect+flash for a plain form post (Pooja Portal modal).
+     */
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$user || !RolePermission::can($activeRole, 'bookings', 'add')) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+            }
+
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $maxDate = date('Y-m-d', strtotime('+10 days'));
+        $validated = $request->validate([
+            'pooja_id' => 'required|exists:poojas,pooja_id',
+            'booking_date' => 'required|date|after_or_equal:today|before_or_equal:' . $maxDate,
+            'booking_time' => 'required',
+            'devotee_name' => 'required|string|max:255',
+            'devotee_mobile' => 'required|digits:10',
+            'devotee_email' => 'required|email|max:255',
+            'priest_option' => 'nullable|in:auto,preferred',
+            'preferred_priest_id' => 'required_if:priest_option,preferred|nullable|exists:priests,priest_id',
+            'payment_method' => 'required|in:Cash,Counter,Bank',
+        ]);
+
+        try {
+            $booking = (new BookingService())->create([
+                'pooja_id' => $validated['pooja_id'],
+                'booking_date' => $validated['booking_date'],
+                'booking_time' => $validated['booking_time'],
+                'booking_type' => 'Offline',
+                'payment_method' => $validated['payment_method'],
+                'priest_option' => $validated['priest_option'] ?? 'auto',
+                'preferred_priest_id' => $validated['preferred_priest_id'] ?? null,
+                'devotee_name' => $validated['devotee_name'],
+                'devotee_mobile' => $validated['devotee_mobile'],
+                'devotee_email' => $validated['devotee_email'],
+                'remarks' => "Booking created by {$activeRole} via the Pooja Portal/Ticket POS.",
+            ], $activeRole, $user->id);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Booking #{$booking->booking_id} created and Confirmed.",
+                    'booking' => [
+                        'booking_id' => $booking->booking_id,
+                        'pooja_name' => DB::table('poojas')->where('pooja_id', $validated['pooja_id'])->value('pooja_name'),
+                        'devotee_name' => $validated['devotee_name'],
+                        'booking_date' => $booking->booking_date,
+                        'booking_time' => $booking->booking_time,
+                        'total_amount' => number_format($booking->total_amount, 2),
+                    ],
+                ]);
+            }
+
+            return redirect()->back()->with('success', "Booking #{$booking->booking_id} created and Confirmed.");
+        } catch (\RuntimeException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+            }
+
+            return redirect()->back()->with('error', $e->getMessage())->withInput();
+        }
+    }
+
+    /**
      * Devotee Book Pooja Page
      */
     public function bookPoojaPage()
@@ -601,6 +673,12 @@ class BookingController extends Controller
             ->where('status', 'Approved')
             ->get();
 
+        // Active poojas for the "Create Booking" modal (Phase D) — the page never needed
+        // this list before, since it only ever viewed/managed bookings already created
+        // elsewhere.
+        $poojas = DB::table('poojas')->where('status', 'Active')->orderBy('pooja_name')->get();
+        $canAddBookings = RolePermission::can($user ? session('active_role', $user->role) : null, 'bookings', 'add');
+
         // Utilization metrics
         $totalBookings = DB::table('pooja_bookings')->where('booking_status', '!=', 'Cancelled')->count();
         $totalRevenue = DB::table('pooja_bookings')->where('payment_status', 'Paid')->sum('total_amount');
@@ -614,6 +692,8 @@ class BookingController extends Controller
         return view('admin.manage-bookings', compact(
             'bookings',
             'priests',
+            'poojas',
+            'canAddBookings',
             'leaves',
             'totalBookings',
             'totalRevenue',
