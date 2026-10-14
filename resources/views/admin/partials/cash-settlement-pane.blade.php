@@ -94,9 +94,16 @@
     .cs-order-detail-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; }
     .cs-order-detail-value { font-weight: 700; font-size: 0.95rem; text-align: right; }
     .cs-order-detail-total { font-size: 1.25rem; color: #1f9d6a; }
-    .cs-order-receipt-col { background: #efe9dd; border-left: 1px solid #e8e0d4; height: 75vh; }
-    .cs-order-receipt-col iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .cs-order-receipt-col { position: relative; background: #efe9dd; border-left: 1px solid #e8e0d4; height: 75vh; }
+    .cs-order-receipt-col iframe { width: 100%; height: 100%; border: 0; display: block; position: relative; z-index: 0; }
     @media (max-width: 767px) { .cs-order-receipt-col { height: 50vh; border-left: none; border-top: 1px solid #e8e0d4; } }
+    .cs-order-receipt-loading {
+        position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+        background: #efe9dd; color: #8A6A1E; font-weight: 600; font-size: 0.86rem; z-index: 1;
+    }
+    .cs-order-receipt-loading.active { display: flex; }
+    .cs-order-receipt-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #e8e0d4; border-top-color: #C89B3C; animation: cs-order-receipt-spin 0.8s linear infinite; }
+    @keyframes cs-order-receipt-spin { to { transform: rotate(360deg); } }
 </style>
 
 <div class="cs-table-wrap mb-3">
@@ -356,6 +363,10 @@
                         <a href="#" target="_blank" class="btn-cs-save mt-4 d-inline-flex align-items-center text-decoration-none" id="csOrderModalPrintLink_{{ $formId }}"><i class="bi bi-printer-fill me-2"></i>Print Receipt</a>
                     </div>
                     <div class="col-md-7 cs-order-receipt-col">
+                        <div class="cs-order-receipt-loading active" id="csOrderModalLoading_{{ $formId }}">
+                            <div class="cs-order-receipt-spinner"></div>
+                            <span>Loading receipt…</span>
+                        </div>
                         <iframe id="csOrderModalFrame_{{ $formId }}" src="about:blank" title="Receipt"></iframe>
                     </div>
                 </div>
@@ -443,6 +454,14 @@
         if (!orderModalEl || typeof bootstrap === 'undefined') { return; }
         const orderModal = bootstrap.Modal.getOrCreateInstance(orderModalEl);
         const frame = document.getElementById('csOrderModalFrame_{{ $formId }}');
+        const loadingEl = document.getElementById('csOrderModalLoading_{{ $formId }}');
+
+        // A fresh order's receipt every time (unlike EFT Settings, this iframe reloads on
+        // every open) — show the spinner each time, hide it once the real page loads
+        // (blank's own initial/reset load doesn't count).
+        frame.addEventListener('load', function () {
+            if (frame.src !== 'about:blank') { loadingEl?.classList.remove('active'); }
+        });
 
         function openOrderModal(row) {
             document.getElementById('csOrderModalTitle_{{ $formId }}').textContent = 'Order #' + row.dataset.orderId;
@@ -451,6 +470,7 @@
             document.getElementById('csOrderModalMethod_{{ $formId }}').textContent = row.dataset.orderMethod;
             document.getElementById('csOrderModalTotal_{{ $formId }}').textContent = row.dataset.orderTotal;
             document.getElementById('csOrderModalPrintLink_{{ $formId }}').href = row.dataset.orderUrl;
+            loadingEl?.classList.add('active');
             frame.src = row.dataset.orderUrl;
             orderModal.show();
         }

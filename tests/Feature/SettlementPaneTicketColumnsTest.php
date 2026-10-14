@@ -154,6 +154,7 @@ class SettlementPaneTicketColumnsTest extends TestCase
         $response->assertSee('cs-view-order-btn', false);
         $response->assertSee('id="csOrderModalFrame_', false);
         $response->assertSee('cs-order-receipt-col', false);
+        $response->assertSee('class="cs-order-receipt-loading active"', false);
     }
 
     public function test_cash_received_by_ticket_type_breakdown_is_removed(): void

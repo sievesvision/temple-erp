@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    // A session that expires while an admin/POS page has something embedded in an iframe
+    // (EFT Terminal Settings, the order-view receipt — see ticket-pos.blade.php and
+    // cash-settlement-pane.blade.php) redirects that iframe's own next navigation here, the
+    // same as any other guest request. Left alone, the login page would render nested
+    // inside that small iframe instead of the real page the user actually needs — break out
+    // to the top window immediately, before anything else on this page loads.
+    if (window.top !== window.self) {
+      window.top.location.href = window.location.href;
+    }
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ $temple['name'] }} · Devotee &amp; Management Login</title>

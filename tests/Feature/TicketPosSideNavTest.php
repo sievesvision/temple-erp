@@ -164,6 +164,17 @@ class TicketPosSideNavTest extends TestCase
         $this->assertLessThan($rowEnd, $searchPos, 'The search box should be inside .pos-filter-row, alongside the category tabs.');
     }
 
+    public function test_the_eft_settings_view_shows_a_loading_spinner_until_the_iframe_loads(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('id="posEftSettingsLoading"', false);
+        $response->assertSee('class="pos-iframe-loading active"', false);
+    }
+
     public function test_the_eft_nav_icon_is_a_bootstrap_icon_not_the_old_image(): void
     {
         $admin = $this->admin();

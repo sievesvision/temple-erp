@@ -114,7 +114,21 @@
              (iframe) instead of a popup over the rest of the page. --}}
         .pos-eft-settings-pane { display: none; flex-direction: column; flex: 1; min-height: 0; padding: 18px; }
         .pos-eft-settings-pane.active { display: flex; }
-        .pos-eft-settings-pane iframe { flex: 1; min-height: 0; width: 100%; border: 1px solid var(--border); border-radius: var(--radius-md); background: #FAFAF8; }
+
+        {{-- Shared by every iframe-embedded view on this page (Terminal Settings, and the
+             order-view receipt's own iframe in cash-settlement-pane.blade.php reuses this
+             same pattern) — an iframe shows nothing at all while its own page loads, which
+             reads as a broken/frozen panel rather than "still loading" without this. --}}
+        .pos-iframe-wrap { position: relative; flex: 1; min-height: 0; }
+        .pos-iframe-wrap iframe { width: 100%; height: 100%; border: 1px solid var(--border); border-radius: var(--radius-md); background: #FAFAF8; }
+        .pos-iframe-loading {
+            position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+            background: #FAFAF8; border: 1px solid var(--border); border-radius: var(--radius-md); z-index: 1;
+            color: var(--text-secondary); font-weight: 600; font-size: 0.86rem;
+        }
+        .pos-iframe-loading.active { display: flex; }
+        .pos-iframe-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--gold-hover); animation: pos-iframe-spin 0.8s linear infinite; }
+        @keyframes pos-iframe-spin { to { transform: rotate(360deg); } }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
            styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
@@ -821,7 +835,13 @@
          from page load. --}}
     <div class="pos-eft-settings-pane" id="posEftSettingsPane">
         <div class="pos-view-header"><h2><i class="bi bi-credit-card-2-front-fill me-2"></i>Terminal Settings</h2></div>
-        <iframe id="posEftSettingsFrame" src="about:blank" title="EFT Terminal Settings"></iframe>
+        <div class="pos-iframe-wrap">
+            <div class="pos-iframe-loading active" id="posEftSettingsLoading">
+                <div class="pos-iframe-spinner"></div>
+                <span>Loading terminal settings…</span>
+            </div>
+            <iframe id="posEftSettingsFrame" src="about:blank" title="EFT Terminal Settings"></iframe>
+        </div>
     </div>
     </div>
 
@@ -1271,6 +1291,7 @@
             const poojaViewToggle = document.getElementById('posPoojaViewToggle');
             const eftSettingsPane = document.getElementById('posEftSettingsPane');
             const eftSettingsFrame = document.getElementById('posEftSettingsFrame');
+            const eftSettingsLoading = document.getElementById('posEftSettingsLoading');
             const EFT_SETTINGS_URL = @json(route('admin.eft-terminals.index') . '?embedded=1');
             const VIEW_TITLES = {
                 archana: '<i class="bi bi-flower1 me-2"></i>Archana Tickets',
@@ -1284,7 +1305,12 @@
             let currentView = 'archana';
             if (eftSettingsFrame) {
                 eftSettingsFrame.addEventListener('load', function () {
-                    if (eftSettingsFrame.src !== 'about:blank') { eftSettingsChanged = true; }
+                    // Blank's own initial load fires this too — only the real settings page
+                    // loading counts as "done" (and as a change worth reloading for on exit).
+                    if (eftSettingsFrame.src !== 'about:blank') {
+                        eftSettingsChanged = true;
+                        eftSettingsLoading?.classList.remove('active');
+                    }
                 });
             }
             let activeMenu = 'archana';
