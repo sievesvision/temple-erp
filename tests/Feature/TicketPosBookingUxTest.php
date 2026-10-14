@@ -41,18 +41,19 @@ class TicketPosBookingUxTest extends TestCase
         ]);
     }
 
-    public function test_the_main_menu_toggle_is_compact_not_full_width_blocking_maroon(): void
+    public function test_archana_and_poojas_are_switched_from_the_side_nav_not_an_in_page_toggle(): void
     {
         $admin = $this->admin();
 
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertSee('pos-main-menu', false);
-        // The old full-width maroon-block active state is gone — the new toggle uses a
-        // light accent colour instead.
-        $response->assertDontSee(".pos-main-menu-btn.active { border-color: var(--maroon); background: var(--maroon); color: #fff; }", false);
-        $response->assertSee('--accent-blue', false);
+        $response->assertSee('pos-side-nav', false);
+        $response->assertSee('data-view="archana"', false);
+        $response->assertSee('data-view="poojas"', false);
+        // The old in-page Archana/Poojas segmented toggle is gone entirely — switching is
+        // now a side-nav item, not a block sitting above the item grid.
+        $response->assertDontSee('pos-main-menu', false);
     }
 
     public function test_the_payment_method_row_replaces_the_old_dropdown(): void

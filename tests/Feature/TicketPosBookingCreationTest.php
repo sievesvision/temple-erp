@@ -62,7 +62,8 @@ class TicketPosBookingCreationTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('posBookPoojaBtn', false);
-        $response->assertSee('pos-main-menu-btn', false);
+        $response->assertSee('data-view="archana"', false);
+        $response->assertSee('data-view="poojas"', false);
         $response->assertSee('data-menu="archana"', false);
         $response->assertSee('data-menu="poojas"', false);
         $response->assertSee('pos-item-tile-pooja', false);
@@ -132,7 +133,13 @@ class TicketPosBookingCreationTest extends TestCase
         // any tile uses them) — check for actual rendered tile markup instead.
         $response->assertDontSee('class="pos-item-tile pos-item-tile-pooja', false);
         $response->assertDontSee('<span class="tile-name">Custom Pooja</span>', false);
-        $response->assertDontSee('data-menu="poojas"', false);
+        // A bare 'data-menu="poojas"' would also match the page's own static CSS (the new
+        // grid/table view-toggle rule targets '.pos-menu-panel[data-menu="poojas"]',
+        // always present in source regardless of whether the panel itself renders) — check
+        // for the actual rendered panel/tab-bar element instead.
+        $response->assertDontSee('<div class="pos-menu-panel d-none" data-menu="poojas">', false);
+        $response->assertDontSee('<div class="pos-category-tabs d-none" data-menu="poojas">', false);
+        $response->assertDontSee('data-view="poojas"', false);
     }
 
     public function test_the_ticket_pos_booking_form_creates_a_confirmed_booking_via_ajax(): void

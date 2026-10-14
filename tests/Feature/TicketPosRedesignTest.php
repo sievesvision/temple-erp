@@ -33,17 +33,18 @@ class TicketPosRedesignTest extends TestCase
         $response->assertDontSee('class="pos-cart-pane has-items"', false);
     }
 
-    public function test_settle_till_is_in_the_account_dropdown_not_a_standalone_topbar_button(): void
+    public function test_settle_till_is_its_own_side_nav_view_not_a_popup(): void
     {
         $admin = $this->admin();
 
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertSee('dropdown-item', false);
-        $response->assertSee('data-bs-target="#settleTillModal"', false);
-        // The old standalone topbar trigger is gone — only the dropdown-item version remains.
-        $response->assertDontSee('class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal"', false);
+        $response->assertSee('data-view="till"', false);
+        $response->assertSee('id="posTillPane"', false);
+        // The old Settle Till modal/dropdown-item trigger is gone entirely.
+        $response->assertDontSee('id="settleTillModal"', false);
+        $response->assertDontSee('data-bs-target="#settleTillModal"', false);
     }
 
     public function test_the_pay_button_uses_the_maroon_brand_colour_and_a_pay_label(): void

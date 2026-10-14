@@ -24,6 +24,10 @@
                terminal/POS screen reads as more purposeful with crisp, moderate corners than
                with soft app-style bubbles. */
             --radius-sm: 8px; --radius-md: 10px; --radius-lg: 14px;
+            /* Collapsed width of the right-docked side nav (see .pos-side-nav) — a single
+               source so .pos-body's own reserved space and the mobile cart sheet's right
+               offset can never drift out of sync with the nav's own CSS. */
+            --nav-w: 64px;
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { overflow-x: hidden; height: 100%; }
@@ -33,15 +37,65 @@
            and no 300ms ghost-click delay on older mobile Safari/Chrome. */
         button, .pos-item-tile, .pos-method-btn { -webkit-user-select: none; user-select: none; touch-action: manipulation; }
 
-        .pos-topbar { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 12px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; box-shadow: 0 4px 18px rgba(74,10,18,0.25); z-index: 20; }
-        .pos-topbar-title { flex: 1; min-width: 0; }
-        .pos-topbar-title h1 { font-size: clamp(1.05rem, 2.6vw, 1.35rem); font-weight: 800; color: var(--gold); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pos-topbar-title .pos-subtitle { font-size: 0.7rem; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pos-topbar-btn { position: relative; background: rgba(255,255,255,0.12); border: none; color: white; width: 42px; height: 42px; border-radius: var(--radius-sm); font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-        .pos-topbar-btn:hover { background: rgba(255,255,255,0.22); }
-        /* Flags that setup is incomplete — only ever shown when no terminal is paired yet. */
-        .pos-topbar-btn-setup::after { content: ''; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--maroon-dark); }
-        .pos-topbar-btn-icon-img { width: 26px; height: auto; display: block; }
+        /* Right-docked icon rail — replaces the old horizontal topbar entirely. Fixed, not
+           part of flex flow, so it never reflows the item grid/cart as it expands; expanding
+           draws it open as an overlay drawer (wider, shadowed) over the content instead of
+           pushing that content left, which is what keeps the grid's own column count stable
+           regardless of nav state. */
+        .pos-side-nav {
+            position: fixed; top: 0; right: 0; bottom: 0; width: var(--nav-w); z-index: 50;
+            background: linear-gradient(180deg, var(--maroon), var(--maroon-dark));
+            display: flex; flex-direction: column; box-shadow: -4px 0 18px rgba(74,10,18,0.25);
+            padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .pos-side-nav.expanded { width: 220px; }
+        .pos-side-nav-toggle { background: rgba(255,255,255,0.12); border: none; color: white; height: 46px; flex-shrink: 0; font-size: 1.05rem; display: flex; align-items: center; justify-content: center; }
+        .pos-side-nav-toggle:hover { background: rgba(255,255,255,0.22); }
+        .pos-side-nav.expanded .pos-side-nav-toggle i { transform: rotate(180deg); }
+        .pos-side-nav-items { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 6px 0; }
+        .pos-nav-divider { height: 1px; background: rgba(255,255,255,0.15); margin: 6px 14px; flex-shrink: 0; }
+        .pos-nav-item {
+            position: relative; display: flex; align-items: center; gap: 12px; justify-content: center;
+            padding: 13px 0; background: transparent; border: none; color: rgba(255,255,255,0.75);
+            width: 100%; text-decoration: none; flex-shrink: 0;
+        }
+        .pos-side-nav.expanded .pos-nav-item { justify-content: flex-start; padding-left: 20px; padding-right: 14px; }
+        .pos-nav-item:hover { color: white; background: rgba(255,255,255,0.08); }
+        .pos-nav-item i { font-size: 1.2rem; width: 22px; text-align: center; flex-shrink: 0; }
+        .pos-nav-item-icon-img { width: 22px; height: auto; display: block; flex-shrink: 0; }
+        .pos-nav-label { display: none; font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; }
+        .pos-side-nav.expanded .pos-nav-label { display: inline; }
+        .pos-nav-item.active { color: var(--gold); background: rgba(255,255,255,0.1); }
+        .pos-nav-item.active::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--gold); border-radius: 0 3px 3px 0; }
+        /* Flags that EFT setup is incomplete — only ever shown when no terminal is paired yet. */
+        .pos-nav-item-setup::after { content: ''; position: absolute; top: 9px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--maroon-dark); }
+
+        {{-- User account item's flyout — anchored flush to the rail's own left edge via
+             right:100% on its relatively-positioned wrapper, so it lands in the same place
+             regardless of whether the rail is collapsed or expanded (no width math needed). --}}
+        .pos-nav-user-wrap { position: relative; flex-shrink: 0; }
+        .pos-user-flyout {
+            position: absolute; right: 100%; bottom: 0; margin-right: 8px; z-index: 60;
+            background: var(--white); color: var(--text-primary); border-radius: var(--radius-md);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25); min-width: 210px; padding: 6px; display: none;
+        }
+        .pos-user-flyout.open { display: block; }
+        .pos-user-flyout a, .pos-user-flyout button {
+            display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+            padding: 10px 12px; border-radius: 8px; border: none; background: transparent;
+            color: var(--text-primary); font-weight: 600; font-size: 0.88rem; text-decoration: none;
+        }
+        .pos-user-flyout a:hover, .pos-user-flyout button:hover { background: var(--shade); }
+
+        {{-- Reserve the rail's own (collapsed) width so the item grid/cart never render
+             underneath it — the rail itself overlays rather than pushes when expanded, so
+             this stays fixed at the collapsed width regardless of nav state. --}}
+        .pos-app-shell { padding-right: var(--nav-w); }
+
+        {{-- Till — the Settle Till figures as their own full view (no popup), swapped in by
+             the side nav exactly like Archana/Poojas. --}}
+        .pos-till-pane { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
+        .pos-till-pane.active { display: block; }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
            styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
@@ -63,19 +117,34 @@
 
         .pos-items-pane { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
 
-        {{-- Main menu — the top-level "what am I looking at" choice (Archana vs Poojas),
-             a compact segmented toggle, not a pair of full-width blocks — it only ever has
-             two options, so it doesn't need to claim the whole row, and a light blue accent
-             (rather than the maroon already used everywhere else on this page) keeps it from
-             reading as another heavy, blocking panel. --}}
-        .pos-main-menu { display: inline-flex; gap: 2px; margin-bottom: 14px; padding: 3px; border-radius: var(--radius-sm); background: var(--shade); border: 1px solid var(--border); }
-        .pos-main-menu-btn {
+        {{-- Grid/table view toggle — Poojas-only (the Archana grid has no table equivalent),
+             a compact segmented control using the same light-blue accent the old in-page
+             Archana/Poojas toggle used to use, now that that toggle itself has moved to the
+             side nav. --}}
+        .pos-view-toggle { display: inline-flex; gap: 2px; margin-bottom: 14px; padding: 3px; border-radius: var(--radius-sm); background: var(--shade); border: 1px solid var(--border); }
+        .pos-view-toggle-btn {
             display: flex; align-items: center; justify-content: center; gap: 6px;
-            padding: 7px 16px; border-radius: 6px; border: none;
-            background: transparent; color: var(--text-secondary); font-weight: 700; font-size: 0.84rem;
+            padding: 7px 14px; border-radius: 6px; border: none;
+            background: transparent; color: var(--text-secondary); font-weight: 700; font-size: 0.82rem;
         }
-        .pos-main-menu-btn.active { background: var(--white); color: var(--accent-blue); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
-        .pos-main-menu-btn i { font-size: 0.92rem; }
+        .pos-view-toggle-btn.active { background: var(--white); color: var(--accent-blue); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+        .pos-view-toggle-btn i { font-size: 0.95rem; }
+
+        {{-- Table view — same per-category sections/filtering as the grid, just a denser
+             row layout for a counter that wants to scan names/fees quickly rather than tap
+             through visual tiles. --}}
+        .pos-category-table { display: none; width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .pos-menu-panel[data-menu="poojas"].table-view .pos-category-tiles { display: none; }
+        .pos-menu-panel[data-menu="poojas"].table-view .pos-category-table { display: table; }
+        .pos-table-row { cursor: pointer; border-bottom: 1px solid var(--border); }
+        .pos-table-row:hover { background: var(--shade); }
+        .pos-table-row.pos-category-hidden { display: none; }
+        .pos-table-row td { padding: 10px 8px; vertical-align: middle; }
+        .pos-table-name { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
+        .pos-table-desc { font-size: 0.78rem; color: var(--text-secondary); }
+        .pos-table-price { font-weight: 700; font-family: 'Inter', sans-serif; font-size: 0.86rem; text-align: right; white-space: nowrap; }
+        .pos-table-action { text-align: right; white-space: nowrap; }
+        .pos-table-book-btn { padding: 6px 14px; border-radius: var(--radius-sm); border: 1.5px solid var(--gold-hover); background: color-mix(in srgb, var(--gold-hover) 10%, white); color: var(--gold-hover); font-weight: 700; font-size: 0.78rem; }
 
         {{-- Category filter chips — a narrower, lighter-weight affordance than the main
              menu above, so the two never compete for attention. Rounded-rect rather than
@@ -190,7 +259,7 @@
                sits underneath it. */
             .pos-items-pane { padding-bottom: 78px; }
             .pos-cart-pane {
-                position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+                position: fixed; left: 0; right: var(--nav-w); bottom: 0; z-index: 55;
                 max-height: 82vh; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
                 border-left: none; border-top: 1.5px solid var(--border);
                 box-shadow: 0 -8px 28px rgba(31,42,55,0.22); overflow-y: auto;
@@ -388,42 +457,48 @@
 </head>
 <body>
     @include('partials.test-banner')
-    <header class="pos-topbar">
-        <div class="pos-topbar-title">
-            <h1>Ticket Sales POS</h1>
-            <div class="pos-subtitle">Sell &amp; Print Tickets</div>
-        </div>
-        @if($canManageConsole)
-        <a href="{{ route('admin.tickets.index') }}" class="pos-topbar-btn" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i></a>
-        @endif
-        <!-- Always visible, regardless of whether a terminal is currently paired — the Switch
-             button near Pay only ever shows up while "EFT Terminal" is the selected payment
-             method (and that method stays disabled with nothing paired to pick), so it's not a
-             reliable way in. This is the one entry point to terminal settings/pairing a
-             pos-level user can always reach — see EftTerminalAccess's own docblock on why this
-             tier is trusted to pair a terminal from here. The gold dot flags that setup still
-             needs attention (nothing paired yet); it clears once a terminal is paired, but the
-             button itself never disappears. -->
-        <button type="button" class="pos-topbar-btn" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="" class="pos-topbar-btn-icon-img"></button>
-        <div class="dropdown">
-            <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Account">
-                <i class="bi bi-person-fill"></i>
-            </button>
-            {{-- Settle Till used to be its own standalone topbar icon — folded in here instead
-                 so the topbar carries only navigation/device-setup chrome, with everything
-                 account/shift-related (PIN, till, logout) in one place. --}}
-            <ul class="dropdown-menu dropdown-menu-end">
-                @if($canSettleCash)
-                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#settleTillModal"><i class="bi bi-cash-stack me-2"></i>Settle Till</a></li>
-                @endif
-                @if($canManagePosPin)
-                <li><a class="dropdown-item" href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage POS PIN</a></li>
-                @endif
-                <li><a class="dropdown-item" href="{{ route('logout', ['from' => 'pos']) }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
-            </ul>
-        </div>
-    </header>
 
+    {{-- Right-docked icon nav — replaces the old horizontal topbar. Archana/Poojas/Till
+         are each their own full view (swapped by setActiveView() below); EFT Settings,
+         the Pooja Portal link and the User flyout (Manage PIN / Logout) keep their old
+         behaviour, just relocated. --}}
+    <nav class="pos-side-nav" id="posSideNav">
+        <button type="button" class="pos-side-nav-toggle" id="posSideNavToggle" title="Expand menu"><i class="bi bi-chevron-left"></i></button>
+        <div class="pos-side-nav-items">
+            <button type="button" class="pos-nav-item active" data-view="archana"><i class="bi bi-flower1"></i><span class="pos-nav-label">Archana</span></button>
+            @if($canCreateBookings)
+            <button type="button" class="pos-nav-item" data-view="poojas"><i class="bi bi-journal-bookmark-fill"></i><span class="pos-nav-label">Poojas</span></button>
+            @endif
+            @if($canSettleCash)
+            <button type="button" class="pos-nav-item" data-view="till"><i class="bi bi-cash-stack"></i><span class="pos-nav-label">Till</span></button>
+            @endif
+            <div class="pos-nav-divider"></div>
+            @if($canManageConsole)
+            <a href="{{ route('admin.tickets.index') }}" class="pos-nav-item" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i><span class="pos-nav-label">Portal</span></a>
+            @endif
+            <!-- Always visible, regardless of whether a terminal is currently paired — the
+                 Switch control near Pay only ever shows up while "EFT Terminal" is the
+                 selected payment method (and that method stays disabled with nothing
+                 paired to pick), so it's not a reliable way in. This is the one entry point
+                 to terminal settings/pairing a pos-level user can always reach — see
+                 EftTerminalAccess's own docblock on why this tier is trusted to pair a
+                 terminal from here. The gold dot flags that setup still needs attention
+                 (nothing paired yet); it clears once a terminal is paired, but the item
+                 itself never disappears. -->
+            <button type="button" class="pos-nav-item" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="" class="pos-nav-item-icon-img"><span class="pos-nav-label">EFT Terminal</span></button>
+        </div>
+        <div class="pos-nav-user-wrap">
+            <button type="button" class="pos-nav-item" id="posNavUserBtn" title="Account"><i class="bi bi-person-fill"></i><span class="pos-nav-label">Account</span></button>
+            <div class="pos-user-flyout" id="posUserFlyout">
+                @if($canManagePosPin)
+                <a href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill"></i>Manage POS PIN</a>
+                @endif
+                <a href="{{ route('logout', ['from' => 'pos']) }}" id="posLogoutLink"><i class="bi bi-box-arrow-right"></i>Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="pos-app-shell">
     <div class="pos-body">
         <div class="pos-items-pane">
             @php
@@ -435,16 +510,6 @@
                     ->map(fn($id) => ($bookingPoojas ?? collect())->firstWhere('pooja_id', $id))
                     ->filter();
             @endphp
-
-            {{-- Main menu — Archana (tickets) and Poojas (bookings) are deliberately never
-                 shown in the same grid: different transaction model entirely (instant
-                 till sale vs. a booking popup), so mixing them read as clutter. --}}
-            <div class="pos-main-menu" id="posMainMenu">
-                <button type="button" class="pos-main-menu-btn active" data-menu="archana"><i class="bi bi-flower1"></i> Archana</button>
-                @if($canCreateBookings)
-                <button type="button" class="pos-main-menu-btn" data-menu="poojas"><i class="bi bi-journal-bookmark-fill"></i> Poojas</button>
-                @endif
-            </div>
 
             <div class="pos-items-search">
                 <i class="bi bi-search"></i>
@@ -519,6 +584,10 @@
                 {{-- POOJAS MENU --}}
                 @if($canCreateBookings)
                 <div class="pos-menu-panel d-none" data-menu="poojas">
+                    <div class="pos-view-toggle">
+                        <button type="button" class="pos-view-toggle-btn active" data-view="grid"><i class="bi bi-grid-3x3-gap-fill"></i> Grid</button>
+                        <button type="button" class="pos-view-toggle-btn" data-view="table"><i class="bi bi-table"></i> Table</button>
+                    </div>
                     <div class="pos-category-section" data-category="">
                         <div class="pos-category-tiles">
                             <button type="button" class="pos-item-tile pos-item-tile-pooja pos-item-tile-custom" data-type="pooja" data-is-custom="1" data-id="" data-name="Custom Pooja" data-price="">
@@ -535,6 +604,16 @@
                                 </span>
                             </button>
                         </div>
+                        <table class="pos-category-table">
+                            <tbody>
+                                <tr class="pos-table-row" data-type="pooja" data-is-custom="1" data-id="" data-name="Custom Pooja" data-price="">
+                                    <td class="pos-table-name">Custom Pooja</td>
+                                    <td class="pos-table-desc">Not in the list — describe it and set your own fee</td>
+                                    <td class="pos-table-price">&nbsp;</td>
+                                    <td class="pos-table-action"><button type="button" class="pos-table-book-btn">Book</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                     @if($recentPoojas->isNotEmpty())
                     <div class="pos-category-section" data-category="__recent__">
@@ -559,6 +638,18 @@
                             </button>
                             @endforeach
                         </div>
+                        <table class="pos-category-table">
+                            <tbody>
+                                @foreach($recentPoojas as $pooja)
+                                <tr class="pos-table-row" data-type="pooja" data-is-custom="0" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-price="{{ $pooja->pooja_fee }}">
+                                    <td class="pos-table-name">{{ $pooja->pooja_name }}</td>
+                                    <td class="pos-table-desc">{{ $pooja->description }}</td>
+                                    <td class="pos-table-price">{{ $temple['currency'] ?? '' }} {{ number_format($pooja->pooja_fee, 2) }}</td>
+                                    <td class="pos-table-action"><button type="button" class="pos-table-book-btn">Book</button></td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                     @endif
                     @foreach($poojasByCategory as $category => $categoryPoojas)
@@ -584,6 +675,18 @@
                             </button>
                             @endforeach
                         </div>
+                        <table class="pos-category-table">
+                            <tbody>
+                                @foreach($categoryPoojas as $pooja)
+                                <tr class="pos-table-row" data-type="pooja" data-is-custom="0" data-id="{{ $pooja->pooja_id }}" data-name="{{ $pooja->pooja_name }}" data-price="{{ $pooja->pooja_fee }}">
+                                    <td class="pos-table-name">{{ $pooja->pooja_name }}</td>
+                                    <td class="pos-table-desc">{{ $pooja->description }}</td>
+                                    <td class="pos-table-price">{{ $temple['currency'] ?? '' }} {{ number_format($pooja->pooja_fee, 2) }}</td>
+                                    <td class="pos-table-action"><button type="button" class="pos-table-book-btn">Book</button></td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                     @endforeach
                 </div>
@@ -632,6 +735,19 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    {{-- Till — the old Settle Till modal's figures, now their own full view instead of a
+         popup (see the Till side-nav item's click handler below, which also re-fetches
+         these figures every time the view is opened, exactly as the old modal did on
+         show.bs.modal). --}}
+    @if($canSettleCash)
+    <div class="pos-till-pane" id="posTillPane">
+        <div id="posTillPaneBody">
+            @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
+        </div>
+    </div>
+    @endif
     </div>
 
     <div class="pos-toast" id="posToast"></div>
@@ -733,22 +849,6 @@
             </div>
         </div>
     </div>
-
-    @if($canSettleCash)
-    <div class="modal fade" id="settleTillModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Settle Till</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="settleTillModalBody">
-                    @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
 
     {{-- "Book Pooja" (Pooja Bookings plan Phase E) — same form/fields as the Pooja
          Portal's Create Booking modal (Phase D), posting to the same admin.bookings.store
@@ -1063,7 +1163,7 @@
             qtyModalOverlay.classList.add('active');
         }
         document.getElementById('itemsGrid').addEventListener('click', function (e) {
-            const tile = e.target.closest('.pos-item-tile');
+            const tile = e.target.closest('.pos-item-tile, .pos-table-row');
             if (!tile) { return; }
             if (tile.dataset.type === 'pooja') {
                 if (typeof openBookingPopup === 'function') { openBookingPopup(tile); }
@@ -1072,10 +1172,10 @@
             }
         });
 
-        // Main menu (Archana / Poojas) + per-menu category tabs + search — plain
+        // Side nav (Archana / Poojas / Till) + per-menu category tabs + search — plain
         // client-side show/hide, same "no server round-trip for something this cheap"
         // approach as the cart/quantity logic already on this page. Archana and Poojas
-        // never share a grid or a category-tab bar; switching the menu swaps both the
+        // never share a grid or a category-tab bar; switching the view swaps both the
         // visible panel and which tab bar applies. Within a panel, each category is its
         // own labeled section — a whole section (not just its tiles) hides once nothing
         // in it matches the active category/search, which is what keeps "All" from
@@ -1083,17 +1183,16 @@
         // own section (data-category="") is exempt from category filtering — it's pinned,
         // visible under every pooja category tab — but still respects search.
         (function () {
-            const mainMenu = document.getElementById('posMainMenu');
+            const navItems = document.querySelectorAll('.pos-nav-item[data-view]');
             const searchInput = document.getElementById('posItemsSearch');
             const emptyMsg = document.getElementById('posItemsEmpty');
             const panels = document.querySelectorAll('#itemsGrid .pos-menu-panel');
             const tabBars = document.querySelectorAll('.pos-category-tabs');
+            const itemsPane = document.querySelector('.pos-items-pane');
+            const cartPane = document.querySelector('.pos-cart-pane');
+            const tillPane = document.getElementById('posTillPane');
             let activeMenu = 'archana';
             let activeCategory = '';
-
-            function activeTabBar() {
-                return document.querySelector('.pos-category-tabs[data-menu="' + activeMenu + '"]');
-            }
 
             function applyFilters() {
                 const q = searchInput.value.trim().toLowerCase();
@@ -1104,7 +1203,10 @@
                         const isPinned = section.dataset.category === '';
                         const matchesCategory = isPinned || !activeCategory || section.dataset.category === activeCategory;
                         let sectionHasVisible = false;
-                        section.querySelectorAll('.pos-item-tile').forEach(function (tile) {
+                        // Grid tiles and table rows carry the same data-name/-category — one
+                        // predicate drives both, since only one of the two is ever displayed
+                        // at a time (see the view-toggle below) but both stay in sync.
+                        section.querySelectorAll('.pos-item-tile, .pos-table-row').forEach(function (tile) {
                             const matchesSearch = !q || tile.dataset.name.toLowerCase().includes(q);
                             const visible = matchesCategory && matchesSearch;
                             tile.classList.toggle('pos-category-hidden', !visible);
@@ -1117,26 +1219,38 @@
                 emptyMsg.classList.toggle('d-none', anyVisible);
             }
 
-            function setActiveMenu(menu) {
+            function setActiveView(view) {
                 // Switching to Poojas clears and closes any in-progress ticket order — the
                 // two are different transaction types entirely (a till sale vs. a booking),
                 // so carrying a half-built ticket cart across into booking mode would just
                 // be confusing state sitting behind the scenes.
-                if (menu === 'poojas' && typeof resetCart === 'function' && Object.keys(cart).length) {
+                if (view === 'poojas' && typeof resetCart === 'function' && Object.keys(cart).length) {
                     resetCart();
                 }
-                document.querySelector('.pos-cart-pane')?.classList.remove('expanded');
+                cartPane?.classList.remove('expanded');
 
-                activeMenu = menu;
-                activeCategory = '';
-                mainMenu.querySelectorAll('.pos-main-menu-btn').forEach(function (btn) {
-                    btn.classList.toggle('active', btn.dataset.menu === menu);
+                navItems.forEach(function (btn) {
+                    btn.classList.toggle('active', btn.dataset.view === view);
                 });
+
+                if (view === 'till') {
+                    itemsPane?.classList.add('d-none');
+                    cartPane?.classList.add('d-none');
+                    tillPane?.classList.add('active');
+                    if (typeof window.refreshPosTillPane === 'function') { window.refreshPosTillPane(); }
+                    return;
+                }
+                itemsPane?.classList.remove('d-none');
+                cartPane?.classList.remove('d-none');
+                tillPane?.classList.remove('active');
+
+                activeMenu = view;
+                activeCategory = '';
                 panels.forEach(function (panel) {
-                    panel.classList.toggle('d-none', panel.dataset.menu !== menu);
+                    panel.classList.toggle('d-none', panel.dataset.menu !== view);
                 });
                 tabBars.forEach(function (bar) {
-                    const isActiveBar = bar.dataset.menu === menu;
+                    const isActiveBar = bar.dataset.menu === view;
                     bar.classList.toggle('d-none', !isActiveBar);
                     if (isActiveBar) {
                         // Default to "Recent" when it exists (see the recently-booked
@@ -1153,9 +1267,8 @@
                 applyFilters();
             }
 
-            mainMenu.addEventListener('click', function (e) {
-                const btn = e.target.closest('.pos-main-menu-btn');
-                if (btn) { setActiveMenu(btn.dataset.menu); }
+            navItems.forEach(function (btn) {
+                btn.addEventListener('click', function () { setActiveView(btn.dataset.view); });
             });
 
             tabBars.forEach(function (bar) {
@@ -1174,6 +1287,56 @@
             }
 
             applyFilters();
+        })();
+
+        // Grid/table view toggle — Poojas only. Both layouts share the same underlying
+        // data-* attributes and filtering (see applyFilters() above), so this only ever
+        // needs to flip a class on the Poojas panel itself.
+        (function () {
+            const poojaPanel = document.querySelector('.pos-menu-panel[data-menu="poojas"]');
+            const toggle = document.querySelector('.pos-view-toggle');
+            if (!poojaPanel || !toggle) { return; }
+            toggle.addEventListener('click', function (e) {
+                const btn = e.target.closest('.pos-view-toggle-btn');
+                if (!btn) { return; }
+                toggle.querySelectorAll('.pos-view-toggle-btn').forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                poojaPanel.classList.toggle('table-view', btn.dataset.view === 'table');
+            });
+        })();
+
+        // Side nav expand/collapse — an explicit tap, not hover, so it works reliably on a
+        // touchscreen till. The rail overlays rather than pushes content when expanded (see
+        // .pos-side-nav.expanded in the CSS), so nothing else needs to react to this.
+        (function () {
+            const nav = document.getElementById('posSideNav');
+            const toggleBtn = document.getElementById('posSideNavToggle');
+            if (!nav || !toggleBtn) { return; }
+            toggleBtn.addEventListener('click', function () { nav.classList.toggle('expanded'); });
+        })();
+
+        // User account flyout (Manage PIN / Logout) + a confirmation before logout actually
+        // navigates away — the plain link used to log out with no warning at all.
+        (function () {
+            const userBtn = document.getElementById('posNavUserBtn');
+            const flyout = document.getElementById('posUserFlyout');
+            const logoutLink = document.getElementById('posLogoutLink');
+            if (userBtn && flyout) {
+                userBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    flyout.classList.toggle('open');
+                });
+                document.addEventListener('click', function (e) {
+                    if (flyout.classList.contains('open') && !e.target.closest('.pos-nav-user-wrap')) {
+                        flyout.classList.remove('open');
+                    }
+                });
+            }
+            if (logoutLink) {
+                logoutLink.addEventListener('click', function (e) {
+                    if (!confirm('Log out of the POS?')) { e.preventDefault(); }
+                });
+            }
         })();
         document.getElementById('qtyModalPlus').addEventListener('click', function () {
             const el = document.getElementById('qtyModalValue');
@@ -1258,7 +1421,7 @@
         const posEftSettingsTopbarBtn = document.getElementById('posEftSettingsTopbarBtn');
         function updateEftSettingsTopbarBtn() {
             if (!posEftSettingsTopbarBtn) { return; }
-            posEftSettingsTopbarBtn.classList.toggle('pos-topbar-btn-setup', !eftTerminalAvailable());
+            posEftSettingsTopbarBtn.classList.toggle('pos-nav-item-setup', !eftTerminalAvailable());
         }
         updateEftSettingsTopbarBtn();
         if (posEftSettingsTopbarBtn) {
@@ -1762,35 +1925,34 @@
         $settleTillPaneUrl = route('admin.cash-settlement.pane', ['scope' => 'tickets', 'context' => 'pos']);
     @endphp
     <script>
-        // See event-pos-donation.blade.php's identical script for why — the modal's own
+        // See event-pos-donation.blade.php's identical script for why — the pane's own
         // markup is stale page-load-time HTML otherwise, missing any Cash sale recorded
-        // since (from another station, or the public donation page).
-        (function () {
-            const modalEl = document.getElementById('settleTillModal');
-            const bodyEl = document.getElementById('settleTillModalBody');
-            if (!modalEl || !bodyEl) { return; }
+        // since (from another station, or the public donation page). Previously refetched
+        // on the old Settle Till modal's own show.bs.modal event; the Till nav item's click
+        // handler (setActiveView()) now calls this directly every time that view opens.
+        window.refreshPosTillPane = function () {
+            const bodyEl = document.getElementById('posTillPaneBody');
+            if (!bodyEl) { return; }
             const paneUrl = @json($settleTillPaneUrl);
 
-            modalEl.addEventListener('show.bs.modal', function () {
-                bodyEl.style.opacity = '0.5';
-                fetch(paneUrl, { headers: { 'Accept': 'text/html' } })
-                    .then(function (res) { return res.ok ? res.text() : Promise.reject(); })
-                    .then(function (html) {
-                        bodyEl.innerHTML = html;
-                        bodyEl.style.opacity = '1';
-                        bodyEl.querySelectorAll('script').forEach(function (oldScript) {
-                            const newScript = document.createElement('script');
-                            Array.from(oldScript.attributes).forEach(function (attr) { newScript.setAttribute(attr.name, attr.value); });
-                            newScript.textContent = oldScript.textContent;
-                            oldScript.replaceWith(newScript);
-                        });
-                    })
-                    .catch(function () {
-                        bodyEl.style.opacity = '1';
-                        showToast('Could not refresh — showing the last loaded figures.', true);
+            bodyEl.style.opacity = '0.5';
+            fetch(paneUrl, { headers: { 'Accept': 'text/html' } })
+                .then(function (res) { return res.ok ? res.text() : Promise.reject(); })
+                .then(function (html) {
+                    bodyEl.innerHTML = html;
+                    bodyEl.style.opacity = '1';
+                    bodyEl.querySelectorAll('script').forEach(function (oldScript) {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(function (attr) { newScript.setAttribute(attr.name, attr.value); });
+                        newScript.textContent = oldScript.textContent;
+                        oldScript.replaceWith(newScript);
                     });
-            });
-        })();
+                })
+                .catch(function () {
+                    bodyEl.style.opacity = '1';
+                    showToast('Could not refresh — showing the last loaded figures.', true);
+                });
+        };
     </script>
     @endif
 
