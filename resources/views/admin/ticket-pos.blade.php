@@ -152,13 +152,23 @@
         {{-- Table view — same per-category sections/filtering as the grid, just a denser
              row layout for a counter that wants to scan names/fees quickly rather than tap
              through visual tiles. --}}
-        .pos-category-table { display: none; width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        {{-- Indented and visually lifted (white card, border, shadow) relative to the plain
+             category heading above it — without that, rows read as a continuation of the
+             heading's own text block instead of a distinct group of items under it. --}}
+        .pos-category-table {
+            display: none; width: calc(100% - 14px); margin: 0 0 4px 14px; border-collapse: separate; border-spacing: 0;
+            background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-md);
+            overflow: hidden; box-shadow: 0 2px 8px rgba(31,42,55,0.06);
+        }
         .pos-menu-panel[data-menu="poojas"].table-view .pos-category-tiles { display: none; }
         .pos-menu-panel[data-menu="poojas"].table-view .pos-category-table { display: table; }
         .pos-table-row { cursor: pointer; border-bottom: 1px solid var(--border); }
+        .pos-table-row:last-child { border-bottom: none; }
         .pos-table-row:hover { background: var(--shade); }
         .pos-table-row.pos-category-hidden { display: none; }
-        .pos-table-row td { padding: 10px 8px; vertical-align: middle; }
+        .pos-table-row td { padding: 11px 14px; vertical-align: middle; }
+        .pos-table-row td:first-child { border-left: 3px solid transparent; }
+        .pos-table-row:hover td:first-child { border-left-color: var(--gold-hover); }
         .pos-table-name { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
         .pos-table-desc { font-size: 0.78rem; color: var(--text-secondary); }
         .pos-table-price { font-weight: 700; font-family: 'Inter', sans-serif; font-size: 0.86rem; text-align: right; white-space: nowrap; }
