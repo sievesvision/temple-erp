@@ -149,6 +149,9 @@ class EftConsoleTransactionHistoryTest extends TestCase
         $response = $this->actingAs($this->adminUser())->get('/admin/tickets/pos');
 
         $response->assertOk();
-        $response->assertSee('openEftTerminalSettingsModal()', false);
+        // The Ticket POS moved EFT Terminal Settings from a popup (openEftTerminalSettingsModal())
+        // into its own side-nav view — see TicketPosSideNavTest.
+        $response->assertSee('data-view="eft-settings"', false);
+        $response->assertSee('id="posEftSettingsFrame"', false);
     }
 }
