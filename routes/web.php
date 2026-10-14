@@ -865,7 +865,6 @@ Route::middleware(['auth', 'role.devotee'])->group(function () {
     Route::get('/devotee/book_pooja', [BookingController::class, 'bookPoojaPage']);
     Route::post('/devotee/book-pooja', [BookingController::class, 'storeBooking'])->name('devotee.book-pooja.post');
     Route::post('/devotee/book_pooja', [BookingController::class, 'storeBooking']);
-    Route::get('/devotee/booking/receipt/{id}', [BookingController::class, 'downloadReceipt'])->name('devotee.bookings.receipt');
     Route::post('/devotee/bookings/{id}/cancel', [BookingController::class, 'cancelBooking'])->name('devotee.bookings.cancel');
 
     // Devotee Payment Routes
@@ -882,6 +881,12 @@ Route::middleware(['auth', 'role.devotee'])->group(function () {
     Route::post('/devotee/chat/send', [\App\Http\Controllers\ChatController::class, 'sendMessage'])->name('devotee.chat.send');
     Route::post('/devotee/chat/end', [\App\Http\Controllers\ChatController::class, 'endSession'])->name('devotee.chat.end');
 });
+
+// Not role.devotee-gated — BookingController::downloadReceipt() already enforces its own
+// "Admin or the owning devotee" check, and this link is also used from the Pooja Portal's
+// Manage Bookings page (staff viewing any booking's receipt, not just a devotee their
+// own), which role.devotee would have blocked with a 403 before ever reaching that check.
+Route::middleware('auth')->get('/devotee/booking/receipt/{id}', [BookingController::class, 'downloadReceipt'])->name('devotee.bookings.receipt');
 
 // ============================================
 // PRIEST ROUTES (Restricted via RoleMiddleware)

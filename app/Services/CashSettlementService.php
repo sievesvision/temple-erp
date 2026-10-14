@@ -228,9 +228,23 @@ class CashSettlementService
                 ->values();
         }
 
-        return collect(DB::table('ticket_orders')->where('payment_method', 'Cash')->where('payment_status', 'Paid')->orderByDesc('created_at')->get())
+        $orders = collect(DB::table('ticket_orders')->where('payment_method', 'Cash')->where('payment_status', 'Paid')->orderByDesc('created_at')->get())
             ->filter(fn ($r) => !isset($claimedKeys['ticket_order:' . $r->id]))
             ->values();
+
+        // Batched (not one query per row) — attached so the order-view popup can list
+        // what was actually bought without a separate AJAX call; everything else reading
+        // this collection already ignores unknown properties.
+        $itemsByOrder = DB::table('ticket_order_items')
+            ->whereIn('ticket_order_id', $orders->pluck('id'))
+            ->orderBy('id')
+            ->get(['ticket_order_id', 'ticket_name', 'quantity', 'unit_price', 'line_total'])
+            ->groupBy('ticket_order_id');
+
+        return $orders->map(function ($order) use ($itemsByOrder) {
+            $order->items = $itemsByOrder->get($order->id, collect())->values();
+            return $order;
+        });
     }
 
     /**

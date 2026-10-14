@@ -94,6 +94,11 @@
     .cs-order-detail-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; }
     .cs-order-detail-value { font-weight: 700; font-size: 0.95rem; text-align: right; }
     .cs-order-detail-total { font-size: 1.25rem; color: #1f9d6a; }
+    .cs-order-items { padding: 10px 0; border-bottom: 1px solid #f0ece6; }
+    .cs-order-item-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 5px 0; font-size: 0.86rem; }
+    .cs-order-item-name { color: #1e1e2a; }
+    .cs-order-item-qty { color: #a0907e; font-weight: 600; }
+    .cs-order-item-total { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .cs-order-receipt-col { position: relative; background: #efe9dd; border-left: 1px solid #e8e0d4; height: 75vh; }
     .cs-order-receipt-col iframe { width: 100%; height: 100%; border: 0; display: block; position: relative; z-index: 0; }
     @media (max-width: 767px) { .cs-order-receipt-col { height: 50vh; border-left: none; border-top: 1px solid #e8e0d4; } }
@@ -183,11 +188,19 @@
                     {{-- Clicking anywhere on the row (or the View icon) opens the order in
                          the popup below — a quick look without leaving the pane. The Print
                          icon is the one remaining direct link, for actually printing. --}}
+                    @php
+                        $orderItemsForModal = collect($row->items ?? [])->map(fn ($item) => [
+                            'name' => $item->ticket_name,
+                            'quantity' => $item->quantity,
+                            'unitPrice' => $fmt($item->unit_price),
+                            'lineTotal' => $fmt($item->line_total),
+                        ]);
+                    @endphp
                     <tr class="cs-row cs-row-clickable" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}"
                         data-order-url="{{ route('admin.tickets.print', $row->id) }}" data-order-id="{{ $row->id }}"
                         data-order-date="{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}"
                         data-order-customer="{{ $row->customer_name ?: 'Walk-in' }}" data-order-method="{{ $row->payment_method }}"
-                        data-order-total="{{ $fmt($row->total_amount) }}">
+                        data-order-total="{{ $fmt($row->total_amount) }}" data-order-items="{{ $orderItemsForModal->toJson() }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
                         <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
                         <td>Order #{{ $row->id }}</td>
@@ -356,6 +369,7 @@
                             <span class="cs-order-detail-label">Payment Method</span>
                             <span class="cs-order-detail-value" id="csOrderModalMethod_{{ $formId }}"></span>
                         </div>
+                        <div class="cs-order-items" id="csOrderModalItems_{{ $formId }}"></div>
                         <div class="cs-order-detail-row" style="border-bottom: none;">
                             <span class="cs-order-detail-label">Total</span>
                             <span class="cs-order-detail-value cs-order-detail-total" id="csOrderModalTotal_{{ $formId }}"></span>
@@ -463,6 +477,8 @@
             if (frame.src !== 'about:blank') { loadingEl?.classList.remove('active'); }
         });
 
+        const itemsEl = document.getElementById('csOrderModalItems_{{ $formId }}');
+
         function openOrderModal(row) {
             document.getElementById('csOrderModalTitle_{{ $formId }}').textContent = 'Order #' + row.dataset.orderId;
             document.getElementById('csOrderModalDate_{{ $formId }}').textContent = row.dataset.orderDate;
@@ -470,6 +486,28 @@
             document.getElementById('csOrderModalMethod_{{ $formId }}').textContent = row.dataset.orderMethod;
             document.getElementById('csOrderModalTotal_{{ $formId }}').textContent = row.dataset.orderTotal;
             document.getElementById('csOrderModalPrintLink_{{ $formId }}').href = row.dataset.orderUrl;
+
+            itemsEl.innerHTML = '';
+            let items = [];
+            try { items = JSON.parse(row.dataset.orderItems || '[]'); } catch (e) { items = []; }
+            items.forEach(function (item) {
+                const line = document.createElement('div');
+                line.className = 'cs-order-item-line';
+                const name = document.createElement('span');
+                name.className = 'cs-order-item-name';
+                name.textContent = item.name + ' ';
+                const qty = document.createElement('span');
+                qty.className = 'cs-order-item-qty';
+                qty.textContent = 'x' + item.quantity;
+                name.appendChild(qty);
+                const total = document.createElement('span');
+                total.className = 'cs-order-item-total';
+                total.textContent = item.lineTotal;
+                line.appendChild(name);
+                line.appendChild(total);
+                itemsEl.appendChild(line);
+            });
+
             loadingEl?.classList.add('active');
             frame.src = row.dataset.orderUrl;
             orderModal.show();

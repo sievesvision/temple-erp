@@ -157,6 +157,31 @@ class SettlementPaneTicketColumnsTest extends TestCase
         $response->assertSee('class="cs-order-receipt-loading active"', false);
     }
 
+    public function test_the_order_view_popup_lists_individual_line_items(): void
+    {
+        $admin = $this->admin();
+        $orderId = DB::table('ticket_orders')->insertGetId([
+            'customer_name' => 'Items Buyer', 'total_amount' => 85,
+            'payment_method' => 'Cash', 'payment_status' => 'Paid',
+            'order_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('ticket_order_items')->insert([
+            ['ticket_order_id' => $orderId, 'ticket_name' => 'Ganapathy Archana', 'unit_price' => 21, 'quantity' => 2, 'line_total' => 42, 'created_at' => now(), 'updated_at' => now()],
+            ['ticket_order_id' => $orderId, 'ticket_name' => 'Abhishekam', 'unit_price' => 43, 'quantity' => 1, 'line_total' => 43, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $this->assertStringContainsString('Ganapathy Archana', $content);
+        $this->assertStringContainsString('Abhishekam', $content);
+        $this->assertStringContainsString('&quot;quantity&quot;:2', $content);
+        $this->assertStringContainsString('id="csOrderModalItems_', $content);
+    }
+
     public function test_cash_received_by_ticket_type_breakdown_is_removed(): void
     {
         $admin = $this->admin();

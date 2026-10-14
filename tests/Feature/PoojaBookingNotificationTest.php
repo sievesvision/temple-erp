@@ -144,6 +144,47 @@ class PoojaBookingNotificationTest extends TestCase
         });
     }
 
+    /**
+     * A booking that's already Paid at creation (Cash/Card/Counter) doubles its
+     * confirmation email as a paid invoice — the pooja's own catalog description, any
+     * participant details/special requirements, the payment method, and a Paid/Due
+     * breakdown (Paid = total, Due = 0) all show up, and the payment-options section
+     * (Bank Transfer / Pay at the Temple) is skipped since there's nothing left to pay.
+     */
+    public function test_a_paid_booking_sends_a_paid_invoice_with_full_details(): void
+    {
+        Setting::set('system_mode', 'Live Mode');
+        $this->activePriest();
+        $pooja = $this->activePooja(['description' => 'A traditional abishekam with milk and honey.']);
+
+        (new BookingService())->create([
+            'pooja_id' => $pooja->pooja_id,
+            'booking_date' => now()->addDay()->toDateString(),
+            'booking_time' => '10:00:00',
+            'devotee_name' => 'Paid Invoice Devotee',
+            'devotee_mobile' => '0411122233',
+            'devotee_email' => 'paid.invoice.devotee@example.com',
+            'payment_method' => 'Cash',
+            'payment_status' => 'Paid',
+            'participant_details' => 'Ramesh — Bharadwaja gothram, Rohini nakshatram',
+        ], 'Staff', null);
+        $this->flushAfterResponseJobs();
+
+        Mail::assertSent(BookingConfirmationMail::class, function (BookingConfirmationMail $mail) {
+            $html = $mail->render();
+
+            $this->assertSame(100.0, (float) $mail->paidAmount);
+            $this->assertSame(0.0, (float) $mail->dueAmount);
+            $this->assertStringContainsString('Paid Invoice', $html);
+            $this->assertStringContainsString('A traditional abishekam with milk and honey.', $html);
+            $this->assertStringContainsString('Ramesh — Bharadwaja gothram, Rohini nakshatram', $html);
+            $this->assertStringContainsString('Cash', $html);
+            $this->assertStringNotContainsString('Bank Transfer', $html);
+
+            return true;
+        });
+    }
+
     public function test_admin_confirm_and_notify_moves_a_pending_booking_to_confirmed_and_sends_the_email(): void
     {
         Setting::set('system_mode', 'Live Mode');

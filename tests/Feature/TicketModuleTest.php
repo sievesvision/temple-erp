@@ -138,6 +138,29 @@ class TicketModuleTest extends TestCase
         $print->assertSee('setPaperWidth(\'80mm\'', false);
     }
 
+    /**
+     * When this view loads inside an iframe (the order-view popup's embedded receipt —
+     * see cash-settlement-pane.blade.php), the width picker and its instructional
+     * paragraph are hidden client-side, leaving just the Print button.
+     */
+    public function test_print_view_hides_the_width_picker_when_embedded_in_an_iframe(): void
+    {
+        $user = $this->ticketUser();
+        $ticket = Ticket::create(['name' => 'Iframe Test Ticket', 'price' => 5.00, 'status' => 'Active']);
+
+        $response = $this->actingAs($user)->postJson('/admin/tickets/order', [
+            'cart_json' => json_encode([['ticket_id' => $ticket->id, 'name' => $ticket->name, 'price' => 5.00, 'quantity' => 1]]),
+            'payment_method' => 'Cash',
+        ]);
+        $orderId = $response->json('order_id');
+
+        $print = $this->actingAs($user)->get("/admin/tickets/print/{$orderId}");
+
+        $print->assertOk();
+        $print->assertSee("window.top !== window.self", false);
+        $print->assertSee('in-iframe-view', false);
+    }
+
     // The POS tile picks up the ticket type's own background_color theme (see
     // resources/views/admin/ticket-pos.blade.php's color-mix()-derived --tile-accent).
     public function test_pos_tile_reflects_the_tickets_colour_theme(): void

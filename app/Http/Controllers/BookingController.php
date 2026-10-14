@@ -545,9 +545,17 @@ class BookingController extends Controller
             return redirect()->back()->with('error', 'Booking record not found.');
         }
 
-        // Verify authorization (only admin or the devotee themselves can download)
+        // Verify authorization — anyone who can see this booking on Manage Bookings
+        // (the same 'bookings'->'view' grid permission that page itself is gated on, not
+        // just the literal 'Admin' role — a Ticket Controller/Committee member with that
+        // permission needs this receipt link to work too) or the owning devotee themselves.
+        // Excludes the 'Devotee' role explicitly — Devotee's own 'bookings'->'view' grant
+        // is what lets a devotee see their OWN bookings list, not a blanket "see anyone's
+        // receipt" permission, so it must never satisfy this staff-bypass check.
+        $activeRole = session('active_role', $user->role);
         $devotee = DB::table('devotees')->where('user_id', $user->id)->first();
-        if ($user->role !== 'Admin' && (!$devotee || $devotee->devotee_id !== $booking->devotee_id)) {
+        $canViewAsStaff = $activeRole !== 'Devotee' && RolePermission::can($activeRole, 'bookings', 'view');
+        if (!$canViewAsStaff && (!$devotee || $devotee->devotee_id !== $booking->devotee_id)) {
             return abort(403, 'Unauthorized action.');
         }
 

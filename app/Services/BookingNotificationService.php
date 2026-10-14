@@ -73,9 +73,14 @@ class BookingNotificationService
                 $booking->booking_id,
                 $booking->devotee->user->name ?? 'Devotee',
                 $booking->custom_pooja_label ?: ($booking->pooja->pooja_name ?? 'Pooja'),
+                // No catalog description for a custom pooja — its own label already says
+                // what it is, there's nothing further on file to show.
+                $booking->custom_pooja_label ? null : ($booking->pooja->description ?? null),
                 $booking->booking_date,
                 $booking->booking_time,
                 $booking->priest->user->name ?? null,
+                $booking->participant_details,
+                $booking->payment_method,
                 $booking->total_amount,
                 Setting::get('currency_code', 'AUD'),
                 $booking->payment_status

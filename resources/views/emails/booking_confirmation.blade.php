@@ -12,7 +12,7 @@
         {{ $temple['name'] }}
       </h1>
       <p style="margin: 4px 0 0 0; color: #d9d4c9; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
-        Pooja Booking Confirmed
+        {{ $paymentStatus === 'Paid' ? 'Pooja Booking — Paid Invoice' : 'Pooja Booking Confirmed' }}
       </p>
     </div>
 
@@ -23,7 +23,11 @@
       </p>
 
       <p style="color: #52473c; font-size: 15px; line-height: 1.6; margin-bottom: 22px;">
-        Your pooja booking at {{ $temple['name'] }} has been confirmed. Here are the details:
+        @if($paymentStatus === 'Paid')
+          Your pooja booking at {{ $temple['name'] }} has been confirmed and paid in full. This email is your receipt — here are the details:
+        @else
+          Your pooja booking at {{ $temple['name'] }} has been confirmed. Here are the details:
+        @endif
       </p>
 
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e2ddd3; border-collapse: collapse; margin: 0 0 22px 0;">
@@ -35,6 +39,12 @@
           <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Pooja</td>
           <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 14px;">{{ $poojaName }}</td>
         </tr>
+        @if($poojaDescription)
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">About this Pooja</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #52473c; font-size: 13px; line-height: 1.5;">{{ $poojaDescription }}</td>
+        </tr>
+        @endif
         <tr>
           <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Date &amp; Time</td>
           <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 14px;">{{ $bookingDate }} at {{ date('h:i A', strtotime($bookingTime)) }}</td>
@@ -45,10 +55,30 @@
           <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 14px;">{{ $priestName }}</td>
         </tr>
         @endif
+        @if($participantDetails)
         <tr>
-          <td style="padding: 12px 16px; color: #7b6b5a; font-size: 13px;">Total Cost</td>
-          <td style="padding: 12px 16px; color: #17110a; font-size: 15px; font-weight: 700;">{{ $currency }} {{ number_format($totalAmount, 2) }}</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Special Requirements</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 13px; line-height: 1.5; white-space: pre-wrap;">{{ $participantDetails }}</td>
         </tr>
+        @endif
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Payment Method</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #2d2520; font-size: 14px;">{{ $paymentMethod }}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #7b6b5a; font-size: 13px;">Total Cost</td>
+          <td style="padding: 12px 16px; border-bottom: 1px solid #e2ddd3; color: #17110a; font-size: 15px; font-weight: 700;">{{ $currency }} {{ number_format($totalAmount, 2) }}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 16px; {{ $dueAmount > 0 ? 'border-bottom: 1px solid #e2ddd3;' : '' }} color: #7b6b5a; font-size: 13px;">Paid</td>
+          <td style="padding: 12px 16px; {{ $dueAmount > 0 ? 'border-bottom: 1px solid #e2ddd3;' : '' }} color: #2f6f4e; font-size: 14px; font-weight: 700;">{{ $currency }} {{ number_format($paidAmount, 2) }}</td>
+        </tr>
+        @if($dueAmount > 0)
+        <tr>
+          <td style="padding: 12px 16px; color: #7b6b5a; font-size: 13px;">Due</td>
+          <td style="padding: 12px 16px; color: #b8442f; font-size: 14px; font-weight: 700;">{{ $currency }} {{ number_format($dueAmount, 2) }}</td>
+        </tr>
+        @endif
       </table>
 
       @if($paymentStatus !== 'Paid')

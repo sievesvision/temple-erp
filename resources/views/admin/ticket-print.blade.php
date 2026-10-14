@@ -42,10 +42,16 @@
             .stub { margin: 0 auto; }
             .stub-cut-hint { display: none; }
         }
+
+        /* Embedded in the order-view popup's iframe (cash-settlement-pane.blade.php) — a
+           quick look at the receipt, not a print setup flow, so the width picker and its
+           instructional paragraph are dead weight here; just the Print button stays. */
+        body.in-iframe-view .width-picker, body.in-iframe-view .toolbar p { display: none; }
     </style>
     <style id="pageSizeStyle">@page { size: 80mm auto; margin: 0; }</style>
 </head>
 <body>
+    <script>if (window.top !== window.self) { document.body.classList.add('in-iframe-view'); }</script>
     <div class="toolbar">
         <div class="width-picker">
             <button type="button" class="active" data-width="80mm" onclick="setPaperWidth('80mm', this)">80mm</button>

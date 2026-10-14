@@ -68,6 +68,38 @@ class TicketPosBookingUxTest extends TestCase
         $response->assertDontSee('<select name="payment_method"', false);
     }
 
+    /**
+     * The POS's payment terminology is now Card/Cash/Bank everywhere a method is
+     * presented to the operator — "EFT Terminal"/"Bank Transfer" stay as the underlying
+     * stored value (every selectedMethod === '...' check, payment_method columns), only
+     * the on-screen label changed.
+     */
+    public function test_payment_method_terms_are_card_cash_bank(): void
+    {
+        $admin = $this->admin();
+        Pooja::create(['pooja_name' => 'Terminology Test Pooja', 'pooja_fee' => 50, 'status' => 'Active']);
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee("Cash: 'Cash', UPI: 'UPI', 'Bank Transfer': 'Bank', 'EFT Terminal': 'Card'", false);
+        $response->assertSee("{ value: 'EFT Terminal', label: 'Card'", false);
+        $response->assertSee("{ value: 'Bank', label: 'Bank'", false);
+    }
+
+    public function test_the_booking_popup_method_row_has_three_equal_width_buttons_and_pay_on_terminal_label(): void
+    {
+        $admin = $this->admin();
+        Pooja::create(['pooja_name' => 'Equal Row Test Pooja', 'pooja_fee' => 50, 'status' => 'Active']);
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee("bpMethodRow.classList.add('pos-method-row-equal')", false);
+        $response->assertSee('pos-method-row-equal .pos-method-btn', false);
+        $response->assertSee("value === 'EFT Terminal' ? 'Pay on Terminal' : 'Create Booking'", false);
+    }
+
     public function test_recent_tab_shows_the_most_recently_booked_pooja_first(): void
     {
         $admin = $this->admin();

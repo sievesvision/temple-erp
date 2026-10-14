@@ -265,7 +265,7 @@
         .pos-item-tile.in-cart .tile-qty-badge { display: flex; }
 
         {{-- Search bar above the grid, same bordered-field look as the rest of the page. --}}
-        .pos-items-search { position: relative; flex: 0 1 260px; margin-left: auto; }
+        .pos-items-search { position: relative; flex: 0 1 260px; }
         .pos-items-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
         .pos-items-search input { padding-left: 38px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); }
         .pos-items-empty { display: none; }
@@ -342,6 +342,10 @@
 
         .pos-method-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
         .pos-method-btn { flex: 1 1 calc(50% - 8px); min-width: 90px; padding: 10px 8px; min-height: 46px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--shade); font-weight: 700; font-size: 0.82rem; color: var(--text-secondary); }
+        {{-- Booking popup's method row always has exactly 3 options (Cash/Bank/Card) — one
+             even row instead of the ticket cart's own 2-per-row wrap, which left the third
+             button alone on its own row. --}}
+        .pos-method-row-equal .pos-method-btn { flex: 1 1 0; }
         .pos-method-btn.active { border-color: var(--gold); background: var(--gold); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.3); }
         .pos-method-btn i { display: block; font-size: 1.1rem; margin-bottom: 2px; }
         /* No paired terminal at all — EFT Terminal isn't a usable option right now. */
@@ -589,6 +593,11 @@
                  the right of whichever tab bar is active (or alone, flush right, when
                  neither renders). --}}
             <div class="pos-filter-row">
+                <div class="pos-items-search">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="posItemsSearch" class="form-control" placeholder="Search...">
+                </div>
+
                 @if($ticketsByCategory->keys()->count() > 1)
                 <div class="pos-category-tabs" data-menu="archana">
                     <button type="button" class="pos-category-tab active" data-category="">All</button>
@@ -610,11 +619,6 @@
                     @endforeach
                 </div>
                 @endif
-
-                <div class="pos-items-search">
-                    <i class="bi bi-search"></i>
-                    <input type="text" id="posItemsSearch" class="form-control" placeholder="Search...">
-                </div>
             </div>
 
             <div id="itemsGrid">
@@ -1509,6 +1513,11 @@
         const methodRow = document.getElementById('posMethodRow');
         let selectedMethod = null;
         const methodIcons = { Cash: 'bi-cash-coin', UPI: 'bi-phone-fill', 'Bank Transfer': 'bi-bank2', 'EFT Terminal': 'bi-credit-card-2-front-fill' };
+        // Display terms only — the underlying method value ('EFT Terminal', 'Bank
+        // Transfer') is unchanged everywhere else on this page and in the backend
+        // (payment_method columns, every selectedMethod === '...' check), since renaming
+        // those would mean a wider schema/reporting change than what was asked for.
+        const methodLabels = { Cash: 'Cash', UPI: 'UPI', 'Bank Transfer': 'Bank', 'EFT Terminal': 'Card' };
 
         // The Pay button's own label/icon track the live cart total and selected method,
         // same pattern as event-pos-donation's PAY {amount} — called from recalcCartTotal()
@@ -1544,7 +1553,7 @@
             btn.type = 'button';
             const disabled = m === 'EFT Terminal' && !eftTerminalAvailable();
             btn.className = 'pos-method-btn' + (m === posDefaultMethod ? ' active' : '') + (disabled ? ' disabled' : '');
-            btn.innerHTML = '<i class="bi ' + (methodIcons[m] || 'bi-wallet2') + '"></i>' + m;
+            btn.innerHTML = '<i class="bi ' + (methodIcons[m] || 'bi-wallet2') + '"></i>' + (methodLabels[m] || m);
             btn.dataset.method = m;
             if (disabled) { btn.title = 'No EFT terminal is currently paired.'; }
             btn.addEventListener('click', function () {
@@ -2196,18 +2205,30 @@
                 selectedTileName = '';
             }
 
-            // Payment method row — Cash / Bank Transfer / EFT Terminal, same button style
-            // and EFT Terminal availability check the ticket cart's own PAYMENT_METHODS row
-            // already uses (methodRow/eftTerminalAvailable() are defined earlier on this
-            // page). "Office Counter" isn't offered here — just the three real-world ways a
-            // booking actually gets paid at this counter.
+            // Payment method row — Cash / Bank / Card (Card = EFT Terminal under the hood;
+            // "pos-method-row-equal" forces exactly 3 equal-width buttons in one row
+            // instead of the ticket cart's own 2-per-row wrap, since this row always has
+            // exactly these three). "Office Counter" isn't offered here — just the three
+            // real-world ways a booking actually gets paid at this counter.
             const bpMethodRow = document.getElementById('bpMethodRow');
+            bpMethodRow.classList.add('pos-method-row-equal');
             const bpPaymentMethodField = document.getElementById('bp_payment_method');
             const bpMethods = [
                 { value: 'Cash', label: 'Cash', icon: 'bi-cash-coin' },
-                { value: 'Bank', label: 'Bank Transfer', icon: 'bi-bank2' },
-                { value: 'EFT Terminal', label: 'EFT Terminal', icon: 'bi-credit-card-2-front-fill' },
+                { value: 'Bank', label: 'Bank', icon: 'bi-bank2' },
+                { value: 'EFT Terminal', label: 'Card', icon: 'bi-credit-card-2-front-fill' },
             ];
+            // The submit button's own label follows the selected method — "Pay on
+            // Terminal" for Card, "Create Booking" otherwise — set here (not just once at
+            // load) so it's never stale, and read back out by startBookingEftPurchase()
+            // via btn.dataset.originalText for pollEftTransaction's own restore-on-
+            // decline logic (that function lives outside this IIFE's scope).
+            let submitBtnOriginalText = submitBtn.innerHTML;
+            function setMethodAndButtonLabel(value) {
+                bpPaymentMethodField.value = value;
+                submitBtnOriginalText = value === 'EFT Terminal' ? 'Pay on Terminal' : 'Create Booking';
+                submitBtn.innerHTML = submitBtnOriginalText;
+            }
             bpMethods.forEach(function (m) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
@@ -2220,7 +2241,7 @@
                     if (btn.classList.contains('disabled')) { return; }
                     bpMethodRow.querySelectorAll('.pos-method-btn').forEach(function (b) { b.classList.remove('active'); });
                     btn.classList.add('active');
-                    bpPaymentMethodField.value = m.value;
+                    setMethodAndButtonLabel(m.value);
                 });
                 bpMethodRow.appendChild(btn);
             });
@@ -2236,7 +2257,7 @@
                 preferredWrapper.classList.add('d-none');
                 resetPoojaPicker();
                 bpMethodRow.querySelectorAll('.pos-method-btn').forEach(function (b, i) { b.classList.toggle('active', i === 0); });
-                bpPaymentMethodField.value = 'Cash';
+                setMethodAndButtonLabel('Cash');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = submitBtnOriginalText;
             };

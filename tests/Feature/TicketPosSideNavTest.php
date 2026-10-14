@@ -164,6 +164,24 @@ class TicketPosSideNavTest extends TestCase
         $this->assertLessThan($rowEnd, $searchPos, 'The search box should be inside .pos-filter-row, alongside the category tabs.');
     }
 
+    public function test_the_search_box_comes_before_the_category_filter_chips(): void
+    {
+        $admin = $this->admin();
+        Ticket::create(['name' => 'Order Test Archana', 'category' => 'Archana', 'price' => 10, 'status' => 'Active']);
+        Ticket::create(['name' => 'Order Test Pooja', 'category' => 'Pooja', 'price' => 10, 'status' => 'Active']);
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $rowStart = strpos($content, 'class="pos-filter-row"');
+        $searchPos = strpos($content, 'id="posItemsSearch"', $rowStart);
+        $tabsPos = strpos($content, 'data-menu="archana"', $rowStart);
+        $this->assertNotFalse($searchPos);
+        $this->assertNotFalse($tabsPos);
+        $this->assertLessThan($tabsPos, $searchPos, 'The search box should come before the category filter chips in the filter row.');
+    }
+
     public function test_the_eft_settings_view_shows_a_loading_spinner_until_the_iframe_loads(): void
     {
         $admin = $this->admin();
