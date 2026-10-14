@@ -130,6 +130,32 @@ class SettlementPaneTicketColumnsTest extends TestCase
         $response->assertDontSee('settle-carry-display">—', false);
     }
 
+    /**
+     * Clicking a ticket order row (or its View icon) opens a popup — order details on the
+     * left (from the row's own data-* attributes) and the real receipt embedded on the
+     * right — rather than navigating straight to the print page.
+     */
+    public function test_a_ticket_order_row_opens_a_view_popup_with_an_embedded_receipt(): void
+    {
+        $admin = $this->admin();
+        $orderId = DB::table('ticket_orders')->insertGetId([
+            'customer_name' => 'Popup Buyer', 'total_amount' => 60,
+            'payment_method' => 'Cash', 'payment_status' => 'Paid',
+            'order_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('data-order-id="' . $orderId . '"', false);
+        $response->assertSee('data-order-customer="Popup Buyer"', false);
+        $response->assertSee('cs-view-order-btn', false);
+        $response->assertSee('id="csOrderModalFrame_', false);
+        $response->assertSee('cs-order-receipt-col', false);
+    }
+
     public function test_cash_received_by_ticket_type_breakdown_is_removed(): void
     {
         $admin = $this->admin();

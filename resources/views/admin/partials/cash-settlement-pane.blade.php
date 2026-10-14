@@ -87,6 +87,16 @@
          rest of the app uses elsewhere, so a settlement (a formal, final action) reads as
          distinct from an ordinary "Save" button. --}}
     .cash-settle-widget .btn-cs-save { border-radius: 4px; padding: 12px 30px; font-weight: 800; font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    {{-- Order view popup — details on the left, the real receipt embedded as a tall,
+         independently-scrolling list on the right. --}}
+    .cs-order-detail-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0ece6; }
+    .cs-order-detail-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; }
+    .cs-order-detail-value { font-weight: 700; font-size: 0.95rem; text-align: right; }
+    .cs-order-detail-total { font-size: 1.25rem; color: #1f9d6a; }
+    .cs-order-receipt-col { background: #efe9dd; border-left: 1px solid #e8e0d4; height: 75vh; }
+    .cs-order-receipt-col iframe { width: 100%; height: 100%; border: 0; display: block; }
+    @media (max-width: 767px) { .cs-order-receipt-col { height: 50vh; border-left: none; border-top: 1px solid #e8e0d4; } }
 </style>
 
 <div class="cs-table-wrap mb-3">
@@ -163,17 +173,21 @@
                     @endforeach
                 @else
                     @foreach($currentTransactions as $row)
-                    {{-- Clicking anywhere on the row opens the same order detail/reprint view
-                         the dedicated icon already links to — the icon stays too, for anyone
-                         who still reaches for it, but the whole row is now the easier target. --}}
-                    <tr class="cs-row cs-row-clickable" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}" data-order-url="{{ route('admin.tickets.print', $row->id) }}">
+                    {{-- Clicking anywhere on the row (or the View icon) opens the order in
+                         the popup below — a quick look without leaving the pane. The Print
+                         icon is the one remaining direct link, for actually printing. --}}
+                    <tr class="cs-row cs-row-clickable" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}"
+                        data-order-url="{{ route('admin.tickets.print', $row->id) }}" data-order-id="{{ $row->id }}"
+                        data-order-date="{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}"
+                        data-order-customer="{{ $row->customer_name ?: 'Walk-in' }}" data-order-method="{{ $row->payment_method }}"
+                        data-order-total="{{ $fmt($row->total_amount) }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
                         <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
                         <td>Order #{{ $row->id }}</td>
                         <td>{{ $row->payment_method }}</td>
                         <td class="text-end fw-bold">{{ $fmt($row->total_amount) }}</td>
                         <td class="text-end">
-                            <a href="{{ route('admin.tickets.print', $row->id) }}" target="_blank" class="cs-icon-btn me-1" title="View Order"><i class="bi bi-eye-fill"></i></a>
+                            <button type="button" class="cs-icon-btn me-1 cs-view-order-btn" title="View Order"><i class="bi bi-eye-fill"></i></button>
                             <a href="{{ route('admin.tickets.print', $row->id) }}" target="_blank" class="cs-icon-btn" title="Print Receipt"><i class="bi bi-printer-fill"></i></a>
                         </td>
                     </tr>
@@ -307,6 +321,50 @@
 </div>
 @endif
 
+{{-- Order view popup (tickets scope) — a quick look at an order without leaving the
+     pane: its own details on the left (populated from the clicked row's own data-*
+     attributes — all already server-rendered, so no extra request needed) and the real
+     receipt/stub view on the right, embedded in a scrolling iframe exactly as it prints,
+     rather than just linking straight to that page in a new tab. --}}
+@if($scope !== 'event')
+<div class="modal fade" id="csOrderModal_{{ $formId }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content" style="border-radius: 16px; overflow: hidden; border: none;">
+            <div class="modal-header" style="background: #faf8f5; border-bottom: 1px solid #f0ece6;">
+                <h5 class="modal-title fw-bold" id="csOrderModalTitle_{{ $formId }}">Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0">
+                    <div class="col-md-5 p-4">
+                        <div class="cs-order-detail-row">
+                            <span class="cs-order-detail-label">Date</span>
+                            <span class="cs-order-detail-value" id="csOrderModalDate_{{ $formId }}"></span>
+                        </div>
+                        <div class="cs-order-detail-row">
+                            <span class="cs-order-detail-label">Customer</span>
+                            <span class="cs-order-detail-value" id="csOrderModalCustomer_{{ $formId }}"></span>
+                        </div>
+                        <div class="cs-order-detail-row">
+                            <span class="cs-order-detail-label">Payment Method</span>
+                            <span class="cs-order-detail-value" id="csOrderModalMethod_{{ $formId }}"></span>
+                        </div>
+                        <div class="cs-order-detail-row" style="border-bottom: none;">
+                            <span class="cs-order-detail-label">Total</span>
+                            <span class="cs-order-detail-value cs-order-detail-total" id="csOrderModalTotal_{{ $formId }}"></span>
+                        </div>
+                        <a href="#" target="_blank" class="btn-cs-save mt-4 d-inline-flex align-items-center text-decoration-none" id="csOrderModalPrintLink_{{ $formId }}"><i class="bi bi-printer-fill me-2"></i>Print Receipt</a>
+                    </div>
+                    <div class="col-md-7 cs-order-receipt-col">
+                        <iframe id="csOrderModalFrame_{{ $formId }}" src="about:blank" title="Receipt"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 </div>
 
 <script>
@@ -376,17 +434,44 @@
         });
     });
 
-    // Current Period Transactions (tickets scope): click anywhere on the row to view/reprint
-    // the order — same destination the row's own print icon already links to, just without
-    // having to aim for the small icon. The icon itself has its own href/target, so it's
-    // excluded here to avoid opening the tab twice.
-    document.querySelectorAll('.cs-row-clickable').forEach(function (row) {
-        row.addEventListener('click', function (e) {
-            if (e.target.closest('a, button')) { return; }
-            const url = row.dataset.orderUrl;
-            if (url) { window.open(url, '_blank'); }
+    // Current Period Transactions (tickets scope): click anywhere on the row (or its own
+    // View icon) to open the order popup — details on the left (straight from the row's
+    // own data-* attributes, already server-rendered) and the real receipt embedded on
+    // the right. The Print icon keeps its own direct link/target, so it's excluded here.
+    (function () {
+        const orderModalEl = document.getElementById('csOrderModal_{{ $formId }}');
+        if (!orderModalEl || typeof bootstrap === 'undefined') { return; }
+        const orderModal = bootstrap.Modal.getOrCreateInstance(orderModalEl);
+        const frame = document.getElementById('csOrderModalFrame_{{ $formId }}');
+
+        function openOrderModal(row) {
+            document.getElementById('csOrderModalTitle_{{ $formId }}').textContent = 'Order #' + row.dataset.orderId;
+            document.getElementById('csOrderModalDate_{{ $formId }}').textContent = row.dataset.orderDate;
+            document.getElementById('csOrderModalCustomer_{{ $formId }}').textContent = row.dataset.orderCustomer;
+            document.getElementById('csOrderModalMethod_{{ $formId }}').textContent = row.dataset.orderMethod;
+            document.getElementById('csOrderModalTotal_{{ $formId }}').textContent = row.dataset.orderTotal;
+            document.getElementById('csOrderModalPrintLink_{{ $formId }}').href = row.dataset.orderUrl;
+            frame.src = row.dataset.orderUrl;
+            orderModal.show();
+        }
+
+        document.querySelectorAll('.cs-row-clickable').forEach(function (row) {
+            row.addEventListener('click', function (e) {
+                if (e.target.closest('a, button')) { return; }
+                openOrderModal(row);
+            });
+            const viewBtn = row.querySelector('.cs-view-order-btn');
+            if (viewBtn) {
+                viewBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    openOrderModal(row);
+                });
+            }
         });
-    });
+
+        // Stop the receipt iframe holding/reloading stale content once the popup closes.
+        orderModalEl.addEventListener('hidden.bs.modal', function () { frame.src = 'about:blank'; });
+    })();
 
     // Current Period Transactions: client-side search by name/purpose.
     const txnSearch = document.getElementById('csTxnSearch_{{ $formId }}');
