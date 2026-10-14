@@ -92,10 +92,23 @@
              this stays fixed at the collapsed width regardless of nav state. --}}
         .pos-app-shell { padding-right: var(--nav-w); }
 
+        {{-- Which view is on screen — one shared heading style for every view (Archana/
+             Poojas share the one #posViewHeaderTitle element, text swapped by JS; Till and
+             EFT Settings each have their own static one). --}}
+        .pos-view-header { margin-bottom: 14px; }
+        .pos-view-header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; }
+        .pos-view-header h2 i { color: var(--gold-hover); }
+
         {{-- Till — the Settle Till figures as their own full view (no popup), swapped in by
              the side nav exactly like Archana/Poojas. --}}
         .pos-till-pane { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 18px; }
         .pos-till-pane.active { display: block; }
+
+        {{-- EFT Terminal Settings — the same pairing page as before, now its own full view
+             (iframe) instead of a popup over the rest of the page. --}}
+        .pos-eft-settings-pane { display: none; flex-direction: column; flex: 1; min-height: 0; padding: 18px; }
+        .pos-eft-settings-pane.active { display: flex; }
+        .pos-eft-settings-pane iframe { flex: 1; min-height: 0; width: 100%; border: 1px solid var(--border); border-radius: var(--radius-md); background: #FAFAF8; }
 
         /* Which physical terminal the "EFT Terminal" payment method will actually charge —
            styled like an actual dropdown/select (labeled, chevron on the right) since tapping it
@@ -458,12 +471,12 @@
 <body>
     @include('partials.test-banner')
 
-    {{-- Right-docked icon nav — replaces the old horizontal topbar. Archana/Poojas/Till
-         are each their own full view (swapped by setActiveView() below); EFT Settings,
-         the Pooja Portal link and the User flyout (Manage PIN / Logout) keep their old
-         behaviour, just relocated. --}}
+    {{-- Right-docked icon nav — replaces the old horizontal topbar. Archana/Poojas/Till/
+         EFT Terminal Settings are each their own full view (swapped by setActiveView()
+         below); the User flyout (Manage PIN / Logout) keeps its old behaviour, just
+         relocated. No Pooja Portal link — a POS operator never needed it from here, it
+         was just another way off the page. --}}
     <nav class="pos-side-nav" id="posSideNav">
-        <button type="button" class="pos-side-nav-toggle" id="posSideNavToggle" title="Expand menu"><i class="bi bi-chevron-left"></i></button>
         <div class="pos-side-nav-items">
             <button type="button" class="pos-nav-item active" data-view="archana"><i class="bi bi-flower1"></i><span class="pos-nav-label">Archana</span></button>
             @if($canCreateBookings)
@@ -473,9 +486,6 @@
             <button type="button" class="pos-nav-item" data-view="till"><i class="bi bi-cash-stack"></i><span class="pos-nav-label">Till</span></button>
             @endif
             <div class="pos-nav-divider"></div>
-            @if($canManageConsole)
-            <a href="{{ route('admin.tickets.index') }}" class="pos-nav-item" title="Pooja Portal"><i class="bi bi-grid-1x2-fill"></i><span class="pos-nav-label">Portal</span></a>
-            @endif
             <!-- Always visible, regardless of whether a terminal is currently paired — the
                  Switch control near Pay only ever shows up while "EFT Terminal" is the
                  selected payment method (and that method stays disabled with nothing
@@ -485,7 +495,7 @@
                  terminal from here. The gold dot flags that setup still needs attention
                  (nothing paired yet); it clears once a terminal is paired, but the item
                  itself never disappears. -->
-            <button type="button" class="pos-nav-item" id="posEftSettingsTopbarBtn" title="EFT Terminal Settings"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="" class="pos-nav-item-icon-img"><span class="pos-nav-label">EFT Terminal</span></button>
+            <button type="button" class="pos-nav-item" id="posEftSettingsTopbarBtn" data-view="eft-settings" title="EFT Terminal Settings"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="" class="pos-nav-item-icon-img"><span class="pos-nav-label">EFT Terminal</span></button>
         </div>
         <div class="pos-nav-user-wrap">
             <button type="button" class="pos-nav-item" id="posNavUserBtn" title="Account"><i class="bi bi-person-fill"></i><span class="pos-nav-label">Account</span></button>
@@ -496,6 +506,9 @@
                 <a href="{{ route('logout', ['from' => 'pos']) }}" id="posLogoutLink"><i class="bi bi-box-arrow-right"></i>Logout</a>
             </div>
         </div>
+        {{-- The expand/collapse control sits at the bottom of the rail, out of the way of
+             the actual navigation items above it. --}}
+        <button type="button" class="pos-side-nav-toggle" id="posSideNavToggle" title="Expand menu"><i class="bi bi-chevron-left"></i></button>
     </nav>
 
     <div class="pos-app-shell">
@@ -510,6 +523,10 @@
                     ->map(fn($id) => ($bookingPoojas ?? collect())->firstWhere('pooja_id', $id))
                     ->filter();
             @endphp
+
+            {{-- Which view is on screen — text updated by setActiveView() below, same
+                 element for both Archana and Poojas since they share this pane. --}}
+            <div class="pos-view-header"><h2 id="posViewHeaderTitle"><i class="bi bi-flower1 me-2"></i>Archana Tickets</h2></div>
 
             <div class="pos-items-search">
                 <i class="bi bi-search"></i>
@@ -743,11 +760,25 @@
          show.bs.modal). --}}
     @if($canSettleCash)
     <div class="pos-till-pane" id="posTillPane">
+        <div class="pos-view-header"><h2><i class="bi bi-cash-stack me-2"></i>Transactions</h2></div>
         <div id="posTillPaneBody">
             @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'tickets', 'eventId' => null, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'temple' => $temple])
         </div>
     </div>
     @endif
+
+    {{-- EFT Terminal Settings — the same pairing/settings page, now its own full view
+         (loaded in an iframe, exactly as the old popup did) instead of a popup over the
+         rest of the page. Lazy-loaded on first visit (see setActiveView() below) rather
+         than on every page load, and the whole page reloads on leaving this view if the
+         iframe ever navigated away from blank — the simplest reliable way to reflect
+         whatever changed (a new terminal, a fresh pairing) in this page's own terminal
+         list/picker, which is otherwise baked into server-rendered HTML or a JS array
+         from page load. --}}
+    <div class="pos-eft-settings-pane" id="posEftSettingsPane">
+        <div class="pos-view-header"><h2><i class="bi bi-credit-card-2-front-fill me-2"></i>Terminal Settings</h2></div>
+        <iframe id="posEftSettingsFrame" src="about:blank" title="EFT Terminal Settings"></iframe>
+    </div>
     </div>
 
     <div class="pos-toast" id="posToast"></div>
@@ -1191,6 +1222,25 @@
             const itemsPane = document.querySelector('.pos-items-pane');
             const cartPane = document.querySelector('.pos-cart-pane');
             const tillPane = document.getElementById('posTillPane');
+            const headerTitle = document.getElementById('posViewHeaderTitle');
+            const eftSettingsPane = document.getElementById('posEftSettingsPane');
+            const eftSettingsFrame = document.getElementById('posEftSettingsFrame');
+            const EFT_SETTINGS_URL = @json(route('admin.eft-terminals.index') . '?embedded=1');
+            const VIEW_TITLES = {
+                archana: '<i class="bi bi-flower1 me-2"></i>Archana Tickets',
+                poojas: '<i class="bi bi-journal-bookmark-fill me-2"></i>Pooja Bookings',
+            };
+            // A full page reload once the operator leaves this view is the simplest reliable
+            // way to reflect whatever changed in the embedded settings page (a new terminal,
+            // a fresh pairing) in this page's own terminal list/picker — same reasoning the
+            // old popup version used on close, just triggered by switching away instead.
+            let eftSettingsChanged = false;
+            let currentView = 'archana';
+            if (eftSettingsFrame) {
+                eftSettingsFrame.addEventListener('load', function () {
+                    if (eftSettingsFrame.src !== 'about:blank') { eftSettingsChanged = true; }
+                });
+            }
             let activeMenu = 'archana';
             let activeCategory = '';
 
@@ -1220,6 +1270,14 @@
             }
 
             function setActiveView(view) {
+                // Leaving the EFT settings view — reload the whole page rather than try to
+                // patch this page's own terminal list/picker piecemeal (it's otherwise baked
+                // into server-rendered HTML or a JS array from page load).
+                if (currentView === 'eft-settings' && view !== 'eft-settings' && eftSettingsChanged) {
+                    window.location.reload();
+                    return;
+                }
+
                 // Switching to Poojas clears and closes any in-progress ticket order — the
                 // two are different transaction types entirely (a till sale vs. a booking),
                 // so carrying a half-built ticket cart across into booking mode would just
@@ -1232,6 +1290,9 @@
                 navItems.forEach(function (btn) {
                     btn.classList.toggle('active', btn.dataset.view === view);
                 });
+                currentView = view;
+                tillPane?.classList.remove('active');
+                eftSettingsPane?.classList.remove('active');
 
                 if (view === 'till') {
                     itemsPane?.classList.add('d-none');
@@ -1240,12 +1301,21 @@
                     if (typeof window.refreshPosTillPane === 'function') { window.refreshPosTillPane(); }
                     return;
                 }
+                if (view === 'eft-settings') {
+                    itemsPane?.classList.add('d-none');
+                    cartPane?.classList.add('d-none');
+                    eftSettingsPane?.classList.add('active');
+                    if (eftSettingsFrame && eftSettingsFrame.src === 'about:blank') {
+                        eftSettingsFrame.src = EFT_SETTINGS_URL;
+                    }
+                    return;
+                }
                 itemsPane?.classList.remove('d-none');
                 cartPane?.classList.remove('d-none');
-                tillPane?.classList.remove('active');
 
                 activeMenu = view;
                 activeCategory = '';
+                if (headerTitle && VIEW_TITLES[view]) { headerTitle.innerHTML = VIEW_TITLES[view]; }
                 panels.forEach(function (panel) {
                     panel.classList.toggle('d-none', panel.dataset.menu !== view);
                 });
@@ -1424,9 +1494,9 @@
             posEftSettingsTopbarBtn.classList.toggle('pos-nav-item-setup', !eftTerminalAvailable());
         }
         updateEftSettingsTopbarBtn();
-        if (posEftSettingsTopbarBtn) {
-            posEftSettingsTopbarBtn.addEventListener('click', function () { openEftTerminalSettingsModal(); });
-        }
+        // Opening/closing the settings view itself is handled generically by setActiveView()
+        // below (this button carries data-view="eft-settings" like the other nav items) —
+        // nothing extra to wire up here beyond the dot indicator above.
 
         let toastHideTimer = null;
         function showToast(message, isError) {
@@ -1915,8 +1985,6 @@
             }
         });
     </script>
-
-    @include('admin.partials.eft-terminal-settings-modal')
 
     @if($canSettleCash)
     @php

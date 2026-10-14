@@ -59,17 +59,31 @@
     .cash-settle-widget .cs-badge.pending { background: #fdf0db; color: #b8863a; }
     .cash-settle-widget .cs-complete-link { font-size: 0.8rem; font-weight: 700; color: #b8863a; text-decoration: none; white-space: nowrap; }
     .cash-settle-widget .cs-complete-link:hover { color: #8A6A1E; text-decoration: underline; }
+
+    {{-- Compact summary — one line per figure (label left, value right) instead of three
+         separate icon tiles, so the whole thing reads in a glance rather than taking up a
+         whole row of tall cards. --}}
+    .cash-settle-widget .cs-summary-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #f0ece6; }
+    .cash-settle-widget .cs-summary-row:last-child { border-bottom: none; }
+    .cash-settle-widget .cs-summary-row-label { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: #6b5c47; }
+    .cash-settle-widget .cs-summary-row-label i { font-size: 0.95rem; width: 18px; text-align: center; }
+    .cash-settle-widget .cs-summary-row-value { font-weight: 800; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+
+    .cash-settle-widget .cs-row.cs-row-clickable { cursor: pointer; }
 </style>
 
-<div class="row g-3 mb-3">
-    <div class="col-6 col-md-4">
-        <div class="cs-tile"><div class="cs-icon" style="background:#C89B3C;"><i class="bi bi-box-arrow-in-right"></i></div><div class="cs-label">Opening Balance</div><div class="cs-value">{{ $fmt($cashPreview['opening_balance']) }}</div></div>
+<div class="cs-card mb-3">
+    <div class="cs-summary-row">
+        <span class="cs-summary-row-label"><i class="bi bi-box-arrow-in-right" style="color:#C89B3C;"></i>Opening Balance</span>
+        <span class="cs-summary-row-value">{{ $fmt($cashPreview['opening_balance']) }}</span>
     </div>
-    <div class="col-6 col-md-4">
-        <div class="cs-tile"><div class="cs-icon" style="background:#10B981;"><i class="bi bi-cash-coin"></i></div><div class="cs-label">Cash Received (this period)</div><div class="cs-value">{{ $fmt($cashPreview['cash_received']) }}</div></div>
+    <div class="cs-summary-row">
+        <span class="cs-summary-row-label"><i class="bi bi-cash-coin" style="color:#10B981;"></i>Cash Received (this period)</span>
+        <span class="cs-summary-row-value">{{ $fmt($cashPreview['cash_received']) }}</span>
     </div>
-    <div class="col-6 col-md-4">
-        <div class="cs-tile"><div class="cs-icon" style="background:#B7791F;"><i class="bi bi-calculator-fill"></i></div><div class="cs-label">Expected in Till</div><div class="cs-value">{{ $fmt($expected) }}</div></div>
+    <div class="cs-summary-row">
+        <span class="cs-summary-row-label"><i class="bi bi-calculator-fill" style="color:#B7791F;"></i>Expected in Till</span>
+        <span class="cs-summary-row-value">{{ $fmt($expected) }}</span>
     </div>
 </div>
 
@@ -169,7 +183,10 @@
                     @endforeach
                 @else
                     @foreach($currentTransactions as $row)
-                    <tr class="cs-row" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}">
+                    {{-- Clicking anywhere on the row opens the same order detail/reprint view
+                         the dedicated icon already links to — the icon stays too, for anyone
+                         who still reaches for it, but the whole row is now the easier target. --}}
+                    <tr class="cs-row cs-row-clickable" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}" data-order-url="{{ route('admin.tickets.print', $row->id) }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
                         <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
                         <td>Order #{{ $row->id }}</td>
@@ -337,6 +354,18 @@
         btn.addEventListener('click', function () {
             const target = document.getElementById(btn.dataset.target);
             if (target) target.style.display = 'none';
+        });
+    });
+
+    // Current Period Transactions (tickets scope): click anywhere on the row to view/reprint
+    // the order — same destination the row's own print icon already links to, just without
+    // having to aim for the small icon. The icon itself has its own href/target, so it's
+    // excluded here to avoid opening the tab twice.
+    document.querySelectorAll('.cs-row-clickable').forEach(function (row) {
+        row.addEventListener('click', function (e) {
+            if (e.target.closest('a, button')) { return; }
+            const url = row.dataset.orderUrl;
+            if (url) { window.open(url, '_blank'); }
         });
     });
 

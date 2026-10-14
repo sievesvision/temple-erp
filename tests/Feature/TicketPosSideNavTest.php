@@ -98,4 +98,63 @@ class TicketPosSideNavTest extends TestCase
         $response->assertDontSee('class="pos-view-toggle"', false);
         $response->assertDontSee('data-view="poojas"', false);
     }
+
+    public function test_the_pooja_portal_link_is_removed_from_the_nav(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertDontSee('>Portal<', false);
+        $response->assertDontSee('title="Pooja Portal"', false);
+    }
+
+    public function test_eft_terminal_settings_is_its_own_view_not_a_popup(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('data-view="eft-settings"', false);
+        $response->assertSee('id="posEftSettingsPane"', false);
+        $response->assertSee('id="posEftSettingsFrame"', false);
+        // The old popup overlay/iframe partial is gone entirely.
+        $response->assertDontSee('id="eftSettingsModalOverlay"', false);
+        $response->assertDontSee('id="eftSettingsModalFrame"', false);
+    }
+
+    public function test_each_view_shows_its_own_header(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('id="posViewHeaderTitle"', false);
+        $response->assertSee('Archana Tickets');
+        $response->assertSee('Pooja Bookings');
+        $response->assertSee('Transactions');
+        $response->assertSee('Terminal Settings');
+    }
+
+    public function test_the_side_nav_expand_toggle_is_the_last_item_in_the_rail(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $navStart = strpos($content, 'id="posSideNav"');
+        $navEnd = strpos($content, '</nav>', $navStart);
+        $toggleFragment = '<button type="button" class="pos-side-nav-toggle" id="posSideNavToggle"';
+        $togglePos = strpos($content, $toggleFragment, $navStart);
+        $userFlyoutPos = strpos($content, 'id="posUserFlyout"', $navStart);
+        $this->assertNotFalse($togglePos);
+        $this->assertNotFalse($userFlyoutPos);
+        $this->assertLessThan($navEnd, $togglePos);
+        $this->assertGreaterThan($userFlyoutPos, $togglePos, 'The expand/collapse toggle should come after the user flyout, i.e. sit at the bottom of the rail.');
+    }
 }
