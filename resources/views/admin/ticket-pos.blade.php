@@ -99,8 +99,9 @@
 
         {{-- Which view is on screen — one shared heading style for every view (Archana/
              Poojas share the one #posViewHeaderTitle element, text swapped by JS; Till and
-             EFT Settings each have their own static one). --}}
-        .pos-view-header { margin-bottom: 14px; }
+             EFT Settings each have their own static one). The grid/table toggle (Poojas
+             only) sits on the same row, right next to the title. --}}
+        .pos-view-header { margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .pos-view-header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; }
         .pos-view-header h2 i { color: var(--gold-hover); }
 
@@ -139,7 +140,7 @@
              a compact segmented control using the same light-blue accent the old in-page
              Archana/Poojas toggle used to use, now that that toggle itself has moved to the
              side nav. --}}
-        .pos-view-toggle { display: inline-flex; gap: 2px; margin-bottom: 14px; padding: 3px; border-radius: var(--radius-sm); background: var(--shade); border: 1px solid var(--border); }
+        .pos-view-toggle { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--radius-sm); background: var(--shade); border: 1px solid var(--border); flex-shrink: 0; }
         .pos-view-toggle-btn {
             display: flex; align-items: center; justify-content: center; gap: 6px;
             padding: 7px 14px; border-radius: 6px; border: none;
@@ -167,7 +168,11 @@
         {{-- Category filter chips — a narrower, lighter-weight affordance than the main
              menu above, so the two never compete for attention. Rounded-rect rather than
              a full pill, matching the rest of the page's own corner-radius scale. --}}
-        .pos-category-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 2px; }
+        {{-- Shares a row with the search box (see .pos-filter-row) — flex:1 so it takes
+             whatever width the search box doesn't need, scrolling horizontally itself if
+             there isn't room for every chip rather than wrapping the whole row. --}}
+        .pos-filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+        .pos-category-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; flex: 1 1 auto; min-width: 0; }
         .pos-category-tab {
             flex-shrink: 0; padding: 8px 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--border);
             background: var(--white); color: var(--text-secondary); font-weight: 700; font-size: 0.82rem;
@@ -236,7 +241,7 @@
         .pos-item-tile.in-cart .tile-qty-badge { display: flex; }
 
         {{-- Search bar above the grid, same bordered-field look as the rest of the page. --}}
-        .pos-items-search { position: relative; margin-bottom: 12px; }
+        .pos-items-search { position: relative; flex: 0 1 260px; margin-left: auto; }
         .pos-items-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
         .pos-items-search input { padding-left: 38px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); }
         .pos-items-empty { display: none; }
@@ -542,35 +547,51 @@
             @endphp
 
             {{-- Which view is on screen — text updated by setActiveView() below, same
-                 element for both Archana and Poojas since they share this pane. --}}
-            <div class="pos-view-header"><h2 id="posViewHeaderTitle"><i class="bi bi-flower1 me-2"></i>Archana Tickets</h2></div>
-
-            <div class="pos-items-search">
-                <i class="bi bi-search"></i>
-                <input type="text" id="posItemsSearch" class="form-control" placeholder="Search...">
-            </div>
-
-            @if($ticketsByCategory->keys()->count() > 1)
-            <div class="pos-category-tabs" data-menu="archana">
-                <button type="button" class="pos-category-tab active" data-category="">All</button>
-                @foreach($ticketsByCategory->keys()->sort() as $cat)
-                <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
-                @endforeach
-            </div>
-            @endif
-            @if($canCreateBookings && ($poojasByCategory->keys()->count() > 1 || $recentPoojas->isNotEmpty()))
-            <div class="pos-category-tabs d-none" data-menu="poojas">
-                @if($recentPoojas->isNotEmpty())
-                <button type="button" class="pos-category-tab active" data-category="__recent__"><i class="bi bi-clock-history"></i> Recent</button>
-                <button type="button" class="pos-category-tab" data-category="">All</button>
-                @else
-                <button type="button" class="pos-category-tab active" data-category="">All</button>
+                 element for both Archana and Poojas since they share this pane. The grid/
+                 table toggle lives here too (Poojas only — see setActiveView()'s own
+                 visibility toggle for it), right next to the title rather than buried
+                 inside the item grid below. --}}
+            <div class="pos-view-header">
+                <h2 id="posViewHeaderTitle"><i class="bi bi-flower1 me-2"></i>Archana Tickets</h2>
+                @if($canCreateBookings)
+                <div class="pos-view-toggle d-none" id="posPoojaViewToggle">
+                    <button type="button" class="pos-view-toggle-btn active" data-view="grid"><i class="bi bi-grid-3x3-gap-fill"></i> Grid</button>
+                    <button type="button" class="pos-view-toggle-btn" data-view="table"><i class="bi bi-table"></i> Table</button>
+                </div>
                 @endif
-                @foreach($poojasByCategory->keys()->sort() as $cat)
-                <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
-                @endforeach
             </div>
-            @endif
+
+            {{-- Category filter chips and search share one row — the search box pinned to
+                 the right of whichever tab bar is active (or alone, flush right, when
+                 neither renders). --}}
+            <div class="pos-filter-row">
+                @if($ticketsByCategory->keys()->count() > 1)
+                <div class="pos-category-tabs" data-menu="archana">
+                    <button type="button" class="pos-category-tab active" data-category="">All</button>
+                    @foreach($ticketsByCategory->keys()->sort() as $cat)
+                    <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
+                    @endforeach
+                </div>
+                @endif
+                @if($canCreateBookings && ($poojasByCategory->keys()->count() > 1 || $recentPoojas->isNotEmpty()))
+                <div class="pos-category-tabs d-none" data-menu="poojas">
+                    @if($recentPoojas->isNotEmpty())
+                    <button type="button" class="pos-category-tab active" data-category="__recent__"><i class="bi bi-clock-history"></i> Recent</button>
+                    <button type="button" class="pos-category-tab" data-category="">All</button>
+                    @else
+                    <button type="button" class="pos-category-tab active" data-category="">All</button>
+                    @endif
+                    @foreach($poojasByCategory->keys()->sort() as $cat)
+                    <button type="button" class="pos-category-tab" data-category="{{ $cat }}">{{ $cat }}</button>
+                    @endforeach
+                </div>
+                @endif
+
+                <div class="pos-items-search">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="posItemsSearch" class="form-control" placeholder="Search...">
+                </div>
+            </div>
 
             <div id="itemsGrid">
                 {{-- ARCHANA MENU --}}
@@ -618,10 +639,6 @@
                 {{-- POOJAS MENU --}}
                 @if($canCreateBookings)
                 <div class="pos-menu-panel d-none" data-menu="poojas">
-                    <div class="pos-view-toggle">
-                        <button type="button" class="pos-view-toggle-btn active" data-view="grid"><i class="bi bi-grid-3x3-gap-fill"></i> Grid</button>
-                        <button type="button" class="pos-view-toggle-btn" data-view="table"><i class="bi bi-table"></i> Table</button>
-                    </div>
                     <div class="pos-category-section" data-category="">
                         <div class="pos-category-tiles">
                             <button type="button" class="pos-item-tile pos-item-tile-pooja pos-item-tile-custom" data-type="pooja" data-is-custom="1" data-id="" data-name="Custom Pooja" data-price="">
@@ -1241,6 +1258,7 @@
             const cartPane = document.querySelector('.pos-cart-pane');
             const tillPane = document.getElementById('posTillPane');
             const headerTitle = document.getElementById('posViewHeaderTitle');
+            const poojaViewToggle = document.getElementById('posPoojaViewToggle');
             const eftSettingsPane = document.getElementById('posEftSettingsPane');
             const eftSettingsFrame = document.getElementById('posEftSettingsFrame');
             const EFT_SETTINGS_URL = @json(route('admin.eft-terminals.index') . '?embedded=1');
@@ -1337,6 +1355,7 @@
                 activeMenu = view;
                 activeCategory = '';
                 if (headerTitle && VIEW_TITLES[view]) { headerTitle.innerHTML = VIEW_TITLES[view]; }
+                poojaViewToggle?.classList.toggle('d-none', view !== 'poojas');
                 panels.forEach(function (panel) {
                     panel.classList.toggle('d-none', panel.dataset.menu !== view);
                 });

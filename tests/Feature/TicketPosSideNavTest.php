@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Pooja;
+use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -79,7 +80,7 @@ class TicketPosSideNavTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertSee('class="pos-view-toggle"', false);
+        $response->assertSee('id="posPoojaViewToggle"', false);
         $response->assertSee('data-view="grid"', false);
         $response->assertSee('data-view="table"', false);
         $response->assertSee('class="pos-category-table"', false);
@@ -95,7 +96,7 @@ class TicketPosSideNavTest extends TestCase
         $response = $this->actingAs($committee)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertDontSee('class="pos-view-toggle"', false);
+        $response->assertDontSee('id="posPoojaViewToggle"', false);
         $response->assertDontSee('data-view="poojas"', false);
     }
 
@@ -123,6 +124,44 @@ class TicketPosSideNavTest extends TestCase
         // The old popup overlay/iframe partial is gone entirely.
         $response->assertDontSee('id="eftSettingsModalOverlay"', false);
         $response->assertDontSee('id="eftSettingsModalFrame"', false);
+    }
+
+    public function test_the_grid_table_toggle_sits_next_to_the_view_title(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $headerStart = strpos($content, 'id="posViewHeaderTitle"');
+        $headerRowEnd = strpos($content, '</div>', $headerStart);
+        $toggleStart = strpos($content, 'id="posPoojaViewToggle"');
+        $this->assertNotFalse($headerStart);
+        $this->assertNotFalse($toggleStart);
+        $this->assertGreaterThan($headerStart, $toggleStart);
+        // Finding the toggle before the title's own wrapping row closes confirms it's in
+        // the same .pos-view-header row, not down inside the item grid like before.
+        $this->assertLessThan(strpos($content, 'id="posItemsSearch"'), $toggleStart);
+    }
+
+    public function test_the_search_box_sits_in_the_same_row_as_the_category_filters(): void
+    {
+        $admin = $this->admin();
+        Ticket::create(['name' => 'Filter Row Archana', 'category' => 'Archana', 'price' => 10, 'status' => 'Active']);
+        Ticket::create(['name' => 'Filter Row Pooja', 'category' => 'Pooja', 'price' => 10, 'status' => 'Active']);
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $rowStart = strpos($content, 'class="pos-filter-row"');
+        $rowEnd = strpos($content, 'id="itemsGrid"', $rowStart);
+        $tabsPos = strpos($content, 'data-menu="archana"', $rowStart);
+        $searchPos = strpos($content, 'id="posItemsSearch"', $rowStart);
+        $this->assertNotFalse($rowStart);
+        $this->assertLessThan($rowEnd, $tabsPos, 'The category tabs should be inside .pos-filter-row.');
+        $this->assertLessThan($rowEnd, $searchPos, 'The search box should be inside .pos-filter-row, alongside the category tabs.');
     }
 
     public function test_the_eft_nav_icon_is_a_bootstrap_icon_not_the_old_image(): void

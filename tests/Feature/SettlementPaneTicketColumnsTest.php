@@ -98,6 +98,36 @@ class SettlementPaneTicketColumnsTest extends TestCase
         $response->assertSee('title="View Order"', false);
         $response->assertSee('bi-eye-fill', false);
         $response->assertSee('title="Print Receipt"', false);
+        $response->assertSee(route('admin.tickets.print', $orderId), false);
+    }
+
+    public function test_the_settle_till_form_uses_compact_audit_style_inputs(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('class="cs-audit-input-wrap"', false);
+        $response->assertSee('cs-audit-input settle-till-count', false);
+        $response->assertSee('cs-audit-input settle-amount-banked', false);
+    }
+
+    public function test_variance_and_carried_forward_show_zero_not_a_dash_before_input(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('class="cs-audit-stat-value settle-variance-display"', false);
+        $response->assertSee('class="cs-audit-stat-value settle-carry-display"', false);
+        $response->assertDontSee('settle-variance-display">—', false);
+        $response->assertDontSee('settle-carry-display">—', false);
     }
 
     public function test_cash_received_by_ticket_type_breakdown_is_removed(): void

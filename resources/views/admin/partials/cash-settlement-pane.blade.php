@@ -33,8 +33,8 @@
     .cash-settle-widget .cs-tile .cs-label { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; }
     .cash-settle-widget .cs-tile .cs-value { font-size: 1.3rem; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
     .cash-settle-widget .cs-card { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; padding: 18px 20px; }
-    .cash-settle-widget .btn-cs-save { background: linear-gradient(135deg, #b8863a, #d4a05a); color: #fff; border: none; border-radius: 40px; padding: 10px 28px; font-weight: 700; }
-    .cash-settle-widget .btn-cs-save:hover { color: #fff; filter: brightness(1.05); }
+    .cash-settle-widget .btn-cs-save { background: #8A6A1E; color: #fff; border: none; }
+    .cash-settle-widget .btn-cs-save:hover { color: #fff; background: #6f5518; }
     .cash-settle-widget .cs-table-wrap { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; overflow: hidden; }
     .cash-settle-widget .cs-table-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid #f0ece6; }
     .cash-settle-widget .cs-search-wrap { position: relative; }
@@ -70,6 +70,23 @@
     .cash-settle-widget .cs-summary-row-value { font-weight: 800; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
 
     .cash-settle-widget .cs-row.cs-row-clickable { cursor: pointer; }
+
+    {{-- Settle Till form — a compact, ledger-style layout (small bordered fields with a
+         currency prefix, tabular figures) instead of full-size Bootstrap form-controls,
+         which read as an ordinary web form rather than an audit/reconciliation tool. --}}
+    .cash-settle-widget .cs-audit-field label { display: block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #8A6A1E; margin-bottom: 5px; }
+    .cash-settle-widget .cs-audit-input-wrap { display: flex; align-items: stretch; border: 1px solid #d8cdb8; border-radius: 4px; background: #fff; overflow: hidden; }
+    .cash-settle-widget .cs-audit-input-wrap:focus-within { border-color: #C89B3C; box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+    .cash-settle-widget .cs-audit-currency { padding: 7px 9px; background: #faf8f5; color: #8A6A1E; font-size: 0.76rem; font-weight: 700; border-right: 1px solid #e8e0d4; display: flex; align-items: center; }
+    .cash-settle-widget .cs-audit-input { border: none; padding: 7px 10px; font-size: 0.92rem; font-weight: 700; font-variant-numeric: tabular-nums; width: 100%; outline: none; background: transparent; }
+    .cash-settle-widget .cs-audit-stats { display: flex; gap: 24px; padding-top: 2px; }
+    .cash-settle-widget .cs-audit-stat-label { display: block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #8A6A1E; margin-bottom: 3px; }
+    .cash-settle-widget .cs-audit-stat-value { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #1e1e2a; }
+
+    {{-- Solid, sharp-cornered — deliberately not the rounded-pill gradient buttons the
+         rest of the app uses elsewhere, so a settlement (a formal, final action) reads as
+         distinct from an ordinary "Save" button. --}}
+    .cash-settle-widget .btn-cs-save { border-radius: 4px; padding: 12px 30px; font-weight: 800; font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.05em; }
 </style>
 
 <div class="cs-table-wrap mb-3">
@@ -202,18 +219,24 @@
                 <input type="hidden" name="scope" value="{{ $scope }}">
                 @if($eventId)<input type="hidden" name="event_id" value="{{ $eventId }}">@endif
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label small">Till Count — total cash counted ({{ $currency }})</label>
-                        <input type="number" step="0.01" min="0" name="till_count" class="form-control settle-till-count" data-expected="{{ $expected }}" required>
+                    <div class="col-md-6 cs-audit-field">
+                        <label>Till Count — total cash counted</label>
+                        <div class="cs-audit-input-wrap">
+                            <span class="cs-audit-currency">{{ $currency }}</span>
+                            <input type="number" step="0.01" min="0" name="till_count" class="cs-audit-input settle-till-count" data-expected="{{ $expected }}" required>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label small">Amount Taken to Banking ({{ $currency }})</label>
-                        <input type="number" step="0.01" min="0" name="amount_banked" class="form-control settle-amount-banked" required>
+                    <div class="col-md-6 cs-audit-field">
+                        <label>Amount Taken to Banking</label>
+                        <div class="cs-audit-input-wrap">
+                            <span class="cs-audit-currency">{{ $currency }}</span>
+                            <input type="number" step="0.01" min="0" name="amount_banked" class="cs-audit-input settle-amount-banked" required>
+                        </div>
                     </div>
                     <div class="col-12">
-                        <div class="d-flex gap-3 flex-wrap">
-                            <div><span class="text-muted small d-block">Variance</span><span class="fw-bold settle-variance-display">—</span></div>
-                            <div><span class="text-muted small d-block">Carried Forward</span><span class="fw-bold settle-carry-display">—</span></div>
+                        <div class="cs-audit-stats">
+                            <div><span class="cs-audit-stat-label">Variance</span><span class="cs-audit-stat-value settle-variance-display">{{ $fmt(0) }}</span></div>
+                            <div><span class="cs-audit-stat-label">Carried Forward</span><span class="cs-audit-stat-value settle-carry-display">{{ $fmt(0) }}</span></div>
                         </div>
                     </div>
                     <div class="col-12 settle-note-wrap" style="display:none;">
@@ -301,19 +324,23 @@
 
         function fmt(n) { return currency + ' ' + n.toFixed(2); }
 
+        // Real figures (0.00) rather than a plain dash before anything's been typed —
+        // an audit view reads as more trustworthy showing actual zeroed-out numbers than
+        // a placeholder that looks like "nothing computed yet".
         function recompute() {
             const till = parseFloat(tillInput.value);
             const banked = parseFloat(bankedInput.value);
             if (isNaN(till)) {
-                varianceDisplay.textContent = '—';
-                carryDisplay.textContent = '—';
+                varianceDisplay.textContent = fmt(0);
+                varianceDisplay.className = 'cs-audit-stat-value settle-variance-display';
+                carryDisplay.textContent = fmt(0);
                 noteWrap.style.display = 'none';
                 return;
             }
             const variance = Math.round((till - expected) * 100) / 100;
             varianceDisplay.textContent = (variance > 0 ? '+' : '') + fmt(variance);
-            varianceDisplay.className = 'fw-bold settle-variance-display ' + (Math.abs(variance) < 0.01 ? '' : (variance > 0 ? 'text-success' : 'text-danger'));
-            carryDisplay.textContent = isNaN(banked) ? '—' : fmt(Math.round((till - banked) * 100) / 100);
+            varianceDisplay.className = 'cs-audit-stat-value settle-variance-display ' + (Math.abs(variance) < 0.01 ? '' : (variance > 0 ? 'text-success' : 'text-danger'));
+            carryDisplay.textContent = fmt(Math.round((till - (isNaN(banked) ? 0 : banked)) * 100) / 100);
 
             const mismatched = Math.abs(variance) >= 0.01;
             noteWrap.style.display = mismatched ? '' : 'none';
