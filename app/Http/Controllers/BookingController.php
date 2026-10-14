@@ -107,6 +107,7 @@ class BookingController extends Controller
             'priest_option' => 'nullable|in:auto,preferred',
             'preferred_priest_id' => 'required_if:priest_option,preferred|nullable|exists:priests,priest_id',
             'payment_method' => 'required|in:Cash,Counter,Bank',
+            'participant_details' => 'nullable|string|max:2000',
         ]);
 
         // Cash/Counter means the devotee paid right there at the counter — mark it Paid
@@ -139,6 +140,7 @@ class BookingController extends Controller
                 'devotee_name' => $validated['devotee_name'],
                 'devotee_mobile' => $validated['devotee_mobile'],
                 'devotee_email' => $validated['devotee_email'],
+                'participant_details' => $validated['participant_details'] ?? null,
                 'remarks' => "Booking created by {$activeRole} via the Pooja Portal/Ticket POS.",
             ], $activeRole, $user->id);
 
@@ -199,6 +201,7 @@ class BookingController extends Controller
                 'devotee_name' => $meta['devotee_name'] ?? '',
                 'devotee_mobile' => $meta['devotee_mobile'] ?? '',
                 'devotee_email' => $meta['devotee_email'] ?? '',
+                'participant_details' => $meta['participant_details'] ?? null,
                 'remarks' => "Booking created by {$meta['created_by_role']} via EFT Terminal (transaction {$transactionId}).",
             ], $meta['created_by_role'] ?? 'Staff', $meta['created_by_user_id'] ?? null);
 

@@ -252,6 +252,10 @@
                   <input type="email" name="devotee_email" class="form-control" required>
                 </div>
               </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold">Participant Details <span class="text-muted fw-normal">(optional)</span></label>
+                <textarea name="participant_details" class="form-control" rows="2" maxlength="2000" placeholder="Names, gothram, nakshatram for everyone this booking covers, and anything else you should know"></textarea>
+              </div>
               <div class="mb-0">
                 <label class="form-label fw-bold">Payment Method</label>
                 <select name="payment_method" class="form-select" required>
@@ -284,6 +288,9 @@
             <div>
               <h6 class="mb-1 fw-bold">{{ $sched->pooja_name }}</h6>
               <p class="mb-0 text-muted small"><i class="bi bi-person me-1"></i> Devotee: {{ $sched->devotee_name }} | <i class="bi bi-telephone me-1"></i> Mobile: {{ $sched->devotee_mobile }}</p>
+              @if($sched->participant_details ?? null)
+              <p class="mb-0 text-muted small mt-1" style="white-space:pre-wrap;"><i class="bi bi-people-fill me-1"></i>{{ $sched->participant_details }}</p>
+              @endif
             </div>
             <div class="text-end">
               <span class="badge bg-warning text-dark mb-1 d-block">{{ date('d M Y', strtotime($sched->booking_date)) }}</span>

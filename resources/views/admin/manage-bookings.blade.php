@@ -374,6 +374,11 @@
                         <td>
                             <div class="fw-bold">{{ $booking->devotee_name }}</div>
                             <div class="small text-muted">{{ $booking->devotee_mobile }}</div>
+                            @if($booking->participant_details)
+                            <div class="small text-muted mt-1" style="max-width:220px; white-space:pre-wrap;" title="{{ $booking->participant_details }}">
+                                <i class="bi bi-people-fill me-1"></i>{{ \Illuminate\Support\Str::limit($booking->participant_details, 60) }}
+                            </div>
+                            @endif
                         </td>
                         <td>{{ $booking->custom_pooja_label ?: $booking->pooja_name }}</td>
                         <td>
@@ -680,6 +685,10 @@
                             <label class="form-label fw-bold">Email</label>
                             <input type="email" name="devotee_email" class="form-control" required>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Participant Details <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea name="participant_details" class="form-control" rows="2" maxlength="2000" placeholder="Names, gothram, nakshatram for everyone this booking covers, and anything else the priest should know"></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold">Payment Method</label>

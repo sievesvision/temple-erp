@@ -90,6 +90,10 @@ class BookingService
      * (there's no sensible "% off" on a one-off improvised price); custom_pooja_label
      * overrides the pooja's own name everywhere this booking is displayed or emailed.
      *
+     * participant_details (optional, free text): who the booking actually covers and
+     * what they plan to do — e.g. several family members' names, gothram, nakshatram —
+     * rather than a repeating structured field per person. Shown as-is to staff/priest.
+     *
      * $applyMembershipDiscount defaults to true (a devotee's own membership discount is
      * real and should apply everywhere they're recognised); StaffController's counter-
      * booking refactor passes false to keep its pre-existing "no discount for walk-ins"
@@ -148,6 +152,7 @@ class BookingService
                 'devotee_id' => $devotee->devotee_id,
                 'pooja_id' => $pooja->pooja_id,
                 'custom_pooja_label' => $customPoojaLabel !== '' ? $customPoojaLabel : null,
+                'participant_details' => $data['participant_details'] ?? null,
                 'priest_id' => $assignedPriestId,
                 'booking_date' => $date,
                 'booking_time' => $time,

@@ -46,6 +46,7 @@ class PoojaBookingEftPaymentTest extends TestCase
             'devotee_name' => 'EFT Meta Devotee',
             'devotee_mobile' => '0433998877',
             'devotee_email' => 'eft.meta.devotee@example.com',
+            'participant_details' => 'Also booking for grandmother — Vishwamitra gothram, Ashwini nakshatram',
             'created_by_role' => 'Admin',
             'created_by_user_id' => $admin->id,
         ];
@@ -58,6 +59,7 @@ class PoojaBookingEftPaymentTest extends TestCase
         $this->assertSame('Paid', $booking->payment_status);
         $this->assertSame('Confirmed', $booking->booking_status);
         $this->assertEquals(75, (float) $booking->amount);
+        $this->assertSame('Also booking for grandmother — Vishwamitra gothram, Ashwini nakshatram', $booking->participant_details);
     }
 
     public function test_createBookingFromLedgerMeta_handles_a_custom_pooja(): void

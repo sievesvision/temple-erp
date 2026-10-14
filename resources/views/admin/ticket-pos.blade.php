@@ -1032,6 +1032,10 @@
                                 <input type="email" name="devotee_email" class="form-control" required>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Participant Details <span class="text-muted fw-normal">(optional)</span></label>
+                            <textarea name="participant_details" class="form-control" rows="2" maxlength="2000" placeholder="Names, gothram, nakshatram for everyone this booking covers, and anything else the priest should know"></textarea>
+                        </div>
                         <div class="mb-0">
                             <label class="form-label fw-bold">Payment Method</label>
                             <div class="pos-method-row" id="bpMethodRow"></div>
@@ -2343,6 +2347,7 @@
                 startBody.set('devotee_name', form.querySelector('[name="devotee_name"]').value);
                 startBody.set('devotee_mobile', form.querySelector('[name="devotee_mobile"]').value);
                 startBody.set('devotee_email', form.querySelector('[name="devotee_email"]').value);
+                startBody.set('participant_details', form.querySelector('[name="participant_details"]')?.value || '');
                 if (selectedTerminalId) { startBody.set('terminal_id', selectedTerminalId); }
 
                 fetch(EFT_CHARGE_START_URL, {

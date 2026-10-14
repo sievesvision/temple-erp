@@ -164,4 +164,32 @@ class TicketPosBookingCreationTest extends TestCase
         $this->assertNotNull($booking);
         $this->assertSame('Confirmed', $booking->booking_status);
     }
+
+    public function test_the_booking_form_has_a_participant_details_field_and_it_is_saved(): void
+    {
+        $admin = $this->admin();
+        $this->activePriest();
+        $pooja = $this->activePooja();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+        $response->assertOk();
+        $response->assertSee('name="participant_details"', false);
+
+        $response = $this->actingAs($admin)->postJson(route('admin.bookings.store'), [
+            'pooja_id' => $pooja->pooja_id,
+            'booking_date' => now()->addDay()->toDateString(),
+            'booking_time' => '10:00:00',
+            'devotee_name' => 'POS Devotee',
+            'devotee_mobile' => '0488112244',
+            'devotee_email' => 'pos.devotee2@example.com',
+            'payment_method' => 'Cash',
+            'participant_details' => "Ravi Kumar — Bharadwaja gothram, Rohini nakshatram\nMeena Kumar — same gothram, Chitra nakshatram",
+        ]);
+
+        $response->assertOk();
+        $booking = Booking::first();
+        $this->assertNotNull($booking);
+        $this->assertStringContainsString('Bharadwaja gothram', $booking->participant_details);
+        $this->assertStringContainsString('Chitra nakshatram', $booking->participant_details);
+    }
 }

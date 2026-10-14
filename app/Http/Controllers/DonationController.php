@@ -965,6 +965,7 @@ class DonationController extends Controller
             'devotee_name' => 'nullable|string|max:255',
             'devotee_mobile' => 'nullable|string|max:20',
             'devotee_email' => 'nullable|email|max:255',
+            'participant_details' => 'nullable|string|max:2000',
         ]);
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
@@ -1053,6 +1054,7 @@ class DonationController extends Controller
                     'devotee_name' => $validated['devotee_name'] ?? null,
                     'devotee_mobile' => $validated['devotee_mobile'] ?? null,
                     'devotee_email' => $validated['devotee_email'] ?? null,
+                    'participant_details' => $validated['participant_details'] ?? null,
                     'created_by_role' => $activeRole,
                     'created_by_user_id' => $user->id,
                 ];

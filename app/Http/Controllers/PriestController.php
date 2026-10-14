@@ -903,6 +903,7 @@ class PriestController extends Controller
             'devotee_mobile' => 'required|digits:10',
             'devotee_email' => 'required|email|max:255',
             'payment_method' => 'required|in:Cash,Counter,Bank',
+            'participant_details' => 'nullable|string|max:2000',
         ]);
 
         // Same "collected at the counter = Paid now" rule as the Pooja Portal/Ticket POS/
@@ -921,6 +922,7 @@ class PriestController extends Controller
                 'devotee_name' => $validated['devotee_name'],
                 'devotee_mobile' => $validated['devotee_mobile'],
                 'devotee_email' => $validated['devotee_email'],
+                'participant_details' => $validated['participant_details'] ?? null,
                 'remarks' => 'Booking created by Priest via the Priest Portal.',
             ], 'Priest', $user->id);
 
