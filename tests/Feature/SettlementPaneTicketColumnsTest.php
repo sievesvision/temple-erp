@@ -62,7 +62,7 @@ class SettlementPaneTicketColumnsTest extends TestCase
     }
 
     /**
-     * The top summary (Opening Balance / Cash Received / Expected in Till) is now a compact
+     * The summary (Opening Balance / Cash Received / Expected in Till) is now a compact
      * label-left, value-right list instead of three separate icon tiles.
      */
     public function test_the_summary_is_a_compact_left_right_list_not_icon_tiles(): void
@@ -79,5 +79,58 @@ class SettlementPaneTicketColumnsTest extends TestCase
         $response->assertSee('Expected in Till');
         // The old icon-tile markup is gone.
         $response->assertDontSee('class="cs-tile"', false);
+    }
+
+    public function test_a_ticket_order_row_has_a_view_icon_alongside_the_print_icon(): void
+    {
+        $admin = $this->admin();
+        $orderId = DB::table('ticket_orders')->insertGetId([
+            'customer_name' => 'View Icon Buyer', 'total_amount' => 15,
+            'payment_method' => 'Cash', 'payment_status' => 'Paid',
+            'order_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('title="View Order"', false);
+        $response->assertSee('bi-eye-fill', false);
+        $response->assertSee('title="Print Receipt"', false);
+    }
+
+    public function test_cash_received_by_ticket_type_breakdown_is_removed(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $response->assertDontSee('Cash Received by Ticket Type');
+    }
+
+    /**
+     * The period's cash summary and the Settle Till form now share one combined
+     * "Settlement" card at the bottom of the pane (summary left, form right), below
+     * Current Period Transactions rather than above it.
+     */
+    public function test_transactions_come_before_the_combined_settlement_panel(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $transactionsPos = strpos($content, 'Current Period Transactions');
+        $settlementPos = strpos($content, '>Settlement<');
+        $this->assertNotFalse($transactionsPos);
+        $this->assertNotFalse($settlementPos);
+        $this->assertLessThan($settlementPos, $transactionsPos, 'Current Period Transactions should render before the combined Settlement panel.');
     }
 }

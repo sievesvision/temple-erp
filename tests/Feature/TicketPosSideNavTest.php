@@ -125,6 +125,17 @@ class TicketPosSideNavTest extends TestCase
         $response->assertDontSee('id="eftSettingsModalFrame"', false);
     }
 
+    public function test_the_eft_nav_icon_is_a_bootstrap_icon_not_the_old_image(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('bi-credit-card-2-front-fill', false);
+        $response->assertDontSee('eft_terminal_icon.png', false);
+    }
+
     public function test_each_view_shows_its_own_header(): void
     {
         $admin = $this->admin();

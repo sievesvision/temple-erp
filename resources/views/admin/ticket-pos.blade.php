@@ -89,8 +89,13 @@
 
         {{-- Reserve the rail's own (collapsed) width so the item grid/cart never render
              underneath it — the rail itself overlays rather than pushes when expanded, so
-             this stays fixed at the collapsed width regardless of nav state. --}}
-        .pos-app-shell { padding-right: var(--nav-w); }
+             this stays fixed at the collapsed width regardless of nav state. Must itself be
+             a flex column filling body's own height (not just a plain block) — otherwise
+             .pos-body's "flex:1" below has no real height to grow into, and everything
+             downstream that depends on actually reaching full viewport height (the cart
+             pane's payment controls pinned to the bottom, the EFT Settings iframe filling
+             its pane instead of collapsing to a tiny default size) silently breaks. --}}
+        .pos-app-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; padding-right: var(--nav-w); }
 
         {{-- Which view is on screen — one shared heading style for every view (Archana/
              Poojas share the one #posViewHeaderTitle element, text swapped by JS; Till and
@@ -345,8 +350,20 @@
         .qty-modal-header { background: linear-gradient(135deg, var(--maroon), var(--maroon-dark)); color: white; padding: 16px 20px; font-weight: 800; font-size: 1.05rem; }
         .qty-modal-body { padding: 24px 22px; }
         .qty-modal-price { color: var(--gold-hover); font-weight: 700; font-family: 'Inter', sans-serif; margin-bottom: 18px; }
-        .qty-modal-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 22px; }
-        .qty-modal-btn { width: 54px; height: 54px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--cream); font-size: 1.6rem; font-weight: 800; color: var(--gold-hover); }
+        .qty-modal-controls { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 22px; }
+        {{-- Circular, icon-driven (not the plain −/+ text characters, which rendered thin
+             and off-centre depending on the font) steppers — a filled gold circle for the
+             more common "add another" action, a quieter outline for "remove one". --}}
+        .qty-modal-btn {
+            width: 52px; height: 52px; border-radius: 50%; display: inline-flex;
+            align-items: center; justify-content: center; font-size: 1.3rem;
+            border: none; transition: transform 0.08s;
+        }
+        .qty-modal-btn:active { transform: scale(0.92); }
+        .qty-modal-btn-minus { background: var(--shade); border: 1.5px solid var(--border); color: var(--text-secondary); }
+        .qty-modal-btn-minus:hover { background: var(--border); }
+        .qty-modal-btn-plus { background: linear-gradient(135deg, var(--gold), var(--gold-hover)); color: white; box-shadow: 0 6px 16px rgba(200,155,60,0.35); }
+        .qty-modal-btn-plus:hover { filter: brightness(1.05); }
         .qty-modal-value { font-size: 2rem; font-weight: 800; font-family: 'Inter', sans-serif; min-width: 60px; }
         .qty-modal-actions { display: flex; gap: 10px; }
         .qty-modal-cancel { flex: 1; padding: 13px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: var(--white); color: var(--text-secondary); font-weight: 700; }
@@ -495,7 +512,7 @@
                  terminal from here. The gold dot flags that setup still needs attention
                  (nothing paired yet); it clears once a terminal is paired, but the item
                  itself never disappears. -->
-            <button type="button" class="pos-nav-item" id="posEftSettingsTopbarBtn" data-view="eft-settings" title="EFT Terminal Settings"><img src="{{ asset('images/eft_terminal_icon.png') }}" alt="" class="pos-nav-item-icon-img"><span class="pos-nav-label">EFT Terminal</span></button>
+            <button type="button" class="pos-nav-item" id="posEftSettingsTopbarBtn" data-view="eft-settings" title="EFT Terminal Settings"><i class="bi bi-credit-card-2-front-fill"></i><span class="pos-nav-label">EFT Terminal</span></button>
         </div>
         <div class="pos-nav-user-wrap">
             <button type="button" class="pos-nav-item" id="posNavUserBtn" title="Account"><i class="bi bi-person-fill"></i><span class="pos-nav-label">Account</span></button>
@@ -805,9 +822,9 @@
             <div class="qty-modal-body">
                 <div class="qty-modal-price" id="qtyModalPrice"></div>
                 <div class="qty-modal-controls">
-                    <button type="button" class="qty-modal-btn" id="qtyModalMinus">−</button>
+                    <button type="button" class="qty-modal-btn qty-modal-btn-minus" id="qtyModalMinus"><i class="bi bi-dash-lg"></i></button>
                     <span class="qty-modal-value" id="qtyModalValue">1</span>
-                    <button type="button" class="qty-modal-btn" id="qtyModalPlus">+</button>
+                    <button type="button" class="qty-modal-btn qty-modal-btn-plus" id="qtyModalPlus"><i class="bi bi-plus-lg"></i></button>
                 </div>
                 <div class="qty-modal-actions">
                     <button type="button" class="qty-modal-cancel" id="qtyModalCancel">Cancel</button>
@@ -1219,6 +1236,7 @@
             const emptyMsg = document.getElementById('posItemsEmpty');
             const panels = document.querySelectorAll('#itemsGrid .pos-menu-panel');
             const tabBars = document.querySelectorAll('.pos-category-tabs');
+            const bodyPane = document.querySelector('.pos-body');
             const itemsPane = document.querySelector('.pos-items-pane');
             const cartPane = document.querySelector('.pos-cart-pane');
             const tillPane = document.getElementById('posTillPane');
@@ -1295,21 +1313,24 @@
                 eftSettingsPane?.classList.remove('active');
 
                 if (view === 'till') {
-                    itemsPane?.classList.add('d-none');
-                    cartPane?.classList.add('d-none');
+                    // Hiding .pos-body itself (not just its two children) matters here — it's
+                    // a flex:1 sibling of .pos-till-pane/.pos-eft-settings-pane in the same
+                    // column; left visible-but-empty, it would still claim half the available
+                    // height and squeeze whichever pane is actually active into the other half.
+                    bodyPane?.classList.add('d-none');
                     tillPane?.classList.add('active');
                     if (typeof window.refreshPosTillPane === 'function') { window.refreshPosTillPane(); }
                     return;
                 }
                 if (view === 'eft-settings') {
-                    itemsPane?.classList.add('d-none');
-                    cartPane?.classList.add('d-none');
+                    bodyPane?.classList.add('d-none');
                     eftSettingsPane?.classList.add('active');
                     if (eftSettingsFrame && eftSettingsFrame.src === 'about:blank') {
                         eftSettingsFrame.src = EFT_SETTINGS_URL;
                     }
                     return;
                 }
+                bodyPane?.classList.remove('d-none');
                 itemsPane?.classList.remove('d-none');
                 cartPane?.classList.remove('d-none');
 

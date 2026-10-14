@@ -72,43 +72,6 @@
     .cash-settle-widget .cs-row.cs-row-clickable { cursor: pointer; }
 </style>
 
-<div class="cs-card mb-3">
-    <div class="cs-summary-row">
-        <span class="cs-summary-row-label"><i class="bi bi-box-arrow-in-right" style="color:#C89B3C;"></i>Opening Balance</span>
-        <span class="cs-summary-row-value">{{ $fmt($cashPreview['opening_balance']) }}</span>
-    </div>
-    <div class="cs-summary-row">
-        <span class="cs-summary-row-label"><i class="bi bi-cash-coin" style="color:#10B981;"></i>Cash Received (this period)</span>
-        <span class="cs-summary-row-value">{{ $fmt($cashPreview['cash_received']) }}</span>
-    </div>
-    <div class="cs-summary-row">
-        <span class="cs-summary-row-label"><i class="bi bi-calculator-fill" style="color:#B7791F;"></i>Expected in Till</span>
-        <span class="cs-summary-row-value">{{ $fmt($expected) }}</span>
-    </div>
-</div>
-
-@if($context === 'pos' || !$canViewCashHistory)
-<div class="cs-card mb-3 d-flex align-items-center gap-2">
-    <i class="bi bi-clock-history" style="font-size:1.2rem;color:#B7791F;"></i>
-    <div class="small">
-        <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y, g:i A') : 'Never — this is the first period' }}
-        &middot; <span class="fw-bold">Carried forward:</span> {{ $fmt($cashPreview['opening_balance']) }}
-    </div>
-</div>
-@endif
-
-@if(count($cashPreview['breakdown']))
-<div class="cs-card mb-3">
-    <div class="fw-bold mb-2"><i class="bi bi-tags-fill me-1"></i>Cash Received by {{ $scope === 'event' ? 'Donation Type' : 'Ticket Type' }} (this period)</div>
-    @foreach($cashPreview['breakdown'] as $row)
-        <div class="d-flex justify-content-between border-bottom py-2">
-            <span>{{ $row['label'] }}</span>
-            <span class="fw-bold">{{ $fmt($row['cash_received']) }}</span>
-        </div>
-    @endforeach
-</div>
-@endif
-
 <div class="cs-table-wrap mb-3">
     <div class="cs-table-head">
         <div class="fw-bold"><i class="bi bi-list-check me-1"></i>Current Period Transactions ({{ $currentTransactions->count() }})</div>
@@ -193,6 +156,7 @@
                         <td>{{ $row->payment_method }}</td>
                         <td class="text-end fw-bold">{{ $fmt($row->total_amount) }}</td>
                         <td class="text-end">
+                            <a href="{{ route('admin.tickets.print', $row->id) }}" target="_blank" class="cs-icon-btn me-1" title="View Order"><i class="bi bi-eye-fill"></i></a>
                             <a href="{{ route('admin.tickets.print', $row->id) }}" target="_blank" class="cs-icon-btn" title="Print Receipt"><i class="bi bi-printer-fill"></i></a>
                         </td>
                     </tr>
@@ -204,36 +168,64 @@
     @endif
 </div>
 
+{{-- Settlement — the period's cash summary (left) and the till-count form that settles
+     it (right) share one card, since they're two views of the same figures rather than
+     separate concerns: the form's own "expected"/variance math is computed straight from
+     the summary column beside it. --}}
 <div class="cs-card mb-3">
-    <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settle Till</div>
-    <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
-        @csrf
-        <input type="hidden" name="scope" value="{{ $scope }}">
-        @if($eventId)<input type="hidden" name="event_id" value="{{ $eventId }}">@endif
-        <div class="row g-3">
-            <div class="col-md-4">
-                <label class="form-label small">Till Count — total cash counted ({{ $currency }})</label>
-                <input type="number" step="0.01" min="0" name="till_count" class="form-control settle-till-count" data-expected="{{ $expected }}" required>
+    <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settlement</div>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="cs-summary-row">
+                <span class="cs-summary-row-label"><i class="bi bi-box-arrow-in-right" style="color:#C89B3C;"></i>Opening Balance</span>
+                <span class="cs-summary-row-value">{{ $fmt($cashPreview['opening_balance']) }}</span>
             </div>
-            <div class="col-md-4">
-                <label class="form-label small">Amount Taken to Banking ({{ $currency }})</label>
-                <input type="number" step="0.01" min="0" name="amount_banked" class="form-control settle-amount-banked" required>
+            <div class="cs-summary-row">
+                <span class="cs-summary-row-label"><i class="bi bi-cash-coin" style="color:#10B981;"></i>Cash Received</span>
+                <span class="cs-summary-row-value">{{ $fmt($cashPreview['cash_received']) }}</span>
             </div>
-            <div class="col-md-4">
-                <label class="form-label small d-block">&nbsp;</label>
-                <div class="d-flex gap-3 flex-wrap">
-                    <div><span class="text-muted small d-block">Variance</span><span class="fw-bold settle-variance-display">—</span></div>
-                    <div><span class="text-muted small d-block">Carried Forward</span><span class="fw-bold settle-carry-display">—</span></div>
-                </div>
+            <div class="cs-summary-row" style="border-bottom:none;">
+                <span class="cs-summary-row-label"><i class="bi bi-calculator-fill" style="color:#B7791F;"></i>Expected in Till</span>
+                <span class="cs-summary-row-value">{{ $fmt($expected) }}</span>
             </div>
-            <div class="col-12 settle-note-wrap" style="display:none;">
-                <label class="form-label small">Note — explain the mismatch <span class="text-danger">*</span></label>
-                <textarea name="variance_note" class="form-control settle-note-field" rows="2" maxlength="1000" placeholder="e.g. a donor's change was short, or an extra note was found"></textarea>
+            @if($context === 'pos' || !$canViewCashHistory)
+            <div class="text-muted small mt-2 pt-2 border-top">
+                <i class="bi bi-clock-history me-1"></i>
+                <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y, g:i A') : 'Never — this is the first period' }}
+                &middot; <span class="fw-bold">Carried forward:</span> {{ $fmt($cashPreview['opening_balance']) }}
             </div>
+            @endif
         </div>
-        @error('variance_note')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
-        <button type="submit" class="btn-cs-save mt-3" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">Settle Till Now</button>
-    </form>
+        <div class="col-md-8">
+            <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
+                @csrf
+                <input type="hidden" name="scope" value="{{ $scope }}">
+                @if($eventId)<input type="hidden" name="event_id" value="{{ $eventId }}">@endif
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small">Till Count — total cash counted ({{ $currency }})</label>
+                        <input type="number" step="0.01" min="0" name="till_count" class="form-control settle-till-count" data-expected="{{ $expected }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">Amount Taken to Banking ({{ $currency }})</label>
+                        <input type="number" step="0.01" min="0" name="amount_banked" class="form-control settle-amount-banked" required>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex gap-3 flex-wrap">
+                            <div><span class="text-muted small d-block">Variance</span><span class="fw-bold settle-variance-display">—</span></div>
+                            <div><span class="text-muted small d-block">Carried Forward</span><span class="fw-bold settle-carry-display">—</span></div>
+                        </div>
+                    </div>
+                    <div class="col-12 settle-note-wrap" style="display:none;">
+                        <label class="form-label small">Note — explain the mismatch <span class="text-danger">*</span></label>
+                        <textarea name="variance_note" class="form-control settle-note-field" rows="2" maxlength="1000" placeholder="e.g. a donor's change was short, or an extra note was found"></textarea>
+                    </div>
+                </div>
+                @error('variance_note')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
+                <button type="submit" class="btn-cs-save mt-3" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">Settle Till Now</button>
+            </form>
+        </div>
+    </div>
 </div>
 
 @if($canViewCashHistory && $context !== 'pos')
