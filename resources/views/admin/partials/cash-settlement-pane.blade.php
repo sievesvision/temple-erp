@@ -99,6 +99,15 @@
     .cs-order-item-name { color: #1e1e2a; }
     .cs-order-item-qty { color: #a0907e; font-weight: 600; }
     .cs-order-item-total { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    {{-- Its own standalone, full-width row — not sharing the heavy filled Settle Till
+         style, and a tighter corner than .btn-cs-save's own 4px. --}}
+    .cs-print-btn {
+        display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+        margin-top: 18px; padding: 12px; border-radius: 2px; border: 1.5px solid #8A6A1E;
+        background: #fff; color: #8A6A1E; font-weight: 700; font-size: 0.85rem;
+        text-decoration: none; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .cs-print-btn:hover { background: #faf8f5; color: #6f5518; }
     .cs-order-receipt-col { position: relative; background: #efe9dd; border-left: 1px solid #e8e0d4; height: 75vh; }
     .cs-order-receipt-col iframe { width: 100%; height: 100%; border: 0; display: block; position: relative; z-index: 0; }
     @media (max-width: 767px) { .cs-order-receipt-col { height: 50vh; border-left: none; border-top: 1px solid #e8e0d4; } }
@@ -348,7 +357,7 @@
      rather than just linking straight to that page in a new tab. --}}
 @if($scope !== 'event')
 <div class="modal fade" id="csOrderModal_{{ $formId }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content" style="border-radius: 16px; overflow: hidden; border: none;">
             <div class="modal-header" style="background: #faf8f5; border-bottom: 1px solid #f0ece6;">
                 <h5 class="modal-title fw-bold" id="csOrderModalTitle_{{ $formId }}">Order</h5>
@@ -356,7 +365,7 @@
             </div>
             <div class="modal-body p-0">
                 <div class="row g-0">
-                    <div class="col-md-5 p-4">
+                    <div class="col-md-7 p-4">
                         <div class="cs-order-detail-row">
                             <span class="cs-order-detail-label">Date</span>
                             <span class="cs-order-detail-value" id="csOrderModalDate_{{ $formId }}"></span>
@@ -374,9 +383,9 @@
                             <span class="cs-order-detail-label">Total</span>
                             <span class="cs-order-detail-value cs-order-detail-total" id="csOrderModalTotal_{{ $formId }}"></span>
                         </div>
-                        <a href="#" target="_blank" class="btn-cs-save mt-4 d-inline-flex align-items-center text-decoration-none" id="csOrderModalPrintLink_{{ $formId }}"><i class="bi bi-printer-fill me-2"></i>Print Receipt</a>
+                        <a href="#" target="_blank" class="cs-print-btn" id="csOrderModalPrintLink_{{ $formId }}"><i class="bi bi-printer-fill"></i>Print Receipt</a>
                     </div>
-                    <div class="col-md-7 cs-order-receipt-col">
+                    <div class="col-md-5 cs-order-receipt-col">
                         <div class="cs-order-receipt-loading active" id="csOrderModalLoading_{{ $formId }}">
                             <div class="cs-order-receipt-spinner"></div>
                             <span>Loading receipt…</span>

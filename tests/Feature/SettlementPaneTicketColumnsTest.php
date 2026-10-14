@@ -182,6 +182,27 @@ class SettlementPaneTicketColumnsTest extends TestCase
         $this->assertStringContainsString('id="csOrderModalItems_', $content);
     }
 
+    public function test_the_order_view_popups_print_button_is_its_own_standalone_style(): void
+    {
+        $admin = $this->admin();
+        DB::table('ticket_orders')->insertGetId([
+            'customer_name' => 'Print Style Buyer', 'total_amount' => 20,
+            'payment_method' => 'Cash', 'payment_status' => 'Paid',
+            'order_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('class="cs-print-btn"', false);
+        $response->assertSee('border-radius: 2px', false);
+        // The narrower right-hand receipt column (col-md-5, not the old col-md-7) leaves
+        // less dead space around the thermal-width stub on a normal viewport.
+        $response->assertSee('class="col-md-5 cs-order-receipt-col"', false);
+    }
+
     public function test_cash_received_by_ticket_type_breakdown_is_removed(): void
     {
         $admin = $this->admin();
