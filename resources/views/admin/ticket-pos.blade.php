@@ -2262,8 +2262,6 @@
                 submitBtn.innerHTML = submitBtnOriginalText;
             };
 
-            const submitBtnOriginalText = submitBtn.innerHTML;
-
             form.addEventListener('submit', function (e) {
                 e.preventDefault();
                 errorBox.classList.add('d-none');
