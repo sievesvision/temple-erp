@@ -146,10 +146,17 @@ class BookingController extends Controller
 
             $displayName = $isCustom ? $validated['custom_pooja_label'] : DB::table('poojas')->where('pooja_id', $poojaId)->value('pooja_name');
 
+            // BookingService::create() already dispatched the confirmation email (async,
+            // afterResponse()) whenever the booking comes out Confirmed — true for every
+            // role that reaches this endpoint (store() is staff/portal-only, never a plain
+            // Devotee) — so it's accurate to say so here rather than leave the counter
+            // wondering whether anything was actually sent.
+            $successMessage = "Booking #{$booking->booking_id} made successfully and confirmed — a confirmation email has been sent.";
+
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => "Booking #{$booking->booking_id} created and Confirmed.",
+                    'message' => $successMessage,
                     'booking' => [
                         'booking_id' => $booking->booking_id,
                         'pooja_name' => $displayName,
@@ -161,7 +168,7 @@ class BookingController extends Controller
                 ]);
             }
 
-            return redirect()->back()->with('success', "Booking #{$booking->booking_id} created and Confirmed.");
+            return redirect()->back()->with('success', $successMessage);
         } catch (\RuntimeException $e) {
             if ($request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);

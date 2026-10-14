@@ -1049,9 +1049,13 @@
                             <input type="hidden" name="payment_method" id="bp_payment_method" value="Cash">
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold" id="bookPoojaSubmitBtn">Create Booking</button>
+                    <div class="modal-footer flex-column align-items-stretch gap-2">
+                        {{-- Same style as the ticket cart's own PAY button (solid maroon,
+                             moderate radius — not a pill) — and when Card is selected,
+                             names which physical terminal it'll charge, exactly like that
+                             button already does (see setMethodAndButtonLabel() below). --}}
+                        <button type="submit" class="pos-save-btn" id="bookPoojaSubmitBtn">Create Booking</button>
+                        <button type="button" class="btn btn-link text-secondary text-decoration-none" data-bs-dismiss="modal">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -2008,7 +2012,7 @@
                             setTimeout(function () {
                                 hideEftModal();
                                 if (typeof window.finishBookingPopup === 'function') {
-                                    window.finishBookingPopup('Booking #' + data.donation_id + ' created, confirmed and paid on the terminal.');
+                                    window.finishBookingPopup('Booking #' + data.donation_id + ' made successfully and paid on the terminal — a confirmation email has been sent.');
                                 }
                                 eftPurchaseKind = 'ticket_order';
                             }, 1200);
@@ -2229,7 +2233,9 @@
             let submitBtnOriginalText = submitBtn.innerHTML;
             function setMethodAndButtonLabel(value) {
                 bpPaymentMethodField.value = value;
-                submitBtnOriginalText = value === 'EFT Terminal' ? 'Pay on Terminal' : 'Create Booking';
+                submitBtnOriginalText = value === 'EFT Terminal'
+                    ? '<i class="bi bi-credit-card-2-front-fill me-2"></i>Pay on Terminal<span class="pos-save-btn-terminal">on ' + currentTerminalLabel() + ' Terminal</span>'
+                    : '<i class="bi bi-check-circle-fill me-2"></i>Create Booking';
                 submitBtn.innerHTML = submitBtnOriginalText;
             }
             bpMethods.forEach(function (m) {
@@ -2312,12 +2318,91 @@
                     });
             });
 
+            // CBA Smart Terminal (mx51 SCI) flow for bookings — its own SciActionFramework
+            // instance (not the ticket cart's sciPaymentFlow higher up this page), reusing
+            // the same #eftModalOverlay DOM since only one purchase is ever in flight at a
+            // time. buildStartBody reads straight off the attempt object start() is called
+            // with below; onApproved/onDeclined/onUnresolved/onLocalCancel only ever need
+            // to touch this popup's own submit button (no cross-scope stash like the
+            // Linkly path needs for pollEftTransaction).
+            const sciBookingPaymentFlow = SciActionFramework.createFlow({
+                startUrl: CBA_SCI_CHARGE_START_URL,
+                statusUrlBase: CBA_SCI_CHARGE_STATUS_URL_BASE,
+                actionUrlBase: CBA_SCI_CHARGE_ACTION_URL_BASE,
+                cancelUrlBase: CBA_SCI_CHARGE_CANCEL_URL_BASE,
+                overrideUrlBase: CBA_SCI_CHARGE_OVERRIDE_URL_BASE,
+                thermalPrintUrl: THERMAL_PRINT_RECEIPT_URL,
+                csrfToken: CSRF_TOKEN,
+                currencyCode: CURRENCY_CODE,
+                attemptStorageKey: 'sciBookingAttempt',
+                el: {
+                    overlay: eftModalOverlay,
+                    amount: eftModalAmount,
+                    statusBox: eftModalStatusBox,
+                    statusLine1: eftModalStatusLine1,
+                    statusLine2: eftModalStatusLine2,
+                    actionContainer: document.getElementById('eftModalActionFramework'),
+                    cancelBtn: document.getElementById('eftModalCancelBtn'),
+                    overrideBox: document.getElementById('eftModalOverride'),
+                    overrideYesBtn: document.getElementById('eftModalOverrideYes'),
+                    overrideNoBtn: document.getElementById('eftModalOverrideNo'),
+                    overrideKeepWaitingBtn: document.getElementById('eftModalOverrideKeepWaiting'),
+                    overrideQuestion: document.getElementById('eftModalOverrideQuestion'),
+                    overrideSaving: document.getElementById('eftModalOverrideSaving'),
+                    countdown: document.getElementById('eftModalCountdown'),
+                    headerTitleError: document.getElementById('eftModalHeaderTitleError'),
+                },
+                buildStartBody: function (attempt) {
+                    return {
+                        record_type: 'pooja_booking',
+                        pooja_id: attempt.poojaId,
+                        custom_pooja: attempt.isCustom,
+                        custom_pooja_label: attempt.customLabel,
+                        custom_fee: attempt.customFee,
+                        booking_date: attempt.bookingDate,
+                        booking_time: attempt.bookingTime,
+                        priest_option: attempt.priestOption,
+                        preferred_priest_id: attempt.preferredPriestId,
+                        devotee_name: attempt.devoteeName,
+                        devotee_mobile: attempt.devoteeMobile,
+                        devotee_email: attempt.devoteeEmail,
+                        participant_details: attempt.participantDetails,
+                    };
+                },
+                onToast: function (message, isError) { showToast(message, isError); },
+                onApproved: function (bookingId) {
+                    activeEftProvider = null;
+                    if (typeof window.finishBookingPopup === 'function') {
+                        window.finishBookingPopup('Booking #' + bookingId + ' made successfully and paid on the terminal — a confirmation email has been sent.');
+                    }
+                },
+                onDeclined: function () {
+                    activeEftProvider = null;
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitBtn.dataset.originalText || submitBtnOriginalText;
+                },
+                onUnresolved: function () {
+                    activeEftProvider = null;
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitBtn.dataset.originalText || submitBtnOriginalText;
+                },
+                onLocalCancel: function () {
+                    activeEftProvider = null;
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = submitBtn.dataset.originalText || submitBtnOriginalText;
+                    showToast('Payment cancelled.', true);
+                },
+            });
+
             // ---------- Pay the booking on the EFT terminal ----------
             // Reuses the exact same charge-start/poll/modal machinery the ticket cart's own
-            // EFT Terminal option already drives (startEftCharge, pollEftTransaction, the
-            // #eftModalOverlay) — see pollEftTransaction's eftPurchaseKind branch for how the
-            // shared success handler tells a booking apart from a ticket order. Linkly only
-            // for now (same as the ticket cart's own CBA SCI branch, not yet mirrored here).
+            // EFT Terminal option already drives — Linkly via startEftCharge/
+            // pollEftTransaction/#eftModalOverlay (see pollEftTransaction's eftPurchaseKind
+            // branch for how the shared success handler tells a booking apart from a ticket
+            // order), CBA Smart Terminal via its own sciBookingPaymentFlow instance below
+            // (a separate SciActionFramework flow rather than retrofitting the ticket
+            // cart's own sciPaymentFlow, since buildStartBody/onApproved are fixed per
+            // instance and the two purchases need different fields/completion handling).
             function startBookingEftPurchase(btn) {
                 // pollEftTransaction lives outside this IIFE's scope, so it can't see
                 // submitBtnOriginalText directly — stash it on the button itself instead.
@@ -2330,13 +2415,6 @@
                     return;
                 }
                 const selectedTerminal = EFT_TERMINALS.find(function (t) { return String(t.id) === String(selectedTerminalId); });
-                if (selectedTerminal && selectedTerminal.provider === 'cba_sci') {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = submitBtnOriginalText;
-                    errorBox.textContent = 'This terminal (CBA Smart Terminal) isn\'t yet supported for pooja bookings — please use Cash or Bank Transfer, or switch to a Linkly terminal.';
-                    errorBox.classList.remove('d-none');
-                    return;
-                }
 
                 const amount = isCustomField.value === '1' ? (parseFloat(customFee.value) || 0) : selectedTileFee;
                 if (amount <= 0) {
@@ -2344,6 +2422,28 @@
                     submitBtn.innerHTML = submitBtnOriginalText;
                     errorBox.textContent = 'Enter a fee greater than zero before charging the terminal.';
                     errorBox.classList.remove('d-none');
+                    return;
+                }
+
+                if (selectedTerminal && selectedTerminal.provider === 'cba_sci') {
+                    activeEftProvider = 'cba_sci';
+                    sciBookingPaymentFlow.start(btn, {
+                        clientRef: newClientRef(),
+                        amount: amount,
+                        terminalId: selectedTerminalId,
+                        poojaId: poojaIdField.value || '',
+                        isCustom: isCustomField.value,
+                        customLabel: customLabel.value || '',
+                        customFee: customFee.value || '',
+                        bookingDate: form.querySelector('[name="booking_date"]').value,
+                        bookingTime: form.querySelector('[name="booking_time"]').value,
+                        priestOption: priestOption.value,
+                        preferredPriestId: form.querySelector('[name="preferred_priest_id"]')?.value || '',
+                        devoteeName: form.querySelector('[name="devotee_name"]').value,
+                        devoteeMobile: form.querySelector('[name="devotee_mobile"]').value,
+                        devoteeEmail: form.querySelector('[name="devotee_email"]').value,
+                        participantDetails: form.querySelector('[name="participant_details"]')?.value || '',
+                    });
                     return;
                 }
 

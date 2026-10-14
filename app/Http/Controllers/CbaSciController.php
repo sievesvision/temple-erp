@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EftTerminal;
 use App\Models\RolePermission;
 use App\Models\SciTransaction;
+use App\Models\Setting;
 use App\Services\AuditLogService;
 use App\Services\CbaSciService;
 use App\Services\EftTerminalAccess;
@@ -228,9 +229,16 @@ class CbaSciController extends Controller
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
-        $recordType = $request->input('record_type', 'donation') === 'ticket_order' ? 'ticket_order' : 'donation';
+        $recordTypeInput = $request->input('record_type', 'donation');
+        $recordType = in_array($recordTypeInput, ['ticket_order', 'pooja_booking'], true) ? $recordTypeInput : 'donation';
 
-        if (!$user || !app(DonationController::class)->canUseEftTerminal($user, $activeRole, $request->input('event_id'))) {
+        if ($recordType === 'pooja_booking') {
+            // Same grid resource/action the Linkly path and BookingController::store() both
+            // gate on, not canUseEftTerminal() (which is about donations/tickets).
+            if (!$user || !RolePermission::can($activeRole, 'bookings', 'add')) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+            }
+        } elseif (!$user || !app(DonationController::class)->canUseEftTerminal($user, $activeRole, $request->input('event_id'))) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -251,6 +259,21 @@ class CbaSciController extends Controller
             // see createRecordIfApprovedAndUnrecorded()'s own branch on this, mirroring
             // DonationController::startEftCharge()'s identical Linkly-side field.
             'edit_donation_id' => 'nullable|integer|exists:donations_without_logins,id',
+            // Pooja-booking fields only — same loose validation DonationController::
+            // startEftCharge() uses for its own identical fields (the real validation lives
+            // in BookingService::create() itself).
+            'pooja_id' => 'nullable|exists:poojas,pooja_id',
+            'custom_pooja' => 'nullable|boolean',
+            'custom_pooja_label' => 'nullable|string|max:255',
+            'custom_fee' => 'nullable|numeric|min:0',
+            'booking_date' => 'nullable|date',
+            'booking_time' => 'nullable|string',
+            'priest_option' => 'nullable|in:auto,preferred',
+            'preferred_priest_id' => 'nullable|exists:priests,priest_id',
+            'devotee_name' => 'nullable|string|max:255',
+            'devotee_mobile' => 'nullable|string|max:20',
+            'devotee_email' => 'nullable|email|max:255',
+            'participant_details' => 'nullable|string|max:2000',
         ]);
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
@@ -290,15 +313,40 @@ class CbaSciController extends Controller
         $result = CbaSciService::createPurchase($terminal, (float) $validated['amount']);
 
         if ($result['success']) {
-            $meta = $recordType === 'ticket_order'
-                ? [
+            if ($recordType === 'ticket_order') {
+                $meta = [
                     'record_type' => 'ticket_order',
                     'cart' => json_decode($validated['cart_json'] ?? '[]', true) ?: [],
                     'customer_name' => $validated['donor_name'] ?? null,
                     'email' => $validated['email'] ?? null,
                     'mobile' => $validated['mobile'] ?? null,
-                ]
-                : [
+                ];
+            } elseif ($recordType === 'pooja_booking') {
+                // Custom Pooja resolves to the permanent anchor catalog row here (not
+                // trusted from the client) — same server-side resolution the Linkly path
+                // (DonationController::startEftCharge()) and BookingController::store()
+                // both already do.
+                $isCustomBooking = (bool) ($validated['custom_pooja'] ?? false);
+                $poojaId = $isCustomBooking ? (int) Setting::get('custom_pooja_id') : ($validated['pooja_id'] ?? null);
+
+                $meta = [
+                    'record_type' => 'pooja_booking',
+                    'pooja_id' => $poojaId,
+                    'custom_pooja_label' => $isCustomBooking ? ($validated['custom_pooja_label'] ?? null) : null,
+                    'custom_fee' => $isCustomBooking ? ($validated['custom_fee'] ?? null) : null,
+                    'booking_date' => $validated['booking_date'] ?? null,
+                    'booking_time' => $validated['booking_time'] ?? null,
+                    'priest_option' => $validated['priest_option'] ?? 'auto',
+                    'preferred_priest_id' => $validated['preferred_priest_id'] ?? null,
+                    'devotee_name' => $validated['devotee_name'] ?? null,
+                    'devotee_mobile' => $validated['devotee_mobile'] ?? null,
+                    'devotee_email' => $validated['devotee_email'] ?? null,
+                    'participant_details' => $validated['participant_details'] ?? null,
+                    'created_by_role' => $activeRole,
+                    'created_by_user_id' => $user->id,
+                ];
+            } else {
+                $meta = [
                     'record_type' => 'donation',
                     'donor_name' => $validated['donor_name'] ?? null,
                     'email' => $validated['email'] ?? null,
@@ -307,6 +355,7 @@ class CbaSciController extends Controller
                     'purpose_details' => $validated['purpose_details'] ?? null,
                     'edit_donation_id' => $validated['edit_donation_id'] ?? null,
                 ];
+            }
 
             SciTransaction::create([
                 'client_ref' => $validated['client_ref'],
@@ -685,6 +734,14 @@ class CbaSciController extends Controller
                 $txn->update(['donation_type' => 'ticket_order', 'donation_id' => $orderId]);
             }
             return $orderId;
+        }
+
+        if (($meta['record_type'] ?? 'donation') === 'pooja_booking') {
+            $bookingId = app(BookingController::class)->createBookingFromLedgerMeta($meta, $transactionRef);
+            if ($bookingId) {
+                $txn->update(['donation_type' => 'pooja_booking', 'donation_id' => $bookingId]);
+            }
+            return $bookingId;
         }
 
         // Completing an existing Pending donation updates that same row instead of

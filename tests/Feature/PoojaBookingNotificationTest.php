@@ -185,6 +185,69 @@ class PoojaBookingNotificationTest extends TestCase
         });
     }
 
+    /**
+     * Same pattern as DonationReceiptMail — a PDF receipt attached to the email, not just
+     * an HTML body.
+     */
+    public function test_the_confirmation_email_attaches_a_pdf_receipt(): void
+    {
+        Setting::set('system_mode', 'Live Mode');
+        $this->activePriest();
+        $pooja = $this->activePooja(['description' => 'A short abishekam.']);
+
+        (new BookingService())->create([
+            'pooja_id' => $pooja->pooja_id,
+            'booking_date' => now()->addDay()->toDateString(),
+            'booking_time' => '10:00:00',
+            'devotee_name' => 'PDF Receipt Devotee',
+            'devotee_mobile' => '0411000111',
+            'devotee_email' => 'pdf.receipt.devotee@example.com',
+            'payment_method' => 'Cash',
+            'payment_status' => 'Paid',
+        ], 'Staff', null);
+        $this->flushAfterResponseJobs();
+
+        Mail::assertSent(BookingConfirmationMail::class, function (BookingConfirmationMail $mail) {
+            $attachments = $mail->attachments();
+            $this->assertCount(1, $attachments);
+            $this->assertStringContainsString('Pooja-Booking-Receipt-', $attachments[0]->as);
+            $this->assertSame('application/pdf', $attachments[0]->mime);
+
+            return true;
+        });
+    }
+
+    /**
+     * Directly renders the PDF template with representative data (not just asserting the
+     * mail was queued) so a real DomPDF failure in the template surfaces here rather than
+     * only in production.
+     */
+    public function test_the_pdf_receipt_template_actually_renders(): void
+    {
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('emails.booking_receipt_pdf', [
+            'templeLegalName' => 'Test Temple Inc.',
+            'bgImagePath' => public_path('images/donation_receipt_bg.png'),
+            'receiptNumber' => 'B-000123',
+            'isPaid' => true,
+            'devoteeName' => 'PDF Template Devotee',
+            'poojaName' => 'Ganapathy Archana',
+            'poojaDescription' => 'A short archana.',
+            'bookingDate' => now()->addDay()->toDateString(),
+            'bookingTime' => '10:00:00',
+            'priestName' => 'Priest Test',
+            'participantDetails' => 'Ravi — Bharadwaja gothram',
+            'paymentMethod' => 'Cash',
+            'totalAmount' => 50,
+            'paidAmount' => 50,
+            'dueAmount' => 0,
+            'currency' => 'AUD',
+        ])->setPaper([0, 0, 1102, 1427], 'portrait');
+
+        $output = $pdf->output();
+
+        $this->assertStringStartsWith('%PDF', $output);
+    }
+
     public function test_admin_confirm_and_notify_moves_a_pending_booking_to_confirmed_and_sends_the_email(): void
     {
         Setting::set('system_mode', 'Live Mode');

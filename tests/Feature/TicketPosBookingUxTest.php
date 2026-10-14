@@ -97,7 +97,11 @@ class TicketPosBookingUxTest extends TestCase
         $response->assertOk();
         $response->assertSee("bpMethodRow.classList.add('pos-method-row-equal')", false);
         $response->assertSee('pos-method-row-equal .pos-method-btn', false);
-        $response->assertSee("value === 'EFT Terminal' ? 'Pay on Terminal' : 'Create Booking'", false);
+        // Same style/terminal-naming pattern as the ticket cart's own PAY button (see
+        // currentTerminalLabel()) — the button's label is built dynamically, not a bare
+        // "Pay on Terminal" string.
+        $response->assertSee('Pay on Terminal<span class="pos-save-btn-terminal">on \' + currentTerminalLabel()', false);
+        $response->assertSee('class="pos-save-btn" id="bookPoojaSubmitBtn"', false);
     }
 
     public function test_recent_tab_shows_the_most_recently_booked_pooja_first(): void
