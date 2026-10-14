@@ -119,8 +119,11 @@
              order-view receipt's own iframe in cash-settlement-pane.blade.php reuses this
              same pattern) — an iframe shows nothing at all while its own page loads, which
              reads as a broken/frozen panel rather than "still loading" without this. --}}
-        .pos-iframe-wrap { position: relative; flex: 1; min-height: 0; }
-        .pos-iframe-wrap iframe { width: 100%; height: 100%; border: 1px solid var(--border); border-radius: var(--radius-md); background: #FAFAF8; }
+        {{-- Borderless — the embedded page already has its own background/card styling,
+             so framing it in another bordered, rounded box on top of that just doubled up
+             the chrome (a box within a box) instead of reading as one clean panel. --}}
+        .pos-iframe-wrap { position: relative; flex: 1; min-height: 0; background: #FAFAF8; }
+        .pos-iframe-wrap iframe { width: 100%; height: 100%; border: 0; display: block; background: #FAFAF8; }
         .pos-iframe-loading {
             position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
             background: #FAFAF8; border: 1px solid var(--border); border-radius: var(--radius-md); z-index: 1;
