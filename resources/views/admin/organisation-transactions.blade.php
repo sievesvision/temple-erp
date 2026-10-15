@@ -96,9 +96,19 @@
     }
     .export-btn:hover { background: #faf4e8; color: #8A6A1E; }
 
-    /* DataTables customization to match the page's own table styling */
-    .dataTables_wrapper .dataTables_filter input { border-radius: 10px; border: 1px solid #e3dccf; padding: 5px 12px; margin-left: 6px; }
-    .dataTables_wrapper .dataTables_length select { border-radius: 10px; border: 1px solid #e3dccf; padding: 4px 8px; }
+    /* DataTables customization to match the page's own table styling. The table-card has
+       no side padding of its own (the table sits flush against its rounded edges), so the
+       length/search controls row and the info/pagination row below the table both need
+       their own horizontal gutter here or they'd touch the card's edge. */
+    .table-card .dataTables_wrapper { display: block; padding: 0 24px 18px; }
+    .table-card .dataTables_wrapper > .row:first-child { padding-top: 16px; margin-bottom: 4px; }
+    .dataTables_wrapper .dataTables_filter input {
+        border-radius: 10px; border: 1px solid #e3dccf; padding: 6px 12px; margin-left: 8px;
+    }
+    .dataTables_wrapper .dataTables_length select {
+        border-radius: 10px; border: 1px solid #e3dccf; margin: 0 6px; min-width: 70px;
+        padding: 6px 26px 6px 10px;
+    }
     .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: 8px !important; }
     .dataTables_wrapper .dataTables_paginate .paginate_button.current { background: #b8863a !important; border-color: #b8863a !important; color: white !important; }
     .dataTables_wrapper .dataTables_info { color: #7b6b5a; font-size: 0.82rem; }
@@ -230,7 +240,7 @@
 </div>
 
 <div class="section-label collapsible" data-bs-toggle="collapse" data-bs-target="#insightsBody" aria-expanded="true" role="button">
-    <span><i class="bi bi-stars me-1"></i>Insights</span>
+    <span><i class="bi bi-stars me-1"></i>Insights &amp; Trends</span>
     <i class="bi bi-chevron-down chevron"></i>
 </div>
 <div class="collapse show" id="insightsBody">
@@ -245,27 +255,27 @@
         </div>
         @endforeach
     </div>
-</div>
 
-<div class="chart-grid">
-    <div class="chart-card">
-        <h6><i class="bi bi-graph-up me-1"></i>Revenue Trend ({{ $stats['window_days'] }} days)</h6>
-        <canvas id="trendChart"></canvas>
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h6><i class="bi bi-graph-up me-1"></i>Revenue Trend ({{ $stats['window_days'] }} days)</h6>
+            <canvas id="trendChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h6><i class="bi bi-trophy-fill me-1"></i>Top Sources</h6>
+            <canvas id="topSourcesChart"></canvas>
+        </div>
     </div>
-    <div class="chart-card">
-        <h6><i class="bi bi-trophy-fill me-1"></i>Top Sources</h6>
-        <canvas id="topSourcesChart"></canvas>
-    </div>
-</div>
 
-<div class="mini-chart-row">
-    <div class="chart-card">
-        <h6><i class="bi bi-credit-card-fill me-1"></i>Revenue by Payment Method</h6>
-        <canvas id="methodChart"></canvas>
-    </div>
-    <div class="chart-card">
-        <h6><i class="bi bi-shop me-1"></i>Revenue by Channel</h6>
-        <canvas id="channelChart"></canvas>
+    <div class="mini-chart-row">
+        <div class="chart-card">
+            <h6><i class="bi bi-credit-card-fill me-1"></i>Revenue by Payment Method</h6>
+            <canvas id="methodChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h6><i class="bi bi-shop me-1"></i>Revenue by Channel</h6>
+            <canvas id="channelChart"></canvas>
+        </div>
     </div>
 </div>
 
@@ -374,10 +384,11 @@
 (function () {
     const gold = '#b8863a';
     const palette = ['#b8863a', '#2a6fdb', '#1f9d6a', '#c94b6e', '#8a6a1e', '#6f8fd0'];
+    const chartInstances = [];
 
     const trendCtx = document.getElementById('trendChart');
     if (trendCtx) {
-        new Chart(trendCtx, {
+        chartInstances.push(new Chart(trendCtx, {
             type: 'line',
             data: {
                 labels: @json($charts['trend_labels']),
@@ -396,13 +407,13 @@
                 plugins: { legend: { display: false } },
                 scales: { y: { beginAtZero: true } }
             }
-        });
+        }));
     }
 
     const topSourcesCtx = document.getElementById('topSourcesChart');
     if (topSourcesCtx) {
         const sources = @json($charts['top_sources']);
-        new Chart(topSourcesCtx, {
+        chartInstances.push(new Chart(topSourcesCtx, {
             type: 'bar',
             data: {
                 labels: sources.map(s => s.label),
@@ -419,32 +430,43 @@
                 plugins: { legend: { display: false } },
                 scales: { x: { beginAtZero: true } }
             }
-        });
+        }));
     }
 
     const methodCtx = document.getElementById('methodChart');
     if (methodCtx) {
         const methods = @json($charts['by_method']);
-        new Chart(methodCtx, {
+        chartInstances.push(new Chart(methodCtx, {
             type: 'doughnut',
             data: {
                 labels: methods.map(m => m.label),
                 datasets: [{ data: methods.map(m => m.total), backgroundColor: palette }]
             },
             options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-        });
+        }));
     }
 
     const channelCtx = document.getElementById('channelChart');
     if (channelCtx) {
         const channels = @json($charts['by_channel']);
-        new Chart(channelCtx, {
+        chartInstances.push(new Chart(channelCtx, {
             type: 'doughnut',
             data: {
                 labels: channels.map(c => c.label),
                 datasets: [{ data: channels.map(c => c.total), backgroundColor: palette }]
             },
             options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        }));
+    }
+
+    // The charts now live inside the collapsible Insights panel — when it's re-opened
+    // after being collapsed, Chart.js needs an explicit resize since its canvases had
+    // zero width while hidden (display: none), so a stale/zero-size render would stick
+    // otherwise.
+    const insightsBody = document.getElementById('insightsBody');
+    if (insightsBody) {
+        insightsBody.addEventListener('shown.bs.collapse', function () {
+            chartInstances.forEach(c => c.resize());
         });
     }
 })();
