@@ -10,12 +10,40 @@
     <link href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
     <style>
         :root { --primary: {{ $temple['primary_color'] }}; --accent: {{ $temple['accent_color'] }}; --dark: {{ $temple['dark_color'] }}; --cream:#fbf8f1; --ink:#25231f; --muted:#716c64; --line:#e9e1d5; --serif:'Playfair Display',Georgia,serif; --sans:'DM Sans',sans-serif; }
-        * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--cream); font-family:var(--sans); } h1,h2,h3 { font-family:var(--serif); }
+        * { box-sizing:border-box; } body { margin:0; color:var(--ink); background:var(--cream); font-family:var(--sans); } h1,h2,h3 { font-family:var(--serif); } a { text-decoration:none; }
+
+        {{-- Same nav/announcement styling as frontend/index.blade.php, so this page reads
+             as part of the site rather than a disconnected standalone form. --}}
+        .announcement { background:var(--dark); color:#fff; font-size:.78rem; letter-spacing:.04em; } .announcement a { color:var(--accent); }
+        .site-nav { background:rgba(251,248,241,.97); border-bottom:1px solid var(--line); } .brand-mark { width:48px; height:48px; object-fit:contain; } .brand-om { color:var(--primary); font-size:2.45rem; line-height:1; } .brand-title { font:700 1.1rem var(--serif); color:var(--dark); line-height:1.15; } .brand-subtitle { color:var(--muted); font-size:.68rem; letter-spacing:.13em; text-transform:uppercase; }
+        .navbar-nav .nav-link { color:var(--ink); font-size:.82rem; font-weight:600; padding:.75rem .7rem !important; } .navbar-nav .nav-link:hover,.navbar-nav .nav-link:focus { color:var(--primary); }
+        .btn-temple { background:var(--primary); border-color:var(--primary); color:#fff; font-weight:700; border-radius:5px; padding:.75rem 1.15rem; } .btn-temple:hover { background:var(--dark); border-color:var(--dark); color:#fff; } .btn-outline-temple { border:1px solid var(--primary); color:var(--primary); border-radius:5px; font-weight:700; padding:.75rem 1.15rem; } .btn-outline-temple:hover { background:var(--primary); color:#fff; }
 
         .pooja-hero { background:var(--dark); color:#fff; padding:2.5rem 0 3rem; }
         .pooja-hero .kicker { color:var(--accent); font-weight:700; font-size:.8rem; letter-spacing:.15em; text-transform:uppercase; }
         .pooja-hero h1 { font-size:clamp(1.9rem,4vw,3rem); margin:.6rem 0 1rem; }
-        .pooja-hero p { color:#e8e4d8; font-size:1.05rem; max-width:620px; margin:0; line-height:1.7; }
+        .pooja-hero p { color:#e8e4d8; font-size:1.05rem; max-width:620px; margin:0 0 1.5rem; line-height:1.7; }
+
+        {{-- Login-vs-guest choice — sits right under the hero's own intro paragraph, before
+             anyone scrolls to the guest form, so it's the first real decision the page
+             asks for rather than an entry assumed by default. --}}
+        .entry-choice { display:flex; flex-wrap:wrap; gap:.85rem; }
+        .entry-choice a { display:inline-flex; align-items:center; gap:.5rem; font-weight:700; font-size:.92rem; padding:.7rem 1.3rem; border-radius:999px; }
+        .entry-choice .choice-login { background:var(--accent); color:var(--dark); }
+        .entry-choice .choice-login:hover { background:#fff; color:var(--dark); }
+        .entry-choice .choice-guest { border:1.5px solid rgba(255,255,255,.55); color:#fff; }
+        .entry-choice .choice-guest:hover { background:rgba(255,255,255,.12); color:#fff; }
+
+        {{-- Category descriptions — a quick orientation before the booking form itself,
+             since a first-time visitor has no way to know what "Sponsored Abishekam" vs
+             "Other Function" actually means before picking one. --}}
+        .category-intro { background:#fff; border-bottom:1px solid var(--line); padding:2.75rem 0; }
+        .category-intro .section-kicker { color:var(--primary); font-size:.76rem; font-weight:700; letter-spacing:.17em; text-transform:uppercase; }
+        .category-intro h2 { color:var(--dark); font-size:clamp(1.3rem,2vw,1.7rem); margin:.4rem 0 1.5rem; }
+        .category-card { height:100%; padding:1.25rem 1.4rem; border:1px solid var(--line); border-radius:10px; background:color-mix(in srgb, var(--line) 18%, white); }
+        .category-card i { color:var(--primary); font-size:1.3rem; margin-bottom:.5rem; display:block; }
+        .category-card h4 { font-family:var(--sans); font-weight:700; font-size:.92rem; color:var(--dark); margin:0 0 .35rem; }
+        .category-card p { color:var(--muted); font-size:.82rem; line-height:1.6; margin:0; }
 
         .section-pad { padding:3rem 0 4rem; }
         .booking-card { background:#fff; border-radius:14px; box-shadow:0 20px 50px rgba(37,35,31,.1); border:1px solid var(--line); padding:2.5rem; }
@@ -51,15 +79,73 @@
     </style>
 </head>
 <body>
+    <div class="announcement"><div class="container py-2 d-flex flex-wrap justify-content-between gap-2"><span><i class="bi bi-geo-alt me-1"></i>{{ $temple['address'] }}</span><a href="tel:{{ $temple['phone'] }}"><i class="bi bi-telephone me-1"></i>{{ $temple['phone'] }}</a></div></div>
+    <nav class="navbar navbar-expand-lg site-nav sticky-top" aria-label="Main navigation">
+        <div class="container py-2">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{{ route('home') }}">
+                @if($temple['logo'])<img class="brand-mark" src="{{ $temple['logo'] }}" alt="{{ $temple['name'] }} logo">@else<span class="brand-mark brand-om">ॐ</span>@endif
+                <span><span class="brand-title d-block">{{ $temple['name'] }}</span><span class="brand-subtitle d-block">{{ $temple['subtitle'] }}</span></span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavigation" aria-controls="mainNavigation" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse" id="mainNavigation">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">
+                    <li class="nav-item"><a class="nav-link" href="{{ route('home') }}#about">About</a></li>
+                    <li class="nav-item"><a class="nav-link fw-bold" style="color:var(--primary)" href="{{ route('booking.public.show') }}">Pooja Bookings</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ route('home') }}#calendar">Festival Calendar</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ route('home') }}#contact">Contact</a></li>
+                    <li class="nav-item ms-lg-2"><a class="btn btn-temple" href="{{ route('home') }}#give">Donate</a></li>
+                    <li class="nav-item ms-lg-2"><a class="btn btn-outline-temple" href="{{ route('login') }}"><i class="bi bi-box-arrow-in-right me-1"></i>Login</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
     <div class="pooja-hero">
         <div class="container">
             <div class="kicker">Pooja Booking</div>
             <h1>Book a Pooja at {{ $temple['name'] }}</h1>
             <p>Reserve a pooja for your family — pick a ritual, date and time below. We'll confirm your booking and send the payment details by email.</p>
+            <div class="entry-choice">
+                <a class="choice-login" href="{{ route('login') }}"><i class="bi bi-person-check-fill"></i>Log in — I already have an account</a>
+                <a class="choice-guest" href="#guestBookingForm"><i class="bi bi-arrow-down-circle"></i>Continue as a guest</a>
+            </div>
         </div>
     </div>
 
-    <div class="section-pad">
+    {{-- Pooja categories — a quick orientation before the form below, since "Sponsored
+         Abishekam" vs "Other Function" means nothing to a first-time visitor without one. --}}
+    @php
+        $categoryBlurbs = [
+            'Sponsored Poojas' => ['icon' => 'bi-flower1', 'text' => "Personal poojas you sponsor for your family's wellbeing, performed on a date and time of your choosing."],
+            'Sponsored Abishekams' => ['icon' => 'bi-droplet-fill', 'text' => 'Sacred abishekams — ritual bathing of the deity — sponsored in your family\'s name.'],
+            'Festivals' => ['icon' => 'bi-calendar-heart', 'text' => "Poojas tied to the temple's own festival calendar throughout the year."],
+            'Other Functions' => ['icon' => 'bi-building', 'text' => 'Personal functions and ceremonies held at the temple itself.'],
+            'Functions Outside the Temple' => ['icon' => 'bi-house-door-fill', 'text' => 'A priest performing a pooja or ceremony at your own home or venue.'],
+        ];
+        $presentCategories = $poojas->pluck('category')->unique()->filter();
+    @endphp
+    @if($presentCategories->isNotEmpty())
+    <div class="category-intro">
+        <div class="container">
+            <div class="section-kicker">What you can book</div>
+            <h2>A pooja for every occasion</h2>
+            <div class="row g-3">
+                @foreach($presentCategories->sort() as $category)
+                @php $blurb = $categoryBlurbs[$category] ?? ['icon' => 'bi-journal-bookmark-fill', 'text' => 'One of the pooja options available below.']; @endphp
+                <div class="col-sm-6 col-lg-4">
+                    <div class="category-card">
+                        <i class="bi {{ $blurb['icon'] }}"></i>
+                        <h4>{{ $category }}</h4>
+                        <p>{{ $blurb['text'] }}</p>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <div class="section-pad" id="guestBookingForm">
         <div class="container" style="max-width:720px;">
             @if(session('success_booking') || $errors->any() || session('error'))
             <div class="booking-confirm-popup" id="bookingPopup">
