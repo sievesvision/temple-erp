@@ -47,6 +47,45 @@
     .badge-status-completed { background: #d1fae5; color: #047857; }
     .badge-status-cancelled { background: #fee2e2; color: #b91c1c; }
 
+    {{-- Revenue tab — same KPI/insight/chart visual language as the Transactions
+         dashboard (organisation-transactions.blade.php), so the two "revenue" surfaces
+         in the app read as one consistent design rather than two different styles. --}}
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .kpi-card {
+        background: #faf8f5; border-radius: 18px; padding: 18px 20px; border: 1px solid rgba(184, 134, 58, 0.1);
+    }
+    .kpi-label { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #8A6A1E; }
+    .kpi-value { font-size: 1.55rem; font-weight: 800; color: #1e1e2a; margin-top: 4px; letter-spacing: -0.4px; font-variant-numeric: tabular-nums; }
+    .kpi-sub { font-size: 0.8rem; color: #7b6b5a; margin-top: 4px; }
+    .kpi-sub.up { color: #1f9d6a; font-weight: 700; }
+    .kpi-sub.down { color: #c94b4b; font-weight: 700; }
+
+    .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .insight-card {
+        border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start;
+        border: 1px solid rgba(0,0,0,0.04);
+    }
+    .insight-card.tone-positive { background: #f0fbf6; border-color: rgba(31,157,106,0.18); }
+    .insight-card.tone-warning { background: #fff8ec; border-color: rgba(201,75,75,0.15); }
+    .insight-card.tone-info { background: #f4f7fd; border-color: rgba(42,111,219,0.14); }
+    .insight-icon {
+        width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+        font-size: 1.05rem; flex-shrink: 0;
+    }
+    .tone-positive .insight-icon { background: #1f9d6a; color: white; }
+    .tone-warning .insight-icon { background: #c94b4b; color: white; }
+    .tone-info .insight-icon { background: #2a6fdb; color: white; }
+    .insight-title { font-weight: 700; font-size: 0.9rem; color: #2d1f0e; }
+    .insight-body { font-size: 0.81rem; color: #6b5f52; margin-top: 2px; line-height: 1.35; }
+
+    .revenue-chart-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 992px) { .revenue-chart-grid { grid-template-columns: 1fr; } }
+    .revenue-chart-card {
+        background: #fff; border-radius: 18px; border: 1px solid rgba(184, 134, 58, 0.1); padding: 18px 20px;
+    }
+    .revenue-chart-card h6 { font-weight: 700; color: #2d1f0e; margin-bottom: 14px; font-size: 0.9rem; }
+    .revenue-chart-card canvas { max-height: 260px; }
+
     @media print {
         .sidebar, .topbar, .nav-tabs, .btn-print-report {
             display: none !important;
@@ -101,7 +140,7 @@
                     <button class="nav-link" id="poojas-tab" data-bs-toggle="tab" data-bs-target="#poojas-pane" type="button" role="tab"><i class="bi bi-calendar-event text-warning me-1"></i>Pooja Completion</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="earnings-tab" data-bs-toggle="tab" data-bs-target="#earnings-pane" type="button" role="tab"><i class="bi bi-cash-coin text-warning me-1"></i>Monthly Earnings</button>
+                    <button class="nav-link" id="earnings-tab" data-bs-toggle="tab" data-bs-target="#earnings-pane" type="button" role="tab"><i class="bi bi-graph-up-arrow text-warning me-1"></i>Revenue</button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events-pane" type="button" role="tab"><i class="bi bi-stars text-warning me-1"></i>Events Report</button>
@@ -295,8 +334,83 @@
                 </div>
             </div>
 
-            <!-- Monthly Earnings Pane -->
+            <!-- Revenue Pane -->
             <div class="tab-pane fade" id="earnings-pane" role="tabpanel">
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">Total Revenue (Paid)</div>
+                        <div class="kpi-value">{{ $temple['currency'] ?? 'AUD' }} {{ number_format($revenueStats['total_paid'], 2) }}</div>
+                        @if($revenueStats['change_pct'] !== null)
+                        <div class="kpi-sub {{ $revenueStats['change_pct'] >= 0 ? 'up' : 'down' }}">
+                            <i class="bi bi-arrow-{{ $revenueStats['change_pct'] >= 0 ? 'up' : 'down' }}-short"></i>{{ abs($revenueStats['change_pct']) }}% vs last month
+                        </div>
+                        @endif
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Paid Transactions</div>
+                        <div class="kpi-value">{{ number_format($revenueStats['paid_count']) }}</div>
+                        <div class="kpi-sub">Avg {{ $temple['currency'] ?? 'AUD' }} {{ number_format($revenueStats['average_txn'], 2) }} / transaction</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">This Month</div>
+                        <div class="kpi-value">{{ $temple['currency'] ?? 'AUD' }} {{ number_format($revenueStats['this_month'], 2) }}</div>
+                        <div class="kpi-sub">{{ now()->format('F Y') }} so far</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Last Month</div>
+                        <div class="kpi-value">{{ $temple['currency'] ?? 'AUD' }} {{ number_format($revenueStats['last_month'], 2) }}</div>
+                        <div class="kpi-sub">{{ now()->subMonthNoOverflow()->format('F Y') }}</div>
+                    </div>
+                </div>
+
+                <div class="insights-grid">
+                    @foreach($revenueInsights as $insight)
+                    <div class="insight-card tone-{{ $insight['tone'] }}">
+                        <div class="insight-icon"><i class="bi {{ $insight['icon'] }}"></i></div>
+                        <div>
+                            <div class="insight-title">{{ $insight['title'] }}</div>
+                            <div class="insight-body">{{ $insight['body'] }}</div>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+
+                <div class="revenue-chart-grid">
+                    <div class="revenue-chart-card">
+                        <h6><i class="bi bi-graph-up me-1"></i>Revenue Trend (12 months)</h6>
+                        <canvas id="revenueTrendChart"></canvas>
+                    </div>
+                    <div class="revenue-chart-card">
+                        <h6><i class="bi bi-signpost-split-fill me-1"></i>Revenue by Avenue</h6>
+                        <canvas id="revenueAvenueChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Avenue</th>
+                                <th>Total (Paid)</th>
+                                <th>Share of Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($revenueByAvenue as $avenue)
+                            <tr>
+                                <td><strong>{{ $avenue['label'] }}</strong></td>
+                                <td class="fw-bold text-success">{{ $temple['currency'] ?? 'AUD' }} {{ number_format($avenue['total'], 2) }}</td>
+                                <td>{{ $revenueStats['total_paid'] > 0 ? round(($avenue['total'] / $revenueStats['total_paid']) * 100) : 0 }}%</td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="3" class="text-center py-3 text-muted">No revenue recorded yet.</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="row g-4">
                     <div class="col-md-6">
                         <h5 class="fw-bold mb-3 text-dark">Monthly Bookings Revenue</h5>
@@ -500,4 +614,51 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('page-js')
+<script src="{{ asset('vendor/chartjs/chart.min.js') }}"></script>
+<script>
+(function () {
+    const gold = '#b8863a';
+    const palette = ['#b8863a', '#2a6fdb', '#1f9d6a', '#c94b6e', '#8a6a1e', '#6f8fd0'];
+
+    const trendCtx = document.getElementById('revenueTrendChart');
+    if (trendCtx) {
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: @json($revenueTrendLabels),
+                datasets: [{
+                    label: 'Revenue',
+                    data: @json($revenueTrendValues),
+                    borderColor: gold,
+                    backgroundColor: 'rgba(184,134,58,0.12)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    const avenueCtx = document.getElementById('revenueAvenueChart');
+    if (avenueCtx) {
+        const avenues = @json($revenueByAvenue);
+        new Chart(avenueCtx, {
+            type: 'doughnut',
+            data: {
+                labels: avenues.map(a => a.label),
+                datasets: [{ data: avenues.map(a => a.total), backgroundColor: palette }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        });
+    }
+})();
+</script>
 @endsection
