@@ -23,6 +23,10 @@
     $canEditCurrentTransactions = $canEditCurrentTransactions ?? false;
     $context = $context ?? 'console';
     $baseUrl = $scope === 'event' ? route('admin.events.pos', $eventId) : route('admin.tickets.pos');
+    // Event POS's Settle Till view wants the till-count form above the transaction list
+    // (the action people open this view FOR); every other caller (Ticket POS, both
+    // Consoles) keeps the original transactions-first order unchanged.
+    $settlementFirst = $scope === 'event' && $context === 'pos';
 @endphp
 
 <div class="cash-settle-widget">
@@ -88,6 +92,29 @@
          distinct from an ordinary "Save" button. --}}
     .cash-settle-widget .btn-cs-save { border-radius: 4px; padding: 12px 30px; font-weight: 800; font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.05em; }
 
+    {{-- Event POS's own Settle Till layout ($settlementFirst) — four columns (summary /
+         inputs / computed figures / button) left-to-right on tablet+, stacking down to one
+         column on a phone so nothing gets squeezed. --}}
+    .cash-settle-widget .cs-settle-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .cash-settle-widget .cs-settle-last { font-size: 0.82rem; color: #6b5c47; }
+    .cash-settle-widget .cs-settle-last .fw-bold { color: #8A6A1E; }
+    .cash-settle-widget .cs-settle-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: stretch; }
+    @media (min-width: 576px) { .cash-settle-widget .cs-settle-grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 992px) { .cash-settle-widget .cs-settle-grid { grid-template-columns: 1fr 1fr 1fr auto; } }
+    .cash-settle-widget .cs-settle-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; justify-content: center; }
+    .cash-settle-widget .cs-settle-col-btn { display: flex; }
+    {{-- Deliberately NOT the page's own maroon — that's already the topbar's own brand
+         colour, so a maroon button here reads as more chrome rather than a distinct,
+         clickable confirm action. Green signals "finalise/confirm", matching the success
+         colour this app already uses for completed/approved states elsewhere. --}}
+    .cash-settle-widget .cs-settle-btn-primary {
+        background: #15803D; color: #fff; border: none; border-radius: 10px; font-weight: 700;
+        font-size: 0.95rem; padding: 14px 22px; display: flex; align-items: center; justify-content: center;
+        gap: 8px; white-space: nowrap; width: 100%; min-height: 100%;
+        box-shadow: 0 4px 14px rgba(21,128,61,0.3);
+    }
+    .cash-settle-widget .cs-settle-btn-primary:hover { background: #0f6b31; }
+
     {{-- Order view popup — details on the left, the real receipt embedded as a tall,
          independently-scrolling list on the right. --}}
     .cs-order-detail-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0ece6; }
@@ -120,179 +147,13 @@
     @keyframes cs-order-receipt-spin { to { transform: rotate(360deg); } }
 </style>
 
-<div class="cs-table-wrap mb-3">
-    <div class="cs-table-head">
-        <div class="fw-bold"><i class="bi bi-list-check me-1"></i>Current Period Transactions ({{ $currentTransactions->count() }})</div>
-        @if($currentTransactions->isNotEmpty())
-        <div class="cs-search-wrap">
-            <i class="bi bi-search"></i>
-            <input type="text" class="cs-search-input" id="csTxnSearch_{{ $formId }}" placeholder="Search by name or purpose...">
-        </div>
-        @endif
-    </div>
-
-    @if($currentTransactions->isEmpty())
-        <div class="cs-empty-state">Nothing recorded in this period yet.</div>
-    @else
-    <div class="table-responsive">
-        <table class="cs-table" id="csTxnTable_{{ $formId }}">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>{{ $scope === 'event' ? 'Donor' : 'Customer' }}</th>
-                    <th>{{ $scope === 'event' ? 'Purpose' : 'Order' }}</th>
-                    @if($scope === 'event')<th>Method</th><th>Status</th>@else<th>Method</th>@endif
-                    <th class="text-end">Amount</th>
-                    @if($canEditCurrentTransactions || $scope !== 'event')<th></th>@endif
-                </tr>
-            </thead>
-            <tbody>
-                @if($scope === 'event')
-                    @foreach($currentTransactions as $row)
-                    @php
-                        $rowKey = $row->donation_type . '-' . $row->id;
-                        $isPending = $row->payment_status === 'Pending';
-                        $canComplete = $canEditCurrentTransactions && $isPending;
-                    @endphp
-                    <tr class="cs-row" data-search="{{ strtolower($row->display_name . ' ' . $row->purpose) }}" data-edit-id="csEdit_{{ $rowKey }}">
-                        <td>{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }}</td>
-                        <td>{{ $row->display_name }}</td>
-                        <td>{{ $row->purpose ?: '—' }}</td>
-                        <td>{{ $row->payment_method }}</td>
-                        <td><span class="cs-badge {{ $isPending ? 'pending' : 'paid' }}">{{ $isPending ? 'Pending' : 'Completed' }}</span></td>
-                        <td class="text-end fw-bold">{{ $fmt($row->amount) }}</td>
-                        @if($canEditCurrentTransactions)
-                        <td class="text-end">
-                            @if($canComplete && $row->donation_type === 'guest')
-                                <a class="cs-complete-link" href="{{ $baseUrl }}?edit_id={{ $row->id }}"><i class="bi bi-arrow-right-circle-fill me-1"></i>Complete in POS</a>
-                            @elseif($canComplete && $row->donation_type === 'devotee')
-                                <button type="button" class="cs-icon-btn cs-edit-toggle" data-target="csEdit_{{ $rowKey }}" title="Edit"><i class="bi bi-pencil-fill"></i></button>
-                            @endif
-                        </td>
-                        @endif
-                    </tr>
-                    @if($canComplete && $row->donation_type === 'devotee')
-                    <tr class="cs-edit-row" id="csEdit_{{ $rowKey }}" style="display:none;">
-                        <td colspan="7">
-                            <form action="{{ route('admin.donations.updateDevotee', $row->id) }}" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
-                                @csrf
-                                <input type="hidden" name="event_id" value="{{ $eventId }}">
-                                <input type="hidden" name="payment_mode" value="{{ $row->payment_method }}">
-                                <input type="hidden" name="payment_status" value="{{ $row->payment_status }}">
-                                <input type="hidden" name="donation_date" value="{{ $row->donation_date }}">
-                                <input type="hidden" name="transaction_id" value="{{ $row->transaction_id }}">
-                                <input type="hidden" name="remarks" value="{{ $row->remarks }}">
-                                <div class="text-muted small flex-shrink-0" style="min-width:140px;" title="Devotee name isn't editable here"><i class="bi bi-lock-fill me-1" style="font-size:0.7rem;"></i>{{ $row->display_name }}</div>
-                                <div><input type="text" name="purpose" class="form-control form-control-sm" value="{{ $row->purpose }}" placeholder="Purpose" style="min-width:160px;"></div>
-                                <div><input type="number" step="0.01" min="0" name="amount" class="form-control form-control-sm" value="{{ $row->amount }}" placeholder="Amount" style="width:110px;" required></div>
-                                <button type="submit" class="cs-icon-btn cs-save-btn" title="Save"><i class="bi bi-check-lg"></i></button>
-                                <button type="button" class="cs-icon-btn cs-cancel-btn cs-edit-cancel" data-target="csEdit_{{ $rowKey }}" title="Cancel"><i class="bi bi-x-lg"></i></button>
-                            </form>
-                        </td>
-                    </tr>
-                    @endif
-                    @endforeach
-                @else
-                    @foreach($currentTransactions as $row)
-                    {{-- Clicking anywhere on the row (or the View icon) opens the order in
-                         the popup below — a quick look without leaving the pane. The Print
-                         icon is the one remaining direct link, for actually printing. --}}
-                    @php
-                        $orderItemsForModal = collect($row->items ?? [])->map(fn ($item) => [
-                            'name' => $item->ticket_name,
-                            'quantity' => $item->quantity,
-                            'unitPrice' => $fmt($item->unit_price),
-                            'lineTotal' => $fmt($item->line_total),
-                        ]);
-                    @endphp
-                    <tr class="cs-row cs-row-clickable" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}"
-                        data-order-url="{{ route('admin.tickets.print', $row->id) }}" data-order-id="{{ $row->id }}"
-                        data-order-date="{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}"
-                        data-order-customer="{{ $row->customer_name ?: 'Walk-in' }}" data-order-method="{{ $row->payment_method }}"
-                        data-order-total="{{ $fmt($row->total_amount) }}" data-order-items="{{ $orderItemsForModal->toJson() }}">
-                        <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
-                        <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
-                        <td>Order #{{ $row->id }}</td>
-                        <td>{{ $row->payment_method }}</td>
-                        <td class="text-end fw-bold">{{ $fmt($row->total_amount) }}</td>
-                        <td class="text-end">
-                            <button type="button" class="cs-icon-btn me-1 cs-view-order-btn" title="View Order"><i class="bi bi-eye-fill"></i></button>
-                            <a href="{{ route('admin.tickets.print', $row->id) }}" target="_blank" class="cs-icon-btn" title="Print Receipt"><i class="bi bi-printer-fill"></i></a>
-                        </td>
-                    </tr>
-                    @endforeach
-                @endif
-            </tbody>
-        </table>
-    </div>
-    @endif
-</div>
-
-{{-- Settlement — the period's cash summary (left) and the till-count form that settles
-     it (right) share one card, since they're two views of the same figures rather than
-     separate concerns: the form's own "expected"/variance math is computed straight from
-     the summary column beside it. --}}
-<div class="cs-card mb-3">
-    <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settlement</div>
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="cs-summary-row">
-                <span class="cs-summary-row-label"><i class="bi bi-box-arrow-in-right" style="color:#C89B3C;"></i>Opening Balance</span>
-                <span class="cs-summary-row-value">{{ $fmt($cashPreview['opening_balance']) }}</span>
-            </div>
-            <div class="cs-summary-row">
-                <span class="cs-summary-row-label"><i class="bi bi-cash-coin" style="color:#10B981;"></i>Cash Received</span>
-                <span class="cs-summary-row-value">{{ $fmt($cashPreview['cash_received']) }}</span>
-            </div>
-            <div class="cs-summary-row" style="border-bottom:none;">
-                <span class="cs-summary-row-label"><i class="bi bi-calculator-fill" style="color:#B7791F;"></i>Expected in Till</span>
-                <span class="cs-summary-row-value">{{ $fmt($expected) }}</span>
-            </div>
-            @if($context === 'pos' || !$canViewCashHistory)
-            <div class="text-muted small mt-2 pt-2 border-top">
-                <i class="bi bi-clock-history me-1"></i>
-                <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y, g:i A') : 'Never — this is the first period' }}
-                &middot; <span class="fw-bold">Carried forward:</span> {{ $fmt($cashPreview['opening_balance']) }}
-            </div>
-            @endif
-        </div>
-        <div class="col-md-8">
-            <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
-                @csrf
-                <input type="hidden" name="scope" value="{{ $scope }}">
-                @if($eventId)<input type="hidden" name="event_id" value="{{ $eventId }}">@endif
-                <div class="row g-3">
-                    <div class="col-md-6 cs-audit-field">
-                        <label>Till Count — total cash counted</label>
-                        <div class="cs-audit-input-wrap">
-                            <span class="cs-audit-currency">{{ $currency }}</span>
-                            <input type="number" step="0.01" min="0" name="till_count" class="cs-audit-input settle-till-count" data-expected="{{ $expected }}" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6 cs-audit-field">
-                        <label>Amount Taken to Banking</label>
-                        <div class="cs-audit-input-wrap">
-                            <span class="cs-audit-currency">{{ $currency }}</span>
-                            <input type="number" step="0.01" min="0" name="amount_banked" class="cs-audit-input settle-amount-banked" required>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="cs-audit-stats">
-                            <div><span class="cs-audit-stat-label">Variance</span><span class="cs-audit-stat-value settle-variance-display">{{ $fmt(0) }}</span></div>
-                            <div><span class="cs-audit-stat-label">Carried Forward</span><span class="cs-audit-stat-value settle-carry-display">{{ $fmt(0) }}</span></div>
-                        </div>
-                    </div>
-                    <div class="col-12 settle-note-wrap" style="display:none;">
-                        <label class="form-label small">Note — explain the mismatch <span class="text-danger">*</span></label>
-                        <textarea name="variance_note" class="form-control settle-note-field" rows="2" maxlength="1000" placeholder="e.g. a donor's change was short, or an extra note was found"></textarea>
-                    </div>
-                </div>
-                @error('variance_note')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
-                <button type="submit" class="btn-cs-save mt-3" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">Settle Till Now</button>
-            </form>
-        </div>
-    </div>
-</div>
+@if($settlementFirst)
+    @include('admin.partials.cash-settlement-settlement-form')
+    @include('admin.partials.cash-settlement-transactions')
+@else
+    @include('admin.partials.cash-settlement-transactions')
+    @include('admin.partials.cash-settlement-settlement-form')
+@endif
 
 @if($canViewCashHistory && $context !== 'pos')
 <div class="cs-card mb-3">

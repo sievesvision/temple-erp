@@ -268,6 +268,125 @@ class SalaryController extends Controller
     }
 
     /**
+     * One combined view of every revenue-bearing table (Donations, Guest Donations,
+     * Ticket Sales, Pooja Bookings) for the Reports page's Revenue tab — a KPI summary,
+     * a 12-month trend, a breakdown by "avenue" (which of those four feeds the money
+     * actually came through), and a few plain-English insights derived straight from
+     * those same numbers. Deliberately its own standalone computation rather than reusing
+     * OrganisationReportController's (donations/tickets only, no Pooja Bookings, and
+     * built around a filtered single-page dashboard) — this is a simpler, unfiltered,
+     * all-time overview for a different page.
+     */
+    private function revenueOverview(): array
+    {
+        $avenues = [
+            'donations' => ['date' => 'donation_date', 'amount' => 'amount', 'label' => 'Donations'],
+            'donations_without_logins' => ['date' => 'donation_date', 'amount' => 'amount', 'label' => 'Donations'],
+            'ticket_orders' => ['date' => 'order_date', 'amount' => 'total_amount', 'label' => 'Ticket Sales'],
+            'pooja_bookings' => ['date' => 'booking_date', 'amount' => 'total_amount', 'label' => 'Pooja Bookings'],
+        ];
+
+        $totalPaid = 0.0;
+        $paidCount = 0;
+        $byAvenue = [];
+        foreach ($avenues as $table => $meta) {
+            $query = DB::table($table)->where('payment_status', 'Paid');
+            $sum = (float) (clone $query)->sum($meta['amount']);
+            $count = (clone $query)->count();
+            $totalPaid += $sum;
+            $paidCount += $count;
+            $byAvenue[$meta['label']] = ($byAvenue[$meta['label']] ?? 0) + $sum;
+        }
+        $avgTxn = $paidCount > 0 ? $totalPaid / $paidCount : 0.0;
+
+        // This month vs last month, summed across every avenue.
+        $thisMonthStart = now()->startOfMonth();
+        $lastMonthStart = now()->subMonthNoOverflow()->startOfMonth();
+        $lastMonthEnd = (clone $thisMonthStart)->subDay();
+        $thisMonthPaid = 0.0;
+        $lastMonthPaid = 0.0;
+        foreach ($avenues as $table => $meta) {
+            $thisMonthPaid += (float) DB::table($table)->where('payment_status', 'Paid')
+                ->whereDate($meta['date'], '>=', $thisMonthStart)->sum($meta['amount']);
+            $lastMonthPaid += (float) DB::table($table)->where('payment_status', 'Paid')
+                ->whereDate($meta['date'], '>=', $lastMonthStart)->whereDate($meta['date'], '<=', $lastMonthEnd)->sum($meta['amount']);
+        }
+        $changePct = $lastMonthPaid > 0 ? round((($thisMonthPaid - $lastMonthPaid) / $lastMonthPaid) * 100, 1) : null;
+
+        // 12-month trend, combined across every avenue into one line. Grouped in PHP
+        // rather than via DATE_FORMAT() (MySQL-only, unlike the portable DATE() the
+        // Transactions dashboard uses) — fetching the raw (date, amount) pairs keeps this
+        // query portable across any DB driver.
+        $months = collect(range(11, 0))->map(fn ($i) => now()->subMonthsNoOverflow($i)->format('Y-m'));
+        $trend = $months->mapWithKeys(fn ($m) => [$m => 0.0]);
+        $trendStart = now()->subMonthsNoOverflow(11)->startOfMonth();
+        foreach ($avenues as $table => $meta) {
+            $rows = DB::table($table)->where('payment_status', 'Paid')
+                ->whereDate($meta['date'], '>=', $trendStart)
+                ->select("{$meta['date']} as d", "{$meta['amount']} as amt")
+                ->get();
+            foreach ($rows as $row) {
+                $ym = \Carbon\Carbon::parse($row->d)->format('Y-m');
+                if (isset($trend[$ym])) {
+                    $trend[$ym] += (float) $row->amt;
+                }
+            }
+        }
+
+        $insights = [];
+        if ($changePct !== null) {
+            $up = $changePct >= 0;
+            $insights[] = [
+                'tone' => $up ? 'positive' : 'warning',
+                'icon' => $up ? 'bi-graph-up-arrow' : 'bi-graph-down-arrow',
+                'title' => ($up ? 'Revenue is up ' : 'Revenue is down ') . abs($changePct) . '% this month',
+                'body' => 'Compared to ' . $lastMonthStart->format('F Y') . ' (' . $this->currencyLabel() . number_format($lastMonthPaid, 2) . ').',
+            ];
+        }
+        $avenueTotal = array_sum($byAvenue);
+        if ($avenueTotal > 0) {
+            $sortedAvenues = $byAvenue;
+            arsort($sortedAvenues);
+            $topLabel = array_key_first($sortedAvenues);
+            $share = round(($sortedAvenues[$topLabel] / $avenueTotal) * 100);
+            $insights[] = [
+                'tone' => 'info',
+                'icon' => 'bi-trophy-fill',
+                'title' => $topLabel . ' leads at ' . $share . '% of revenue',
+                'body' => 'The dominant revenue avenue across every Paid transaction recorded.',
+            ];
+        }
+        if (empty($insights)) {
+            $insights[] = [
+                'tone' => 'info',
+                'icon' => 'bi-info-circle-fill',
+                'title' => 'Not enough data yet for a trend callout',
+                'body' => 'Insights appear here once there is enough Paid revenue recorded.',
+            ];
+        }
+
+        return [
+            'revenueStats' => [
+                'total_paid' => $totalPaid,
+                'paid_count' => $paidCount,
+                'average_txn' => $avgTxn,
+                'change_pct' => $changePct,
+                'this_month' => $thisMonthPaid,
+                'last_month' => $lastMonthPaid,
+            ],
+            'revenueTrendLabels' => $months->map(fn ($m) => \Carbon\Carbon::createFromFormat('Y-m', $m)->format('M Y'))->values(),
+            'revenueTrendValues' => $trend->values(),
+            'revenueByAvenue' => collect($byAvenue)->map(fn ($v, $k) => ['label' => $k, 'total' => $v])->sortByDesc('total')->values(),
+            'revenueInsights' => $insights,
+        ];
+    }
+
+    private function currencyLabel(): string
+    {
+        return Setting::get('currency_code', 'AUD') . ' ';
+    }
+
+    /**
      * Display reporting dashboards.
      */
     public function reports(Request $request)
@@ -297,8 +416,11 @@ class SalaryController extends Controller
             ->get();
 
         // 2. Salary payout report
+        // salary_payouts has no wallet_amount column of its own (total_paid is already
+        // base_salary + that period's wallet contribution combined, per sanctionPayouts()
+        // above) — the wallet share shown here is reconstructed as the difference.
         $salaryPayoutsSummary = DB::table('salary_payouts')
-            ->select('salary_month', DB::raw("SUM(base_salary) as total_base"), DB::raw("SUM(wallet_amount) as total_wallet"), DB::raw("SUM(total_paid) as total_paid"))
+            ->select('salary_month', DB::raw("SUM(base_salary) as total_base"), DB::raw("SUM(total_paid - base_salary) as total_wallet"), DB::raw("SUM(total_paid) as total_paid"))
             ->groupBy('salary_month')
             ->orderBy('salary_month', 'desc')
             ->get();
@@ -374,7 +496,7 @@ class SalaryController extends Controller
                 ->get();
         }
 
-        return view('admin.reports', compact(
+        return view('admin.reports', array_merge($this->revenueOverview(), compact(
             'priestAttendance',
             'staffAttendance',
             'salaryPayoutsSummary',
@@ -387,6 +509,6 @@ class SalaryController extends Controller
             'recentEventsList',
             'inventoryLowStockList',
             'inventoryTransactionsList'
-        ));
+        )));
     }
 }

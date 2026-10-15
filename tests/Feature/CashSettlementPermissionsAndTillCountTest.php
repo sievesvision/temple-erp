@@ -55,14 +55,12 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
     }
 
     /**
-     * The Settle Till trigger used to live as its own icon in the top bar AND the Donation
-     * Summary card had a separate "Recent Orders" link opening a client-only session list —
-     * two popups covering overlapping ground for anyone who could actually settle. The
-     * trigger now lives only in the Donation Summary card, replacing Recent Orders for
-     * settlers; staff who can't settle still get Recent Orders, since they have no Settle
-     * Till access either way.
+     * Settle Till is a full replacement view opened from the Account menu (next to Manage
+     * POS PIN / Logout), not a popup triggered from the Donation Summary card — that card's
+     * own trigger slot is always "Recent Orders" (the client-only session list) regardless
+     * of settle-cash permission, since Settle Till no longer shares that slot.
      */
-    public function test_a_settler_sees_settle_till_in_the_summary_card_not_a_separate_topbar_icon(): void
+    public function test_a_settler_sees_settle_till_in_the_account_menu_not_the_summary_card(): void
     {
         $eventId = $this->makeEvent();
         $pos = $this->coordinator($eventId, 'pos');
@@ -70,11 +68,10 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response = $this->actingAs($pos)->get(route('admin.events.pos', $eventId));
 
         $response->assertOk();
-        $response->assertDontSee('Recent Orders', false);
-        // The old standalone topbar button is gone; the only remaining "Settle Till" trigger
-        // is the one now inside the Donation Summary card's own markup.
-        $response->assertDontSee('class="pos-topbar-btn" data-bs-toggle="modal" data-bs-target="#settleTillModal"', false);
-        $response->assertSee('pos-summary-orders-link" data-bs-toggle="modal" data-bs-target="#settleTillModal"', false);
+        $response->assertSee('Recent Orders');
+        $response->assertDontSee('id="settleTillModal"', false);
+        // The Settle Till trigger lives in the Account dropdown now, not the summary card.
+        $response->assertSee('id="posSettleTillMenuBtn"', false);
     }
 
     public function test_a_non_settler_still_sees_recent_orders_since_they_have_no_settle_till_access(): void
@@ -100,6 +97,7 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response->assertOk();
         $response->assertSee('Recent Orders');
         $response->assertDontSee('id="settleTillModal"', false);
+        $response->assertDontSee('id="posSettleTillMenuBtn"', false);
     }
 
     private function insertCashDonation(int $eventId, string $donorName, float $amount, ?string $date = null): int
@@ -183,7 +181,10 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Settlement History');
         $response->assertSee('Last settled:');
-        $response->assertSee('Carried forward:');
+        // Event POS's own Settle Till layout shows "Carried Forward" as its own column
+        // label (no colon) rather than inline next to "Last settled:" — see
+        // cash-settlement-settlement-form.blade.php's $settlementFirst branch.
+        $response->assertSee('Carried Forward');
     }
 
     public function test_entry_level_coordinator_sees_full_settlement_history_on_the_console_page(): void

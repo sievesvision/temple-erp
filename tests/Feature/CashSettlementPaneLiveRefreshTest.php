@@ -7,10 +7,12 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * The POS page's Settle Till modal is already-rendered page markup — opening it later (no
+ * The POS pages' Settle Till view is already-rendered page markup — opening it later (no
  * navigation in between) would otherwise keep showing whatever "Current Period Transactions"
- * snapshot was on screen at the page's own last load. The modal's own JS refetches
- * admin.cash-settlement.pane on every open instead — this covers that endpoint directly.
+ * snapshot was on screen at the page's own last load. Its own JS refetches
+ * admin.cash-settlement.pane every time the view opens instead — this covers that endpoint
+ * directly. Settle Till is a full replacement view on both POS pages (Event POS: opened from
+ * the Account menu; Ticket POS: its own side-nav item), not a popup on either.
  */
 class CashSettlementPaneLiveRefreshTest extends TestCase
 {
@@ -49,7 +51,7 @@ class CashSettlementPaneLiveRefreshTest extends TestCase
         $response->assertOk();
         $response->assertSee('Just Arrived Donor');
         // The returned fragment is the pane's own markup only — no outer modal wrapper,
-        // since the JS swaps it straight into the already-open modal's body.
+        // since the JS swaps it straight into the already-open Settle Till view's body.
         $response->assertDontSee('id="settleTillModal"', false);
     }
 
@@ -73,8 +75,11 @@ class CashSettlementPaneLiveRefreshTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.events.pos', $eventId));
 
         $response->assertOk();
-        $response->assertSee('settleTillModalBody', false);
-        $response->assertSee("show.bs.modal", false);
+        // Event POS moved Settle Till out of a modal into its own full replacement view,
+        // opened from the Account menu — the live-refresh script now fires on that menu
+        // item's click instead of a show.bs.modal event.
+        $response->assertSee('posSettleTillBody', false);
+        $response->assertSee('posSettleTillMenuBtn', false);
     }
 
     public function test_the_ticket_pos_page_also_includes_the_live_refresh_script(): void
@@ -100,5 +105,37 @@ class CashSettlementPaneLiveRefreshTest extends TestCase
         ]));
 
         $response->assertOk();
+    }
+
+    /**
+     * Event POS's Settle Till view puts the till-count form above the transaction list
+     * (the action people open this view FOR) — Ticket POS keeps the original
+     * transactions-first order, since it wasn't asked to change.
+     */
+    public function test_the_event_pos_pane_shows_settlement_before_transactions(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'event', 'event_id' => $eventId, 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $this->assertTrue(strpos($content, 'Settlement') < strpos($content, 'Current Period Transactions'));
+    }
+
+    public function test_the_ticket_pos_pane_still_shows_transactions_before_settlement(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.cash-settlement.pane', [
+            'scope' => 'tickets', 'context' => 'pos',
+        ]));
+
+        $response->assertOk();
+        $content = $response->getContent();
+        $this->assertTrue(strpos($content, 'Current Period Transactions') < strpos($content, 'Settlement'));
     }
 }
