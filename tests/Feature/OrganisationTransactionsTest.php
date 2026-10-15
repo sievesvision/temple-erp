@@ -143,4 +143,79 @@ class OrganisationTransactionsTest extends TestCase
         $response->assertSee(route('admin.reports.index'), false);
         $response->assertSee(route('admin.logs.index'), false);
     }
+
+    /**
+     * The page's own usability additions: a quick date-range preset next to the From/To
+     * fields, a collapsible Insights section, and search+pagination (DataTables) on both
+     * the Unified Ledger and Card Terminal Activity tables.
+     */
+    public function test_the_page_has_the_quick_range_select_collapsible_insights_and_datatable_ids(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this->actingAs($admin)->get(route('admin.transactions.index'));
+
+        $response->assertOk();
+        $response->assertSee('id="quickRange"', false);
+        $response->assertSee('id="insightsBody"', false);
+        $response->assertSee('id="ledgerTable"', false);
+        $response->assertSee('id="gatewayTable"', false);
+    }
+
+    public function test_an_admin_can_export_transactions_as_excel(): void
+    {
+        $admin = $this->admin();
+        $terminal = $this->defaultEftTerminal();
+        LinklyTransaction::create(['pos_txn_ref' => 'xl1', 'client_ref' => 'xl1', 'linkly_session_id' => 's-xl1', 'txn_type' => 'purchase', 'event_id' => null, 'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'approved', 'initiated_by' => $admin->id]);
+
+        $response = $this->actingAs($admin)->get(route('admin.transactions.export.excel'));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    public function test_a_non_admin_cannot_export_transactions_as_excel(): void
+    {
+        $nonAdmin = User::factory()->create(['role' => 'Committee', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $this->actingAs($nonAdmin)->get(route('admin.transactions.export.excel'))->assertForbidden();
+    }
+
+    public function test_an_admin_can_export_transactions_as_pdf(): void
+    {
+        $admin = $this->admin();
+        $terminal = $this->defaultEftTerminal();
+        LinklyTransaction::create(['pos_txn_ref' => 'pdf1', 'client_ref' => 'pdf1', 'linkly_session_id' => 's-pdf1', 'txn_type' => 'purchase', 'event_id' => null, 'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'approved', 'initiated_by' => $admin->id]);
+
+        $response = $this->actingAs($admin)->get(route('admin.transactions.export.pdf'));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_a_non_admin_cannot_export_transactions_as_pdf(): void
+    {
+        $nonAdmin = User::factory()->create(['role' => 'Committee', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $this->actingAs($nonAdmin)->get(route('admin.transactions.export.pdf'))->assertForbidden();
+    }
+
+    /**
+     * The exports must reflect whatever filters are active on screen, not the whole
+     * database — this exercises the shared parseFilters()/fetchLedgerRows(..., null) path
+     * with a filter applied, mirroring test_filtering_by_event_id_excludes_other_events
+     * above but against the export route instead of the dashboard.
+     */
+    public function test_the_excel_export_respects_the_provider_filter(): void
+    {
+        $admin = $this->admin();
+        $terminal = $this->defaultEftTerminal();
+        $sciTerminal = EftTerminal::create(['key' => \Illuminate\Support\Str::random(20), 'label' => 'SCI Export Terminal', 'provider' => 'cba_sci', 'pos_id' => EftTerminal::generatePosId(), 'sci_pairing_id' => 'pid_' . \Illuminate\Support\Str::uuid()]);
+        LinklyTransaction::create(['pos_txn_ref' => 'exlk', 'client_ref' => 'exlk', 'linkly_session_id' => 's-exlk', 'txn_type' => 'purchase', 'event_id' => null, 'eft_terminal_id' => $terminal->id, 'amount' => 10, 'status' => 'approved', 'initiated_by' => $admin->id]);
+        SciTransaction::create(['client_ref' => 'exsci', 'sci_transaction_id' => 'ex-sci-txn-1', 'event_id' => null, 'eft_terminal_id' => $sciTerminal->id, 'txn_type' => 'PURCHASE', 'amount' => 10, 'status' => 'FINALISED', 'initiated_by' => $admin->id]);
+
+        $response = $this->actingAs($admin)->get(route('admin.transactions.export.excel', ['provider' => 'linkly']));
+
+        $response->assertOk();
+    }
 }

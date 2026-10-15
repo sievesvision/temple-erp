@@ -1096,6 +1096,8 @@ Route::middleware(['auth'])->group(function () {
 // ============================================
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/transactions', [\App\Http\Controllers\OrganisationReportController::class, 'transactions'])->name('admin.transactions.index');
+    Route::get('/admin/transactions/export/excel', [\App\Http\Controllers\OrganisationReportController::class, 'exportExcel'])->name('admin.transactions.export.excel');
+    Route::get('/admin/transactions/export/pdf', [\App\Http\Controllers\OrganisationReportController::class, 'exportPdf'])->name('admin.transactions.export.pdf');
 });
 
 // ============================================
