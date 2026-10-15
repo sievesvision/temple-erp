@@ -142,6 +142,27 @@
         .pos-grid { max-width: 1600px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
         @media (min-width: 900px) { .pos-grid { grid-template-columns: minmax(0, 1.8fr) minmax(340px, 1fr); } }
 
+        /* ---------- Settle Till — full replacement view, not a popup ---------- */
+        .pos-view-header { max-width: 1400px; margin: 0 auto 14px; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .pos-view-header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary); font-family: 'Inter', sans-serif; display: flex; align-items: center; }
+        .pos-view-header h2 i { color: var(--gold-hover); }
+        .pos-view-back-btn {
+            background: var(--white); border: 1px solid var(--border); color: var(--text-secondary);
+            font-weight: 700; font-size: 0.82rem; border-radius: var(--radius-sm); padding: 8px 14px;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .pos-view-back-btn:hover { border-color: var(--gold-hover); color: var(--text-primary); }
+        .pos-settle-view { display: none; }
+        .pos-settle-view.active { display: block; }
+        /* Same comfortable max-width as .pos-grid, not full-bleed — wide tables read easier
+           with a sensible line length than stretched edge-to-edge on a desktop monitor, while
+           still getting the full width available on a tablet. */
+        .pos-settle-view #posSettleTillBody { max-width: 1400px; margin: 0 auto; width: 100%; }
+        @media (max-width: 640px) {
+            .pos-view-header { padding: 0 2px; }
+            .pos-settle-view #posSettleTillBody { padding: 0 2px; }
+        }
+
         .pos-col-left { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
         .pos-card {
             background: var(--white); border-radius: var(--radius-md); border: 1px solid var(--border);
@@ -354,7 +375,7 @@
              amount for attention. --}}
         .pos-save-btn-terminal { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
 
-        /* ---------- Session orders popup (non-settlers only; settlers get Settle Till) ---------- */
+        /* ---------- Session orders popup ---------- */
         .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
         .pos-orders-modal-total-row span:last-child { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: #A56B13; }
         .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
@@ -692,6 +713,9 @@
                     <i class="bi bi-person-fill"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
+                    @if($canSettleCash)
+                    <li><a class="dropdown-item" href="#" id="posSettleTillMenuBtn"><i class="bi bi-cash-stack me-2"></i>Settle Till</a></li>
+                    @endif
                     @if($canManagePosPin)
                     <li><a class="dropdown-item" href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage POS PIN</a></li>
                     @endif
@@ -702,6 +726,7 @@
     </header>
 
     <div class="pos-main">
+        <div id="posEntryView">
         @if($editDonation)
         <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600;">
             <i class="bi bi-arrow-repeat" style="font-size:1.2rem;"></i>
@@ -800,21 +825,12 @@
                 <div class="pos-summary-card">
                     <div class="pos-summary-top-row">
                         <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
-                        {{-- The Settle Till popup already lists every transaction for the current
-                             period (server data, live-refreshed) — a second, client-only "Recent
-                             Orders" count here was redundant for anyone who can actually open it.
-                             Folded the one trigger into this card instead of keeping both; staff
-                             without settle permission never had Settle Till access either way, so
-                             they keep the session-only Recent Orders view. --}}
-                        @if($canSettleCash)
-                        <button type="button" class="pos-summary-orders-link" data-bs-toggle="modal" data-bs-target="#settleTillModal">
-                            <i class="bi bi-cash-stack"></i>Settle Till
-                        </button>
-                        @else
+                        {{-- Settle Till now lives in the Account menu (topbar), so this is
+                             always the session-only Recent Orders view, regardless of
+                             settle-cash permission. --}}
                         <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
                             <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
                         </button>
-                        @endif
                     </div>
                     <div class="pos-summary-total-center">
                         <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
@@ -836,7 +852,23 @@
                 </div>
             </div>
         </div>
+        </div>
 
+        {{-- Settle Till — a full replacement view (swapped in by the Account menu's "Settle
+             Till" item below) instead of the old popup, matching Ticket POS's own Till view.
+             Re-fetched fresh every time it's opened (see the script near the bottom of this
+             file) so it never shows a stale snapshot from page load. --}}
+        @if($canSettleCash)
+        <div class="pos-settle-view" id="posSettleTillView">
+            <div class="pos-view-header">
+                <h2><i class="bi bi-cash-stack me-2"></i>Settle Till</h2>
+                <button type="button" class="pos-view-back-btn" id="posSettleTillBackBtn"><i class="bi bi-arrow-left"></i>Back to Donations</button>
+            </div>
+            <div id="posSettleTillBody">
+                @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'currentTransactions' => $currentTransactions, 'lastSettlementDate' => $lastSettlementDate, 'canEditCurrentTransactions' => $canEditCurrentTransactions, 'temple' => $temple])
+            </div>
+        </div>
+        @endif
     </div>
 
     <footer class="pos-footer-bar">
@@ -978,22 +1010,6 @@
             </div>
         </div>
     </div>
-
-    @if($canSettleCash)
-    <div class="modal fade" id="settleTillModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-cash-stack me-2"></i>Settle Till</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="settleTillModalBody">
-                    @include('admin.partials.cash-settlement-pane', ['context' => 'pos', 'scope' => 'event', 'eventId' => $event->event_id, 'cashPreview' => $cashPreview, 'cashBankings' => $cashBankings, 'cashSettlements' => $cashSettlements, 'canViewCashHistory' => $canViewCashHistory, 'currentTransactions' => $currentTransactions, 'lastSettlementDate' => $lastSettlementDate, 'canEditCurrentTransactions' => $canEditCurrentTransactions, 'temple' => $temple])
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     {{-- ?v= busts the browser's (and any CDN's) 7-day Cache-Control on this static file --
@@ -1691,7 +1707,6 @@
             const orders = loadSessionOrders();
             const list = document.getElementById('posOrdersList');
             const countEl = document.getElementById('posOrdersCount');
-            // Only rendered for staff without canSettleCash — see posOrdersLink below.
             if (countEl) { countEl.textContent = orders.length; }
             document.getElementById('posOrdersTotal').textContent = CURRENCY_CODE + ' ' + orders.reduce(function (s, o) { return s + o.amount; }, 0).toFixed(2);
             list.innerHTML = orders.length
@@ -1703,9 +1718,6 @@
         renderSessionOrders();
         updatePosSummary();
 
-        // posOrdersLink only renders for staff who can't settle cash — those who can get
-        // the Settle Till trigger in this same card slot instead (see the Donation Summary
-        // card's own markup), so there's nothing here for it to open.
         const posOrdersLinkBtn = document.getElementById('posOrdersLink');
         if (posOrdersLinkBtn) {
             posOrdersLinkBtn.addEventListener('click', function () {
@@ -2176,18 +2188,21 @@
         $settleTillPaneUrl = route('admin.cash-settlement.pane', ['scope' => 'event', 'event_id' => $event->event_id, 'context' => 'pos']);
     @endphp
     <script>
-        // The Settle Till modal's own markup was rendered once, at this page's own last
-        // load — opening it later (no navigation in between) would otherwise keep showing
-        // whatever "Current Period Transactions" snapshot that was, missing anything
-        // recorded since (a sale from another station, a public donation-page submission).
-        // Refetch the whole widget fresh every time the modal opens instead.
+        // Settle Till — a full replacement view (opened from the Account menu), not a
+        // popup. Re-fetches the whole widget fresh every time it's opened (the page's own
+        // last-load markup would otherwise keep showing a stale "Current Period
+        // Transactions" snapshot, missing anything recorded since from another station or
+        // the public donation page).
         (function () {
-            const modalEl = document.getElementById('settleTillModal');
-            const bodyEl = document.getElementById('settleTillModalBody');
-            if (!modalEl || !bodyEl) { return; }
+            const entryView = document.getElementById('posEntryView');
+            const settleView = document.getElementById('posSettleTillView');
+            const bodyEl = document.getElementById('posSettleTillBody');
+            const menuBtn = document.getElementById('posSettleTillMenuBtn');
+            const backBtn = document.getElementById('posSettleTillBackBtn');
+            if (!entryView || !settleView || !bodyEl) { return; }
             const paneUrl = @json($settleTillPaneUrl);
 
-            modalEl.addEventListener('show.bs.modal', function () {
+            function refreshSettleTillPane() {
                 bodyEl.style.opacity = '0.5';
                 fetch(paneUrl, { headers: { 'Accept': 'text/html' } })
                     .then(function (res) { return res.ok ? res.text() : Promise.reject(); })
@@ -2210,7 +2225,22 @@
                         bodyEl.style.opacity = '1';
                         showToast('Could not refresh — showing the last loaded figures.', true);
                     });
-            });
+            }
+
+            if (menuBtn) {
+                menuBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    entryView.style.display = 'none';
+                    settleView.classList.add('active');
+                    refreshSettleTillPane();
+                });
+            }
+            if (backBtn) {
+                backBtn.addEventListener('click', function () {
+                    settleView.classList.remove('active');
+                    entryView.style.display = '';
+                });
+            }
         })();
     </script>
     @endif
