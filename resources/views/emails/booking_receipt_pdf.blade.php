@@ -9,46 +9,51 @@
 
     .bg { position: absolute; top: 0; left: 0; width: 1102pt; height: 1427pt; }
 
-    .content { position: absolute; top: 400pt; left: 78pt; width: 946pt; }
+    .content { position: absolute; top: 370pt; left: 78pt; width: 946pt; }
 
+    {{-- Sized for this PDF's own oversized custom page (1102x1427pt — roughly 1.8x a
+         normal Letter/A4 page, matching the letterhead background image's real pixel
+         dimensions exactly) — point sizes that would read as normal body text on a
+         standard page come out visibly tiny here, so everything below runs noticeably
+         larger than it would on a normal document. --}}
     .title {
       text-align: center;
       font-family: 'DejaVu Serif', serif;
-      font-size: 30pt;
+      font-size: 42pt;
       font-weight: bold;
       color: #6B0F1A;
       letter-spacing: 1.5pt;
-      margin: 0 0 12pt 0;
+      margin: 0 0 14pt 0;
     }
-    .subtitle-row { text-align: center; margin-bottom: 26pt; }
-    .subtitle-row .line { display: inline-block; width: 70pt; border-top: 1pt solid #C89B3C; vertical-align: middle; }
-    .subtitle-row .label { display: inline-block; font-size: 12pt; letter-spacing: 4pt; color: #A67C2B; font-weight: bold; padding: 0 12pt; vertical-align: middle; }
+    .subtitle-row { text-align: center; margin-bottom: 20pt; }
+    .subtitle-row .line { display: inline-block; width: 80pt; border-top: 1.5pt solid #C89B3C; vertical-align: middle; }
+    .subtitle-row .label { display: inline-block; font-size: 16pt; letter-spacing: 4pt; color: #A67C2B; font-weight: bold; padding: 0 14pt; vertical-align: middle; }
 
-    table.meta-row { width: 100%; border-collapse: collapse; margin-bottom: 20pt; }
+    table.meta-row { width: 100%; border-collapse: collapse; margin-bottom: 16pt; }
     table.meta-row td { vertical-align: top; }
-    .meta-fields .field-row { margin-bottom: 10pt; font-size: 13pt; }
-    .meta-fields .label { display: inline-block; width: 160pt; color: #111111; font-weight: bold; font-size: 11pt; letter-spacing: 0.5pt; text-transform: uppercase; }
-    .meta-fields .value { font-size: 13pt; color: #111111; }
-    .receipt-box { border: 1pt solid #C89B3C; background-color: #FDF6EA; text-align: center; padding: 16pt 10pt; }
-    .receipt-box .label { font-size: 10pt; letter-spacing: 1pt; text-transform: uppercase; color: #444444; margin-bottom: 8pt; }
-    .receipt-box .number { font-size: 22pt; font-weight: bold; color: #111111; }
+    .meta-fields .field-row { margin-bottom: 9pt; font-size: 18pt; }
+    .meta-fields .label { display: inline-block; width: 190pt; color: #111111; font-weight: bold; font-size: 15pt; letter-spacing: 0.5pt; text-transform: uppercase; }
+    .meta-fields .value { font-size: 18pt; color: #111111; }
+    .receipt-box { border: 1.5pt solid #C89B3C; background-color: #FDF6EA; text-align: center; padding: 16pt 12pt; }
+    .receipt-box .label { font-size: 13pt; letter-spacing: 1pt; text-transform: uppercase; color: #444444; margin-bottom: 8pt; }
+    .receipt-box .number { font-size: 30pt; font-weight: bold; color: #111111; }
 
-    .description-box { border: 1pt solid #e6dcc6; background-color: #FAF8F5; padding: 10pt 14pt; font-size: 11pt; line-height: 15pt; color: #333333; margin-bottom: 18pt; }
-    .description-box .label { font-weight: bold; text-transform: uppercase; letter-spacing: 0.5pt; font-size: 10pt; color: #8A6A1E; display: block; margin-bottom: 4pt; }
+    .description-box { border: 1pt solid #e6dcc6; background-color: #FAF8F5; padding: 11pt 16pt; font-size: 15pt; line-height: 19pt; color: #333333; margin-bottom: 14pt; }
+    .description-box .label { font-weight: bold; text-transform: uppercase; letter-spacing: 0.5pt; font-size: 13pt; color: #8A6A1E; display: block; margin-bottom: 5pt; }
 
-    table.items { width: 100%; border-collapse: collapse; margin-bottom: 22pt; }
-    table.items th { background-color: #F3E6CE; border: 1pt solid #C89B3C; padding: 12pt 14pt; font-size: 12pt; text-transform: uppercase; letter-spacing: 0.5pt; text-align: left; color: #111111; }
-    table.items th.amount-col { text-align: right; width: 170pt; }
-    table.items td { border: 1pt solid #e6dcc6; padding: 12pt 14pt; font-size: 13pt; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 18pt; }
+    table.items th { background-color: #F3E6CE; border: 1.5pt solid #C89B3C; padding: 11pt 16pt; font-size: 16pt; text-transform: uppercase; letter-spacing: 0.5pt; text-align: left; color: #111111; }
+    table.items th.amount-col { text-align: right; width: 200pt; }
+    table.items td { border: 1pt solid #e6dcc6; padding: 11pt 16pt; font-size: 17pt; }
     table.items td.amount { text-align: right; }
     table.items tr.paid-row td { color: #1f9d6a; font-weight: bold; }
     table.items tr.due-row td { color: #b8442f; font-weight: bold; }
-    table.items tr.total td { font-weight: bold; background-color: #FDF6EA; border-top: 2pt solid #C89B3C; font-size: 15pt; color: #111111; }
+    table.items tr.total td { font-weight: bold; background-color: #FDF6EA; border-top: 2.5pt solid #C89B3C; font-size: 20pt; color: #111111; }
 
-    .thankyou { text-align: center; font-family: 'DejaVu Serif', serif; font-style: italic; font-size: 22pt; color: #A67C2B; margin: 6pt 0 12pt 0; }
-    .thankyou-sub { text-align: center; font-size: 12pt; color: #111111; line-height: 17pt; margin-bottom: 26pt; }
+    .thankyou { text-align: center; font-family: 'DejaVu Serif', serif; font-style: italic; font-size: 26pt; color: #A67C2B; margin: 4pt 0 8pt 0; }
+    .thankyou-sub { text-align: center; font-size: 15pt; color: #111111; line-height: 20pt; margin-bottom: 16pt; }
 
-    .footer-note { font-size: 10pt; color: #333333; font-style: italic; line-height: 15pt; }
+    .footer-note { font-size: 12pt; color: #333333; font-style: italic; line-height: 17pt; }
 
     {{-- Same reasoning as donation_receipt_pdf.blade.php's identical mark — test.hasq.org's
          database mirrors real production data, so this stays unmistakably a test artefact. --}}
