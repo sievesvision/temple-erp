@@ -197,9 +197,15 @@ class BookingService
 
             DB::commit();
 
-            BookingNotificationService::notifyCreated($booking, $createdByRole);
+            // Only one email per booking: a Pending one (devotee self-service/public,
+            // nobody has vetted it yet) gets the admin "needs attention" email so someone
+            // actually reviews it — a Confirmed one (POS/Portal/Priest, already vetted by
+            // whoever created it) skips that entirely and goes straight to the devotee's
+            // own confirmation, which already covers paid/due and every other detail.
             if ($bookingStatus === 'Confirmed') {
                 BookingNotificationService::sendConfirmation($booking);
+            } else {
+                BookingNotificationService::notifyCreated($booking, $createdByRole);
             }
 
             return $booking;

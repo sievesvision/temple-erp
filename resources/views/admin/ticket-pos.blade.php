@@ -1670,6 +1670,14 @@
         // handler knows whether to open a print view + clear the cart, or close the booking
         // popup. Set right before starting each charge (ticket PAY button / startBookingEftPurchase).
         let eftPurchaseKind = 'ticket_order';
+        // The button a Linkly purchase is actually running for — posSaveBtn for a ticket
+        // sale, the booking popup's own submit button for a booking (set alongside
+        // eftPurchaseKind, right before each path's own showEftModal() call) — so the
+        // shared Cancel Payment handler below can reset the RIGHT button instead of always
+        // assuming it's the ticket cart's. Previously hardcoded to posSaveBtn, cancelling a
+        // booking's EFT payment left its submit button stuck disabled with the spinner it
+        // was showing when the charge started.
+        let activeEftButton = null;
         let eftModalLastSignature = null;
         let eftModalKeysSignature = null;
         function showEftModal(amount) {
@@ -1915,6 +1923,7 @@
             eftPollCancelled = false;
             eftCurrentSessionId = null;
             eftConsecutiveTransientErrors = 0;
+            activeEftButton = btn;
             showEftModal(attempt.amount);
             const startBody = new URLSearchParams();
             startBody.set('record_type', 'ticket_order');
@@ -1951,6 +1960,20 @@
 
         let eftPollCancelled = false;
         let eftCurrentSessionId = null;
+        // Resets whichever button actually started the running Linkly purchase (ticket
+        // cart or booking popup — see activeEftButton's own docblock above) back to its
+        // normal, clickable state. The booking popup's own submit button also needs its
+        // spinner label ("Creating…") restored, not just un-disabled — stashed on the
+        // button itself via dataset.originalText when the charge started (see
+        // startBookingEftPurchase), since this handler lives outside that popup's own
+        // script scope and can't see its submitBtnOriginalText variable directly.
+        function resetActiveEftButton() {
+            if (!activeEftButton) { return; }
+            activeEftButton.disabled = false;
+            if (eftPurchaseKind === 'pooja_booking' && activeEftButton.dataset.originalText) {
+                activeEftButton.innerHTML = activeEftButton.dataset.originalText;
+            }
+        }
         document.getElementById('eftModalCancelBtn').addEventListener('click', function () {
             if (activeEftProvider !== 'linkly') { return; }
             const sessionId = eftCurrentSessionId;
@@ -1958,7 +1981,7 @@
                 eftPollCancelled = true;
                 clearEftAttempt();
                 hideEftModal();
-                if (posSaveBtn) { posSaveBtn.disabled = false; }
+                resetActiveEftButton();
                 showToast('Sale cancelled.', true);
                 return;
             }
@@ -1978,7 +2001,7 @@
                         eftPollCancelled = true;
                         clearEftAttempt();
                         hideEftModal();
-                        if (posSaveBtn) { posSaveBtn.disabled = false; }
+                        resetActiveEftButton();
                         showToast('Cancelled on the terminal.');
                     } else {
                         showToast(data.message || 'Could not cancel — the transaction may still complete. Please wait for the result.', true);
@@ -2085,6 +2108,7 @@
                 eftPollCancelled = false;
                 eftCurrentSessionId = p.sessionId;
                 eftConsecutiveTransientErrors = 0;
+                activeEftButton = posSaveBtn;
                 saveEftAttempt({ clientRef: p.clientRef, amount: p.amount, name: p.name, email: p.email, mobile: p.mobile, cart: [] });
                 showEftModal(p.amount);
                 pollEftTransaction(p.sessionId, posSaveBtn, p.amount, Date.now());
@@ -2491,6 +2515,7 @@
 
                 eftPurchaseKind = 'pooja_booking';
                 activeEftProvider = 'linkly';
+                activeEftButton = btn;
                 eftPollCancelled = false;
                 eftCurrentSessionId = null;
                 eftConsecutiveTransientErrors = 0;

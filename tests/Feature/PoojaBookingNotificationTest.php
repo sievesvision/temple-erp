@@ -101,7 +101,13 @@ class PoojaBookingNotificationTest extends TestCase
         Mail::assertNotSent(BookingConfirmationMail::class);
     }
 
-    public function test_auto_confirmed_booking_sends_both_the_created_and_confirmation_emails(): void
+    /**
+     * A booking that comes out Confirmed at creation (POS/Portal/Priest — already vetted
+     * by whoever made it) sends only the devotee's own confirmation email, not also the
+     * admin "needs attention" one — there's nothing left for an admin to review. That
+     * admin email is for a genuinely Pending booking only (see the test above).
+     */
+    public function test_auto_confirmed_booking_sends_only_the_confirmation_email_not_also_created(): void
     {
         Setting::set('system_mode', 'Live Mode');
         $this->activePriest();
@@ -117,7 +123,7 @@ class PoojaBookingNotificationTest extends TestCase
         ], 'Staff', null);
         $this->flushAfterResponseJobs();
 
-        Mail::assertSent(BookingCreatedMail::class, 1);
+        Mail::assertNotSent(BookingCreatedMail::class);
         Mail::assertSent(BookingConfirmationMail::class, 1);
     }
 
