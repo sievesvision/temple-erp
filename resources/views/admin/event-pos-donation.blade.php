@@ -58,33 +58,29 @@
         button, input, select, textarea { font-family: inherit; }
 
         /* ---------- Minimal topbar — no dashboard chrome, just identity + exits ---------- */
-        /* True 3-column grid rather than flex-with-competing-shrink-priorities — the old
-           approach ("brand shrinks 3x eagerly, actions never shrink") meant the actions side
-           could simply out-muscle the event title for space on a narrow phone, squeezing it
-           to nothing rather than truncating gracefully. A grid's center track is genuinely
-           centered on the row regardless of how wide the two side tracks are, as long as it
-           fits — no shrink-priority tug-of-war involved. */
-        /* Flex, not a 3-column grid with an "auto" middle track — an auto track sizes itself
-           to the title's own preferred (max-content) width and only yields space to its
-           neighbours up to a point; with 4 action buttons at once (Switch Event, Back to
-           console, EFT Settings, Account) on a narrow phone, the actions track needed more
-           room than the grid gave it and the buttons visually overlapped the title text
-           instead of the title truncating out of the way. Flex with the two end groups fixed
-           to their own content width (flex:0 0 auto) and the title as the only flexible,
-           min-width:0 middle guarantees the ends always get the room they need first and the
-           title's own ellipsis is what gives, never a collision.  */
+        /* 3-column grid with the two OUTER tracks sharing the same 1fr, not an auto middle
+           track — that's what makes the title genuinely centred on the bar regardless of
+           how unevenly sized the brand and actions groups are (brand: logo+temple name;
+           actions: up to 4 icon buttons — never naturally equal). A previous attempt put
+           the FLEXIBLE track in the middle (auto 1fr auto) and left brand/actions
+           unconstrained, so on a narrow phone the actions group — needing more room than
+           its auto track implied — visually overlapped the title instead of yielding.
+           Here it's the other way around: brand and actions are the two tracks that share
+           space equally, and the title (the middle, auto-sized track) only ever gets
+           whatever's left after that equal split, truncating via its own min-width:0 +
+           ellipsis if it doesn't fit — it can never grow into either side. */
         .pos-topbar {
             background: #6B0F1A; position: sticky; top: 0; flex-shrink: 0;
-            color: white; padding: 12px 20px; display: flex; align-items: center;
-            gap: 10px; box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 72px;
+            color: white; padding: 12px 20px; display: grid; grid-template-columns: 1fr auto 1fr;
+            align-items: center; column-gap: 10px; box-shadow: 0 2px 10px rgba(15,23,42,0.18); z-index: 20; min-height: 72px;
         }
-        .pos-topbar-brand { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .pos-topbar-brand { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 10px; min-width: 0; }
         .pos-topbar-logo { width: 40px; height: 40px; border-radius: 50%; object-fit: contain; background: #fff; padding: 2px; flex-shrink: 0; }
         .pos-topbar-brand-text { min-width: 0; overflow: hidden; }
         .pos-topbar-temple-name { font-weight: 800; font-size: clamp(0.8rem, 2.4vw, 1rem); line-height: 1.2; font-family: var(--serif); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pos-topbar-temple-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .pos-topbar-event-title { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
+        .pos-topbar-event-title { grid-column: 2; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; overflow: hidden; }
         .pos-flourish-line { flex: 1; max-width: 90px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); display: none; flex-shrink: 0; }
         @media (min-width: 900px) { .pos-flourish-line { display: block; } }
         .pos-topbar-event-title-text { min-width: 0; max-width: 100%; }
@@ -97,7 +93,7 @@
         .pos-event-motto { font-size: 0.74rem; color: rgba(255,255,255,0.75); letter-spacing: 0.03em; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         @media (max-width: 900px) { .pos-event-motto { display: none; } }
 
-        .pos-topbar-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-width: 0; justify-content: flex-end; }
+        .pos-topbar-actions { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 8px; min-width: 0; justify-content: flex-end; }
         .pos-topbar-btn { position: relative; background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 44px; height: 44px; border-radius: var(--radius-sm); font-size: 1.05rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
         .pos-topbar-btn:hover { background: rgba(255,255,255,0.18); }
         /* Flags that setup is incomplete — only ever shown when no terminal is paired yet. */

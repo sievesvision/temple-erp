@@ -61,7 +61,7 @@
                 </div>
             </div>
             <div class="cs-settle-col cs-settle-col-btn">
-                <button type="submit" class="cs-settle-btn-maroon" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">
+                <button type="submit" class="cs-settle-btn-primary" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">
                     <i class="bi bi-check-circle-fill me-2"></i>Settle Till Now
                 </button>
             </div>

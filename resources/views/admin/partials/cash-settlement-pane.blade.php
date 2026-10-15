@@ -103,13 +103,17 @@
     @media (min-width: 992px) { .cash-settle-widget .cs-settle-grid { grid-template-columns: 1fr 1fr 1fr auto; } }
     .cash-settle-widget .cs-settle-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; justify-content: center; }
     .cash-settle-widget .cs-settle-col-btn { display: flex; }
-    .cash-settle-widget .cs-settle-btn-maroon {
-        background: #6B0F1A; color: #fff; border: none; border-radius: 10px; font-weight: 700;
+    {{-- Deliberately NOT the page's own maroon — that's already the topbar's own brand
+         colour, so a maroon button here reads as more chrome rather than a distinct,
+         clickable confirm action. Green signals "finalise/confirm", matching the success
+         colour this app already uses for completed/approved states elsewhere. --}}
+    .cash-settle-widget .cs-settle-btn-primary {
+        background: #15803D; color: #fff; border: none; border-radius: 10px; font-weight: 700;
         font-size: 0.95rem; padding: 14px 22px; display: flex; align-items: center; justify-content: center;
         gap: 8px; white-space: nowrap; width: 100%; min-height: 100%;
-        box-shadow: 0 4px 14px rgba(107,15,26,0.3);
+        box-shadow: 0 4px 14px rgba(21,128,61,0.3);
     }
-    .cash-settle-widget .cs-settle-btn-maroon:hover { background: #5a0c15; }
+    .cash-settle-widget .cs-settle-btn-primary:hover { background: #0f6b31; }
 
     {{-- Order view popup — details on the left, the real receipt embedded as a tall,
          independently-scrolling list on the right. --}}
