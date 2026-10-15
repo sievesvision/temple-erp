@@ -228,6 +228,7 @@ class PoojaBookingNotificationTest extends TestCase
             'templeLegalName' => 'Test Temple Inc.',
             'bgImagePath' => public_path('images/donation_receipt_bg.png'),
             'receiptNumber' => 'B-000123',
+            'bookingId' => 123,
             'isPaid' => true,
             'devoteeName' => 'PDF Template Devotee',
             'poojaName' => 'Ganapathy Archana',

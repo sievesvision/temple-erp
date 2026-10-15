@@ -91,6 +91,7 @@ class BookingConfirmationMail extends Mailable
             'templeLegalName' => $temple['legal_name'] ?: $temple['name'],
             'bgImagePath' => public_path('images/donation_receipt_bg.png'),
             'receiptNumber' => DonationReceiptService::receiptNumber('B', $this->bookingId),
+            'bookingId' => $this->bookingId,
             'isPaid' => $isPaid,
             'devoteeName' => $this->devoteeName,
             'poojaName' => $this->poojaName,

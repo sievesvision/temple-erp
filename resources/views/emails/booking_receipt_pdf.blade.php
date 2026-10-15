@@ -71,6 +71,7 @@
       <tr>
         <td style="width:62%;">
           <div class="meta-fields">
+            <div class="field-row"><span class="label">Booking ID</span><span class="value">#{{ $bookingId }}</span></div>
             <div class="field-row"><span class="label">Devotee</span><span class="value">{{ $devoteeName }}</span></div>
             <div class="field-row"><span class="label">Date &amp; Time</span><span class="value">{{ date('d/m/Y', strtotime($bookingDate)) }} at {{ date('h:i A', strtotime($bookingTime)) }}</span></div>
             @if(!empty($priestName))

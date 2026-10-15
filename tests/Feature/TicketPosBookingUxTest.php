@@ -104,6 +104,27 @@ class TicketPosBookingUxTest extends TestCase
         $response->assertSee('class="pos-save-btn" id="bookPoojaSubmitBtn"', false);
     }
 
+    /**
+     * Booking success is now a real popup (dismissible by its own OK button or by
+     * clicking outside, Bootstrap's default backdrop behaviour) instead of the bottom
+     * corner toast — easy to miss mid-sale.
+     */
+    public function test_booking_success_shows_a_dismissible_popup_not_just_the_corner_toast(): void
+    {
+        $admin = $this->admin();
+        Pooja::create(['pooja_name' => 'Success Popup Test Pooja', 'pooja_fee' => 50, 'status' => 'Active']);
+
+        $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
+
+        $response->assertOk();
+        $response->assertSee('id="bookingSuccessModal"', false);
+        $response->assertSee('id="bookingSuccessMessage"', false);
+        $response->assertSee('Booking Confirmed');
+        // Default Bootstrap backdrop (clickable-outside-to-dismiss) — not data-bs-backdrop="static".
+        $response->assertDontSee('id="bookingSuccessModal" data-bs-backdrop="static"', false);
+        $response->assertSee("bootstrap.Modal.getOrCreateInstance(bookingSuccessModalEl).show()", false);
+    }
+
     public function test_recent_tab_shows_the_most_recently_booked_pooja_first(): void
     {
         $admin = $this->admin();

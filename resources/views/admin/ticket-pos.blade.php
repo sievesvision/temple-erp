@@ -1061,6 +1061,25 @@
             </div>
         </div>
     </div>
+
+    {{-- Booking success — a real popup instead of the corner toast, so it reads as a
+         deliberate confirmation rather than something easy to miss while mid-sale. Default
+         Bootstrap backdrop behaviour (click outside, or OK) both dismiss it; no
+         data-bs-backdrop="static" here since there's nothing left to lose by closing it. --}}
+    <div class="modal fade" id="bookingSuccessModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 18px; border: none; text-align: center;">
+                <div class="modal-body px-4 py-5">
+                    <div style="width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; background: #e7f6ee; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-check-lg" style="font-size: 2.2rem; color: #1f9d6a;"></i>
+                    </div>
+                    <h5 class="fw-bold mb-2">Booking Confirmed</h5>
+                    <p class="text-muted mb-4" id="bookingSuccessMessage"></p>
+                    <button type="button" class="pos-save-btn" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
     @endif
 
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
@@ -2259,9 +2278,10 @@
             // or an EFT Terminal booking's approval — see pollEftTransaction's
             // 'pooja_booking' branch below) — the one place that closes the modal and clears
             // its state, so both payment paths end up in the same place.
+            const bookingSuccessModalEl = document.getElementById('bookingSuccessModal');
+            const bookingSuccessMessageEl = document.getElementById('bookingSuccessMessage');
+
             window.finishBookingPopup = function (message) {
-                showToast(message || 'Booking created.', false);
-                bootstrap.Modal.getInstance(modalEl)?.hide();
                 form.reset();
                 preferredWrapper.classList.add('d-none');
                 resetPoojaPicker();
@@ -2269,6 +2289,28 @@
                 setMethodAndButtonLabel('Cash');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = submitBtnOriginalText;
+
+                // A real popup (dismiss by OK or clicking outside, Bootstrap's own default
+                // backdrop behaviour) instead of the corner toast — easy to miss mid-sale,
+                // this is a deliberate confirmation the operator should actually see. Shown
+                // only once the booking form modal has actually finished closing (not
+                // fired immediately alongside hide()), so the two modals' fade/backdrop
+                // transitions never overlap.
+                const bookingModalInstance = bootstrap.Modal.getInstance(modalEl);
+                function showSuccess() {
+                    if (bookingSuccessModalEl && bookingSuccessMessageEl) {
+                        bookingSuccessMessageEl.textContent = message || 'Booking created.';
+                        bootstrap.Modal.getOrCreateInstance(bookingSuccessModalEl).show();
+                    } else {
+                        showToast(message || 'Booking created.', false);
+                    }
+                }
+                if (bookingModalInstance) {
+                    modalEl.addEventListener('hidden.bs.modal', showSuccess, { once: true });
+                    bookingModalInstance.hide();
+                } else {
+                    showSuccess();
+                }
             };
 
             form.addEventListener('submit', function (e) {
