@@ -92,6 +92,25 @@
          distinct from an ordinary "Save" button. --}}
     .cash-settle-widget .btn-cs-save { border-radius: 4px; padding: 12px 30px; font-weight: 800; font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.05em; }
 
+    {{-- Event POS's own Settle Till layout ($settlementFirst) — four columns (summary /
+         inputs / computed figures / button) left-to-right on tablet+, stacking down to one
+         column on a phone so nothing gets squeezed. --}}
+    .cash-settle-widget .cs-settle-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .cash-settle-widget .cs-settle-last { font-size: 0.82rem; color: #6b5c47; }
+    .cash-settle-widget .cs-settle-last .fw-bold { color: #8A6A1E; }
+    .cash-settle-widget .cs-settle-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: stretch; }
+    @media (min-width: 576px) { .cash-settle-widget .cs-settle-grid { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 992px) { .cash-settle-widget .cs-settle-grid { grid-template-columns: 1fr 1fr 1fr auto; } }
+    .cash-settle-widget .cs-settle-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; justify-content: center; }
+    .cash-settle-widget .cs-settle-col-btn { display: flex; }
+    .cash-settle-widget .cs-settle-btn-maroon {
+        background: #6B0F1A; color: #fff; border: none; border-radius: 10px; font-weight: 700;
+        font-size: 0.95rem; padding: 14px 22px; display: flex; align-items: center; justify-content: center;
+        gap: 8px; white-space: nowrap; width: 100%; min-height: 100%;
+        box-shadow: 0 4px 14px rgba(107,15,26,0.3);
+    }
+    .cash-settle-widget .cs-settle-btn-maroon:hover { background: #5a0c15; }
+
     {{-- Order view popup — details on the left, the real receipt embedded as a tall,
          independently-scrolling list on the right. --}}
     .cs-order-detail-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0ece6; }

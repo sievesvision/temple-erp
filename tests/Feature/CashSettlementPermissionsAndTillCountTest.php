@@ -181,7 +181,10 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Settlement History');
         $response->assertSee('Last settled:');
-        $response->assertSee('Carried forward:');
+        // Event POS's own Settle Till layout shows "Carried Forward" as its own column
+        // label (no colon) rather than inline next to "Last settled:" — see
+        // cash-settlement-settlement-form.blade.php's $settlementFirst branch.
+        $response->assertSee('Carried Forward');
     }
 
     public function test_entry_level_coordinator_sees_full_settlement_history_on_the_console_page(): void
