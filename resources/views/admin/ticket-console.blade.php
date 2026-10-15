@@ -100,6 +100,54 @@
         .btn-action-checkstatus { background: var(--pending-bg); color: var(--warning); }
         .btn-action-checkstatus:hover { background: var(--warning); color: white; }
 
+        {{-- All Transactions filter bar + sortable columns + row-click detail modal — same
+             pattern/class names already established on the Donations "All Transactions"
+             pane (event-console.blade.php), reused verbatim here for visual/behavioural
+             consistency rather than inventing a second filter idiom for the same job. --}}
+        .donations-filter-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+        .donations-filter-pills button { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 7px 14px; min-height: 36px; border-radius: 8px; font-size: 0.8rem; }
+        .donations-filter-pills button.active { background: #dee2e6; border-color: #ced4da; color: var(--text-primary); }
+        .donations-filter-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+        .donations-search-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
+        .donations-search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem; }
+        .donations-search-wrap input { width: 100%; padding: 10px 14px 10px 38px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.9rem; min-height: 42px; color: var(--text-primary); }
+        .donations-date-input { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.86rem; min-height: 42px; color: var(--text-primary); }
+        .donations-filter-row input:focus, .donations-filter-row select:focus { outline: none; border-color: #adb5bd; box-shadow: 0 0 0 3px rgba(222,226,230,0.6); }
+        .donations-filter-row select.donations-date-input { min-width: 150px; background: var(--white); }
+        .donations-filter-clear { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 10px 16px; min-height: 42px; border-radius: 8px; font-size: 0.85rem; }
+        .donations-filter-summary { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 2px 2px; font-size: 0.85rem; color: var(--text-secondary); }
+        .donations-filter-total { font-weight: 700; color: var(--text-secondary); }
+        .donations-filter-total .amt { font-weight: 800; color: var(--gold-hover); font-size: 1rem; }
+        .donations-pill-groups { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+        .donations-pill-group { display: flex; flex-direction: column; gap: 7px; background: #f8f9fa; border: 1px solid #edf0f2; border-radius: 10px; padding: 10px 14px; flex: 1 1 220px; }
+        .donations-pill-group-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+        .donations-pill-group .donations-filter-pills { margin-bottom: 0; }
+        .donations-pill-group select.donations-date-input { width: 100%; }
+        .donations-multi-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--white); border: 1px solid #ced4da; color: var(--text-secondary); font-weight: 600; padding: 6px 13px; min-height: 32px; border-radius: 7px; font-size: 0.79rem; cursor: pointer; transition: background 0.12s, border-color 0.12s, color 0.12s; }
+        .donations-multi-pill.donations-pill-all { font-weight: 700; }
+        .donations-multi-pill.active { background: #dee2e6; border-color: #ced4da; color: var(--text-primary); }
+        .donations-multi-pill:hover { border-color: #adb5bd; }
+        .pill-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .pill-dot.dot-success { background: var(--success); }
+        .pill-dot.dot-warning { background: var(--warning); }
+        .pill-dot.dot-danger { background: #c94b4b; }
+        .console-table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+        .console-table th.sortable .sort-icon { font-size: 0.68rem; margin-left: 5px; opacity: 0.35; }
+        .console-table th.sortable.sort-asc .sort-icon, .console-table th.sortable.sort-desc .sort-icon { opacity: 1; color: var(--gold-hover); }
+        .donations-row-clickable { cursor: pointer; }
+        .donations-row-clickable:hover { background: var(--cream); }
+        .btn-view-donation { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 6px 13px; border-radius: 7px; font-size: 0.8rem; }
+        .btn-view-donation:hover { border-color: #adb5bd; color: var(--text-primary); }
+        .settlement-badge { display: inline-block; background: #eef2f5; color: var(--text-secondary); border-radius: 7px; padding: 4px 10px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+        .settlement-badge.current { background: #fdf0db; color: #8A6A1E; }
+        .donation-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-bottom: 4px; }
+        .donation-detail-grid .ddl { display: block; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary); margin-bottom: 2px; }
+        .donation-detail-grid .ddv { display: block; font-size: 0.92rem; color: var(--text-primary); }
+        .donation-detail-breakdown { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .donation-detail-breakdown .ddl { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary); }
+        table.console-table td.col-contact { white-space: normal; max-width: 130px; }
+        table.console-table td.col-contact .contact-email { display: block; font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+
         .stat-tile { background: var(--white); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(31,42,55,0.04); border: 1px solid var(--border); display: flex; align-items: center; gap: 14px; min-width: 0; }
         .stat-tile .stat-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; color: white; flex-shrink: 0; }
         .stat-tile .label { color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
@@ -261,7 +309,6 @@
             </div>
             <div class="topbar-title"><h1>Pooja Portal</h1></div>
             <div class="topbar-right">
-                <a href="{{ route('admin.tickets.pos') }}" target="_blank" class="admin-pill"><i class="bi bi-box-arrow-up-right"></i><span>Ticket POS</span></a>
                 <div class="dropdown">
                     <button class="admin-pill dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle"></i><span>{{ \Illuminate\Support\Str::limit(auth()->user()->name ?? 'User', 14) }}</span>
@@ -280,12 +327,16 @@
             <aside class="app-sidebar" id="appSidebar">
                 <div class="sidebar-nav">
                     <button type="button" class="sidebar-link active" data-pane="pane-dashboard"><i class="bi bi-speedometer2"></i><span>Dashboard</span></button>
+                    <a href="{{ route('admin.tickets.pos') }}" class="sidebar-link"><i class="bi bi-lightning-charge-fill"></i><span>Ticket POS</span></a>
                     {{-- Pooja Bookings keeps its own existing page/controller untouched — it's
                          embedded via iframe below (BookingController::manageBookings()'s own
                          ?embed=1 flag just drops its layout's sidebar/topbar) so it lives inside
                          the Portal's shell instead of navigating away to a separate admin page. --}}
                     @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'bookings', 'view'))
                     <button type="button" class="sidebar-link" data-pane="pane-bookings"><i class="bi bi-calendar-event"></i><span>Pooja Bookings</span></button>
+                    @endif
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'poojas', 'view'))
+                    <button type="button" class="sidebar-link" data-pane="pane-poojas"><i class="bi bi-journal-bookmark-fill"></i><span>Manage Poojas</span></button>
                     @endif
                     <button type="button" class="sidebar-link" data-pane="pane-types"><i class="bi bi-ticket-perforated-fill"></i><span>Ticket Types</span></button>
                     <button type="button" class="sidebar-link" data-pane="pane-sales"><i class="bi bi-receipt"></i><span>All Transactions</span></button>
@@ -383,6 +434,13 @@
                     </div>
                     @endif
 
+                    @if(\App\Models\RolePermission::can(session('active_role', auth()->user()->role ?? null), 'poojas', 'view'))
+                    <!-- MANAGE POOJAS (embedded, same page/controller as the standalone admin area) -->
+                    <div class="console-pane" id="pane-poojas">
+                        <iframe src="{{ route('admin.poojas.index') }}?embed=1" style="width:100%; min-height:82vh; border:0;" loading="lazy" title="Manage Poojas"></iframe>
+                    </div>
+                    @endif
+
                     <!-- TICKET TYPES -->
                     <div class="console-pane" id="pane-types">
                         <div class="page-header">
@@ -404,9 +462,15 @@
                                             <div>
                                                 <div class="fw-bold">{{ $ticket->name }}</div>
                                                 <div class="small text-muted">{{ number_format($ticket->price, 2) }}</div>
+                                                @if($ticket->category)
+                                                <span class="settlement-badge mt-1 d-inline-block">{{ $ticket->category }}</span>
+                                                @endif
                                             </div>
                                             <span class="status-pill status-{{ $ticket->status === 'Active' ? 'paid' : 'cancelled' }}">{{ $ticket->status }}</span>
                                         </div>
+                                        @if($ticket->description)
+                                        <div class="small text-muted mt-2">{{ \Illuminate\Support\Str::limit($ticket->description, 90) }}</div>
+                                        @endif
                                         <div class="mt-2 text-end">
                                             @if($canEdit)
                                             <button type="button" class="btn-action-edit" data-bs-toggle="modal" data-bs-target="#editTicketModal{{ $ticket->id }}"><i class="bi bi-pencil-fill"></i></button>
@@ -427,6 +491,12 @@
                         </div>
                     </div>
 
+                    @php
+                        $distinctOrderStatuses = $orders->pluck('payment_status')->filter()->unique()->sort()->values();
+                        $distinctOrderPaymentMethods = $orders->pluck('payment_method')->filter()->unique()->sort()->values();
+                        $orderDefaultActiveStatuses = ['paid', 'pending'];
+                        $orderSettlementById = $cashSettlements->keyBy('id');
+                    @endphp
                     <!-- ALL TRANSACTIONS — every ticket order, plus any EFT purchase/refund
                          history that isn't already represented by one (see
                          TicketController::manageTickets()'s $eftOrphanRows docblock). Folds in
@@ -436,56 +506,130 @@
                             <div class="page-header-icon"><i class="bi bi-receipt"></i></div>
                             <div><h2>All Transactions</h2><p>Every order and EFT terminal transaction from the Ticket POS.</p></div>
                         </div>
+                        <div class="card-panel">
+                            <div class="donations-pill-groups">
+                                <div class="donations-pill-group">
+                                    <span class="donations-pill-group-label">Status</span>
+                                    <div class="donations-filter-pills" id="ticketsStatusPills">
+                                        <button type="button" class="donations-multi-pill donations-pill-all" data-all="1">All</button>
+                                        @foreach($distinctOrderStatuses as $status)
+                                        @php
+                                            $sv = strtolower($status);
+                                            $dotClass = match($sv) { 'paid' => 'dot-success', 'pending' => 'dot-warning', default => 'dot-danger' };
+                                        @endphp
+                                        <button type="button" class="donations-multi-pill{{ in_array($sv, $orderDefaultActiveStatuses, true) ? ' active' : '' }}" data-value="{{ $sv }}"><span class="pill-dot {{ $dotClass }}"></span>{{ $status === 'Paid' ? 'Completed' : $status }}</button>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <div class="donations-pill-group">
+                                    <span class="donations-pill-group-label">Payment Method</span>
+                                    <div class="donations-filter-pills" id="ticketsPaymentPills">
+                                        <button type="button" class="donations-multi-pill donations-pill-all active" data-all="1">All</button>
+                                        @foreach($distinctOrderPaymentMethods as $method)
+                                        <button type="button" class="donations-multi-pill active" data-value="{{ strtolower($method) }}">{{ $method }}</button>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                @if($cashSettlements->isNotEmpty())
+                                <div class="donations-pill-group">
+                                    <span class="donations-pill-group-label">Settlement</span>
+                                    <select class="donations-date-input" id="ticketsSettlementSelect">
+                                        <option value="">All</option>
+                                        <option value="current">Current (Unsettled)</option>
+                                        @foreach($cashSettlements as $s)
+                                        <option value="{{ $s->id }}">{{ $s->period_start->format('d M') }}–{{ $s->period_end->format('d M Y') }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @endif
+                            </div>
+                            <div class="donations-filter-row">
+                                <div class="donations-search-wrap">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text" id="ticketsSearchInput" placeholder="Search by customer, email, or mobile...">
+                                </div>
+                                <input type="date" class="donations-date-input" id="ticketsDateFrom">
+                                <span class="text-muted small">to</span>
+                                <input type="date" class="donations-date-input" id="ticketsDateTo">
+                                <button type="button" class="donations-filter-clear" id="ticketsFilterClear"><i class="bi bi-x-circle me-1"></i>Clear</button>
+                            </div>
+                            <div class="donations-filter-pills" id="ticketsQuickFilters">
+                                <button type="button" class="active" data-range="all">All Time</button>
+                                <button type="button" data-range="today">Today</button>
+                                <button type="button" data-range="week">This Week</button>
+                                <button type="button" data-range="month">This Month</button>
+                                <button type="button" data-range="last_month">Last Month</button>
+                            </div>
+                            <div class="donations-filter-summary">
+                                <span id="ticketsFilterCount"></span>
+                                <span class="donations-filter-total" id="ticketsFilterTotal"></span>
+                            </div>
+                        </div>
                         <div class="card-panel" style="padding:0;">
                             <div class="table-scroll-wrap" style="max-height: calc(100vh - 300px);">
                                 <table class="console-table" id="ticketOrdersTable">
                                     <thead>
-                                        <tr><th>Order #</th><th>Customer</th><th>Items</th><th class="col-amount">Total</th><th>Payment</th><th>Txn ID</th><th>Sold By</th><th>Date</th><th>Status</th><th class="text-end">Actions</th></tr>
+                                        <tr>
+                                            <th class="sortable" data-sort="timestamp">Date &amp; Time<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                            <th class="sortable" data-sort="name">Customer<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                            <th>Contact</th>
+                                            <th>Items</th>
+                                            <th class="col-amount sortable" data-sort="amount">Amount<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                            <th class="sortable" data-sort="payment">Payment Method<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                            <th class="sortable" data-sort="status">Status<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                            <th>Settlement</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
                                     </thead>
                                     <tbody>
                                         @forelse($orders as $order)
                                         @php
-                                            $orderLinklyTxn = $order->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$order->id] ?? null) : null;
-                                            $orderSciTxn = $order->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$order->id] ?? null) : null;
-                                            $orderEftProvider = $orderLinklyTxn ? 'Linkly' : ($orderSciTxn ? 'SCI' : null);
-                                            $orderEftTerminalLabel = $orderLinklyTxn->eftTerminal->label ?? ($orderSciTxn->eftTerminal->label ?? null);
-                                            $orderCanRefund = $canManageConsole && (
-                                                ($orderLinklyTxn && $orderLinklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $orderLinklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
-                                                || ($orderSciTxn && $orderSciTxn->status === 'FINALISED' && $orderSciTxn->result_financial_status === 'APPROVED' && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $orderSciTxn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED')))
+                                            $order->_linklyTxn = $order->payment_method === 'EFT Terminal' ? ($linklyPurchaseByDonation[$order->id] ?? null) : null;
+                                            $order->_sciTxn = $order->payment_method === 'EFT Terminal' ? ($sciPurchaseByDonation[$order->id] ?? null) : null;
+                                            $order->_eftProvider = $order->_linklyTxn ? 'Linkly' : ($order->_sciTxn ? 'SCI' : null);
+                                            $order->_eftTerminalLabel = $order->_linklyTxn->eftTerminal->label ?? ($order->_sciTxn->eftTerminal->label ?? null);
+                                            $order->_canRefund = $canManageConsole && (
+                                                ($order->_linklyTxn && $order->_linklyTxn->status === 'approved' && !$linklyTransactions->contains(fn ($t) => $t->original_transaction_id === $order->_linklyTxn->id && in_array($t->status, ['initiated', 'in_progress', 'approved'])))
+                                                || ($order->_sciTxn && $order->_sciTxn->status === 'FINALISED' && $order->_sciTxn->result_financial_status === 'APPROVED' && !$sciTransactions->contains(fn ($t) => $t->original_transaction_id === $order->_sciTxn->id && ($t->status !== 'FINALISED' || $t->result_financial_status === 'APPROVED')))
                                             );
+                                            $order->_settlementLabel = $order->settlement_id ? (($orderSettlementById[$order->settlement_id] ?? null)?->period_start?->format('d M') . '–' . ($orderSettlementById[$order->settlement_id] ?? null)?->period_end?->format('d M Y')) : null;
+                                            $orderModalId = 'orderDetail' . $order->id;
                                         @endphp
-                                        <tr data-timestamp="{{ $order->created_at->format('Y-m-d H:i:s') }}">
-                                            <td>#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</td>
-                                            <td>{{ $order->customer_name ?: '—' }}</td>
+                                        <tr data-donation-date="{{ $order->order_date->format('Y-m-d') }}"
+                                            data-timestamp="{{ $order->created_at->format('Y-m-d H:i:s') }}"
+                                            data-search="{{ strtolower(($order->customer_name ?? '').' '.($order->email ?? '').' '.($order->mobile ?? '')) }}"
+                                            data-name="{{ strtolower($order->customer_name ?? '') }}"
+                                            data-amount="{{ $order->total_amount }}"
+                                            data-payment="{{ strtolower($order->payment_method) }}"
+                                            data-status="{{ strtolower($order->payment_status) }}"
+                                            data-settlement="{{ $order->settlement_id ?? 'current' }}"
+                                            class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $orderModalId }}">
+                                            <td>{{ $order->order_date->format('d M Y') }}<div class="text-muted small">{{ $order->created_at->format('g:i A') }}</div></td>
+                                            <td class="col-name">{{ $order->customer_name ?: '—' }}</td>
+                                            <td class="col-contact">
+                                                @if($order->mobile)<div>{{ $order->mobile }}</div>@endif
+                                                @if($order->email)<div class="text-muted contact-email" title="{{ $order->email }}">{{ $order->email }}</div>@endif
+                                                @if(!$order->mobile && !$order->email)—@endif
+                                            </td>
                                             <td class="small text-muted">
                                                 @foreach($order->items as $item){{ $item->quantity }}x {{ $item->ticket_name }}@if(!$loop->last), @endif @endforeach
                                             </td>
-                                            <td class="col-amount">{{ number_format($order->total_amount, 2) }}</td>
+                                            <td class="col-amount total">{{ number_format($order->total_amount, 2) }}</td>
                                             <td>
                                                 {{ $order->payment_method }}
-                                                @if($orderEftProvider)
-                                                <div class="text-muted small">{{ $orderEftProvider }}@if($orderEftTerminalLabel) · {{ $orderEftTerminalLabel }}@endif</div>
+                                                @if($order->_eftProvider)
+                                                <div class="text-muted small">{{ $order->_eftProvider }}@if($order->_eftTerminalLabel) · {{ $order->_eftTerminalLabel }}@endif</div>
                                                 @endif
                                             </td>
-                                            <td class="col-txn">{{ $order->transaction_id ?: '—' }}</td>
-                                            <td class="small">{{ $order->seller->name ?? '—' }}</td>
-                                            <td>{{ $order->order_date->format('d M Y') }}<div class="text-muted small">{{ $order->created_at->format('g:i A') }}</div></td>
-                                            <td><span class="status-pill status-{{ strtolower($order->payment_status) }}">{{ $order->payment_status }}</span></td>
-                                            <td class="text-end">
-                                                <a href="{{ route('admin.tickets.print', $order->id) }}" target="_blank" class="btn-action-checkstatus" title="Reprint stubs"><i class="bi bi-printer-fill"></i></a>
-                                                @if($orderCanRefund && $orderLinklyTxn)
-                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openTicketRefundModal({{ $orderLinklyTxn->id }}, {{ $order->total_amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                                @elseif($orderCanRefund && $orderSciTxn)
-                                                <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $orderSciTxn->sci_transaction_id }}', {{ $order->total_amount }}, {{ $orderSciTxn->eft_terminal_id }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
-                                                @endif
-                                                @if($orderSciTxn && ($orderSciTxn->merchant_receipt || $orderSciTxn->customer_receipt))
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $orderSciTxn->id }})"><i class="bi bi-receipt"></i></button>
-                                                @endif
+                                            <td><span class="status-pill status-{{ strtolower($order->payment_status) }}">{{ $order->payment_status === 'Paid' ? 'Completed' : $order->payment_status }}</span></td>
+                                            <td><span class="settlement-badge{{ $order->settlement_id ? '' : ' current' }}">{{ $order->_settlementLabel ?? 'Current (Unsettled)' }}</span></td>
+                                            <td class="text-end" onclick="event.stopPropagation();">
+                                                <button type="button" class="btn-view-donation" data-bs-toggle="modal" data-bs-target="#{{ $orderModalId }}"><i class="bi bi-eye"></i> View</button>
                                             </td>
                                         </tr>
                                         @empty
                                         @if(($eftOrphanRows ?? collect())->isEmpty())
-                                        <tr><td colspan="10" class="text-center text-muted py-4">No ticket orders yet.</td></tr>
+                                        <tr><td colspan="9" class="text-center text-muted py-5">No ticket orders yet.</td></tr>
                                         @endif
                                         @endforelse
                                         @if($canManageConsole)
@@ -500,34 +644,153 @@
                                             $oPillClass = $orow->provider === 'linkly'
                                                 ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
                                                 : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
+                                            $oDonorName = $ot->meta['customer_name'] ?? null;
+                                            $oEmail = $ot->meta['email'] ?? null;
+                                            $oMobile = $ot->meta['mobile'] ?? null;
+                                            $orphanModalId = 'ticketEftDetail' . $orow->provider . $ot->id;
                                         @endphp
-                                        <tr data-timestamp="{{ $ot->created_at->format('Y-m-d H:i:s') }}">
-                                            <td>—</td>
-                                            <td>{{ $ot->meta['customer_name'] ?? '—' }}</td>
-                                            <td class="small text-muted">{{ $oIsRefund ? 'Refund' : 'Failed/abandoned attempt' }}</td>
-                                            <td class="col-amount">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
-                                            <td>
-                                                EFT Terminal
-                                                <div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div>
-                                            </td>
-                                            <td class="col-txn">{{ $oRef ?: '—' }}</td>
-                                            <td class="small">—</td>
+                                        <tr data-donation-date="{{ $ot->created_at->format('Y-m-d') }}"
+                                            data-timestamp="{{ $ot->created_at->format('Y-m-d H:i:s') }}"
+                                            data-search="{{ strtolower(($oDonorName ?? '').' '.($oEmail ?? '').' '.($oMobile ?? '')) }}"
+                                            data-name="{{ strtolower($oDonorName ?? '') }}"
+                                            data-amount="0"
+                                            data-payment="eft terminal"
+                                            data-status="{{ strtolower($oStatusWord) }}"
+                                            data-settlement="current"
+                                            class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}">
                                             <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
+                                            <td class="col-name">{{ $oDonorName ?: '—' }} <span class="text-muted small text-capitalize">({{ $oIsRefund ? 'Refund' : 'Attempt' }})</span></td>
+                                            <td class="col-contact">
+                                                @if($oMobile)<div>{{ $oMobile }}</div>@endif
+                                                @if($oEmail)<div class="text-muted contact-email" title="{{ $oEmail }}">{{ $oEmail }}</div>@endif
+                                                @if(!$oMobile && !$oEmail)—@endif
+                                            </td>
+                                            <td class="small text-muted">{{ $oIsRefund ? 'Refund' : 'Failed/abandoned attempt' }}</td>
+                                            <td class="col-amount total">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
+                                            <td>EFT Terminal<div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div></td>
                                             <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
-                                            <td class="text-end">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy reference" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i></button>
-                                                @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i></button>
-                                                @endif
+                                            <td><span class="settlement-badge current">Current (Unsettled)</span></td>
+                                            <td class="text-end" onclick="event.stopPropagation();">
+                                                <button type="button" class="btn-view-donation" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}"><i class="bi bi-eye"></i> View</button>
                                             </td>
                                         </tr>
                                         @endforeach
                                         @endif
+                                        <tr id="ticketsNoMatchRow" style="display:none;"><td colspan="9" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
+
+                    {{-- Per-order detail modals — everything the simplified table above
+                         doesn't show inline (order #, items breakdown, transaction/EFT
+                         references, who sold it) plus every action that used to sit in the
+                         table's own cramped Actions column, same move already made on the
+                         Donations "All Transactions" pane. --}}
+                    @foreach($orders as $order)
+                    @php $orderModalId = 'orderDetail' . $order->id; @endphp
+                    <div class="modal fade" id="{{ $orderModalId }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                                <div class="modal-header">
+                                    <h5 class="modal-title fw-bold">
+                                        {{ $order->customer_name ?: 'Guest' }}
+                                        <span class="text-muted small fw-normal ms-1">Order #{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</span>
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="donation-detail-grid">
+                                        <div><span class="ddl">Amount</span><span class="ddv fw-bold">{{ $temple['currency'] ?? '' }} {{ number_format($order->total_amount, 2) }}</span></div>
+                                        <div><span class="ddl">Status</span><span class="ddv"><span class="status-pill status-{{ strtolower($order->payment_status) }}">{{ $order->payment_status === 'Paid' ? 'Completed' : $order->payment_status }}</span></span></div>
+                                        <div><span class="ddl">Payment Method</span><span class="ddv">{{ $order->payment_method }}@if($order->_eftProvider) · {{ $order->_eftProvider }}@if($order->_eftTerminalLabel) ({{ $order->_eftTerminalLabel }})@endif @endif</span></div>
+                                        <div><span class="ddl">Date &amp; Time</span><span class="ddv">{{ $order->created_at->format('d M Y, g:i A') }}</span></div>
+                                        <div><span class="ddl">Settlement</span><span class="ddv">{{ $order->_settlementLabel ?? 'Current (Unsettled)' }}</span></div>
+                                        @if($order->mobile || $order->email)
+                                        <div><span class="ddl">Contact</span><span class="ddv">{{ $order->mobile }}@if($order->mobile && $order->email) · @endif{{ $order->email }}</span></div>
+                                        @endif
+                                        <div><span class="ddl">Transaction ID</span><span class="ddv">{{ $order->transaction_id ?: '—' }}</span></div>
+                                        <div><span class="ddl">Sold By</span><span class="ddv">{{ $order->seller->name ?? '—' }}</span></div>
+                                    </div>
+                                    <div class="donation-detail-breakdown">
+                                        <div class="ddl mb-1">Items</div>
+                                        @foreach($order->items as $item)
+                                        <div class="d-flex justify-content-between py-1 border-bottom"><span>{{ $item->quantity }}x {{ $item->ticket_name }} @ {{ number_format($item->unit_price, 2) }}</span><span class="fw-bold">{{ number_format($item->line_total, 2) }}</span></div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <div class="modal-footer flex-wrap justify-content-start">
+                                    <a href="{{ route('admin.tickets.print', $order->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="bi bi-printer-fill"></i> Reprint Stubs</a>
+                                    @if($order->_canRefund && $order->_linklyTxn)
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openTicketRefundModal({{ $order->_linklyTxn->id }}, {{ $order->total_amount }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                    @elseif($order->_canRefund && $order->_sciTxn)
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Refund" onclick="openSciRefundModal('{{ $order->_sciTxn->sci_transaction_id }}', {{ $order->total_amount }}, {{ $order->_sciTxn->eft_terminal_id }})"><i class="bi bi-arrow-counterclockwise"></i> Refund</button>
+                                    @endif
+                                    @if($order->_sciTxn && ($order->_sciTxn->merchant_receipt || $order->_sciTxn->customer_receipt))
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $order->_sciTxn->id }})"><i class="bi bi-receipt"></i> View Receipt</button>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+
+                    {{-- Detail modals for the EFT "orphan" rows (declined/cancelled/still-
+                         pending purchase attempts, and refunds) — same "click to see
+                         everything" treatment as the Donations pane's equivalent. --}}
+                    @if($canManageConsole)
+                    @foreach($eftOrphanRows as $orow)
+                    @php
+                        $ot = $orow->txn;
+                        $oIsRefund = $ot->txn_type === 'refund';
+                        $oProvider = $orow->provider === 'linkly' ? 'Linkly' : 'SCI';
+                        $oRef = $orow->provider === 'linkly' ? $ot->pos_txn_ref : ($ot->sci_transaction_id ?: $ot->client_ref);
+                        $oTerminalLabel = $ot->eftTerminal->label ?? null;
+                        $oStatusWord = $orow->provider === 'linkly' ? $ot->status : (($ot->result_financial_status ?: $ot->status) ?? '');
+                        $oPillClass = $orow->provider === 'linkly'
+                            ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
+                            : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
+                        $oDonorName = $ot->meta['customer_name'] ?? null;
+                        $oEmail = $ot->meta['email'] ?? null;
+                        $oMobile = $ot->meta['mobile'] ?? null;
+                        $orphanModalId = 'ticketEftDetail' . $orow->provider . $ot->id;
+                    @endphp
+                    <div class="modal fade" id="{{ $orphanModalId }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content" style="border-radius:20px; border:1px solid rgba(184,134,58,0.15);">
+                                <div class="modal-header">
+                                    <h5 class="modal-title fw-bold">
+                                        {{ $oDonorName ?: 'EFT Terminal' }}
+                                        <span class="text-muted small fw-normal ms-1 text-capitalize">{{ $oIsRefund ? 'Refund' : 'Attempt' }}</span>
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="donation-detail-grid">
+                                        <div><span class="ddl">Amount</span><span class="ddv fw-bold">{{ $ot->amount !== null ? ($temple['currency'] ?? '') . ' ' . number_format($ot->amount, 2) : '—' }}</span></div>
+                                        <div><span class="ddl">Status</span><span class="ddv"><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></span></div>
+                                        <div><span class="ddl">Payment Method</span><span class="ddv">EFT Terminal · {{ $oProvider }}@if($oTerminalLabel) ({{ $oTerminalLabel }})@endif</span></div>
+                                        <div><span class="ddl">Date &amp; Time</span><span class="ddv">{{ $ot->created_at->format('d M Y, g:i A') }}</span></div>
+                                        @if($oMobile || $oEmail)
+                                        <div><span class="ddl">Contact</span><span class="ddv">{{ $oMobile }}@if($oMobile && $oEmail) · @endif{{ $oEmail }}</span></div>
+                                        @endif
+                                        <div><span class="ddl">Reference</span><span class="ddv">{{ $oRef ?: '—' }}</span></div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer flex-wrap justify-content-start">
+                                    @if($oRef)
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText('{{ $oRef }}')"><i class="bi bi-clipboard"></i> Copy Reference</button>
+                                    @endif
+                                    @if($orow->provider === 'cba_sci' && ($ot->merchant_receipt || $ot->customer_receipt))
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="View Receipt" onclick="viewSciReceipt({{ $ot->id }})"><i class="bi bi-receipt"></i> View Receipt</button>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endforeach
+                    @endif
 
                     @if($canManageConsole)
                     <!-- SETTINGS -->
@@ -822,6 +1085,15 @@
                 <div class="modal-body">
                     <div class="mb-3"><label class="form-label">Name</label><input type="text" name="name" class="form-control" required></div>
                     <div class="mb-3"><label class="form-label">Description (optional)</label><textarea name="description" class="form-control" rows="2"></textarea></div>
+                    <div class="mb-3">
+                        <label class="form-label">Category (optional)</label>
+                        <input type="text" name="category" class="form-control" list="ticketCategoryOptions" placeholder="e.g. Archana, Pooja, Special">
+                        <datalist id="ticketCategoryOptions">
+                            @foreach($tickets->pluck('category')->filter()->unique()->sort() as $cat)
+                            <option value="{{ $cat }}">
+                            @endforeach
+                        </datalist>
+                    </div>
                     <div class="mb-3"><label class="form-label">Price</label><input type="number" step="0.01" min="0.01" name="price" class="form-control" required></div>
                     <div class="row">
                         <div class="col-6 mb-3"><label class="form-label">Background Colour</label><input type="color" name="background_color" class="form-control form-control-color w-100" value="#C89B3C"></div>
@@ -851,6 +1123,10 @@
                 <div class="modal-body">
                     <div class="mb-3"><label class="form-label">Name</label><input type="text" name="name" class="form-control" value="{{ $ticket->name }}" required></div>
                     <div class="mb-3"><label class="form-label">Description (optional)</label><textarea name="description" class="form-control" rows="2">{{ $ticket->description }}</textarea></div>
+                    <div class="mb-3">
+                        <label class="form-label">Category (optional)</label>
+                        <input type="text" name="category" class="form-control" value="{{ $ticket->category }}" list="ticketCategoryOptions" placeholder="e.g. Archana, Pooja, Special">
+                    </div>
                     <div class="mb-3"><label class="form-label">Price</label><input type="number" step="0.01" min="0.01" name="price" class="form-control" value="{{ $ticket->price }}" required></div>
                     <div class="row">
                         <div class="col-6 mb-3"><label class="form-label">Background Colour</label><input type="color" name="background_color" class="form-control form-control-color w-100" value="{{ $ticket->background_color ?: '#C89B3C' }}"></div>
@@ -986,21 +1262,206 @@
         const CSRF_TOKEN = @json(csrf_token());
         const CURRENCY_CODE = @json($temple['currency'] ?? '');
 
-        // All Transactions is built server-side as two separate blocks — every normal ticket
-        // order, THEN every "orphan" EFT row (declined/cancelled purchases, and refunds, which
-        // have no order of their own) — so with no sort ever applied, a newly declined or
-        // cancelled transaction physically sits after every real order in the DOM, effectively
-        // invisible without scrolling all the way down. Re-sorting by timestamp, descending,
-        // once on load interleaves both blocks into one real chronological order, so the most
-        // recent activity of ANY kind — approved, declined, cancelled, refunded — is always
-        // what's on top.
+        // All Transactions filter bar — same engine as the Donations pane's own (Status and
+        // Payment Method are multi-select pill groups, Settlement is a single dropdown,
+        // search/date-range/quick-range pills all combine via AND). The visible-rows total
+        // is recomputed on every filter change so it always reflects what's on screen.
+        (function () {
+            const searchInput = document.getElementById('ticketsSearchInput');
+            const dateFrom = document.getElementById('ticketsDateFrom');
+            const dateTo = document.getElementById('ticketsDateTo');
+            const clearBtn = document.getElementById('ticketsFilterClear');
+            const countEl = document.getElementById('ticketsFilterCount');
+            const totalEl = document.getElementById('ticketsFilterTotal');
+            const noMatchRow = document.getElementById('ticketsNoMatchRow');
+            const pillsWrap = document.getElementById('ticketsQuickFilters');
+            const settlementSelect = document.getElementById('ticketsSettlementSelect');
+            if (!searchInput) { return; }
+            const rows = Array.from(document.querySelectorAll('#ticketOrdersTable tbody tr[data-donation-date]'));
+            const pills = pillsWrap ? Array.from(pillsWrap.querySelectorAll('button')) : [];
+            const ticketsCurrency = @json($temple['currency'] ?? '');
+
+            const multiGroups = [
+                { wrapId: 'ticketsStatusPills', field: 'status' },
+                { wrapId: 'ticketsPaymentPills', field: 'payment' },
+            ].map(function (g) {
+                const wrap = document.getElementById(g.wrapId);
+                const allButtons = wrap ? Array.from(wrap.querySelectorAll('.donations-multi-pill')) : [];
+                const allPill = allButtons.find(function (b) { return b.dataset.all; }) || null;
+                const buttons = allButtons.filter(function (b) { return !b.dataset.all; });
+                const active = new Set(buttons.filter(function (b) { return b.classList.contains('active'); }).map(function (b) { return b.dataset.value; }));
+                return { field: g.field, buttons: buttons, allPill: allPill, active: active };
+            }).filter(function (g) { return g.buttons.length; });
+
+            function syncAllPill(g) {
+                if (g.allPill) { g.allPill.classList.toggle('active', g.active.size === g.buttons.length); }
+            }
+            multiGroups.forEach(syncAllPill);
+
+            function applyFilters() {
+                const term = (searchInput.value || '').trim().toLowerCase();
+                const from = dateFrom.value || null;
+                const to = dateTo.value || null;
+                const settlementValue = settlementSelect ? settlementSelect.value : '';
+                let visible = 0;
+                let totalAmount = 0;
+                rows.forEach(function (row) {
+                    const matchesSearch = !term || row.dataset.search.indexOf(term) !== -1;
+                    const matchesGroups = multiGroups.every(function (g) {
+                        return g.active.size === 0 || g.active.has(row.dataset[g.field]);
+                    });
+                    const matchesSettlement = !settlementValue || row.dataset.settlement === settlementValue;
+                    const rowDate = row.dataset.donationDate;
+                    const matchesFrom = !from || rowDate >= from;
+                    const matchesTo = !to || rowDate <= to;
+                    const show = matchesSearch && matchesGroups && matchesSettlement && matchesFrom && matchesTo;
+                    row.style.display = show ? '' : 'none';
+                    if (show) { visible++; totalAmount += parseFloat(row.dataset.amount) || 0; }
+                });
+                if (noMatchRow) { noMatchRow.style.display = (rows.length && visible === 0) ? '' : 'none'; }
+                if (countEl) { countEl.textContent = rows.length ? (visible + ' of ' + rows.length + ' transactions shown') : ''; }
+                if (totalEl) {
+                    totalEl.innerHTML = rows.length
+                        ? 'Filtered Total: <span class="amt">' + ticketsCurrency + ' ' + totalAmount.toFixed(2) + '</span>'
+                        : '';
+                }
+            }
+
+            multiGroups.forEach(function (g) {
+                g.buttons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const value = btn.dataset.value;
+                        if (g.active.has(value)) {
+                            g.active.delete(value);
+                            btn.classList.remove('active');
+                        } else {
+                            g.active.add(value);
+                            btn.classList.add('active');
+                        }
+                        syncAllPill(g);
+                        applyFilters();
+                    });
+                });
+                if (g.allPill) {
+                    g.allPill.addEventListener('click', function () {
+                        g.buttons.forEach(function (b) { g.active.add(b.dataset.value); b.classList.add('active'); });
+                        syncAllPill(g);
+                        applyFilters();
+                    });
+                }
+            });
+            if (settlementSelect) { settlementSelect.addEventListener('change', applyFilters); }
+
+            function isoDate(d) {
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            }
+
+            function setQuickRange(range) {
+                const today = new Date();
+                if (range === 'today') {
+                    dateFrom.value = isoDate(today);
+                    dateTo.value = isoDate(today);
+                } else if (range === 'week') {
+                    const start = new Date(today);
+                    start.setDate(today.getDate() - today.getDay());
+                    dateFrom.value = isoDate(start);
+                    dateTo.value = isoDate(today);
+                } else if (range === 'month') {
+                    dateFrom.value = isoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                    dateTo.value = isoDate(today);
+                } else if (range === 'last_month') {
+                    dateFrom.value = isoDate(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+                    dateTo.value = isoDate(new Date(today.getFullYear(), today.getMonth(), 0));
+                } else {
+                    dateFrom.value = '';
+                    dateTo.value = '';
+                }
+                applyFilters();
+            }
+
+            pills.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    setQuickRange(btn.dataset.range);
+                });
+            });
+            searchInput.addEventListener('input', applyFilters);
+            [dateFrom, dateTo].forEach(function (el) {
+                el.addEventListener('change', function () {
+                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    applyFilters();
+                });
+            });
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    searchInput.value = '';
+                    multiGroups.forEach(function (g) {
+                        g.active.clear();
+                        g.buttons.forEach(function (b) { g.active.add(b.dataset.value); b.classList.add('active'); });
+                        syncAllPill(g);
+                    });
+                    if (settlementSelect) { settlementSelect.value = ''; }
+                    const allPill = pillsWrap.querySelector('[data-range="all"]');
+                    if (allPill) { allPill.classList.add('active'); }
+                    setQuickRange('all');
+                });
+            }
+            applyFilters();
+        })();
+
+        // All Transactions: click a column header to sort by it (toggles ascending/descending
+        // on repeat clicks) — a plain DOM re-append of the row elements in the new order, so
+        // it composes cleanly with the filter above (hidden rows just move along with
+        // everything else; visibility is untouched by sorting).
+        //
+        // The table is built server-side as two separate blocks — every normal ticket order,
+        // THEN every "orphan" EFT row (declined/cancelled purchases, and refunds, which have
+        // no order of their own) — so with no sort ever applied, a newly declined or cancelled
+        // transaction physically sits after every real order in the DOM, effectively invisible
+        // without scrolling all the way down. Defaulting to Date, descending, on load (the
+        // exact same sort a header click performs) interleaves both blocks into one real
+        // chronological order, so the most recent activity of ANY kind — approved, declined,
+        // cancelled, refunded — is always what's on top.
         (function () {
             const table = document.getElementById('ticketOrdersTable');
             if (!table) { return; }
             const tbody = table.querySelector('tbody');
-            const rows = Array.from(tbody.querySelectorAll('tr[data-timestamp]'));
-            rows.sort(function (a, b) { return b.dataset.timestamp.localeCompare(a.dataset.timestamp); });
-            rows.forEach(function (row) { tbody.appendChild(row); });
+            const headers = Array.from(table.querySelectorAll('th.sortable'));
+            const noMatchRow = document.getElementById('ticketsNoMatchRow');
+            let sortDir = 1;
+            let sortKey = null;
+
+            function applySort(key, dir) {
+                sortDir = dir;
+                sortKey = key;
+                const th = headers.find(function (h) { return h.dataset.sort === key; });
+                headers.forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); h.querySelector('.sort-icon').className = 'bi bi-arrow-down-up sort-icon'; });
+                if (th) {
+                    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+                    th.querySelector('.sort-icon').className = 'bi ' + (sortDir === 1 ? 'bi-caret-up-fill' : 'bi-caret-down-fill') + ' sort-icon';
+                }
+
+                const rows = Array.from(tbody.querySelectorAll('tr[data-donation-date]'));
+                const isNumeric = key === 'amount';
+                rows.sort(function (a, b) {
+                    if (isNumeric) {
+                        return (parseFloat(a.dataset[key]) - parseFloat(b.dataset[key])) * sortDir;
+                    }
+                    return (a.dataset[key] || '').localeCompare(b.dataset[key] || '') * sortDir;
+                });
+                rows.forEach(function (row) { tbody.appendChild(row); });
+                if (noMatchRow) { tbody.appendChild(noMatchRow); }
+            }
+
+            headers.forEach(function (th) {
+                th.addEventListener('click', function () {
+                    const key = th.dataset.sort;
+                    applySort(key, (sortKey === key) ? -sortDir : 1);
+                });
+            });
+
+            applySort('timestamp', -1);
         })();
 
         // This page previously had no shared feedback mechanism at all (the old mx51 refund

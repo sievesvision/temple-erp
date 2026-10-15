@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LinklyTransaction;
 use App\Models\SciTransaction;
+use App\Models\Setting;
 use App\Services\TransactionChannel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -42,12 +43,12 @@ class OrganisationReportController extends Controller
         return $user && $user->role === 'Admin';
     }
 
-    public function transactions(Request $request)
+    /**
+     * Shared filter-parsing for the dashboard view and both export actions, so an export
+     * can never drift from what's actually on screen.
+     */
+    private function parseFilters(Request $request): array
     {
-        if (!$this->isAdmin()) {
-            abort(403, 'Unauthorized access.');
-        }
-
         $filters = [
             'event_id' => $request->get('event_id'), // numeric id, 'tickets', or blank
             'channel' => $request->get('channel'),
@@ -57,7 +58,17 @@ class OrganisationReportController extends Controller
             'date_from' => $request->get('date_from'),
             'date_to' => $request->get('date_to'),
         ];
-        $providerFilter = $request->get('provider');
+
+        return [$filters, $request->get('provider')];
+    }
+
+    public function transactions(Request $request)
+    {
+        if (!$this->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        [$filters, $providerFilter] = $this->parseFilters($request);
 
         $stats = $this->computeStats($filters);
         $charts = $this->buildCharts($filters);
@@ -79,6 +90,215 @@ class OrganisationReportController extends Controller
             'stats', 'charts', 'insights', 'rows', 'gateway', 'events', 'operators', 'channels',
             'filters', 'providerFilter'
         ));
+    }
+
+    /**
+     * A plain-English summary of whichever filters are active, reused by both export
+     * headers so the downloaded file is self-explanatory without the screen it came from.
+     */
+    private function describeFilters(array $filters, ?string $providerFilter): array
+    {
+        $lines = [];
+
+        if (!empty($filters['event_id'])) {
+            if ($filters['event_id'] === 'tickets') {
+                $lines[] = 'Source: Pooja Portal (Tickets)';
+            } else {
+                $event = DB::table('events')->where('event_id', (int) $filters['event_id'])->first();
+                $lines[] = 'Source: ' . ($event->event_name ?? 'Event #' . $filters['event_id']);
+            }
+        }
+        if (!empty($filters['channel'])) {
+            $lines[] = 'Channel: ' . ($filters['channel'] === 'unknown' ? 'Unknown / Legacy' : TransactionChannel::label($filters['channel']));
+        }
+        if (!empty($filters['payment_method'])) {
+            $lines[] = 'Payment Method: ' . $filters['payment_method'];
+        }
+        if (!empty($filters['status'])) {
+            $lines[] = 'Status: ' . $filters['status'];
+        }
+        if (!empty($filters['operator_id'])) {
+            $operator = DB::table('users')->where('id', (int) $filters['operator_id'])->first();
+            $lines[] = 'Operator: ' . ($operator->name ?? '#' . $filters['operator_id']);
+        }
+        if ($providerFilter) {
+            $lines[] = 'Card Provider: ' . ($providerFilter === 'linkly' ? 'Linkly Cloud' : 'CBA Smart Terminal');
+        }
+        if (!empty($filters['date_from']) || !empty($filters['date_to'])) {
+            $lines[] = 'Date Range: ' . ($filters['date_from'] ?: 'Earliest') . ' to ' . ($filters['date_to'] ?: 'Today');
+        }
+
+        return $lines ?: ['No filters applied — showing all records.'];
+    }
+
+    /**
+     * Full (uncapped) Excel export of the currently filtered view — a Summary sheet plus
+     * one sheet per table, styled to match the existing event-donations export.
+     */
+    public function exportExcel(Request $request)
+    {
+        if (!$this->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        [$filters, $providerFilter] = $this->parseFilters($request);
+
+        $stats = $this->computeStats($filters);
+        $rows = $this->fetchLedgerRows($filters, null);
+        $gateway = $this->fetchGatewayActivity($filters, $providerFilter, null);
+        $filterLines = $this->describeFilters($filters, $providerFilter);
+        $temple = Setting::templeBranding();
+        $gold = 'B8863A';
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // --- Summary sheet ---
+        $summary = $spreadsheet->getActiveSheet();
+        $summary->setTitle('Summary');
+        $summary->setCellValue('A1', $temple['name']);
+        $summary->setCellValue('A2', 'Transactions Report');
+        $summary->setCellValue('A3', 'Generated ' . now()->format('d M Y, h:i A'));
+        $summary->mergeCells('A1:B1')->mergeCells('A2:B2')->mergeCells('A3:B3');
+        $summary->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $summary->getStyle('A2')->getFont()->setBold(true)->setSize(12)->getColor()->setRGB($gold);
+        $summary->getStyle('A3')->getFont()->setItalic(true)->getColor()->setRGB('7B6B5A');
+
+        $r = 5;
+        $summary->setCellValue("A{$r}", 'Applied Filters');
+        $summary->getStyle("A{$r}")->getFont()->setBold(true);
+        $r++;
+        foreach ($filterLines as $line) {
+            $summary->setCellValue("A{$r}", $line);
+            $r++;
+        }
+
+        $r += 1;
+        $summaryRows = [
+            ['Revenue (Paid)', $temple['currency'] . ' ' . number_format($stats['total_paid'], 2)],
+            ['Paid Transactions', number_format($stats['paid_count'])],
+            ['Average / Transaction', $temple['currency'] . ' ' . number_format($stats['average_txn'], 2)],
+            ['Pending Amount', $temple['currency'] . ' ' . number_format($stats['pending_amount'], 2)],
+            ['Pending Count', number_format($stats['pending_count'])],
+            ['Cancelled Count', number_format($stats['cancelled_count'])],
+            ['Total Records', number_format($stats['total_count'])],
+        ];
+        foreach ($summaryRows as [$label, $value]) {
+            $summary->setCellValue("A{$r}", $label);
+            $summary->setCellValue("B{$r}", $value);
+            $summary->getStyle("A{$r}")->getFont()->setBold(true);
+            $r++;
+        }
+        $summary->getColumnDimension('A')->setWidth(28);
+        $summary->getColumnDimension('B')->setWidth(28);
+
+        // --- Unified Ledger sheet ---
+        $ledger = $spreadsheet->createSheet();
+        $ledger->setTitle('Unified Ledger');
+        $ledgerHeaders = ['Date/Time', 'Source', 'Type', 'Donor/Customer', 'Channel', 'Method', 'Amount', 'Status', 'Operator'];
+        foreach ($ledgerHeaders as $i => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $ledger->setCellValue("{$col}1", $h);
+        }
+        $ledger->getStyle('A1:I1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $ledger->getStyle('A1:I1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($gold);
+        $row = 2;
+        foreach ($rows as $txn) {
+            $ledger->setCellValue("A{$row}", $txn->created_at->format('d M Y h:i A'));
+            $ledger->setCellValue("B{$row}", $txn->source_label);
+            $ledger->setCellValue("C{$row}", $txn->type);
+            $ledger->setCellValue("D{$row}", $txn->donor ?? '—');
+            $ledger->setCellValue("E{$row}", $txn->channel_label);
+            $ledger->setCellValue("F{$row}", $txn->payment_method);
+            $ledger->setCellValue("G{$row}", (float) $txn->amount);
+            $ledger->setCellValue("H{$row}", $txn->status);
+            $ledger->setCellValue("I{$row}", $txn->operator_name ?? '—');
+            $row++;
+        }
+        if ($row > 2) {
+            $ledger->getStyle("G2:G" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0.00');
+        }
+        foreach (range('A', 'I') as $col) {
+            $ledger->getColumnDimension($col)->setWidth(18);
+        }
+        $ledger->freezePane('A2');
+
+        // --- Gateway Activity sheet ---
+        $gw = $spreadsheet->createSheet();
+        $gw->setTitle('Gateway Activity');
+        $gwHeaders = ['Date/Time', 'Source', 'Provider', 'Terminal', 'Type', 'Channel', 'Amount', 'Status', 'Operator'];
+        foreach ($gwHeaders as $i => $h) {
+            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1);
+            $gw->setCellValue("{$col}1", $h);
+        }
+        $gw->getStyle('A1:I1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $gw->getStyle('A1:I1')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($gold);
+        $row = 2;
+        foreach ($gateway as $g) {
+            $gw->setCellValue("A{$row}", $g->created_at?->format('d M Y h:i A'));
+            $gw->setCellValue("B{$row}", $g->txn->event?->event_name ?? 'Pooja Portal (Tickets)');
+            $gw->setCellValue("C{$row}", $g->provider === 'linkly' ? 'Linkly Cloud' : 'CBA Smart Terminal');
+            $gw->setCellValue("D{$row}", $g->txn->eftTerminal?->label ?? '—');
+            $gw->setCellValue("E{$row}", strtolower($g->txn->txn_type ?? ''));
+            $gw->setCellValue("F{$row}", TransactionChannel::label($g->txn->source_channel ?? null));
+            $gw->setCellValue("G{$row}", (float) ($g->txn->amount ?? 0));
+            $gw->setCellValue("H{$row}", $g->txn->status ?? '');
+            $gw->setCellValue("I{$row}", $g->txn->initiator?->name ?? '—');
+            $row++;
+        }
+        if ($row > 2) {
+            $gw->getStyle("G2:G" . ($row - 1))->getNumberFormat()->setFormatCode('#,##0.00');
+        }
+        foreach (range('A', 'I') as $col) {
+            $gw->getColumnDimension($col)->setWidth(18);
+        }
+        $gw->freezePane('A2');
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'transactions-export-' . now()->format('Y-m-d-His') . '.xlsx';
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * PDF export of the currently filtered view — capped at a generous row count per table
+     * since a printable report has practical page limits; the Excel export above has no cap
+     * for anyone who needs the complete dataset.
+     */
+    public function exportPdf(Request $request)
+    {
+        if (!$this->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        [$filters, $providerFilter] = $this->parseFilters($request);
+        $pdfRowCap = 1000;
+
+        $stats = $this->computeStats($filters);
+        $rows = $this->fetchLedgerRows($filters, $pdfRowCap);
+        $gateway = $this->fetchGatewayActivity($filters, $providerFilter, $pdfRowCap);
+        $filterLines = $this->describeFilters($filters, $providerFilter);
+        $temple = Setting::templeBranding();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.exports.transactions-pdf', [
+            'temple' => $temple,
+            'stats' => $stats,
+            'rows' => $rows,
+            'gateway' => $gateway,
+            'filterLines' => $filterLines,
+            'rowsTruncated' => $rows->count() >= $pdfRowCap,
+            'gatewayTruncated' => $gateway->count() >= $pdfRowCap,
+            'generatedAt' => now()->format('d M Y, h:i A'),
+        ])->setPaper('a4', 'landscape');
+
+        $filename = 'transactions-export-' . now()->format('Y-m-d-His') . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     /**
@@ -387,14 +607,22 @@ class OrganisationReportController extends Controller
         return $insights;
     }
 
-    private function fetchLedgerRows(array $filters): Collection
+    /**
+     * $limit caps both the per-table fetch and the final combined set — null (used by the
+     * export actions, which need the complete filtered set, not just the dashboard preview)
+     * removes both caps.
+     */
+    private function fetchLedgerRows(array $filters, ?int $limit = 300): Collection
     {
         $rows = collect();
         foreach (self::REVENUE_TABLES as $table => $meta) {
             $amountCol = $table === 'ticket_orders' ? 'total_amount' : 'amount';
             $nameCol = $table === 'ticket_orders' ? 'customer_name' : ($table === 'donations' ? null : 'donor_name');
 
-            $query = $this->filteredQuery($table, $meta, $filters)->orderByDesc('created_at')->limit(150);
+            $query = $this->filteredQuery($table, $meta, $filters)->orderByDesc('created_at');
+            if ($limit !== null) {
+                $query->limit($limit);
+            }
             foreach ($query->get() as $r) {
                 $rows->push((object) [
                     'created_at' => \Carbon\Carbon::parse($r->created_at),
@@ -414,7 +642,12 @@ class OrganisationReportController extends Controller
         $eventNames = DB::table('events')->pluck('event_name', 'event_id');
         $operatorNames = DB::table('users')->pluck('name', 'id');
 
-        return $rows->sortByDesc('created_at')->take(300)->values()->map(function ($row) use ($eventNames, $operatorNames) {
+        $sorted = $rows->sortByDesc('created_at');
+        if ($limit !== null) {
+            $sorted = $sorted->take($limit);
+        }
+
+        return $sorted->values()->map(function ($row) use ($eventNames, $operatorNames) {
             $row->source_label = $row->is_tickets ? 'Pooja Portal (Tickets)' : ($row->event_id ? ($eventNames[$row->event_id] ?? 'Event #' . $row->event_id) : 'General Fund');
             $row->channel_label = TransactionChannel::label($row->channel);
             $row->operator_name = $row->operator_id ? ($operatorNames[$row->operator_id] ?? null) : null;
@@ -422,7 +655,7 @@ class OrganisationReportController extends Controller
         });
     }
 
-    private function fetchGatewayActivity(array $filters, ?string $providerFilter): Collection
+    private function fetchGatewayActivity(array $filters, ?string $providerFilter, ?int $limit = 150): Collection
     {
         $applyCommonFilters = function ($query) use ($filters) {
             if (($filters['event_id'] ?? null) === 'tickets') {
@@ -455,22 +688,35 @@ class OrganisationReportController extends Controller
 
         $linklyTransactions = collect();
         if (!$providerFilter || $providerFilter === 'linkly') {
-            $linklyTransactions = $applyCommonFilters(
+            $linklyQuery = $applyCommonFilters(
                 LinklyTransaction::with(['eftTerminal', 'initiator', 'event'])->whereIn('txn_type', ['purchase', 'refund'])
-            )->orderBy('created_at', 'desc')->limit(150)->get();
+            )->orderBy('created_at', 'desc');
+            if ($limit !== null) {
+                $linklyQuery->limit($limit);
+            }
+            $linklyTransactions = $linklyQuery->get();
         }
 
         $sciTransactions = collect();
         if (!$providerFilter || $providerFilter === 'cba_sci') {
-            $sciTransactions = $applyCommonFilters(
+            $sciQuery = $applyCommonFilters(
                 SciTransaction::with(['eftTerminal', 'initiator', 'event'])
-            )->orderBy('created_at', 'desc')->limit(150)->get();
+            )->orderBy('created_at', 'desc');
+            if ($limit !== null) {
+                $sciQuery->limit($limit);
+            }
+            $sciTransactions = $sciQuery->get();
         }
 
-        return $linklyTransactions->map(fn ($t) => (object) ['provider' => 'linkly', 'txn' => $t, 'created_at' => $t->created_at])
+        $combined = $linklyTransactions->map(fn ($t) => (object) ['provider' => 'linkly', 'txn' => $t, 'created_at' => $t->created_at])
             ->concat($sciTransactions->map(fn ($t) => (object) ['provider' => 'cba_sci', 'txn' => $t, 'created_at' => $t->created_at]))
-            ->sortByDesc('created_at')
-            ->take(150)
+            ->sortByDesc('created_at');
+
+        if ($limit !== null) {
+            $combined = $combined->take($limit);
+        }
+
+        return $combined
             ->values();
     }
 }

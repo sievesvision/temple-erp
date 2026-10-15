@@ -92,6 +92,22 @@ class Setting extends Model
     }
 
     /**
+     * The pooja-booking system's own bank account reference, falling back to the temple's
+     * global donation account — same `?:` pattern as effectiveTicketBankAccount(). Lets an
+     * admin give booking confirmations a different account than general donations without
+     * any code change, while defaulting to "just use the temple's main account."
+     */
+    public static function effectivePoojaBookingBankAccount(): array
+    {
+        return [
+            'account_name' => self::get('pooja_booking_account_name', '') ?: self::get('donation_account_name', ''),
+            'bank_name' => self::get('pooja_booking_bank_name', '') ?: self::get('donation_bank_name', ''),
+            'bsb' => self::get('pooja_booking_bsb', '') ?: self::get('donation_bsb', ''),
+            'account_number' => self::get('pooja_booking_account_number', '') ?: self::get('donation_account_number', ''),
+        ];
+    }
+
+    /**
      * The canonical temple branding/currency context used across the site —
      * public pages, every role dashboard, and the auth screens.
      */

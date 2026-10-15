@@ -247,10 +247,24 @@
 @endif
 
 @if(session('error'))
-<div class="alert alert-danger alert-dismissible fade show alert-custom mx-4 mt-4 mb-0 animate__animated animate__fadeIn" 
+<div class="alert alert-danger alert-dismissible fade show alert-custom mx-4 mt-4 mb-0 animate__animated animate__fadeIn"
      style="background: #fee2e2; color: #991b1b; border-left: 4px solid #dc3545; border-radius:16px;">
     <i class="bi bi-exclamation-circle-fill me-2"></i>
     <strong>Error!</strong> {{ session('error') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+@endif
+
+@if($errors->any())
+<div class="alert alert-danger alert-dismissible fade show alert-custom mx-4 mt-4 mb-0 animate__animated animate__fadeIn"
+     style="background: #fee2e2; color: #991b1b; border-left: 4px solid #dc3545; border-radius:16px;">
+    <i class="bi bi-exclamation-circle-fill me-2"></i>
+    <strong>Please check the Create Booking form:</strong>
+    <ul class="mb-0 mt-1">
+        @foreach($errors->all() as $message)
+            <li>{{ $message }}</li>
+        @endforeach
+    </ul>
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 @endif
@@ -332,6 +346,11 @@
     <div class="table-card animate__animated animate__fadeInUp">
         <div class="card-header">
             <span><i class="bi bi-table me-2" style="color:#b8863a;"></i> Booking Records</span>
+            @if($canAddBookings)
+            <button type="button" class="btn btn-warning rounded-pill fw-bold px-4" data-bs-toggle="modal" data-bs-target="#createBookingModal">
+                <i class="bi bi-plus-circle"></i> Create Booking
+            </button>
+            @endif
         </div>
         <div style="padding: 0 20px 20px 20px; overflow-x: auto;">
             <table class="table table-striped" id="bookingsTable">
@@ -355,8 +374,13 @@
                         <td>
                             <div class="fw-bold">{{ $booking->devotee_name }}</div>
                             <div class="small text-muted">{{ $booking->devotee_mobile }}</div>
+                            @if($booking->participant_details)
+                            <div class="small text-muted mt-1" style="max-width:220px; white-space:pre-wrap;" title="{{ $booking->participant_details }}">
+                                <i class="bi bi-people-fill me-1"></i>{{ \Illuminate\Support\Str::limit($booking->participant_details, 60) }}
+                            </div>
+                            @endif
                         </td>
-                        <td>{{ $booking->pooja_name }}</td>
+                        <td>{{ $booking->custom_pooja_label ?: $booking->pooja_name }}</td>
                         <td>
                             <div>{{ date('d M Y', strtotime($booking->booking_date)) }}</div>
                             <div class="small text-muted">{{ date('h:i A', strtotime($booking->booking_time)) }}</div>
@@ -369,7 +393,11 @@
                             @endif
                         </td>
                         <td>
+                            @if($booking->priest_name)
                             <div><i class="bi bi-person-heart text-warning"></i> {{ $booking->priest_name }}</div>
+                            @else
+                            <div class="text-muted small"><i class="bi bi-person-dash"></i> Not yet assigned</div>
+                            @endif
                         </td>
                         <td>
                             <div class="fw-bold">{{ $temple['currency'] }} {{ number_format($booking->total_amount, 2) }}</div>
@@ -412,6 +440,15 @@
                                     data-payment-status="{{ $booking->payment_status }}">
                                 <i class="bi bi-sliders"></i> Status
                             </button>
+
+                            @if($booking->booking_status === 'Pending')
+                            <form method="POST" action="{{ route('admin.bookings.confirm-notify', $booking->booking_id) }}" style="display:inline;" onsubmit="return confirm('Confirm this booking and email the devotee the confirmation?');">
+                                @csrf
+                                <button type="submit" class="btn-action confirm" style="background:#d1fae5; color:#065f46;">
+                                    <i class="bi bi-envelope-check"></i> Confirm &amp; Send Email
+                                </button>
+                            </form>
+                            @endif
 
                             <a href="{{ route('devotee.bookings.receipt', $booking->booking_id) }}" class="btn-action view text-decoration-none">
                                 <i class="bi bi-file-earmark-arrow-down"></i> Receipt
@@ -556,6 +593,124 @@
         </div>
     </div>
 </div>
+
+@if($canAddBookings)
+<!-- 4. CREATE BOOKING MODAL (Phase D — Pooja Portal / Phase E — Ticket POS share this form) -->
+<div class="modal fade" id="createBookingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="createBookingForm" method="POST" action="{{ route('admin.bookings.store') }}">
+                @csrf
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-plus-circle me-2 text-warning"></i> Create Pooja Booking</h5>
+                    <button type="button" class="close-btn" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body pt-3">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label fw-bold mb-0">Pooja</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="cb_is_custom" name="custom_pooja" value="1">
+                                <label class="form-check-label small text-muted" for="cb_is_custom">Custom pooja (not in the list)</label>
+                            </div>
+                        </div>
+                        <select name="pooja_id" id="cb_pooja_id" class="form-select" required>
+                            <option value="" selected disabled>Select pooja</option>
+                            @foreach($poojas->groupBy(fn($p) => $p->category ?: 'General') as $categoryName => $categoryPoojas)
+                                <optgroup label="{{ $categoryName }}">
+                                    @foreach($categoryPoojas as $pooja)
+                                        <option value="{{ $pooja->pooja_id }}">{{ $pooja->pooja_name }} — {{ $temple['currency'] }} {{ number_format($pooja->pooja_fee, 2) }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        </select>
+                        <div id="cb_custom_fields" class="d-none mt-2">
+                            <input type="text" name="custom_pooja_label" id="cb_custom_label" class="form-control mb-2" placeholder="Describe the pooja...">
+                            <input type="number" name="custom_fee" id="cb_custom_fee" class="form-control" placeholder="Fee ({{ $temple['currency'] }})" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Booking Date</label>
+                            <input type="date" name="booking_date" class="form-control" min="{{ date('Y-m-d') }}" max="{{ date('Y-m-d', strtotime('+10 days')) }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Time Slot</label>
+                            <select name="booking_time" class="form-select" required>
+                                <option value="" selected disabled>Select</option>
+                                <option value="06:00:00">06:00 AM</option>
+                                <option value="07:00:00">07:00 AM</option>
+                                <option value="08:00:00">08:00 AM</option>
+                                <option value="09:00:00">09:00 AM</option>
+                                <option value="10:00:00">10:00 AM</option>
+                                <option value="11:00:00">11:00 AM</option>
+                                <option value="12:00:00">12:00 PM</option>
+                                <option value="14:00:00">02:00 PM</option>
+                                <option value="15:00:00">03:00 PM</option>
+                                <option value="16:00:00">04:00 PM</option>
+                                <option value="17:00:00">05:00 PM</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Priest <span class="text-muted fw-normal">(optional)</span></label>
+                        <select name="priest_option" id="cb_priest_option" class="form-select">
+                            <option value="auto" selected>Auto-assign (workload balanced)</option>
+                            <option value="preferred">Choose a specific priest</option>
+                        </select>
+                        <div class="small text-muted mt-1">If no priest is available for this slot, the booking is still created unassigned — you can assign one later.</div>
+                    </div>
+                    <div class="mb-3 d-none" id="cb_preferred_priest_wrapper">
+                        <label class="form-label fw-bold">Preferred Priest</label>
+                        <select name="preferred_priest_id" class="form-select">
+                            <option value="">Select priest</option>
+                            @foreach($priests as $priest)
+                                <option value="{{ $priest->priest_id }}">{{ $priest->name }} ({{ $priest->specialization }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <hr>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Devotee Name</label>
+                            <input type="text" name="devotee_name" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Mobile</label>
+                            <input type="text" name="devotee_mobile" class="form-control" pattern="[0-9]{10}" placeholder="10 digits" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Email</label>
+                            <input type="email" name="devotee_email" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Participant Details <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea name="participant_details" class="form-control" rows="2" maxlength="2000" placeholder="Names, gothram, nakshatram for everyone this booking covers, and anything else the priest should know"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Payment Method</label>
+                        <select name="payment_method" class="form-select" required>
+                            <option value="Cash" selected>Cash at Temple</option>
+                            <option value="Counter">Office Counter</option>
+                            <option value="Bank">Bank Transfer (pay later)</option>
+                        </select>
+                    </div>
+                    <div class="small text-muted">
+                        <i class="bi bi-info-circle"></i> This booking will be auto-Confirmed, and a confirmation email will be sent to the devotee.
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold">Create Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
 @endsection
 
 @section('page-js')
@@ -590,6 +745,19 @@
         setTimeout(function() {
             $('.alert-success, .alert-danger').fadeOut('slow');
         }, 4000);
+
+        // Create Booking modal: toggle the preferred-priest select
+        $('#cb_priest_option').on('change', function() {
+            $('#cb_preferred_priest_wrapper').toggleClass('d-none', $(this).val() !== 'preferred');
+        });
+
+        // Create Booking modal: toggle between the catalog select and custom pooja fields
+        $('#cb_is_custom').on('change', function() {
+            const custom = $(this).is(':checked');
+            $('#cb_pooja_id').toggleClass('d-none', custom).prop('required', !custom);
+            $('#cb_custom_fields').toggleClass('d-none', !custom);
+            $('#cb_custom_label, #cb_custom_fee').prop('required', custom);
+        });
 
         // Populate Assign modal
         $('.assignBtn').on('click', function() {

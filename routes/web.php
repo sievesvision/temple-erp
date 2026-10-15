@@ -37,6 +37,8 @@ Route::get('/', function () {
 })->name('home');
 
 Route::post('/donate-without-login', [\App\Http\Controllers\DonationController::class, 'storePublic'])->name('donate.without.login');
+Route::get('/book-a-pooja', [BookingController::class, 'showPublicBookingPage'])->name('booking.public.show');
+Route::post('/book-a-pooja', [BookingController::class, 'storePublicBooking'])->name('booking.public.store');
 Route::get('/donate/stripe/success', [\App\Http\Controllers\DonationController::class, 'stripeSuccess'])->name('donate.stripe.success');
 Route::get('/donate/stripe/cancel', [\App\Http\Controllers\DonationController::class, 'stripeCancel'])->name('donate.stripe.cancel');
 Route::post('/stripe/webhook', [\App\Http\Controllers\DonationController::class, 'stripeWebhook'])->name('stripe.webhook');
@@ -124,6 +126,13 @@ Route::post('/set-new-password', [AuthController::class, 'resetPasswordLink'])->
 // strict role.admin group with its own inline check instead: the general dashboard stats
 // stay Admin-only, while the chat tabs are gated by the same 'chats' permission the
 // sidebar link and ChatController's API routes already use.
+// Bare /admin — a natural URL to land on/bookmark, but never a page of its own. Logged-in
+// users bounce straight to the dashboard; the 'auth' middleware's own redirectTo (login)
+// handles everyone else, same as hitting any other admin.* route unauthenticated.
+Route::get('/admin', function () {
+    return redirect()->route('admin.dashboard');
+})->middleware('auth')->name('admin.root');
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/dashboard', function () {
         $currentUser = \Illuminate\Support\Facades\Auth::user();
@@ -537,7 +546,18 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/qr-link/update/{id}', [\App\Http\Controllers\QrLinkController::class, 'update'])->name('admin.qrlinks.update');
     Route::delete('/admin/qr-link/delete/{id}', [\App\Http\Controllers\QrLinkController::class, 'destroy'])->name('admin.qrlinks.delete');
 
-    // System Users (cross-role account list + admin-triggered password reset)
+    Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
+
+    // Leave Requests Route (Admin management)
+    Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');
+    Route::post('/admin/leaves/status/{id}', [PriestController::class, 'updateLeaveStatus'])->name('admin.leaves.status');
+});
+
+// ============================================
+// SYSTEM USERS (Admin full access; Committee restricted to lower-authority roles only —
+// see SystemUserController's own role-hierarchy checks, built on RolePermission::levels())
+// ============================================
+Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::get('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'index'])->name('admin.users.index');
     Route::post('/admin/users', [\App\Http\Controllers\SystemUserController::class, 'store'])->name('admin.users.store');
     Route::post('/admin/users/{targetUser}', [\App\Http\Controllers\SystemUserController::class, 'update'])->name('admin.users.update');
@@ -548,11 +568,6 @@ Route::middleware(['auth', 'role.admin'])->group(function () {
     Route::post('/admin/users/{targetUser}/username', [\App\Http\Controllers\SystemUserController::class, 'setUsername'])->name('admin.users.set-username');
     Route::post('/admin/users/{targetUser}/pos-pin/reset-lockout', [\App\Http\Controllers\SystemUserController::class, 'resetPosPinLockout'])->name('admin.pos-pin.reset-lockout');
     Route::post('/admin/users/{targetUser}/pos-pin/send-setup-link', [\App\Http\Controllers\SystemUserController::class, 'sendPosPinSetupLink'])->name('admin.pos-pin.send-setup-link');
-    Route::get('/admin/logs', [\App\Http\Controllers\LogController::class, 'index'])->name('admin.logs.index');
-
-    // Leave Requests Route (Admin management)
-    Route::get('/admin/manage-leaves', [TrusteeController::class, 'manageLeaves'])->name('admin.leaves.index');
-    Route::post('/admin/leaves/status/{id}', [PriestController::class, 'updateLeaveStatus'])->name('admin.leaves.status');
 });
 
 // ============================================
@@ -564,6 +579,14 @@ Route::middleware(['auth', 'role:Admin,Committee'])->group(function () {
     Route::post('/admin/bookings/override-priest/{id}', [BookingController::class, 'overridePriest'])->name('admin.bookings.override-priest');
     Route::post('/admin/bookings/reschedule/{id}', [BookingController::class, 'reschedule'])->name('admin.bookings.reschedule');
     Route::post('/admin/bookings/status/{id}', [BookingController::class, 'updateStatus'])->name('admin.bookings.update-status');
+    Route::post('/admin/bookings/confirm-notify/{id}', [BookingController::class, 'confirmAndNotify'])->name('admin.bookings.confirm-notify');
+
+    // Pooja Catalog Management Routes — what a booking is made *against* (name/fee/
+    // category/description), distinct from the booking records above.
+    Route::get('/admin/manage-poojas', [\App\Http\Controllers\PoojaController::class, 'manage'])->name('admin.poojas.index');
+    Route::post('/admin/pooja/store', [\App\Http\Controllers\PoojaController::class, 'store'])->name('admin.poojas.store');
+    Route::post('/admin/pooja/update/{id}', [\App\Http\Controllers\PoojaController::class, 'update'])->name('admin.poojas.update');
+    Route::delete('/admin/pooja/delete/{id}', [\App\Http\Controllers\PoojaController::class, 'destroy'])->name('admin.poojas.delete');
 
     // Event CRUD & Scheduling Routes
     Route::get('/admin/manage-events', [\App\Http\Controllers\EventController::class, 'manageEvents'])->name('admin.events.index');
@@ -741,6 +764,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator,Accountant,Pr
 // ============================================
 Route::middleware(['auth', 'role:Admin,Committee,Accountant,Priest,Trustee,Staff,Event Coordinator,Ticket Controller'])->group(function () {
     Route::get('/admin/pooja/portal', [\App\Http\Controllers\TicketController::class, 'manageTickets'])->name('admin.tickets.index');
+    Route::post('/admin/bookings/store', [BookingController::class, 'store'])->name('admin.bookings.store');
     Route::post('/admin/ticket/store', [\App\Http\Controllers\TicketController::class, 'storeTicket'])->name('admin.tickets.store');
     Route::post('/admin/ticket/update/{id}', [\App\Http\Controllers\TicketController::class, 'updateTicket'])->name('admin.tickets.update');
     Route::delete('/admin/ticket/delete/{id}', [\App\Http\Controllers\TicketController::class, 'deleteTicket'])->name('admin.tickets.delete');
@@ -841,7 +865,7 @@ Route::middleware(['auth', 'role.devotee'])->group(function () {
     Route::get('/devotee/book_pooja', [BookingController::class, 'bookPoojaPage']);
     Route::post('/devotee/book-pooja', [BookingController::class, 'storeBooking'])->name('devotee.book-pooja.post');
     Route::post('/devotee/book_pooja', [BookingController::class, 'storeBooking']);
-    Route::get('/devotee/booking/receipt/{id}', [BookingController::class, 'downloadReceipt'])->name('devotee.bookings.receipt');
+    Route::post('/devotee/bookings/{id}/cancel', [BookingController::class, 'cancelBooking'])->name('devotee.bookings.cancel');
 
     // Devotee Payment Routes
     Route::get('/devotee/payment', [DevoteeController::class, 'showPaymentPage'])->name('devotee.payment');
@@ -858,6 +882,12 @@ Route::middleware(['auth', 'role.devotee'])->group(function () {
     Route::post('/devotee/chat/end', [\App\Http\Controllers\ChatController::class, 'endSession'])->name('devotee.chat.end');
 });
 
+// Not role.devotee-gated — BookingController::downloadReceipt() already enforces its own
+// "Admin or the owning devotee" check, and this link is also used from the Pooja Portal's
+// Manage Bookings page (staff viewing any booking's receipt, not just a devotee their
+// own), which role.devotee would have blocked with a 403 before ever reaching that check.
+Route::middleware('auth')->get('/devotee/booking/receipt/{id}', [BookingController::class, 'downloadReceipt'])->name('devotee.bookings.receipt');
+
 // ============================================
 // PRIEST ROUTES (Restricted via RoleMiddleware)
 // ============================================
@@ -867,6 +897,8 @@ Route::middleware(['auth', 'role.priest'])->group(function () {
     Route::post('/priest/attendance/present', [PriestController::class, 'markPresent'])->name('priest.attendance.present');
     Route::post('/priest/attendance/end', [PriestController::class, 'endWork'])->name('priest.attendance.end');
     Route::post('/priest/pooja/complete/{id}', [PriestController::class, 'completePooja'])->name('priest.pooja.complete');
+    Route::post('/priest/bookings/store', [PriestController::class, 'createBooking'])->name('priest.bookings.store');
+    Route::post('/priest/bookings/{id}/cancel', [PriestController::class, 'cancelPooja'])->name('priest.bookings.cancel');
     Route::post('/priest/leave/request', [PriestController::class, 'requestLeave'])->name('priest.leave.request');
 });
 
@@ -1064,6 +1096,8 @@ Route::middleware(['auth'])->group(function () {
 // ============================================
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/transactions', [\App\Http\Controllers\OrganisationReportController::class, 'transactions'])->name('admin.transactions.index');
+    Route::get('/admin/transactions/export/excel', [\App\Http\Controllers\OrganisationReportController::class, 'exportExcel'])->name('admin.transactions.export.excel');
+    Route::get('/admin/transactions/export/pdf', [\App\Http\Controllers\OrganisationReportController::class, 'exportPdf'])->name('admin.transactions.export.pdf');
 });
 
 // ============================================

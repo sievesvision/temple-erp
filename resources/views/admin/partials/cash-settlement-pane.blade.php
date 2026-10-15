@@ -33,8 +33,8 @@
     .cash-settle-widget .cs-tile .cs-label { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; }
     .cash-settle-widget .cs-tile .cs-value { font-size: 1.3rem; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
     .cash-settle-widget .cs-card { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; padding: 18px 20px; }
-    .cash-settle-widget .btn-cs-save { background: linear-gradient(135deg, #b8863a, #d4a05a); color: #fff; border: none; border-radius: 40px; padding: 10px 28px; font-weight: 700; }
-    .cash-settle-widget .btn-cs-save:hover { color: #fff; filter: brightness(1.05); }
+    .cash-settle-widget .btn-cs-save { background: #8A6A1E; color: #fff; border: none; }
+    .cash-settle-widget .btn-cs-save:hover { color: #fff; background: #6f5518; }
     .cash-settle-widget .cs-table-wrap { background: #fff; border: 1px solid rgba(184,134,58,0.1); border-radius: 18px; overflow: hidden; }
     .cash-settle-widget .cs-table-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 20px; border-bottom: 1px solid #f0ece6; }
     .cash-settle-widget .cs-search-wrap { position: relative; }
@@ -59,41 +59,66 @@
     .cash-settle-widget .cs-badge.pending { background: #fdf0db; color: #b8863a; }
     .cash-settle-widget .cs-complete-link { font-size: 0.8rem; font-weight: 700; color: #b8863a; text-decoration: none; white-space: nowrap; }
     .cash-settle-widget .cs-complete-link:hover { color: #8A6A1E; text-decoration: underline; }
+
+    {{-- Compact summary — one line per figure (label left, value right) instead of three
+         separate icon tiles, so the whole thing reads in a glance rather than taking up a
+         whole row of tall cards. --}}
+    .cash-settle-widget .cs-summary-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #f0ece6; }
+    .cash-settle-widget .cs-summary-row:last-child { border-bottom: none; }
+    .cash-settle-widget .cs-summary-row-label { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; font-weight: 600; color: #6b5c47; }
+    .cash-settle-widget .cs-summary-row-label i { font-size: 0.95rem; width: 18px; text-align: center; }
+    .cash-settle-widget .cs-summary-row-value { font-weight: 800; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+
+    .cash-settle-widget .cs-row.cs-row-clickable { cursor: pointer; }
+
+    {{-- Settle Till form — a compact, ledger-style layout (small bordered fields with a
+         currency prefix, tabular figures) instead of full-size Bootstrap form-controls,
+         which read as an ordinary web form rather than an audit/reconciliation tool. --}}
+    .cash-settle-widget .cs-audit-field label { display: block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #8A6A1E; margin-bottom: 5px; }
+    .cash-settle-widget .cs-audit-input-wrap { display: flex; align-items: stretch; border: 1px solid #d8cdb8; border-radius: 4px; background: #fff; overflow: hidden; }
+    .cash-settle-widget .cs-audit-input-wrap:focus-within { border-color: #C89B3C; box-shadow: 0 0 0 3px rgba(200,155,60,0.15); }
+    .cash-settle-widget .cs-audit-currency { padding: 7px 9px; background: #faf8f5; color: #8A6A1E; font-size: 0.76rem; font-weight: 700; border-right: 1px solid #e8e0d4; display: flex; align-items: center; }
+    .cash-settle-widget .cs-audit-input { border: none; padding: 7px 10px; font-size: 0.92rem; font-weight: 700; font-variant-numeric: tabular-nums; width: 100%; outline: none; background: transparent; }
+    .cash-settle-widget .cs-audit-stats { display: flex; gap: 24px; padding-top: 2px; }
+    .cash-settle-widget .cs-audit-stat-label { display: block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #8A6A1E; margin-bottom: 3px; }
+    .cash-settle-widget .cs-audit-stat-value { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #1e1e2a; }
+
+    {{-- Solid, sharp-cornered — deliberately not the rounded-pill gradient buttons the
+         rest of the app uses elsewhere, so a settlement (a formal, final action) reads as
+         distinct from an ordinary "Save" button. --}}
+    .cash-settle-widget .btn-cs-save { border-radius: 4px; padding: 12px 30px; font-weight: 800; font-size: 0.86rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    {{-- Order view popup — details on the left, the real receipt embedded as a tall,
+         independently-scrolling list on the right. --}}
+    .cs-order-detail-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0ece6; }
+    .cs-order-detail-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; }
+    .cs-order-detail-value { font-weight: 700; font-size: 0.95rem; text-align: right; }
+    .cs-order-detail-total { font-size: 1.25rem; color: #1f9d6a; }
+    .cs-order-items { padding: 10px 0; border-bottom: 1px solid #f0ece6; }
+    .cs-order-item-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 5px 0; font-size: 0.86rem; }
+    .cs-order-item-name { color: #1e1e2a; }
+    .cs-order-item-qty { color: #a0907e; font-weight: 600; }
+    .cs-order-item-total { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    {{-- Its own standalone, full-width row — not sharing the heavy filled Settle Till
+         style, and a tighter corner than .btn-cs-save's own 4px. --}}
+    .cs-print-btn {
+        display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+        margin-top: 18px; padding: 12px; border-radius: 2px; border: 1.5px solid #8A6A1E;
+        background: #fff; color: #8A6A1E; font-weight: 700; font-size: 0.85rem;
+        text-decoration: none; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .cs-print-btn:hover { background: #faf8f5; color: #6f5518; }
+    .cs-order-receipt-col { position: relative; background: #efe9dd; border-left: 1px solid #e8e0d4; height: 75vh; }
+    .cs-order-receipt-col iframe { width: 100%; height: 100%; border: 0; display: block; position: relative; z-index: 0; }
+    @media (max-width: 767px) { .cs-order-receipt-col { height: 50vh; border-left: none; border-top: 1px solid #e8e0d4; } }
+    .cs-order-receipt-loading {
+        position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+        background: #efe9dd; color: #8A6A1E; font-weight: 600; font-size: 0.86rem; z-index: 1;
+    }
+    .cs-order-receipt-loading.active { display: flex; }
+    .cs-order-receipt-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #e8e0d4; border-top-color: #C89B3C; animation: cs-order-receipt-spin 0.8s linear infinite; }
+    @keyframes cs-order-receipt-spin { to { transform: rotate(360deg); } }
 </style>
-
-<div class="row g-3 mb-3">
-    <div class="col-6 col-md-4">
-        <div class="cs-tile"><div class="cs-icon" style="background:#C89B3C;"><i class="bi bi-box-arrow-in-right"></i></div><div class="cs-label">Opening Balance</div><div class="cs-value">{{ $fmt($cashPreview['opening_balance']) }}</div></div>
-    </div>
-    <div class="col-6 col-md-4">
-        <div class="cs-tile"><div class="cs-icon" style="background:#10B981;"><i class="bi bi-cash-coin"></i></div><div class="cs-label">Cash Received (this period)</div><div class="cs-value">{{ $fmt($cashPreview['cash_received']) }}</div></div>
-    </div>
-    <div class="col-6 col-md-4">
-        <div class="cs-tile"><div class="cs-icon" style="background:#B7791F;"><i class="bi bi-calculator-fill"></i></div><div class="cs-label">Expected in Till</div><div class="cs-value">{{ $fmt($expected) }}</div></div>
-    </div>
-</div>
-
-@if($context === 'pos' || !$canViewCashHistory)
-<div class="cs-card mb-3 d-flex align-items-center gap-2">
-    <i class="bi bi-clock-history" style="font-size:1.2rem;color:#B7791F;"></i>
-    <div class="small">
-        <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y, g:i A') : 'Never — this is the first period' }}
-        &middot; <span class="fw-bold">Carried forward:</span> {{ $fmt($cashPreview['opening_balance']) }}
-    </div>
-</div>
-@endif
-
-@if(count($cashPreview['breakdown']))
-<div class="cs-card mb-3">
-    <div class="fw-bold mb-2"><i class="bi bi-tags-fill me-1"></i>Cash Received by {{ $scope === 'event' ? 'Donation Type' : 'Ticket Type' }} (this period)</div>
-    @foreach($cashPreview['breakdown'] as $row)
-        <div class="d-flex justify-content-between border-bottom py-2">
-            <span>{{ $row['label'] }}</span>
-            <span class="fw-bold">{{ $fmt($row['cash_received']) }}</span>
-        </div>
-    @endforeach
-</div>
-@endif
 
 <div class="cs-table-wrap mb-3">
     <div class="cs-table-head">
@@ -116,9 +141,9 @@
                     <th>Date</th>
                     <th>{{ $scope === 'event' ? 'Donor' : 'Customer' }}</th>
                     <th>{{ $scope === 'event' ? 'Purpose' : 'Order' }}</th>
-                    @if($scope === 'event')<th>Method</th><th>Status</th>@endif
+                    @if($scope === 'event')<th>Method</th><th>Status</th>@else<th>Method</th>@endif
                     <th class="text-end">Amount</th>
-                    @if($canEditCurrentTransactions)<th></th>@endif
+                    @if($canEditCurrentTransactions || $scope !== 'event')<th></th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -169,11 +194,31 @@
                     @endforeach
                 @else
                     @foreach($currentTransactions as $row)
-                    <tr class="cs-row" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}">
+                    {{-- Clicking anywhere on the row (or the View icon) opens the order in
+                         the popup below — a quick look without leaving the pane. The Print
+                         icon is the one remaining direct link, for actually printing. --}}
+                    @php
+                        $orderItemsForModal = collect($row->items ?? [])->map(fn ($item) => [
+                            'name' => $item->ticket_name,
+                            'quantity' => $item->quantity,
+                            'unitPrice' => $fmt($item->unit_price),
+                            'lineTotal' => $fmt($item->line_total),
+                        ]);
+                    @endphp
+                    <tr class="cs-row cs-row-clickable" data-search="{{ strtolower(($row->customer_name ?: 'walk-in') . ' order ' . $row->id) }}"
+                        data-order-url="{{ route('admin.tickets.print', $row->id) }}" data-order-id="{{ $row->id }}"
+                        data-order-date="{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}"
+                        data-order-customer="{{ $row->customer_name ?: 'Walk-in' }}" data-order-method="{{ $row->payment_method }}"
+                        data-order-total="{{ $fmt($row->total_amount) }}" data-order-items="{{ $orderItemsForModal->toJson() }}">
                         <td>{{ \Illuminate\Support\Carbon::parse($row->order_date)->format('d M Y') }}</td>
                         <td>{{ $row->customer_name ?: 'Walk-in' }}</td>
                         <td>Order #{{ $row->id }}</td>
+                        <td>{{ $row->payment_method }}</td>
                         <td class="text-end fw-bold">{{ $fmt($row->total_amount) }}</td>
+                        <td class="text-end">
+                            <button type="button" class="cs-icon-btn me-1 cs-view-order-btn" title="View Order"><i class="bi bi-eye-fill"></i></button>
+                            <a href="{{ route('admin.tickets.print', $row->id) }}" target="_blank" class="cs-icon-btn" title="Print Receipt"><i class="bi bi-printer-fill"></i></a>
+                        </td>
                     </tr>
                     @endforeach
                 @endif
@@ -183,36 +228,70 @@
     @endif
 </div>
 
+{{-- Settlement — the period's cash summary (left) and the till-count form that settles
+     it (right) share one card, since they're two views of the same figures rather than
+     separate concerns: the form's own "expected"/variance math is computed straight from
+     the summary column beside it. --}}
 <div class="cs-card mb-3">
-    <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settle Till</div>
-    <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
-        @csrf
-        <input type="hidden" name="scope" value="{{ $scope }}">
-        @if($eventId)<input type="hidden" name="event_id" value="{{ $eventId }}">@endif
-        <div class="row g-3">
-            <div class="col-md-4">
-                <label class="form-label small">Till Count — total cash counted ({{ $currency }})</label>
-                <input type="number" step="0.01" min="0" name="till_count" class="form-control settle-till-count" data-expected="{{ $expected }}" required>
+    <div class="fw-bold mb-3"><i class="bi bi-clipboard-check-fill me-1"></i>Settlement</div>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="cs-summary-row">
+                <span class="cs-summary-row-label"><i class="bi bi-box-arrow-in-right" style="color:#C89B3C;"></i>Opening Balance</span>
+                <span class="cs-summary-row-value">{{ $fmt($cashPreview['opening_balance']) }}</span>
             </div>
-            <div class="col-md-4">
-                <label class="form-label small">Amount Taken to Banking ({{ $currency }})</label>
-                <input type="number" step="0.01" min="0" name="amount_banked" class="form-control settle-amount-banked" required>
+            <div class="cs-summary-row">
+                <span class="cs-summary-row-label"><i class="bi bi-cash-coin" style="color:#10B981;"></i>Cash Received</span>
+                <span class="cs-summary-row-value">{{ $fmt($cashPreview['cash_received']) }}</span>
             </div>
-            <div class="col-md-4">
-                <label class="form-label small d-block">&nbsp;</label>
-                <div class="d-flex gap-3 flex-wrap">
-                    <div><span class="text-muted small d-block">Variance</span><span class="fw-bold settle-variance-display">—</span></div>
-                    <div><span class="text-muted small d-block">Carried Forward</span><span class="fw-bold settle-carry-display">—</span></div>
-                </div>
+            <div class="cs-summary-row" style="border-bottom:none;">
+                <span class="cs-summary-row-label"><i class="bi bi-calculator-fill" style="color:#B7791F;"></i>Expected in Till</span>
+                <span class="cs-summary-row-value">{{ $fmt($expected) }}</span>
             </div>
-            <div class="col-12 settle-note-wrap" style="display:none;">
-                <label class="form-label small">Note — explain the mismatch <span class="text-danger">*</span></label>
-                <textarea name="variance_note" class="form-control settle-note-field" rows="2" maxlength="1000" placeholder="e.g. a donor's change was short, or an extra note was found"></textarea>
+            @if($context === 'pos' || !$canViewCashHistory)
+            <div class="text-muted small mt-2 pt-2 border-top">
+                <i class="bi bi-clock-history me-1"></i>
+                <span class="fw-bold">Last settled:</span> {{ $lastSettlementDate ? $lastSettlementDate->format('d M Y, g:i A') : 'Never — this is the first period' }}
+                &middot; <span class="fw-bold">Carried forward:</span> {{ $fmt($cashPreview['opening_balance']) }}
             </div>
+            @endif
         </div>
-        @error('variance_note')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
-        <button type="submit" class="btn-cs-save mt-3" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">Settle Till Now</button>
-    </form>
+        <div class="col-md-8">
+            <form id="{{ $formId }}" action="{{ route('admin.cash-settlement.run') }}" method="POST">
+                @csrf
+                <input type="hidden" name="scope" value="{{ $scope }}">
+                @if($eventId)<input type="hidden" name="event_id" value="{{ $eventId }}">@endif
+                <div class="row g-3">
+                    <div class="col-md-6 cs-audit-field">
+                        <label>Till Count — total cash counted</label>
+                        <div class="cs-audit-input-wrap">
+                            <span class="cs-audit-currency">{{ $currency }}</span>
+                            <input type="number" step="0.01" min="0" name="till_count" class="cs-audit-input settle-till-count" data-expected="{{ $expected }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6 cs-audit-field">
+                        <label>Amount Taken to Banking</label>
+                        <div class="cs-audit-input-wrap">
+                            <span class="cs-audit-currency">{{ $currency }}</span>
+                            <input type="number" step="0.01" min="0" name="amount_banked" class="cs-audit-input settle-amount-banked" required>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="cs-audit-stats">
+                            <div><span class="cs-audit-stat-label">Variance</span><span class="cs-audit-stat-value settle-variance-display">{{ $fmt(0) }}</span></div>
+                            <div><span class="cs-audit-stat-label">Carried Forward</span><span class="cs-audit-stat-value settle-carry-display">{{ $fmt(0) }}</span></div>
+                        </div>
+                    </div>
+                    <div class="col-12 settle-note-wrap" style="display:none;">
+                        <label class="form-label small">Note — explain the mismatch <span class="text-danger">*</span></label>
+                        <textarea name="variance_note" class="form-control settle-note-field" rows="2" maxlength="1000" placeholder="e.g. a donor's change was short, or an extra note was found"></textarea>
+                    </div>
+                </div>
+                @error('variance_note')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
+                <button type="submit" class="btn-cs-save mt-3" onclick="return confirm('This locks in the till count as a permanent settlement record and starts the next period from what\'s carried forward. Continue?');">Settle Till Now</button>
+            </form>
+        </div>
+    </div>
 </div>
 
 @if($canViewCashHistory && $context !== 'pos')
@@ -271,6 +350,55 @@
 </div>
 @endif
 
+{{-- Order view popup (tickets scope) — a quick look at an order without leaving the
+     pane: its own details on the left (populated from the clicked row's own data-*
+     attributes — all already server-rendered, so no extra request needed) and the real
+     receipt/stub view on the right, embedded in a scrolling iframe exactly as it prints,
+     rather than just linking straight to that page in a new tab. --}}
+@if($scope !== 'event')
+<div class="modal fade" id="csOrderModal_{{ $formId }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius: 16px; overflow: hidden; border: none;">
+            <div class="modal-header" style="background: #faf8f5; border-bottom: 1px solid #f0ece6;">
+                <h5 class="modal-title fw-bold" id="csOrderModalTitle_{{ $formId }}">Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0">
+                    <div class="col-md-7 p-4">
+                        <div class="cs-order-detail-row">
+                            <span class="cs-order-detail-label">Date</span>
+                            <span class="cs-order-detail-value" id="csOrderModalDate_{{ $formId }}"></span>
+                        </div>
+                        <div class="cs-order-detail-row">
+                            <span class="cs-order-detail-label">Customer</span>
+                            <span class="cs-order-detail-value" id="csOrderModalCustomer_{{ $formId }}"></span>
+                        </div>
+                        <div class="cs-order-detail-row">
+                            <span class="cs-order-detail-label">Payment Method</span>
+                            <span class="cs-order-detail-value" id="csOrderModalMethod_{{ $formId }}"></span>
+                        </div>
+                        <div class="cs-order-items" id="csOrderModalItems_{{ $formId }}"></div>
+                        <div class="cs-order-detail-row" style="border-bottom: none;">
+                            <span class="cs-order-detail-label">Total</span>
+                            <span class="cs-order-detail-value cs-order-detail-total" id="csOrderModalTotal_{{ $formId }}"></span>
+                        </div>
+                        <a href="#" target="_blank" class="cs-print-btn" id="csOrderModalPrintLink_{{ $formId }}"><i class="bi bi-printer-fill"></i>Print Receipt</a>
+                    </div>
+                    <div class="col-md-5 cs-order-receipt-col">
+                        <div class="cs-order-receipt-loading active" id="csOrderModalLoading_{{ $formId }}">
+                            <div class="cs-order-receipt-spinner"></div>
+                            <span>Loading receipt…</span>
+                        </div>
+                        <iframe id="csOrderModalFrame_{{ $formId }}" src="about:blank" title="Receipt"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
 </div>
 
 <script>
@@ -288,19 +416,23 @@
 
         function fmt(n) { return currency + ' ' + n.toFixed(2); }
 
+        // Real figures (0.00) rather than a plain dash before anything's been typed —
+        // an audit view reads as more trustworthy showing actual zeroed-out numbers than
+        // a placeholder that looks like "nothing computed yet".
         function recompute() {
             const till = parseFloat(tillInput.value);
             const banked = parseFloat(bankedInput.value);
             if (isNaN(till)) {
-                varianceDisplay.textContent = '—';
-                carryDisplay.textContent = '—';
+                varianceDisplay.textContent = fmt(0);
+                varianceDisplay.className = 'cs-audit-stat-value settle-variance-display';
+                carryDisplay.textContent = fmt(0);
                 noteWrap.style.display = 'none';
                 return;
             }
             const variance = Math.round((till - expected) * 100) / 100;
             varianceDisplay.textContent = (variance > 0 ? '+' : '') + fmt(variance);
-            varianceDisplay.className = 'fw-bold settle-variance-display ' + (Math.abs(variance) < 0.01 ? '' : (variance > 0 ? 'text-success' : 'text-danger'));
-            carryDisplay.textContent = isNaN(banked) ? '—' : fmt(Math.round((till - banked) * 100) / 100);
+            varianceDisplay.className = 'cs-audit-stat-value settle-variance-display ' + (Math.abs(variance) < 0.01 ? '' : (variance > 0 ? 'text-success' : 'text-danger'));
+            carryDisplay.textContent = fmt(Math.round((till - (isNaN(banked) ? 0 : banked)) * 100) / 100);
 
             const mismatched = Math.abs(variance) >= 0.01;
             noteWrap.style.display = mismatched ? '' : 'none';
@@ -335,6 +467,78 @@
             if (target) target.style.display = 'none';
         });
     });
+
+    // Current Period Transactions (tickets scope): click anywhere on the row (or its own
+    // View icon) to open the order popup — details on the left (straight from the row's
+    // own data-* attributes, already server-rendered) and the real receipt embedded on
+    // the right. The Print icon keeps its own direct link/target, so it's excluded here.
+    (function () {
+        const orderModalEl = document.getElementById('csOrderModal_{{ $formId }}');
+        if (!orderModalEl || typeof bootstrap === 'undefined') { return; }
+        const orderModal = bootstrap.Modal.getOrCreateInstance(orderModalEl);
+        const frame = document.getElementById('csOrderModalFrame_{{ $formId }}');
+        const loadingEl = document.getElementById('csOrderModalLoading_{{ $formId }}');
+
+        // A fresh order's receipt every time (unlike EFT Settings, this iframe reloads on
+        // every open) — show the spinner each time, hide it once the real page loads
+        // (blank's own initial/reset load doesn't count).
+        frame.addEventListener('load', function () {
+            if (frame.src !== 'about:blank') { loadingEl?.classList.remove('active'); }
+        });
+
+        const itemsEl = document.getElementById('csOrderModalItems_{{ $formId }}');
+
+        function openOrderModal(row) {
+            document.getElementById('csOrderModalTitle_{{ $formId }}').textContent = 'Order #' + row.dataset.orderId;
+            document.getElementById('csOrderModalDate_{{ $formId }}').textContent = row.dataset.orderDate;
+            document.getElementById('csOrderModalCustomer_{{ $formId }}').textContent = row.dataset.orderCustomer;
+            document.getElementById('csOrderModalMethod_{{ $formId }}').textContent = row.dataset.orderMethod;
+            document.getElementById('csOrderModalTotal_{{ $formId }}').textContent = row.dataset.orderTotal;
+            document.getElementById('csOrderModalPrintLink_{{ $formId }}').href = row.dataset.orderUrl;
+
+            itemsEl.innerHTML = '';
+            let items = [];
+            try { items = JSON.parse(row.dataset.orderItems || '[]'); } catch (e) { items = []; }
+            items.forEach(function (item) {
+                const line = document.createElement('div');
+                line.className = 'cs-order-item-line';
+                const name = document.createElement('span');
+                name.className = 'cs-order-item-name';
+                name.textContent = item.name + ' ';
+                const qty = document.createElement('span');
+                qty.className = 'cs-order-item-qty';
+                qty.textContent = 'x' + item.quantity;
+                name.appendChild(qty);
+                const total = document.createElement('span');
+                total.className = 'cs-order-item-total';
+                total.textContent = item.lineTotal;
+                line.appendChild(name);
+                line.appendChild(total);
+                itemsEl.appendChild(line);
+            });
+
+            loadingEl?.classList.add('active');
+            frame.src = row.dataset.orderUrl;
+            orderModal.show();
+        }
+
+        document.querySelectorAll('.cs-row-clickable').forEach(function (row) {
+            row.addEventListener('click', function (e) {
+                if (e.target.closest('a, button')) { return; }
+                openOrderModal(row);
+            });
+            const viewBtn = row.querySelector('.cs-view-order-btn');
+            if (viewBtn) {
+                viewBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    openOrderModal(row);
+                });
+            }
+        });
+
+        // Stop the receipt iframe holding/reloading stale content once the popup closes.
+        orderModalEl.addEventListener('hidden.bs.modal', function () { frame.src = 'about:blank'; });
+    })();
 
     // Current Period Transactions: client-side search by name/purpose.
     const txnSearch = document.getElementById('csTxnSearch_{{ $formId }}');

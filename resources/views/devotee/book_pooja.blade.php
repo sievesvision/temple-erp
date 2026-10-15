@@ -248,9 +248,9 @@
                     <div class="col-md-6 mb-3 mb-md-0">
                         <h6 class="fw-bold mb-2" style="color: #7b6b5a;">Filter by Category</h6>
                         <button type="button" class="category-tab active" onclick="filterCategory('All')">All</button>
-                        <button type="button" class="category-tab" onclick="filterCategory('Daily')">Daily</button>
-                        <button type="button" class="category-tab" onclick="filterCategory('Special')">Special</option>
-                        <button type="button" class="category-tab" onclick="filterCategory('General')">General</option>
+                        @foreach($poojas->pluck('category')->filter()->unique()->sort() as $cat)
+                        <button type="button" class="category-tab" onclick="filterCategory('{{ $cat }}')">{{ $cat }}</button>
+                        @endforeach
                     </div>
                     <div class="col-md-3 col-sm-6 mb-3 mb-sm-0">
                         <label class="form-label fw-bold small text-muted">Search Pooja</label>

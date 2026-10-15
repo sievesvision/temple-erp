@@ -83,6 +83,36 @@
         background: #f3ebe0; color: #8A6A1E;
     }
     .channel-pill.channel-unknown { background: #f0ece6; color: #8a8276; }
+
+    .section-label.collapsible { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+    .section-label.collapsible .chevron { transition: transform 0.2s ease; font-size: 1rem; }
+    .section-label.collapsible[aria-expanded="false"] .chevron { transform: rotate(-90deg); }
+
+    .export-actions { display: flex; gap: 8px; }
+    .export-btn {
+        border: 1px solid rgba(184, 134, 58, 0.25); background: white; color: #8A6A1E; font-weight: 700;
+        font-size: 0.82rem; border-radius: 10px; padding: 7px 14px; display: inline-flex; align-items: center; gap: 6px;
+        text-decoration: none;
+    }
+    .export-btn:hover { background: #faf4e8; color: #8A6A1E; }
+
+    /* DataTables customization to match the page's own table styling. The table-card has
+       no side padding of its own (the table sits flush against its rounded edges), so the
+       length/search controls row and the info/pagination row below the table both need
+       their own horizontal gutter here or they'd touch the card's edge. */
+    .table-card .dataTables_wrapper { display: block; padding: 0 24px 18px; }
+    .table-card .dataTables_wrapper > .row:first-child { padding-top: 16px; margin-bottom: 4px; }
+    .dataTables_wrapper .dataTables_filter input {
+        border-radius: 10px; border: 1px solid #e3dccf; padding: 6px 12px; margin-left: 8px;
+    }
+    .dataTables_wrapper .dataTables_length select {
+        border-radius: 10px; border: 1px solid #e3dccf; margin: 0 6px; min-width: 70px;
+        padding: 6px 26px 6px 10px;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: 8px !important; }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current { background: #b8863a !important; border-color: #b8863a !important; color: white !important; }
+    .dataTables_wrapper .dataTables_info { color: #7b6b5a; font-size: 0.82rem; }
+    .table-card .card-header-controls { padding: 12px 24px; border-bottom: 1px solid #f0ece6; }
 </style>
 @endsection
 
@@ -97,6 +127,10 @@
     <a href="{{ route('admin.tickets.index') }}" class="hub-link"><i class="bi bi-ticket-perforated-fill"></i>All Ticket Orders</a>
     <a href="{{ route('admin.reports.index') }}" class="hub-link"><i class="bi bi-bar-chart-fill"></i>Reports</a>
     <a href="{{ route('admin.logs.index') }}" class="hub-link"><i class="bi bi-journal-text"></i>Audit Logs</a>
+    <span class="export-actions ms-auto">
+        <a href="{{ route('admin.transactions.export.excel', request()->query()) }}" class="export-btn"><i class="bi bi-file-earmark-excel"></i>Export Excel</a>
+        <a href="{{ route('admin.transactions.export.pdf', request()->query()) }}" class="export-btn"><i class="bi bi-file-earmark-pdf"></i>Export PDF</a>
+    </span>
 </div>
 
 <div class="filter-bar">
@@ -151,10 +185,23 @@
             </select>
         </div>
         <div class="col-md-2">
-            <input type="date" name="date_from" class="form-control rounded-3" value="{{ $filters['date_from'] }}" placeholder="From">
+            <select id="quickRange" class="form-select rounded-3">
+                <option value="">Quick Range…</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this_week">This Week</option>
+                <option value="last_7">Last 7 Days</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="this_quarter">This Quarter</option>
+                <option value="this_year">This Year</option>
+            </select>
         </div>
         <div class="col-md-2">
-            <input type="date" name="date_to" class="form-control rounded-3" value="{{ $filters['date_to'] }}" placeholder="To">
+            <input type="date" name="date_from" id="dateFrom" class="form-control rounded-3" value="{{ $filters['date_from'] }}" placeholder="From">
+        </div>
+        <div class="col-md-2">
+            <input type="date" name="date_to" id="dateTo" class="form-control rounded-3" value="{{ $filters['date_to'] }}" placeholder="To">
         </div>
         <div class="col-md-2 d-flex gap-2">
             <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #b8863a, #d4a05a); border:none;">Filter</button>
@@ -192,38 +239,43 @@
     </div>
 </div>
 
-<div class="section-label"><i class="bi bi-stars me-1"></i>Insights</div>
-<div class="insights-grid">
-    @foreach($insights as $insight)
-    <div class="insight-card tone-{{ $insight['tone'] }}">
-        <div class="insight-icon"><i class="bi {{ $insight['icon'] }}"></i></div>
-        <div>
-            <div class="insight-title">{{ $insight['title'] }}</div>
-            <div class="insight-body">{{ $insight['body'] }}</div>
+<div class="section-label collapsible" data-bs-toggle="collapse" data-bs-target="#insightsBody" aria-expanded="true" role="button">
+    <span><i class="bi bi-stars me-1"></i>Insights &amp; Trends</span>
+    <i class="bi bi-chevron-down chevron"></i>
+</div>
+<div class="collapse show" id="insightsBody">
+    <div class="insights-grid">
+        @foreach($insights as $insight)
+        <div class="insight-card tone-{{ $insight['tone'] }}">
+            <div class="insight-icon"><i class="bi {{ $insight['icon'] }}"></i></div>
+            <div>
+                <div class="insight-title">{{ $insight['title'] }}</div>
+                <div class="insight-body">{{ $insight['body'] }}</div>
+            </div>
+        </div>
+        @endforeach
+    </div>
+
+    <div class="chart-grid">
+        <div class="chart-card">
+            <h6><i class="bi bi-graph-up me-1"></i>Revenue Trend ({{ $stats['window_days'] }} days)</h6>
+            <canvas id="trendChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h6><i class="bi bi-trophy-fill me-1"></i>Top Sources</h6>
+            <canvas id="topSourcesChart"></canvas>
         </div>
     </div>
-    @endforeach
-</div>
 
-<div class="chart-grid">
-    <div class="chart-card">
-        <h6><i class="bi bi-graph-up me-1"></i>Revenue Trend ({{ $stats['window_days'] }} days)</h6>
-        <canvas id="trendChart"></canvas>
-    </div>
-    <div class="chart-card">
-        <h6><i class="bi bi-trophy-fill me-1"></i>Top Sources</h6>
-        <canvas id="topSourcesChart"></canvas>
-    </div>
-</div>
-
-<div class="mini-chart-row">
-    <div class="chart-card">
-        <h6><i class="bi bi-credit-card-fill me-1"></i>Revenue by Payment Method</h6>
-        <canvas id="methodChart"></canvas>
-    </div>
-    <div class="chart-card">
-        <h6><i class="bi bi-shop me-1"></i>Revenue by Channel</h6>
-        <canvas id="channelChart"></canvas>
+    <div class="mini-chart-row">
+        <div class="chart-card">
+            <h6><i class="bi bi-credit-card-fill me-1"></i>Revenue by Payment Method</h6>
+            <canvas id="methodChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h6><i class="bi bi-shop me-1"></i>Revenue by Channel</h6>
+            <canvas id="channelChart"></canvas>
+        </div>
     </div>
 </div>
 
@@ -233,7 +285,7 @@
         <span>Donations & Ticket Orders ({{ $rows->count() }}@if($rows->count() === 300)+@endif)</span>
     </div>
     <div class="table-responsive">
-        <table class="table align-middle">
+        <table class="table align-middle" id="ledgerTable">
             <thead>
                 <tr>
                     <th>Date/Time</th>
@@ -282,7 +334,7 @@
         <span class="text-muted" style="font-size:0.78rem; font-weight:500;">Approvals already appear above as a Paid donation/order — this is terminal-level health, not additional revenue.</span>
     </div>
     <div class="table-responsive">
-        <table class="table align-middle">
+        <table class="table align-middle" id="gatewayTable">
             <thead>
                 <tr>
                     <th>Date/Time</th>
@@ -332,10 +384,11 @@
 (function () {
     const gold = '#b8863a';
     const palette = ['#b8863a', '#2a6fdb', '#1f9d6a', '#c94b6e', '#8a6a1e', '#6f8fd0'];
+    const chartInstances = [];
 
     const trendCtx = document.getElementById('trendChart');
     if (trendCtx) {
-        new Chart(trendCtx, {
+        chartInstances.push(new Chart(trendCtx, {
             type: 'line',
             data: {
                 labels: @json($charts['trend_labels']),
@@ -354,13 +407,13 @@
                 plugins: { legend: { display: false } },
                 scales: { y: { beginAtZero: true } }
             }
-        });
+        }));
     }
 
     const topSourcesCtx = document.getElementById('topSourcesChart');
     if (topSourcesCtx) {
         const sources = @json($charts['top_sources']);
-        new Chart(topSourcesCtx, {
+        chartInstances.push(new Chart(topSourcesCtx, {
             type: 'bar',
             data: {
                 labels: sources.map(s => s.label),
@@ -377,34 +430,108 @@
                 plugins: { legend: { display: false } },
                 scales: { x: { beginAtZero: true } }
             }
-        });
+        }));
     }
 
     const methodCtx = document.getElementById('methodChart');
     if (methodCtx) {
         const methods = @json($charts['by_method']);
-        new Chart(methodCtx, {
+        chartInstances.push(new Chart(methodCtx, {
             type: 'doughnut',
             data: {
                 labels: methods.map(m => m.label),
                 datasets: [{ data: methods.map(m => m.total), backgroundColor: palette }]
             },
             options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-        });
+        }));
     }
 
     const channelCtx = document.getElementById('channelChart');
     if (channelCtx) {
         const channels = @json($charts['by_channel']);
-        new Chart(channelCtx, {
+        chartInstances.push(new Chart(channelCtx, {
             type: 'doughnut',
             data: {
                 labels: channels.map(c => c.label),
                 datasets: [{ data: channels.map(c => c.total), backgroundColor: palette }]
             },
             options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        }));
+    }
+
+    // The charts now live inside the collapsible Insights panel — when it's re-opened
+    // after being collapsed, Chart.js needs an explicit resize since its canvases had
+    // zero width while hidden (display: none), so a stale/zero-size render would stick
+    // otherwise.
+    const insightsBody = document.getElementById('insightsBody');
+    if (insightsBody) {
+        insightsBody.addEventListener('shown.bs.collapse', function () {
+            chartInstances.forEach(c => c.resize());
         });
     }
 })();
+</script>
+<script>
+$(function () {
+    // Quick date-range presets next to the From/To fields — picking one fills both date
+    // inputs and submits the filter form immediately, same as manually typing a range.
+    document.getElementById('quickRange').addEventListener('change', function () {
+        const val = this.value;
+        if (!val) return;
+        const fmt = d => d.toISOString().slice(0, 10);
+        const today = new Date();
+        let from = new Date(today), to = new Date(today);
+
+        switch (val) {
+            case 'today':
+                break;
+            case 'yesterday':
+                from.setDate(from.getDate() - 1);
+                to.setDate(to.getDate() - 1);
+                break;
+            case 'this_week':
+                from.setDate(today.getDate() - today.getDay());
+                break;
+            case 'last_7':
+                from.setDate(today.getDate() - 6);
+                break;
+            case 'this_month':
+                from = new Date(today.getFullYear(), today.getMonth(), 1);
+                break;
+            case 'last_month':
+                from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                to = new Date(today.getFullYear(), today.getMonth(), 0);
+                break;
+            case 'this_quarter':
+                from = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+                break;
+            case 'this_year':
+                from = new Date(today.getFullYear(), 0, 1);
+                break;
+        }
+
+        document.getElementById('dateFrom').value = fmt(from);
+        document.getElementById('dateTo').value = fmt(to);
+        this.closest('form').submit();
+    });
+
+    // Unified Ledger / Card Terminal Activity tables — search box + pagination, matching
+    // the DataTables convention already used on the other admin management pages.
+    const tableOptions = {
+        pageLength: 25,
+        order: [],
+        language: {
+            emptyTable: 'No records found.',
+            search: '',
+            searchPlaceholder: 'Search this table…',
+        },
+    };
+    if ($('#ledgerTable').length) {
+        $('#ledgerTable').DataTable(tableOptions);
+    }
+    if ($('#gatewayTable').length) {
+        $('#gatewayTable').DataTable(tableOptions);
+    }
+});
 </script>
 @endsection

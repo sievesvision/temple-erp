@@ -85,6 +85,17 @@ class TicketController extends Controller
         $canDelete = RolePermission::can($activeRole, 'tickets', 'delete') || $canManageConsole;
 
         $orders = TicketOrder::with(['items', 'seller'])->orderByDesc('created_at')->get();
+
+        // Tags each order with which settlement (if any) already claimed it — same
+        // mechanism EventConsoleController uses for donations (CashSettlementService::
+        // settlementKeyMap()'s own docblock). 'ticket_order' is the literal type string
+        // CashSettlementService::run() stores for this scope (see its own transaction_refs
+        // snapshot), never the event scope's donation_type.
+        $settlementKeyMap = \App\Services\CashSettlementService::settlementKeyMap('tickets', null);
+        $orders->each(function ($order) use ($settlementKeyMap) {
+            $order->settlement_id = $settlementKeyMap['ticket_order:' . $order->id] ?? null;
+        });
+
         $totalSold = $orders->where('payment_status', 'Paid')->sum('total_amount');
 
         $todayTotal = $orders->where('payment_status', 'Paid')
@@ -290,6 +301,7 @@ class TicketController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'category' => 'nullable|string|max:100',
             'price' => 'required|numeric|min:0.01',
             'status' => 'required|in:Active,Inactive',
             'sort_order' => 'nullable|integer|min:0',
@@ -315,6 +327,7 @@ class TicketController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'category' => 'nullable|string|max:100',
             'price' => 'required|numeric|min:0.01',
             'status' => 'required|in:Active,Inactive',
             'sort_order' => 'nullable|integer|min:0',
@@ -446,6 +459,41 @@ class TicketController extends Controller
         // actually applies to — showing it to everyone else would just be a dead-end 403.
         $canManagePosPin = (bool) app(AuthController::class)->possiblePosDestinations($user);
 
+        // Pooja booking tiles live in the same item grid as tickets (Pooja Bookings plan
+        // Phase E) — same grid check the Pooja Portal's own "Create Booking" button
+        // (Phase D) already uses, not a fixed role list, so whoever an admin grants
+        // 'bookings'->'add' to sees them here too. The 'Custom' anchor row is excluded —
+        // it gets its own pinned tile, not a $0 catalog entry.
+        $canCreateBookings = \App\Models\RolePermission::can($activeRole, 'bookings', 'add');
+        $bookingPoojas = $canCreateBookings
+            ? \Illuminate\Support\Facades\DB::table('poojas')->where('status', 'Active')->where('category', '!=', 'Custom')->orderBy('pooja_name')->get()
+            : collect();
+        $bookingPriests = $canCreateBookings
+            ? \Illuminate\Support\Facades\DB::table('priests')
+                ->join('users', 'priests.user_id', '=', 'users.id')
+                ->whereIn('priests.employment_status', ['Active', 'On Leave'])
+                ->select('priests.*', 'users.name')
+                ->get()
+            : collect();
+
+        // The Poojas menu's default "Recent" tab — whichever pooja types were booked most
+        // recently (across every entry point, not just this page), so the counter's most
+        // commonly re-booked items are the first thing they see rather than hunting through
+        // categories. Distinct on pooja_id (MAX(created_at) per pooja), newest first,
+        // capped at 8 — a quick-pick list, not a full history.
+        $recentPoojaIds = $canCreateBookings
+            ? \Illuminate\Support\Facades\DB::table('pooja_bookings')
+                ->join('poojas', 'pooja_bookings.pooja_id', '=', 'poojas.pooja_id')
+                ->where('poojas.status', 'Active')
+                ->where('poojas.category', '!=', 'Custom')
+                ->selectRaw('pooja_bookings.pooja_id, MAX(pooja_bookings.created_at) as last_booked')
+                ->groupBy('pooja_bookings.pooja_id')
+                ->orderByDesc('last_booked')
+                ->limit(8)
+                ->pluck('pooja_bookings.pooja_id')
+                ->all()
+            : [];
+
         // Settle Till widget — entry-level Ticket Controllers only ever reach this page
         // (never the full console, see manageTickets()'s redirect), so this is their only
         // way to settle the till; tickets has no separate pos tier, so entry gets full
@@ -468,7 +516,8 @@ class TicketController extends Controller
 
         return view('admin.ticket-pos', compact(
             'tickets', 'paymentMethods', 'temple', 'pendingEftRecovery', 'canSell', 'canManageConsole', 'eftTerminalsForJs', 'canManagePosPin',
-            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate'
+            'canSettleCash', 'canViewCashHistory', 'cashPreview', 'cashBankings', 'cashSettlements', 'currentTransactions', 'lastSettlementDate',
+            'canCreateBookings', 'bookingPoojas', 'bookingPriests', 'recentPoojaIds'
         ));
     }
 

@@ -21,18 +21,118 @@ use Illuminate\Support\Str;
  */
 class SystemUserController extends Controller
 {
+    /**
+     * Who may open /admin/users at all — Admin (full access) or Committee (restricted to
+     * strictly-lower-authority accounts, see canManageTarget()/filterableRolesFor() below).
+     * Mirrors the route group's own role:Admin,Committee gate; kept here too since every
+     * method already carries its own inline check, consistent with this controller's
+     * existing style.
+     */
+    private function canAccessSystemUsers(?string $activeRole): bool
+    {
+        return in_array($activeRole, ['Admin', 'Committee'], true);
+    }
+
+    /**
+     * Authority-hierarchy enforcement for actions on a SPECIFIC target account: a non-Admin
+     * viewer may only act on someone strictly less authoritative than their own active role
+     * — never a peer, never anyone more senior — using the same RolePermission::levels()
+     * ceiling User::authorisedLevel() already applies to role-switching. Admin is exempt.
+     * This is the real security boundary; the list-visibility filtering in index() and the
+     * creatable-role capping in store() are what keep the UI from ever offering an action
+     * this would reject anyway, but a crafted direct POST still has to pass this.
+     */
+    private function canManageTarget(?string $activeRole, User $target): bool
+    {
+        if ($activeRole === 'Admin') {
+            return true;
+        }
+
+        $viewerLevel = RolePermission::levels()[$activeRole] ?? PHP_INT_MAX;
+
+        return $target->authorisedLevel() > $viewerLevel;
+    }
+
+    /**
+     * Every role whose authority is at or above the given level — the set a restricted
+     * viewer must never see, grant, or act on.
+     */
+    private function rolesAtOrAbove(int $level): array
+    {
+        return array_keys(array_filter(RolePermission::levels(), fn ($roleLevel) => $roleLevel <= $level));
+    }
+
+    /**
+     * Roles visible in the list/role-filter dropdown for this viewer — every grantable role
+     * except Kiosk Device (see index()'s own comment on why those are excluded entirely),
+     * further capped for a non-Admin viewer to roles strictly below their own.
+     */
+    private function filterableRolesFor(?string $activeRole): array
+    {
+        $roles = array_values(array_diff(RolePermission::roles(), ['Kiosk Device']));
+
+        if ($activeRole === 'Admin') {
+            return $roles;
+        }
+
+        $viewerLevel = RolePermission::levels()[$activeRole] ?? PHP_INT_MAX;
+
+        return array_values(array_diff($roles, $this->rolesAtOrAbove($viewerLevel)));
+    }
+
+    /**
+     * Roles this viewer may grant when creating a new user — Event Coordinator/Ticket
+     * Controller are always excluded (need an event/ticket grant instead, see store()'s own
+     * docblock); a non-Admin viewer is additionally capped to strictly-lower-authority
+     * roles, so e.g. Committee can never grant Admin or Committee itself.
+     */
+    private function creatableRolesFor(?string $activeRole): array
+    {
+        return array_values(array_diff($this->filterableRolesFor($activeRole), ['Event Coordinator', 'Ticket Controller']));
+    }
+
     public function index(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole)) {
             abort(403, 'Unauthorized access.');
         }
 
+        // Kiosk Device accounts aren't people — they're a per-device service identity
+        // KioskDeviceService::register() creates purely so kiosk API calls have an
+        // Auth::user() to read (unusable password, never signed in via the login form, see
+        // that method's own docblock). Already fully managed from the Kiosk Devices page
+        // (name, pairing, revoke); listing them here would just be noise with no admin
+        // action that actually applies to them (no email to reset, no real "last login").
         $query = User::query()
-            ->select('id', 'name', 'email', 'username', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled', 'pos_pin_locked_at');
+            ->where('role', '!=', 'Kiosk Device')
+            ->select('id', 'name', 'email', 'mobile', 'username', 'role', 'status', 'last_login_at', 'password_changed_at', 'created_at', 'two_factor_enabled', 'pos_pin_locked_at');
+
+        $filterableRoles = $this->filterableRolesFor($activeRole);
+
+        // A restricted (non-Admin) viewer never sees a peer or more senior account —
+        // checked against BOTH the primary role column and every grant table (a user whose
+        // primary role is Devotee but who also holds a Committee grant is still a peer to a
+        // Committee viewer, not a subordinate), same reasoning as canManageTarget().
+        if ($activeRole !== 'Admin') {
+            $viewerLevel = RolePermission::levels()[$activeRole] ?? PHP_INT_MAX;
+            $blockedRoles = $this->rolesAtOrAbove($viewerLevel);
+
+            $query->whereNotIn('role', $blockedRoles);
+            foreach ($blockedRoles as $blockedRole) {
+                $grantTable = User::grantTables()[$blockedRole] ?? null;
+                if ($grantTable) {
+                    $blockedIds = DB::table($grantTable)->pluck('user_id');
+                    if ($blockedIds->isNotEmpty()) {
+                        $query->whereNotIn('id', $blockedIds);
+                    }
+                }
+            }
+        }
 
         $roleFilter = $request->get('role');
-        if ($roleFilter && in_array($roleFilter, RolePermission::roles(), true)) {
+        if ($roleFilter && in_array($roleFilter, $filterableRoles, true)) {
             // Match either the account's stored primary role, or a granted role via its
             // pivot table — a user whose primary role is Devotee but who also holds a
             // Committee/Event Coordinator/etc. grant should still show up under that filter.
@@ -47,6 +147,16 @@ class SystemUserController extends Controller
             }
         }
 
+        // Defaults to Active-only, same "don't drown the common case in noise" rule the
+        // All Transactions pane applies to Cancelled/Failed — an admin almost always wants
+        // the people who can currently log in; a deactivated account is the opt-in case.
+        $statusFilter = $request->get('status', 'Active');
+        if (in_array($statusFilter, ['Active', 'Inactive'], true)) {
+            $query->where('status', $statusFilter);
+        } else {
+            $statusFilter = 'all';
+        }
+
         $search = $request->get('search');
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -56,10 +166,11 @@ class SystemUserController extends Controller
         }
 
         $users = $query->orderBy('name')->paginate(25)->withQueryString();
-        $roles = RolePermission::roles();
-        $creatableRoles = array_values(array_diff($roles, ['Event Coordinator', 'Ticket Controller', 'Kiosk Device']));
+        $roles = $filterableRoles;
+        $creatableRoles = array_values(array_diff($filterableRoles, ['Event Coordinator', 'Ticket Controller']));
+        $canManageAll = $activeRole === 'Admin';
 
-        return view('admin.system-users', compact('users', 'roles', 'creatableRoles', 'roleFilter', 'search'));
+        return view('admin.system-users', compact('users', 'roles', 'creatableRoles', 'roleFilter', 'statusFilter', 'search', 'canManageAll'));
     }
 
     /**
@@ -83,11 +194,12 @@ class SystemUserController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
-        $creatableRoles = array_values(array_diff(RolePermission::roles(), ['Event Coordinator', 'Ticket Controller', 'Kiosk Device']));
+        $creatableRoles = $this->creatableRolesFor($activeRole);
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -199,7 +311,8 @@ class SystemUserController extends Controller
     public function update(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -229,7 +342,8 @@ class SystemUserController extends Controller
     public function toggleStatus(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -252,7 +366,8 @@ class SystemUserController extends Controller
     public function eventAccess(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -279,7 +394,8 @@ class SystemUserController extends Controller
     public function setUsername(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -297,7 +413,8 @@ class SystemUserController extends Controller
     public function sendResetLink(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -317,7 +434,8 @@ class SystemUserController extends Controller
     public function resetPosPinLockout(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -337,7 +455,8 @@ class SystemUserController extends Controller
     public function sendPosPinSetupLink(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
@@ -361,7 +480,8 @@ class SystemUserController extends Controller
     public function toggleTwoFactor(Request $request, User $targetUser)
     {
         $user = Auth::user();
-        if (!$user || $user->role !== 'Admin') {
+        $activeRole = $user ? session('active_role', $user->role) : null;
+        if (!$this->canAccessSystemUsers($activeRole) || !$this->canManageTarget($activeRole, $targetUser)) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

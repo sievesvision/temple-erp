@@ -892,7 +892,8 @@ class DonationController extends Controller
     {
         $user = Auth::user();
         $activeRole = session('active_role', $user->role ?? null);
-        $recordType = $request->input('record_type', 'donation') === 'ticket_order' ? 'ticket_order' : 'donation';
+        $recordTypeInput = $request->input('record_type', 'donation');
+        $recordType = in_array($recordTypeInput, ['ticket_order', 'pooja_booking'], true) ? $recordTypeInput : 'donation';
 
         if ($recordType === 'ticket_order') {
             // Tickets are a standalone module (not tied to an Event) — its own permission
@@ -904,6 +905,12 @@ class DonationController extends Controller
                 || ($activeRole === 'Ticket Controller' && TicketControllerLevel::atLeast(TicketControllerLevel::of($user->id), 'entry'))
             );
             if (!$ticketAuthorised) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+            }
+        } elseif ($recordType === 'pooja_booking') {
+            // Same grid resource/action Pooja Portal/Ticket POS's own Create Booking modal
+            // already gates on (see BookingController::store()).
+            if (!$user || !RolePermission::can($activeRole, 'bookings', 'add')) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
             }
         } elseif (!$user || !$this->canRecordDonation($user, $activeRole, $request->input('event_id'))) {
@@ -943,6 +950,22 @@ class DonationController extends Controller
             // rather than recording a brand new one — see createDonationIfApprovedPurchaseUnrecorded()'s
             // own branch on this, which updates that row instead of inserting a new one.
             'edit_donation_id' => 'nullable|integer|exists:donations_without_logins,id',
+            // Pooja-booking fields only — loosely validated here (same reasoning as the
+            // donor fields above: this is only used for the server-side creation-on-approval
+            // path, see BookingController::createBookingFromLedgerMeta()). The real
+            // validation lives in BookingService::create() itself.
+            'pooja_id' => 'nullable|exists:poojas,pooja_id',
+            'custom_pooja' => 'nullable|boolean',
+            'custom_pooja_label' => 'nullable|string|max:255',
+            'custom_fee' => 'nullable|numeric|min:0',
+            'booking_date' => 'nullable|date',
+            'booking_time' => 'nullable|string',
+            'priest_option' => 'nullable|in:auto,preferred',
+            'preferred_priest_id' => 'nullable|exists:priests,priest_id',
+            'devotee_name' => 'nullable|string|max:255',
+            'devotee_mobile' => 'nullable|string|max:20',
+            'devotee_email' => 'nullable|email|max:255',
+            'participant_details' => 'nullable|string|max:2000',
         ]);
 
         $terminal = EftTerminal::resolveOrDefault($validated['terminal_id'] ?? null);
@@ -1004,15 +1027,39 @@ class DonationController extends Controller
         );
 
         if ($result['success']) {
-            $meta = $recordType === 'ticket_order'
-                ? [
+            if ($recordType === 'ticket_order') {
+                $meta = [
                     'record_type' => 'ticket_order',
                     'cart' => json_decode($validated['cart_json'] ?? '[]', true) ?: [],
                     'customer_name' => $validated['donor_name'] ?? null,
                     'email' => $validated['email'] ?? null,
                     'mobile' => $validated['mobile'] ?? null,
-                ]
-                : [
+                ];
+            } elseif ($recordType === 'pooja_booking') {
+                // Custom Pooja resolves to the permanent anchor catalog row here (not
+                // trusted from the client) — same server-side resolution
+                // BookingController::store() already does for the non-EFT path.
+                $isCustomBooking = (bool) ($validated['custom_pooja'] ?? false);
+                $poojaId = $isCustomBooking ? (int) Setting::get('custom_pooja_id') : ($validated['pooja_id'] ?? null);
+
+                $meta = [
+                    'record_type' => 'pooja_booking',
+                    'pooja_id' => $poojaId,
+                    'custom_pooja_label' => $isCustomBooking ? ($validated['custom_pooja_label'] ?? null) : null,
+                    'custom_fee' => $isCustomBooking ? ($validated['custom_fee'] ?? null) : null,
+                    'booking_date' => $validated['booking_date'] ?? null,
+                    'booking_time' => $validated['booking_time'] ?? null,
+                    'priest_option' => $validated['priest_option'] ?? 'auto',
+                    'preferred_priest_id' => $validated['preferred_priest_id'] ?? null,
+                    'devotee_name' => $validated['devotee_name'] ?? null,
+                    'devotee_mobile' => $validated['devotee_mobile'] ?? null,
+                    'devotee_email' => $validated['devotee_email'] ?? null,
+                    'participant_details' => $validated['participant_details'] ?? null,
+                    'created_by_role' => $activeRole,
+                    'created_by_user_id' => $user->id,
+                ];
+            } else {
+                $meta = [
                     'record_type' => 'donation',
                     'donor_name' => $validated['donor_name'] ?? null,
                     'email' => $validated['email'] ?? null,
@@ -1022,6 +1069,7 @@ class DonationController extends Controller
                     'is_anonymous' => (bool) ($validated['is_anonymous'] ?? false),
                     'edit_donation_id' => $validated['edit_donation_id'] ?? null,
                 ];
+            }
 
             LinklyTransaction::create([
                 'pos_txn_ref' => $txnRef,
@@ -1325,6 +1373,14 @@ class DonationController extends Controller
                 $this->linkLedgerToDonation($sessionId, 'ticket_order', $orderId);
             }
             return $orderId;
+        }
+
+        if (($meta['record_type'] ?? 'donation') === 'pooja_booking') {
+            $bookingId = app(\App\Http\Controllers\BookingController::class)->createBookingFromLedgerMeta($meta, $transactionRef);
+            if ($bookingId) {
+                $this->linkLedgerToDonation($sessionId, 'pooja_booking', $bookingId);
+            }
+            return $bookingId;
         }
 
         // Completing an existing Pending donation (reached via the Current Period

@@ -84,8 +84,11 @@ class CashSettlementPaneLiveRefreshTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.tickets.pos'));
 
         $response->assertOk();
-        $response->assertSee('settleTillModalBody', false);
-        $response->assertSee("show.bs.modal", false);
+        // The Ticket POS page moved Settle Till out of a modal into its own side-nav view
+        // (see TicketPosRedesignTest) — the live-refresh script now fires on that nav
+        // item's click instead of a show.bs.modal event.
+        $response->assertSee('posTillPaneBody', false);
+        $response->assertSee('refreshPosTillPane', false);
     }
 
     public function test_the_tickets_pane_endpoint_works_too(): void

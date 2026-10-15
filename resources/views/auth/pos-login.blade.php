@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    // Same reasoning as auth/login.blade.php's identical script — a session that expires
+    // while something's embedded in an iframe (EFT Terminal Settings, the order-view
+    // receipt) must not render this login page nested inside that small iframe.
+    if (window.top !== window.self) {
+      window.top.location.href = window.location.href;
+    }
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
   <title>{{ $temple['name'] }} · {{ $posDestinationLabel ?? 'Counter Sign In' }}</title>

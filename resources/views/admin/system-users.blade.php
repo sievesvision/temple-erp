@@ -27,9 +27,46 @@
         font-size: 0.95rem;
         margin-top: 4px;
     }
+
+    {{-- Filter bar — same grouped-box / neutral-grey-selection language as the Donations
+         "All Transactions" pane, so the two biggest admin tables in the app read as one
+         family rather than each inventing its own filter idiom. --}}
+    .su-filter-bar {
+        background: white;
+        border-radius: 16px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(184, 134, 58, 0.06);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.02);
+    }
+    .su-filter-groups { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .su-filter-group { display: flex; flex-direction: column; gap: 7px; background: #f8f9fa; border: 1px solid #edf0f2; border-radius: 10px; padding: 10px 14px; }
+    .su-filter-group-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #7b6b5a; }
+    .su-filter-pills { display: flex; gap: 6px; }
+    .su-pill {
+        display: inline-flex; align-items: center; gap: 6px; background: white; border: 1px solid #ced4da;
+        color: #5a4e3e; font-weight: 600; padding: 6px 13px; min-height: 32px; border-radius: 7px;
+        font-size: 0.79rem; cursor: pointer; text-decoration: none; transition: background 0.12s, border-color 0.12s, color 0.12s;
+    }
+    .su-pill:hover { border-color: #adb5bd; color: #2d1f0e; }
+    .su-pill.active { background: #dee2e6; border-color: #ced4da; color: #1e1e2a; font-weight: 700; }
+    .su-select, .su-search-input {
+        border: 1px solid #ced4da; border-radius: 7px; padding: 6px 12px; font-size: 0.82rem;
+        min-height: 32px; min-width: 160px; background: white;
+    }
+    .su-filter-group-search { flex: 1 1 220px; }
+    .su-filter-group-search .su-search-input { width: 100%; min-width: 0; }
+    .su-filter-actions { display: flex; align-items: center; gap: 10px; }
+    .su-btn-apply {
+        background: linear-gradient(135deg, #b8863a, #d4a05a); color: white; border: none;
+        padding: 7px 20px; border-radius: 7px; font-weight: 700; font-size: 0.82rem; min-height: 32px;
+    }
+    .su-btn-clear { color: #7b6b5a; font-weight: 600; font-size: 0.8rem; text-decoration: none; }
+    .su-btn-clear:hover { color: #2d1f0e; text-decoration: underline; }
+
     .table-card {
         background: white;
-        border-radius: 24px;
+        border-radius: 16px;
         border: 1px solid rgba(184, 134, 58, 0.06);
         box-shadow: 0 8px 24px rgba(0,0,0,0.02);
         overflow: hidden;
@@ -41,7 +78,9 @@
         font-weight: 600;
         font-size: 1.05rem;
         color: #2d1f0e;
+        display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
     }
+    .table-card .card-header .count { font-weight: 500; font-size: 0.85rem; color: #7b6b5a; }
     .table-card .table thead th {
         font-weight: 600;
         color: #5a4e3e;
@@ -53,99 +92,57 @@
         background: #faf8f5;
     }
     .table-card .table tbody td {
-        padding: 14px 16px;
+        padding: 13px 16px;
         border-bottom: 1px solid #f5f0ea;
         color: #1e1e2a;
         font-weight: 500;
         vertical-align: middle;
     }
-    .table-card .table tbody tr:hover {
-        background: #faf8f5;
+    {{-- Clicking anywhere in the row opens the detail modal — same pattern as the Donations
+         table's .donations-row-clickable, so a dense people-list reads consistently with a
+         dense transactions list. A small View button stays at the end of the row for anyone
+         who'd rather not guess, same reasoning as that table's own .btn-view-donation. --}}
+    .su-row-clickable { cursor: pointer; }
+    .su-row-clickable:hover { background: #faf8f5; }
+    .su-name-cell strong { display: block; color: #1e1e2a; }
+    .su-name-cell .email { font-size: 0.78rem; color: #7b6b5a; }
+    .su-role-badge { font-size: 0.75rem; }
+    .su-extra-role-badge { font-size: 0.65rem; margin-left: 4px; }
+    .su-status-badge { font-size: 0.72rem; font-weight: 700; padding: 4px 11px; border-radius: 20px; }
+    .su-status-badge.active { background: rgba(34,197,94,0.12); color: #16803d; }
+    .su-status-badge.inactive { background: rgba(148,163,184,0.18); color: #64748b; }
+    .su-2fa-flag { color: #b8863a; font-size: 0.85rem; margin-left: 6px; }
+    .su-btn-view {
+        background: rgba(184, 134, 58, 0.1); color: #b8863a; border: none; padding: 6px 14px;
+        border-radius: 40px; font-weight: 600; font-size: 0.75rem; display: inline-flex;
+        align-items: center; gap: 4px;
     }
-    .btn-action-reset {
-        background: rgba(139, 92, 246, 0.1);
-        color: #8b5cf6;
-        border: none;
-        padding: 6px 14px;
-        border-radius: 40px;
-        font-weight: 600;
-        font-size: 0.75rem;
-        transition: 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
+    .su-btn-view:hover { background: #b8863a; color: white; }
+
+    {{-- Detail modal — every secondary field (POS username, password history, 2FA, Event &
+         Ticket Access entry point) lives here instead of in the table, same "simplify the
+         table, read everything on click" move already made on the Donations table. --}}
+    .su-detail-section { margin-bottom: 18px; }
+    .su-detail-section:last-child { margin-bottom: 0; }
+    .su-detail-section-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #b8863a; margin-bottom: 8px; }
+    .su-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; background: #faf8f5; border: 1px solid #f0ece6; border-radius: 10px; padding: 12px 16px; }
+    .su-ddl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; color: #7b6b5a; margin-bottom: 2px; }
+    .su-ddv { font-weight: 600; color: #1e1e2a; }
+    .su-actions-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .su-btn-action {
+        background: rgba(184, 134, 58, 0.1); color: #b8863a; border: none; padding: 7px 15px;
+        border-radius: 40px; font-weight: 600; font-size: 0.78rem; display: inline-flex;
+        align-items: center; gap: 5px; text-decoration: none;
     }
-    .btn-action-reset:hover {
-        background: #8b5cf6;
-        color: white;
-    }
-    .btn-action-2fa {
-        background: rgba(184, 134, 58, 0.1);
-        color: #b8863a;
-        border: none;
-        padding: 6px 14px;
-        border-radius: 40px;
-        font-weight: 600;
-        font-size: 0.75rem;
-        transition: 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .btn-action-2fa:hover {
-        background: #b8863a;
-        color: white;
-    }
-    .btn-action-unlock {
-        background: rgba(220, 38, 38, 0.1);
-        color: #dc2626;
-        border: none;
-        padding: 6px 14px;
-        border-radius: 40px;
-        font-weight: 600;
-        font-size: 0.75rem;
-        transition: 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .btn-action-unlock:hover {
-        background: #dc2626;
-        color: white;
-    }
-    .username-form {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .username-form input {
-        width: 84px;
-        font-size: 0.8rem;
-        padding: 4px 8px;
-        border-radius: 20px;
-        border: 1px solid #e5decf;
-    }
-    .username-form button {
-        background: rgba(139, 92, 246, 0.1);
-        color: #8b5cf6;
-        border: none;
-        border-radius: 20px;
-        padding: 4px 10px;
-        font-size: 0.72rem;
-        font-weight: 600;
-    }
-    .username-form button:hover {
-        background: #8b5cf6;
-        color: white;
-    }
-    .filter-bar {
-        background: white;
-        border-radius: 20px;
-        padding: 16px 20px;
-        margin-bottom: 20px;
-        border: 1px solid rgba(184, 134, 58, 0.06);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.02);
-    }
+    .su-btn-action:hover { background: #b8863a; color: white; }
+    .su-btn-action.danger { background: rgba(220, 38, 38, 0.1); color: #dc2626; }
+    .su-btn-action.danger:hover { background: #dc2626; color: white; }
+    .su-btn-action.purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+    .su-btn-action.purple:hover { background: #8b5cf6; color: white; }
+    .su-username-form { display: flex; align-items: center; gap: 6px; }
+    .su-username-form input { width: 100px; font-size: 0.82rem; padding: 5px 10px; border-radius: 20px; border: 1px solid #e5decf; }
+    .su-username-form button { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: none; border-radius: 20px; padding: 5px 12px; font-size: 0.76rem; font-weight: 600; }
+    .su-username-form button:hover { background: #8b5cf6; color: white; }
 </style>
 @endsection
 
@@ -193,125 +190,85 @@
     </div>
 @endif
 
-<div class="filter-bar">
-    <form method="GET" action="{{ route('admin.users.index') }}" class="row g-2 align-items-center">
-        <div class="col-md-3">
-            <select name="role" class="form-select rounded-3" onchange="this.form.submit()">
-                <option value="">All Roles</option>
-                @foreach($roles as $r)
-                    <option value="{{ $r }}" {{ $roleFilter === $r ? 'selected' : '' }}>{{ $r }}</option>
-                @endforeach
-            </select>
+<div class="su-filter-bar">
+    <form method="GET" action="{{ route('admin.users.index') }}" class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+        <div class="su-filter-groups flex-grow-1">
+            <div class="su-filter-group">
+                <span class="su-filter-group-label">Status</span>
+                <div class="su-filter-pills">
+                    <a href="{{ request()->fullUrlWithQuery(['status' => 'Active']) }}" class="su-pill {{ $statusFilter === 'Active' ? 'active' : '' }}">Active</a>
+                    <a href="{{ request()->fullUrlWithQuery(['status' => 'Inactive']) }}" class="su-pill {{ $statusFilter === 'Inactive' ? 'active' : '' }}">Inactive</a>
+                    <a href="{{ request()->fullUrlWithQuery(['status' => 'all']) }}" class="su-pill {{ $statusFilter === 'all' ? 'active' : '' }}">All</a>
+                </div>
+            </div>
+            <div class="su-filter-group">
+                <span class="su-filter-group-label">Role</span>
+                <select name="role" class="form-select su-select" onchange="this.form.submit()">
+                    <option value="">All Roles</option>
+                    @foreach($roles as $r)
+                        <option value="{{ $r }}" {{ $roleFilter === $r ? 'selected' : '' }}>{{ $r }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="su-filter-group su-filter-group-search">
+                <span class="su-filter-group-label">Search</span>
+                <input type="text" name="search" class="form-control su-search-input" placeholder="Search by name or email..." value="{{ $search }}">
+            </div>
         </div>
-        <div class="col-md-5">
-            <input type="text" name="search" class="form-control rounded-3" placeholder="Search by name or email..." value="{{ $search }}">
+        <input type="hidden" name="status" value="{{ $statusFilter }}">
+        <div class="su-filter-actions">
+            <button type="submit" class="su-btn-apply">Filter</button>
+            @if($roleFilter || $search || $statusFilter !== 'Active')
+            <a href="{{ route('admin.users.index') }}" class="su-btn-clear">Clear</a>
+            @endif
         </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-warning text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #b8863a, #d4a05a); border:none;">Filter</button>
-        </div>
-        @if($roleFilter || $search)
-        <div class="col-md-2">
-            <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary rounded-pill px-4">Clear</a>
-        </div>
-        @endif
     </form>
 </div>
 
 <div class="table-card">
     <div class="card-header">
         <span>All System Users</span>
+        <span class="count">{{ $users->total() }} {{ Str::plural('user', $users->total()) }}</span>
     </div>
     <div class="table-responsive">
-        <table class="table align-middle">
+        <table class="table align-middle mb-0">
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th>Email</th>
-                    <th>POS Username</th>
                     <th>Role</th>
                     <th>Status</th>
                     <th>Last Login</th>
-                    <th>Last Password Change</th>
-                    <th>2FA</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($users as $u)
-                <tr>
-                    <td><strong>{{ $u->name }}</strong></td>
-                    <td>{{ $u->email }}</td>
-                    <td>
-                        <form action="{{ route('admin.users.set-username', $u->id) }}" method="POST" class="username-form">
-                            @csrf
-                            <input type="text" name="username" value="{{ $u->username }}" maxlength="10" placeholder="none" title="6-10 characters, letters/numbers only">
-                            <button type="submit">Save</button>
-                        </form>
-                        @if($u->pos_pin_locked_at)
-                            <form action="{{ route('admin.pos-pin.reset-lockout', $u->id) }}" method="POST" class="d-inline mt-1">
-                                @csrf
-                                <button type="submit" class="btn-action-unlock">
-                                    <i class="bi bi-shield-lock-fill"></i> Unlock PIN
-                                </button>
-                            </form>
-                        @endif
+                @php($modalId = 'userDetail' . $u->id)
+                <tr class="su-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $modalId }}">
+                    <td class="su-name-cell">
+                        <strong>{{ $u->name }}</strong>
+                        <span class="email">{{ $u->email }}</span>
                     </td>
                     <td>
-                        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ $u->role }}</span>
+                        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill su-role-badge">{{ $u->role }}</span>
                         @foreach(array_diff($u->grantedRoles(), [$u->role, 'Devotee']) as $extraRole)
-                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-1 rounded-pill" style="font-size:0.7rem;">+ {{ $extraRole }}</span>
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning px-2 py-1 rounded-pill su-extra-role-badge">+ {{ $extraRole }}</span>
                         @endforeach
                     </td>
                     <td>
-                        <form action="{{ route('admin.users.toggle-status', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $u->status === 'Active' ? 'Deactivate' : 'Activate' }} {{ $u->email }}? {{ $u->status === 'Active' ? 'They will no longer be able to log in.' : '' }}')">
-                            @csrf
-                            <button type="submit" class="badge border-0 {{ $u->status === 'Active' ? 'bg-success' : 'bg-secondary' }}" style="cursor:pointer;">
-                                {{ $u->status === 'Active' ? 'Active' : 'Inactive' }}
-                            </button>
-                        </form>
-                    </td>
-                    <td>{{ $u->last_login_at ? $u->last_login_at->format('d M Y, h:i A') : 'Never' }}</td>
-                    <td>{{ $u->password_changed_at ? $u->password_changed_at->format('d M Y, h:i A') : 'Never' }}</td>
-                    <td>
+                        <span class="su-status-badge {{ $u->status === 'Active' ? 'active' : 'inactive' }}">{{ $u->status }}</span>
                         @if($u->two_factor_enabled)
-                            <span class="badge bg-success">Enabled</span>
-                        @else
-                            <span class="badge bg-secondary">Disabled</span>
+                            <i class="bi bi-shield-lock-fill su-2fa-flag" title="Two-factor authentication enabled"></i>
                         @endif
                     </td>
+                    <td>{{ $u->last_login_at ? $u->last_login_at->format('d M Y, h:i A') : 'Never' }}</td>
                     <td class="text-end">
-                        <button type="button" class="btn-action-reset" onclick="openEditModal({{ $u->id }}, {{ json_encode($u->name) }}, {{ json_encode($u->email) }}, {{ json_encode($u->mobile) }}, {{ json_encode($u->status) }})">
-                            <i class="bi bi-pencil-fill"></i> Edit
-                        </button>
-                        <button type="button" class="btn-action-reset" onclick="openAccessModal({{ $u->id }}, {{ json_encode($u->name) }})">
-                            <i class="bi bi-calendar-check"></i> Event &amp; Ticket Access
-                        </button>
-                        <a href="{{ route('admin.logs.index', ['search' => $u->name]) }}" class="btn-action-reset">
-                            <i class="bi bi-clock-history"></i> View Activity
-                        </a>
-                        <form action="{{ route('admin.users.send-reset-link', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Send a password reset link to {{ $u->email }}?')">
-                            @csrf
-                            <button type="submit" class="btn-action-reset">
-                                <i class="bi bi-envelope-arrow-up"></i> Send Reset Link
-                            </button>
-                        </form>
-                        <form action="{{ route('admin.pos-pin.send-setup-link', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Send a POS PIN setup link to {{ $u->email }}?')">
-                            @csrf
-                            <button type="submit" class="btn-action-reset">
-                                <i class="bi bi-grid-3x3-gap-fill"></i> Send PIN Link
-                            </button>
-                        </form>
-                        <form action="{{ route('admin.users.toggle-2fa', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $u->two_factor_enabled ? 'Disable' : 'Enable' }} two-factor authentication for {{ $u->email }}?')">
-                            @csrf
-                            <button type="submit" class="btn-action-2fa">
-                                <i class="bi bi-shield-lock"></i> {{ $u->two_factor_enabled ? 'Disable 2FA' : 'Enable 2FA' }}
-                            </button>
-                        </form>
+                        <button type="button" class="su-btn-view"><i class="bi bi-eye"></i> View</button>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="text-center text-muted py-5">
+                    <td colspan="5" class="text-center text-muted py-5">
                         <i class="bi bi-person-vcard fs-1 d-block mb-2 text-warning"></i>
                         No users found.
                     </td>
@@ -326,6 +283,107 @@
     </div>
     @endif
 </div>
+
+{{-- One detail modal per row — everything that used to be its own table column or a
+     cramped row of action pills now lives here: POS username, lockout, password/2FA
+     history, and the full action set, same move already made for donation detail
+     modals on the All Transactions pane. --}}
+@foreach($users as $u)
+@php($modalId = 'userDetail' . $u->id)
+<div class="modal fade" id="{{ $modalId }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark">
+                    <i class="bi bi-person-vcard text-warning me-2"></i>{{ $u->name }}
+                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill su-role-badge ms-2">{{ $u->role }}</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-3">
+                <div class="su-detail-section">
+                    <div class="su-detail-section-title">Contact</div>
+                    <div class="su-detail-grid">
+                        <div><div class="su-ddl">Email</div><div class="su-ddv">{{ $u->email }}</div></div>
+                        <div><div class="su-ddl">Mobile</div><div class="su-ddv">{{ $u->mobile ?: '—' }}</div></div>
+                    </div>
+                </div>
+
+                <div class="su-detail-section">
+                    <div class="su-detail-section-title">Account</div>
+                    <div class="su-detail-grid">
+                        <div>
+                            <div class="su-ddl">Status</div>
+                            <form action="{{ route('admin.users.toggle-status', $u->id) }}" method="POST" onsubmit="return confirm('{{ $u->status === 'Active' ? 'Deactivate' : 'Activate' }} {{ $u->email }}? {{ $u->status === 'Active' ? 'They will no longer be able to log in.' : '' }}')">
+                                @csrf
+                                <button type="submit" class="badge border-0 {{ $u->status === 'Active' ? 'bg-success' : 'bg-secondary' }}" style="cursor:pointer;">{{ $u->status }} &middot; tap to change</button>
+                            </form>
+                        </div>
+                        <div>
+                            <div class="su-ddl">Two-Factor Authentication</div>
+                            <form action="{{ route('admin.users.toggle-2fa', $u->id) }}" method="POST" onsubmit="return confirm('{{ $u->two_factor_enabled ? 'Disable' : 'Enable' }} two-factor authentication for {{ $u->email }}?')">
+                                @csrf
+                                <button type="submit" class="badge border-0 {{ $u->two_factor_enabled ? 'bg-success' : 'bg-secondary' }}" style="cursor:pointer;">{{ $u->two_factor_enabled ? 'Enabled' : 'Disabled' }} &middot; tap to change</button>
+                            </form>
+                        </div>
+                        <div><div class="su-ddl">Last Login</div><div class="su-ddv">{{ $u->last_login_at ? $u->last_login_at->format('d M Y, h:i A') : 'Never' }}</div></div>
+                        <div><div class="su-ddl">Last Password Change</div><div class="su-ddv">{{ $u->password_changed_at ? $u->password_changed_at->format('d M Y, h:i A') : 'Never' }}</div></div>
+                    </div>
+                </div>
+
+                <div class="su-detail-section">
+                    <div class="su-detail-section-title">POS Username</div>
+                    <form action="{{ route('admin.users.set-username', $u->id) }}" method="POST" class="su-username-form">
+                        @csrf
+                        <input type="text" name="username" value="{{ $u->username }}" maxlength="10" placeholder="none" title="6-10 characters, letters/numbers only">
+                        <button type="submit">Save</button>
+                        @if($u->pos_pin_locked_at)
+                        <span class="text-muted small">&middot;</span>
+                        @endif
+                    </form>
+                    @if($u->pos_pin_locked_at)
+                    <form action="{{ route('admin.pos-pin.reset-lockout', $u->id) }}" method="POST" class="mt-2">
+                        @csrf
+                        <button type="submit" class="su-btn-action danger"><i class="bi bi-shield-lock-fill"></i> Unlock PIN</button>
+                    </form>
+                    @endif
+                </div>
+
+                <div class="su-detail-section">
+                    <div class="su-detail-section-title">Actions</div>
+                    <div class="su-actions-row">
+                        <button type="button" class="su-btn-action" onclick="openEditModal({{ $u->id }}, {{ json_encode($u->name) }}, {{ json_encode($u->email) }}, {{ json_encode($u->mobile) }}, {{ json_encode($u->status) }})">
+                            <i class="bi bi-pencil-fill"></i> Edit Details
+                        </button>
+                        <button type="button" class="su-btn-action" onclick="openAccessModal({{ $u->id }}, {{ json_encode($u->name) }})">
+                            <i class="bi bi-calendar-check"></i> Event &amp; Ticket Access
+                        </button>
+                        @if($canManageAll)
+                        {{-- admin.logs.index stays Admin-only (the full system-wide audit
+                             log, not scoped to this one user) — hidden rather than left as
+                             a dead-end click for a restricted Committee viewer. --}}
+                        <a href="{{ route('admin.logs.index', ['search' => $u->name]) }}" class="su-btn-action">
+                            <i class="bi bi-clock-history"></i> View Activity
+                        </a>
+                        @endif
+                        <form action="{{ route('admin.users.send-reset-link', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Send a password reset link to {{ $u->email }}?')">
+                            @csrf
+                            <button type="submit" class="su-btn-action purple"><i class="bi bi-envelope-arrow-up"></i> Send Reset Link</button>
+                        </form>
+                        <form action="{{ route('admin.pos-pin.send-setup-link', $u->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Send a POS PIN setup link to {{ $u->email }}?')">
+                            @csrf
+                            <button type="submit" class="su-btn-action purple"><i class="bi bi-grid-3x3-gap-fill"></i> Send PIN Link</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endforeach
 
 {{-- Create User — one centralized path alongside the existing per-role Add pages (see
      SystemUserController::store()'s own docblock). Event Coordinator/Ticket Controller

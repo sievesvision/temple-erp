@@ -45,6 +45,7 @@ class RolePermission extends Model
             'donations' => 'Donations',
             'tickets' => 'Tickets',
             'bookings' => 'Pooja Bookings',
+            'poojas' => 'Pooja Catalog',
             'inventory' => 'Inventory',
             'leaves' => 'Leave Requests',
             'settings' => 'System Settings',

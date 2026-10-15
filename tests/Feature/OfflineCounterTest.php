@@ -97,6 +97,7 @@ class OfflineCounterTest extends TestCase
 
         $mobile = '9876543210';
         $devoteeName = 'Offline Test Devotee';
+        $email = 'offline.test.devotee.' . uniqid() . '@example.com';
         $bookingDate = date('Y-m-d', strtotime('+1 day'));
         $bookingTime = '10:00:00';
 
@@ -105,6 +106,7 @@ class OfflineCounterTest extends TestCase
             'pooja_id' => $pooja->pooja_id,
             'devotee_name' => $devoteeName,
             'mobile' => $mobile,
+            'email' => $email,
             'booking_date' => $bookingDate,
             'booking_time' => $bookingTime,
         ]);
@@ -121,10 +123,12 @@ class OfflineCounterTest extends TestCase
         $this->assertEquals($mobile, $data['mobile']);
         $this->assertEquals($pooja->pooja_name, $data['pooja_name']);
 
-        // Check user creation
+        // Check user creation — findOrCreateDevotee() gives walk-ins a real account under
+        // the email they were asked for, not the old offline_{mobile}_{uniqid}@... fake one.
         $createdUser = User::where('mobile', $mobile)->first();
         $this->assertNotNull($createdUser);
         $this->assertEquals('Devotee', $createdUser->role);
+        $this->assertEquals($email, $createdUser->email);
 
         // Check database records
         $bookingId = $data['booking_id'];

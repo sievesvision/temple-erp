@@ -97,7 +97,10 @@ class SystemUserManagementTest extends TestCase
 
     public function test_a_non_admin_cannot_create_users(): void
     {
-        $nonAdmin = User::factory()->create(['role' => 'Committee', 'mobile' => fake()->unique()->numerify('04########')]);
+        // Committee is deliberately NOT used here — it now has its own restricted access
+        // to this page (see SystemUsersRoleHierarchyTest). Staff has none at all, blocked
+        // by the route group's own role:Admin,Committee gate before the controller runs.
+        $nonAdmin = User::factory()->create(['role' => 'Staff', 'mobile' => fake()->unique()->numerify('04########')]);
 
         $this->actingAs($nonAdmin)->post(route('admin.users.store'), [
             'name' => 'X', 'email' => 'x2@example.com', 'mobile' => '0499999006', 'role' => 'Staff',
@@ -145,7 +148,9 @@ class SystemUserManagementTest extends TestCase
 
     public function test_a_non_admin_cannot_edit_or_toggle_status(): void
     {
-        $nonAdmin = User::factory()->create(['role' => 'Committee', 'mobile' => fake()->unique()->numerify('04########')]);
+        // Committee is deliberately NOT used here — see test_a_non_admin_cannot_create_users's
+        // own comment on why.
+        $nonAdmin = User::factory()->create(['role' => 'Staff', 'mobile' => fake()->unique()->numerify('04########')]);
         $target = User::factory()->create(['name' => 'Untouched', 'mobile' => fake()->unique()->numerify('04########')]);
 
         $this->actingAs($nonAdmin)->post(route('admin.users.update', $target->id), [
@@ -178,12 +183,14 @@ class SystemUserManagementTest extends TestCase
 
     public function test_a_non_admin_cannot_read_event_access(): void
     {
-        $nonAdmin = User::factory()->create(['role' => 'Committee', 'mobile' => fake()->unique()->numerify('04########')]);
+        // Committee is deliberately NOT used here — see test_a_non_admin_cannot_create_users's
+        // own comment on why.
+        $nonAdmin = User::factory()->create(['role' => 'Staff', 'mobile' => fake()->unique()->numerify('04########')]);
         $target = User::factory()->create(['mobile' => fake()->unique()->numerify('04########')]);
 
-        // Blocked by the route group's own role.admin middleware before the controller's
-        // internal check ever runs — a redirect, not a raw 403, same as every other
-        // admin.users.* route in this file.
+        // Blocked by the route group's own role:Admin,Committee middleware before the
+        // controller's internal check ever runs — a redirect, not a raw 403, same as every
+        // other admin.users.* route in this file.
         $this->actingAs($nonAdmin)->get(route('admin.users.event-access', $target->id))->assertRedirect();
     }
 
