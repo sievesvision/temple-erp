@@ -139,12 +139,19 @@ Route::middleware(['auth'])->group(function () {
         $activeRole = session('active_role', $currentUser->role ?? null);
         $tab = request()->get('tab');
 
+        // Every other role-gated section of the app (RoleMiddleware, role.* middleware)
+        // sends a wrong-role visitor somewhere useful instead of a dead-end 403 — this bare
+        // closure was the one inconsistent exception, which is exactly what made it look
+        // "broken" (rather than just role-gated) to someone who'd bookmarked /admin or
+        // /admin/dashboard: nothing on the resulting page offers a way back in. A plain
+        // login redirect is the simplest "somewhere useful" here, since re-authenticating
+        // re-resolves the account's actual destination from scratch.
         if (in_array($tab, ['chats', 'prev_chats'], true)) {
             if (!\App\Models\RolePermission::can($activeRole, 'chats', 'view')) {
-                abort(403, 'Unauthorized access.');
+                return redirect()->route('login')->with('error', 'Please sign in again to continue.');
             }
         } elseif ($activeRole !== 'Admin') {
-            abort(403, 'Unauthorized access.');
+            return redirect()->route('login')->with('error', 'Please sign in again to continue.');
         }
 
         $devoteesCount = \Illuminate\Support\Facades\DB::table('devotees')->count();

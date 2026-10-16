@@ -26,4 +26,20 @@ class AdminRootRedirectTest extends TestCase
 
         $response->assertRedirect(route('login'));
     }
+
+    /**
+     * An authenticated account whose active_role isn't Admin (e.g. a stale session that
+     * got re-initialised to the account's base role — see RoleSwitchMiddleware) used to
+     * hit a bare abort(403) here, a dead end with no way back in — unlike every other
+     * role-gated section of the app, which sends a wrong-role visitor somewhere useful.
+     * It should redirect to login instead, matching that established pattern.
+     */
+    public function test_a_logged_in_user_with_the_wrong_active_role_is_redirected_to_login_not_403(): void
+    {
+        $user = User::factory()->create(['role' => 'Staff', 'mobile' => fake()->unique()->numerify('04########')]);
+
+        $response = $this->actingAs($user)->get(route('admin.dashboard'));
+
+        $response->assertRedirect(route('login'));
+    }
 }
