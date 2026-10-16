@@ -11,11 +11,13 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * A deliberately minimal, counter-style "point of sale" donation entry screen — one event,
- * one job: take the next donation as fast as possible. Guest donations only (no devotee
- * lookup — every entry taken here is a walk-up donor). No dashboard, no donations table, no
- * settings; the only history shown is what this browser session itself has recorded, via
- * sessionStorage on the client (nothing server-rendered to keep the page itself as light and
- * fast as the workflow it supports).
+ * one job: take the next donation as fast as possible. Every entry taken here is still a
+ * walk-up guest donation (no login, no linked devotee record) — searchDevotee() below only
+ * prefills the form from a past record's own name/email/mobile, it never looks up or writes
+ * to an actual account. No dashboard, no donations table, no settings; the only history
+ * shown is what this browser session itself has recorded, via sessionStorage on the client
+ * (nothing server-rendered to keep the page itself as light and fast as the workflow it
+ * supports).
  *
  * Reachable by Admin, by any role RolePermission grants 'donations' add to (Committee/
  * Accountant), or by an Event Coordinator at entry/admin/pos level for this specific event —
@@ -26,6 +28,21 @@ use Illuminate\Support\Facades\DB;
  */
 class PosDonationController extends Controller
 {
+    /**
+     * Same bar as the POS page itself — shared so the search endpoint can never end up
+     * reachable by someone who couldn't open the page it's embedded in.
+     */
+    private function canUsePos(\App\Models\User $user, ?string $activeRole, $eventId): bool
+    {
+        $coordinatorLevel = $activeRole === 'Event Coordinator'
+            ? EventCoordinatorLevel::of((int) $eventId, $user->id)
+            : null;
+
+        return $activeRole === 'Admin'
+            || RolePermission::can($activeRole, 'donations', 'add')
+            || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
+    }
+
     public function show(\Illuminate\Http\Request $request, $eventId)
     {
         $user = Auth::user();
@@ -35,11 +52,7 @@ class PosDonationController extends Controller
             ? EventCoordinatorLevel::of((int) $eventId, $user->id)
             : null;
 
-        $canUsePos = $activeRole === 'Admin'
-            || RolePermission::can($activeRole, 'donations', 'add')
-            || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
-
-        if (!$canUsePos) {
+        if (!$this->canUsePos($user, $activeRole, $eventId)) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -200,5 +213,119 @@ class PosDonationController extends Controller
             'canManagePosPin',
             'eftMinimumAmount'
         ));
+    }
+
+    /**
+     * "Find Existing Devotee" — prefills the Donor Details form from either a real
+     * registered devotee (users+devotees) or a past non-anonymous guest donation that
+     * carried a real name and email (the minimum this feature treats as "identifiable" —
+     * anonymous donations and the "well wisher" placeholder the anonymous-no-details flow
+     * writes are excluded entirely, never shown here).
+     *
+     * Deliberately read-only and purely client-side afterwards: selecting a result just
+     * copies its name/email/mobile into the current form fields (see the Blade view's own
+     * JS). It never links this donation to the matched record or touches it in any way, so
+     * an older transaction's own donor_name/email/mobile is never altered by a later
+     * donation reusing a similar-looking name.
+     */
+    public function searchDevotee(\Illuminate\Http\Request $request, $eventId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+
+        if (!$this->canUsePos($user, $activeRole, $eventId)) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $q = trim((string) $request->query('q', ''));
+        if (mb_strlen($q) < 2) {
+            return response()->json(['success' => true, 'results' => []]);
+        }
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+
+        $devotees = DB::table('devotees')
+            ->join('users', 'devotees.user_id', '=', 'users.id')
+            ->whereNotNull('users.email')
+            ->where(function ($w) use ($like) {
+                $w->where('users.name', 'like', $like)
+                    ->orWhere('users.email', 'like', $like)
+                    ->orWhere('users.mobile', 'like', $like);
+            })
+            ->orderBy('users.name')
+            ->limit(10)
+            ->get(['devotees.devotee_id', 'users.name', 'users.email', 'users.mobile'])
+            ->map(fn ($d) => (object) [
+                'ref' => 'devotee-' . $d->devotee_id,
+                'name' => $d->name,
+                'email' => $d->email,
+                'mobile' => $d->mobile,
+            ]);
+
+        $guests = DB::table('donations_without_logins')
+            ->where('is_anonymous', false)
+            ->whereNotNull('donor_name')
+            ->whereNotNull('email')
+            ->where('donor_name', '!=', 'The well wisher')
+            ->where('email', '!=', 'admin@hasq.org')
+            ->where(function ($w) use ($like) {
+                $w->where('donor_name', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('mobile', 'like', $like);
+            })
+            ->selectRaw('MAX(id) as id, donor_name, email, mobile')
+            ->groupBy('donor_name', 'email', 'mobile')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get()
+            ->map(fn ($g) => (object) [
+                'ref' => 'guest-' . $g->id,
+                'name' => $g->donor_name,
+                'email' => $g->email,
+                'mobile' => $g->mobile,
+            ]);
+
+        // Registered devotees win a dedupe tie (more authoritative than a one-off guest
+        // entry) when the same email shows up on both sides.
+        $results = $devotees->concat($guests)
+            ->unique(fn ($r) => strtolower($r->email))
+            ->take(10)
+            ->values()
+            ->map(fn ($r) => [
+                'ref' => $r->ref,
+                'name' => $r->name,
+                'email' => $r->email,
+                'mobile' => $r->mobile,
+                'masked_email' => $this->maskEmail($r->email),
+                'masked_mobile' => $r->mobile ? $this->maskMobile($r->mobile) : null,
+                'has_mobile' => (bool) $r->mobile,
+            ]);
+
+        return response()->json(['success' => true, 'results' => $results]);
+    }
+
+    /**
+     * "sa****@example.com" — enough to recognise your own search match, not enough to read
+     * over someone's shoulder at a counter.
+     */
+    private function maskEmail(string $email): string
+    {
+        $parts = explode('@', $email, 2);
+        $local = $parts[0];
+        $domain = $parts[1] ?? '';
+        $visible = mb_substr($local, 0, 2);
+        $maskLength = max(2, mb_strlen($local) - mb_strlen($visible));
+
+        return $visible . str_repeat('•', $maskLength) . ($domain !== '' ? '@' . $domain : '');
+    }
+
+    /** "•••• ••678" — same idea as maskEmail(), last 3 digits only. */
+    private function maskMobile(string $mobile): string
+    {
+        $digits = preg_replace('/\D/', '', $mobile) ?? '';
+        if ($digits === '') {
+            return $mobile;
+        }
+
+        return '•••• ••' . mb_substr($digits, -3);
     }
 }

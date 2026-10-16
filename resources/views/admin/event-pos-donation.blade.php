@@ -398,6 +398,42 @@
         .pos-warning-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; }
         .pos-warning-ok-btn:active { filter: brightness(0.92); }
 
+        /* ---------- "Find Existing Devotee" — a lookup popup, same overlay shell as the
+           others above, sized for a scrollable list rather than a short message. ---------- */
+        .find-devotee-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .find-devotee-overlay.active { display: flex; }
+        .find-devotee-modal {
+            background: var(--white); border-radius: var(--radius-lg); width: 100%; max-width: 480px;
+            max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+        .find-devotee-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .find-devotee-header-title { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 1.05rem; color: var(--text-primary); }
+        .find-devotee-header-title i { color: var(--gold-hover); font-size: 1.05rem; }
+        .find-devotee-close-btn { background: none; border: none; font-size: 1.5rem; line-height: 1; color: var(--text-secondary); padding: 0 4px; }
+        .find-devotee-body { padding: 18px 20px 20px; overflow-y: auto; }
+        .find-devotee-search-input {
+            width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            padding: 12px 14px; font-size: 1rem; outline: none; color: var(--text-primary);
+        }
+        .find-devotee-search-input:focus { border-color: var(--gold); box-shadow: 0 0 0 4px rgba(201,149,46,0.15); }
+        .find-devotee-hint { font-size: 0.8rem; color: var(--text-secondary); margin-top: 7px; }
+        .find-devotee-results { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+        .find-devotee-result { display: flex; align-items: center; gap: 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; background: var(--shade); }
+        .find-devotee-result-icon {
+            width: 38px; height: 38px; border-radius: 50%; background: var(--white); border: 1.5px solid var(--border);
+            display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 1rem; flex-shrink: 0;
+        }
+        .find-devotee-result-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+        .find-devotee-result-name { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .find-devotee-result-meta { font-size: 0.78rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .find-devotee-select-btn {
+            flex-shrink: 0; border: 1.5px solid var(--border); background: var(--white); border-radius: 20px;
+            padding: 7px 17px; font-weight: 700; font-size: 0.82rem; color: var(--text-primary);
+        }
+        .find-devotee-select-btn:active { background: var(--cream); }
+        .find-devotee-empty, .find-devotee-loading { text-align: center; color: var(--text-secondary); font-size: 0.88rem; padding: 22px 0; }
+
         /* Cash/Bank Transfer confirmation — these two methods aren't verified on the spot by
            a terminal, so the clerk and donor both need a clear "it's recorded, a receipt is
            on its way" moment rather than a corner toast. Same popup shell as the warning
@@ -738,7 +774,7 @@
         <div class="pos-grid">
             <div class="pos-col-left">
                 <div class="pos-card">
-                    <div class="pos-card-title"><span class="pos-step-badge">1</span>Donor Details<button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear</button></div>
+                    <div class="pos-card-title"><span class="pos-step-badge">1</span>Donor Details<button type="button" class="pos-card-title-clear-btn" id="posFindDevoteeBtn" title="Find an existing devotee to prefill these details"><i class="bi bi-search"></i>Search</button><button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear</button></div>
                     <div class="pos-card-subtitle">Who this donation is being recorded for</div>
                     <div class="pos-row">
                         <div class="pos-field-box">
@@ -909,6 +945,25 @@
             <div class="pos-warning-body">
                 <div class="pos-warning-message" id="posWarningMessage"></div>
                 <button type="button" class="pos-warning-ok-btn" id="posWarningOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    {{-- "Find Existing Devotee" — a pure prefill lookup (see PosDonationController::
+         searchDevotee()'s own docblock). Selecting a result only copies its name/email/
+         mobile into the Donor Details fields below; it never links this donation to the
+         matched record, so an older transaction's own details are never touched by a later
+         donation reusing a similar-looking name. --}}
+    <div class="find-devotee-overlay" id="findDevoteeOverlay">
+        <div class="find-devotee-modal" role="dialog" aria-modal="true" aria-labelledby="findDevoteeTitle">
+            <div class="find-devotee-header">
+                <div class="find-devotee-header-title" id="findDevoteeTitle"><i class="bi bi-search"></i>Find Existing Devotee</div>
+                <button type="button" class="find-devotee-close-btn" id="findDevoteeCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="find-devotee-body">
+                <input type="text" class="find-devotee-search-input" id="findDevoteeInput" placeholder="Search by name, email or mobile" autocomplete="off">
+                <div class="find-devotee-hint" id="findDevoteeHint">Enter at least 2 characters to search.</div>
+                <div class="find-devotee-results" id="findDevoteeResults"></div>
             </div>
         </div>
     </div>
@@ -1741,6 +1796,109 @@
             resetPosForm();
             document.getElementById('posGuestName').focus();
         });
+
+        // "Find Existing Devotee" — a pure prefill lookup, nothing it finds ever gets
+        // linked to the donation this form eventually saves (see PosDonationController::
+        // searchDevotee()'s own docblock).
+        (function () {
+            const openBtn = document.getElementById('posFindDevoteeBtn');
+            const overlay = document.getElementById('findDevoteeOverlay');
+            const closeBtn = document.getElementById('findDevoteeCloseBtn');
+            const input = document.getElementById('findDevoteeInput');
+            const hint = document.getElementById('findDevoteeHint');
+            const resultsEl = document.getElementById('findDevoteeResults');
+            if (!openBtn || !overlay) { return; }
+
+            const SEARCH_URL = @json(route('admin.events.pos.search-devotee', $event->event_id));
+            let debounceTimer = null;
+            let activeRequest = null;
+            let latestResults = [];
+
+            function escapeHtml(value) {
+                const div = document.createElement('div');
+                div.textContent = value == null ? '' : String(value);
+                return div.innerHTML;
+            }
+
+            function openModal() {
+                overlay.classList.add('active');
+                input.value = '';
+                resultsEl.innerHTML = '';
+                hint.textContent = 'Enter at least 2 characters to search.';
+                hint.style.display = '';
+                setTimeout(function () { input.focus(); }, 50);
+            }
+            function closeModal() {
+                overlay.classList.remove('active');
+            }
+
+            openBtn.addEventListener('click', openModal);
+            closeBtn.addEventListener('click', closeModal);
+            overlay.addEventListener('click', function (e) { if (e.target === overlay) { closeModal(); } });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && overlay.classList.contains('active')) { closeModal(); }
+            });
+
+            function renderResults(results) {
+                latestResults = results;
+                if (!results.length) {
+                    resultsEl.innerHTML = '<div class="find-devotee-empty">No matching devotee found.</div>';
+                    return;
+                }
+                resultsEl.innerHTML = results.map(function (r, idx) {
+                    const mobileText = r.has_mobile ? ('Mobile: ' + escapeHtml(r.masked_mobile)) : 'No mobile recorded';
+                    return '<div class="find-devotee-result">'
+                        + '<span class="find-devotee-result-icon"><i class="bi bi-person-fill"></i></span>'
+                        + '<span class="find-devotee-result-info">'
+                        +     '<span class="find-devotee-result-name">' + escapeHtml(r.name) + '</span>'
+                        +     '<span class="find-devotee-result-meta">' + escapeHtml(r.masked_email) + '</span>'
+                        +     '<span class="find-devotee-result-meta">' + escapeHtml(mobileText) + '</span>'
+                        + '</span>'
+                        + '<button type="button" class="find-devotee-select-btn" data-idx="' + idx + '">Select</button>'
+                        + '</div>';
+                }).join('');
+
+                resultsEl.querySelectorAll('.find-devotee-select-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const r = latestResults[parseInt(btn.dataset.idx, 10)];
+                        if (!r) { return; }
+                        document.getElementById('posGuestName').value = r.name || '';
+                        document.getElementById('posGuestEmail').value = r.email || '';
+                        document.getElementById('posGuestMobile').value = r.mobile || '';
+                        updatePosSummary();
+                        closeModal();
+                    });
+                });
+            }
+
+            input.addEventListener('input', function () {
+                const q = input.value.trim();
+                clearTimeout(debounceTimer);
+                if (q.length < 2) {
+                    resultsEl.innerHTML = '';
+                    hint.textContent = 'Enter at least 2 characters to search.';
+                    hint.style.display = '';
+                    return;
+                }
+                hint.style.display = 'none';
+                debounceTimer = setTimeout(function () {
+                    if (activeRequest) { activeRequest.abort(); }
+                    const controller = new AbortController();
+                    activeRequest = controller;
+                    resultsEl.innerHTML = '<div class="find-devotee-loading">Searching…</div>';
+                    fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), {
+                        headers: { 'Accept': 'application/json' },
+                        signal: controller.signal,
+                    })
+                        .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
+                        .then(function (data) { renderResults(data.results || []); })
+                        .catch(function (err) {
+                            if (err && err.name === 'AbortError') { return; }
+                            resultsEl.innerHTML = '<div class="find-devotee-empty">Search failed — try again.</div>';
+                        });
+                }, 300);
+            });
+        })();
 
         // A plain wall clock in the footer — purely cosmetic, no server round-trip.
         function tickPosFooterClock() {
