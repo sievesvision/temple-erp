@@ -238,14 +238,6 @@
             background: var(--white); border: 1.5px solid var(--border); border-radius: 7px;
         }
         .pos-card-title-clear-btn:active { background: var(--cream); }
-        /* Stays visible even once the "Pending" word hides on a phone (below) — a bare
-           hourglass icon with no number isn't explicit about there being anything to act on,
-           which is the whole reason this moved out of a plain icon-only nav button. */
-        .pos-pending-count-badge {
-            display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
-            border-radius: 999px; background: #FEF2E8; color: var(--maroon); font-size: 0.7rem; font-weight: 800;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums;
-        }
         /* A phone's own card width is already tight with two buttons here — the icon alone
            (search glass / undo arrow) reads clearly enough on its own, so the label is the
            first thing to go rather than letting the row wrap or crowd the title text. */
@@ -448,6 +440,14 @@
             .find-devotee-modal { max-height: calc(100dvh - 40px); }
         }
         .find-devotee-modal.pending-transactions-modal { max-width: 960px; }
+        /* Anchored dropdown, not a centred modal takeover — opens right under the "Pending"
+           button (see positionPendingDropdown() in the JS below, which sets top/left/
+           max-height inline once the button's actual on-screen position is known) rather
+           than the dead centre of the screen, so it reads as "here's what that button
+           opened" instead of a disconnected popup. No dimmed backdrop either, for the same
+           reason — this is a lightweight dropdown, not an interrupting takeover. */
+        #pendingTransactionsOverlay { background: transparent; align-items: flex-start; justify-content: flex-start; padding: 0; }
+        #pendingTransactionsOverlay .find-devotee-modal { box-shadow: 0 16px 40px rgba(15,23,42,0.22); border: 1px solid var(--border); }
         .find-devotee-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .find-devotee-header-title { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 1.05rem; color: var(--text-primary); }
         .find-devotee-header-title i { color: var(--gold-hover); font-size: 1.05rem; }
@@ -841,7 +841,6 @@
                             @if($canEditCurrentTransactions)
                             <button type="button" class="pos-card-title-clear-btn" id="posPendingPaymentsBtn" title="Pending transactions awaiting completion">
                                 <i class="bi bi-hourglass-split"></i><span class="pos-card-title-btn-label">Pending</span>
-                                <span class="pos-pending-count-badge">{{ $pendingPayments->count() }}</span>
                             </button>
                             @endif
                             <button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i><span class="pos-card-title-btn-label">Clear</span></button>
@@ -1690,7 +1689,6 @@
                 activeEftProvider = null;
                 const a = attempt || sciLastAttempt;
                 showToast('Saved — ' + CURRENCY_CODE + ' ' + (a ? Number(a.amount).toFixed(2) : ''));
-                refreshPendingBadge();
                 resetPosForm();
                 document.getElementById('posGuestName').focus();
             },
@@ -1800,10 +1798,11 @@
         updatePosSummary();
 
         // Pending Transactions — fetched fresh from the server every time the popup opens,
-        // and again after every donation save (refreshPendingBadge(), called from the save
-        // handlers below) rather than rendered once and left stale — Save Donation is a
-        // plain fetch() with no page reload, so a list built once at page load would keep
-        // showing a transaction the operator just finished.
+        // never rendered once and left stale (Save Donation is a plain fetch() with no page
+        // reload, so a list built once at page load would keep showing a transaction the
+        // operator just finished). The button deliberately shows no count — keeping a
+        // number correct would mean refreshing it after every save/EFT-approval/etc, and a
+        // wrong number is worse than none; opening the popup is always accurate.
         const PENDING_PAYMENTS_URL = @json(route('admin.events.pos.pending-payments', $event->event_id));
         let pendingFetchController = null;
         let pendingDebounceTimer = null;
@@ -1844,37 +1843,52 @@
                 + '</tbody></table></div>';
         }
 
-        // Keeps the "Pending (N)" badge correct right after a save completes, without
-        // requiring the popup to be reopened.
-        function refreshPendingBadge() {
-            const badge = document.getElementById('posPendingCount');
-            if (!badge) { return; }
-            fetchPendingPayments('').then(function (results) {
-                if (results === null) { return; }
-                badge.textContent = results.length;
-            });
-        }
-
         (function () {
             const openBtn = document.getElementById('posPendingPaymentsBtn');
             const overlay = document.getElementById('pendingTransactionsOverlay');
             const closeBtn = document.getElementById('pendingTransactionsCloseBtn');
             const input = document.getElementById('pendingTransactionsInput');
             const resultsEl = document.getElementById('pendingTransactionsResults');
+            const modalEl = overlay ? overlay.querySelector('.find-devotee-modal') : null;
             if (!openBtn || !overlay) { return; }
+
+            // Anchors the dropdown to wherever the "Pending" button actually is on screen,
+            // right now — not the page's static layout — so it still lands correctly
+            // whether the button sits in its normal spot or has reflowed on a narrow phone.
+            // Clamped to the viewport on both axes: the table can be up to 960px wide, far
+            // wider than the button's own position would leave room for on the right, and
+            // its own max-height is capped to whatever space is actually left below it.
+            function positionDropdown() {
+                const margin = 12;
+                const rect = openBtn.getBoundingClientRect();
+                const maxWidth = Math.min(960, window.innerWidth - margin * 2);
+                modalEl.style.maxWidth = maxWidth + 'px';
+                let left = rect.left;
+                if (left + maxWidth > window.innerWidth - margin) {
+                    left = Math.max(margin, window.innerWidth - maxWidth - margin);
+                }
+                modalEl.style.left = left + 'px';
+                modalEl.style.top = (rect.bottom + 8) + 'px';
+                modalEl.style.maxHeight = Math.max(200, window.innerHeight - rect.bottom - 8 - margin) + 'px';
+            }
 
             function openModal() {
                 overlay.classList.add('active');
+                if (modalEl) {
+                    modalEl.style.position = 'fixed';
+                    positionDropdown();
+                }
                 input.value = '';
                 resultsEl.innerHTML = '<div class="find-devotee-loading">Loading…</div>';
                 fetchPendingPayments('').then(function (results) {
                     if (results === null) { return; }
                     renderPendingResults(results);
-                    const badge = document.getElementById('posPendingCount');
-                    if (badge) { badge.textContent = results.length; }
                 });
             }
             function closeModal() { overlay.classList.remove('active'); }
+            window.addEventListener('resize', function () {
+                if (overlay.classList.contains('active') && modalEl) { positionDropdown(); }
+            });
 
             openBtn.addEventListener('click', openModal);
             closeBtn.addEventListener('click', closeModal);
@@ -1997,7 +2011,6 @@
                             const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
                             showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
                         }
-                        refreshPendingBadge();
                         resetPosForm();
                         document.getElementById('posGuestName').focus();
                     } else {
