@@ -102,20 +102,6 @@
              than a plain icon font would need, since a photo this detailed reads as a blurry
              smudge at the ~17px an icon glyph normally renders at. --}}
         .pos-topbar-btn-icon-img { width: 28px; height: auto; display: block; }
-        {{-- Pending Payments lives in the topbar (always visible, never scrolled past),
-             not the Donation Summary card — that card sits in .pos-side, which on a phone
-             (<900px, .pos-grid collapses to one column) renders AFTER the entire Donor
-             Details/Amount/Payment Method form, so a button there was invisible without
-             scrolling past the whole page first. A counter operator needs to spot a
-             pending payment the instant they look up, from any screen size. --}}
-        .pos-topbar-pending-btn.has-pending { background: #D97706; border-color: #F7B955; }
-        .pos-topbar-pending-btn.has-pending:hover { background: #B45C04; }
-        .pos-topbar-pending-badge {
-            position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
-            border-radius: 999px; background: #DC2626; color: #fff; font-size: 0.68rem; font-weight: 800;
-            display: flex; align-items: center; justify-content: center; border: 2px solid #6B0F1A;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums;
-        }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
         /* iPad and iPhone widths — the temple name next to the logo competes with the event
            name for the same cramped row; the logo alone still identifies the temple, so only
@@ -146,7 +132,6 @@
             .pos-topbar-actions { gap: 4px; }
             .pos-topbar-btn { width: 34px; height: 34px; font-size: 0.85rem; border-radius: 7px; }
             .pos-topbar-btn-icon-img { width: 20px; }
-            .pos-topbar-pending-badge { min-width: 16px; height: 16px; font-size: 0.6rem; top: -4px; right: -4px; border-width: 1.5px; }
             .pos-topbar-event-eyebrow { font-size: 0.56rem; letter-spacing: 0.1em; }
             .pos-topbar-event-title-text h1 { font-size: 0.92rem; }
         }
@@ -253,6 +238,14 @@
             background: var(--white); border: 1.5px solid var(--border); border-radius: 7px;
         }
         .pos-card-title-clear-btn:active { background: var(--cream); }
+        /* Stays visible even once the "Pending" word hides on a phone (below) — a bare
+           hourglass icon with no number isn't explicit about there being anything to act on,
+           which is the whole reason this moved out of a plain icon-only nav button. */
+        .pos-pending-count-badge {
+            display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
+            border-radius: 999px; background: #FEF2E8; color: var(--maroon); font-size: 0.7rem; font-weight: 800;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums;
+        }
         /* A phone's own card width is already tight with two buttons here — the icon alone
            (search glass / undo arrow) reads clearly enough on its own, so the label is the
            first thing to go rather than letting the row wrap or crowd the title text. */
@@ -409,25 +402,16 @@
              amount for attention. --}}
         .pos-save-btn-terminal { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
 
-        /* ---------- Pending Payments popup — mirrors the Settle Till pane's own Current
-           Period Transactions table (search box + data table) rather than a card list, so
-           staff searching for a specific donor get the same wide, scannable table they're
-           already used to there, not a different pattern for the same kind of data. ---------- */
-        .pos-pending-search-wrap { position: relative; padding: 14px 18px; border-bottom: 1px solid #f0ece6; }
-        .pos-pending-search-wrap i { position: absolute; left: 32px; top: 50%; transform: translateY(-50%); color: #b8a383; font-size: 0.85rem; }
-        .pos-pending-search-input { width: 100%; border: 1px solid #e8e0d4; border-radius: 40px; padding: 8px 14px 8px 34px; font-size: 0.88rem; background: #faf8f5; }
-        .pos-pending-search-input:focus { outline: none; border-color: #C89B3C; background: #fff; }
-        .pos-pending-table-scroll { max-height: 55vh; overflow-y: auto; }
-        .pos-pending-table { width: 100%; border-collapse: collapse; margin: 0; }
-        .pos-pending-table thead th { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; background: #faf8f5; padding: 10px 18px; text-align: left; border-bottom: 1px solid #f0ece6; position: sticky; top: 0; }
-        .pos-pending-table tbody td { padding: 10px 18px; border-bottom: 1px solid #f5f0ea; font-size: 0.86rem; vertical-align: middle; }
-        .pos-pending-table tbody tr:last-child td { border-bottom: none; }
-        .pos-pending-table tbody tr:hover { background: #faf8f5; }
-        .pos-pending-table .text-end { text-align: right; }
-        .pos-pending-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--maroon); white-space: nowrap; }
-        .pos-pending-complete-btn { font-size: 0.8rem; font-weight: 700; color: #b8863a; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
-        .pos-pending-complete-btn:hover { color: #8A6A1E; text-decoration: underline; }
-        .pos-pending-empty { padding: 40px 20px; text-align: center; color: #a0907e; }
+        /* ---------- Pending Transactions — reuses the "Find Existing Devotee" overlay's own
+           result-card look (same .find-devotee-result shell) instead of a data table, now
+           that it shares that popup's trigger button. .pos-pending-amount sits where that
+           card's second meta line would, styled as its own pill so the money is the thing
+           that reads first, not just more small grey text. ---------- */
+        .pos-pending-amount {
+            display: inline-block; margin-top: 3px; padding: 2px 9px; border-radius: 20px;
+            background: #FEF2E8; color: var(--maroon); font-weight: 800; font-size: 0.78rem;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums;
+        }
 
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
@@ -445,8 +429,9 @@
         .pos-warning-ok-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); border: none; background: var(--maroon); color: #fff; font-weight: 700; font-size: 0.98rem; }
         .pos-warning-ok-btn:active { filter: brightness(0.92); }
 
-        /* ---------- "Find Existing Devotee" — a lookup popup, same overlay shell as the
-           others above, sized for a scrollable list rather than a short message. ---------- */
+        /* ---------- find-devotee-* — originally "Find Existing Devotee" (now disabled; see
+           the HTML below), this shell is reused as-is for the Pending Transactions popup so
+           it inherits the same colour theme and scrollable result-card look. ---------- */
         .find-devotee-overlay { position: fixed; inset: 0; background: rgba(31,42,55,0.55); z-index: 1100; display: none; align-items: center; justify-content: center; padding: 20px; }
         .find-devotee-overlay.active { display: flex; }
         .find-devotee-modal {
@@ -477,6 +462,7 @@
         .find-devotee-select-btn {
             flex-shrink: 0; border: 1.5px solid var(--border); background: var(--white); border-radius: 20px;
             padding: 7px 17px; font-weight: 700; font-size: 0.82rem; color: var(--text-primary);
+            text-decoration: none; display: inline-block;
         }
         .find-devotee-select-btn:active { background: var(--cream); }
         .find-devotee-empty, .find-devotee-loading { text-align: center; color: var(--text-secondary); font-size: 0.88rem; padding: 22px 0; }
@@ -762,14 +748,6 @@
         </div>
 
         <div class="pos-topbar-actions">
-            @if($canEditCurrentTransactions)
-            <button type="button" class="pos-topbar-btn pos-topbar-pending-btn{{ $pendingPayments->isNotEmpty() ? ' has-pending' : '' }}" id="posPendingPaymentsLink" title="Pending Payments">
-                <i class="bi bi-hourglass-split"></i>
-                @if($pendingPayments->isNotEmpty())
-                <span class="pos-topbar-pending-badge" id="posPendingCount">{{ $pendingPayments->count() }}</span>
-                @endif
-            </button>
-            @endif
             @if($switchableEvents->count())
             <div class="dropdown">
                 <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Event">
@@ -832,7 +810,12 @@
                     <div class="pos-card-title">
                         <span class="pos-step-badge">1</span>Donor Details
                         <span class="pos-card-title-actions">
-                            <button type="button" class="pos-card-title-clear-btn" id="posFindDevoteeBtn" title="Find an existing devotee to prefill these details"><i class="bi bi-search"></i><span class="pos-card-title-btn-label">Search</span></button>
+                            @if($canEditCurrentTransactions)
+                            <button type="button" class="pos-card-title-clear-btn" id="posPendingPaymentsBtn" title="Pending transactions awaiting completion">
+                                <i class="bi bi-hourglass-split"></i><span class="pos-card-title-btn-label">Pending</span>
+                                <span class="pos-pending-count-badge">{{ $pendingPayments->count() }}</span>
+                            </button>
+                            @endif
                             <button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i><span class="pos-card-title-btn-label">Clear</span></button>
                         </span>
                     </div>
@@ -975,67 +958,6 @@
         </div>
     </footer>
 
-    {{-- Pending Payments — guest donations still awaiting completion (e.g. a Bank Transfer
-         recorded as pending, or a walk-up started but not finished). Rendered server-side
-         straight from $pendingPayments (always the live, not-yet-settled period, same
-         source the Settle Till pane's own Current Period Transactions table uses — see
-         CashSettlementService::currentPeriodTransactions()), so it never goes stale within
-         a page load. Deliberately built as the same wide, searchable data table as that
-         Settle Till pane (see cash-settlement-transactions.blade.php) rather than a card
-         list — same kind of data, same pattern, instead of a second UI staff have to learn.
-         Only devotee-type pending donations are excluded — those have no "complete in POS"
-         action, same bar the ?edit_id completion flow already uses. --}}
-    @if($canEditCurrentTransactions)
-    <div class="eft-modal-overlay" id="pendingPaymentsModalOverlay">
-        <div class="eft-modal" style="max-width: 900px; text-align: left;">
-            <div class="eft-modal-header" style="text-align:center;"><i class="bi bi-hourglass-split me-2"></i>Pending Payments</div>
-            <div class="eft-modal-body" style="text-align:left; padding: 0;">
-                @if($pendingPayments->isNotEmpty())
-                <div class="pos-pending-search-wrap">
-                    <i class="bi bi-search"></i>
-                    <input type="text" class="pos-pending-search-input" id="posPendingSearchInput" placeholder="Search by name, mobile or purpose...">
-                </div>
-                @endif
-                <div class="pos-pending-table-scroll">
-                    @if($pendingPayments->isEmpty())
-                    <div class="pos-pending-empty">No pending payments right now.</div>
-                    @else
-                    <table class="pos-pending-table" id="posPendingTable">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Donor</th>
-                                <th>Mobile</th>
-                                <th>Purpose</th>
-                                <th>Method</th>
-                                <th class="text-end">Amount</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($pendingPayments as $row)
-                            <tr class="pos-pending-row" data-search="{{ strtolower($row->display_name . ' ' . ($row->mobile ?? '') . ' ' . ($row->email ?? '') . ' ' . $row->purpose) }}">
-                                <td>{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }}</td>
-                                <td>{{ $row->display_name }}</td>
-                                <td>{{ $row->mobile ?: '—' }}</td>
-                                <td>{{ $row->purpose ?: 'General' }}</td>
-                                <td>{{ $row->payment_method }}</td>
-                                <td class="text-end pos-pending-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</td>
-                                <td class="text-end"><a class="pos-pending-complete-btn" href="{{ route('admin.events.pos', $event->event_id) }}?edit_id={{ $row->id }}"><i class="bi bi-arrow-right-circle-fill me-1"></i>Complete in POS</a></td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                    @endif
-                </div>
-                <div style="padding: 16px 22px;">
-                    <button type="button" class="eft-modal-cancel-btn" id="pendingPaymentsModalCloseBtn">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
-
     <div class="pos-toast" id="posToast"></div>
 
     <div class="pos-warning-overlay" id="posWarningOverlay">
@@ -1048,24 +970,45 @@
         </div>
     </div>
 
-    {{-- "Find Existing Devotee" — a pure prefill lookup (see PosDonationController::
-         searchDevotee()'s own docblock). Selecting a result only copies its name/email/
-         mobile into the Donor Details fields below; it never links this donation to the
-         matched record, so an older transaction's own details are never touched by a later
-         donation reusing a similar-looking name. --}}
-    <div class="find-devotee-overlay" id="findDevoteeOverlay">
-        <div class="find-devotee-modal" role="dialog" aria-modal="true" aria-labelledby="findDevoteeTitle">
+    {{-- Pending Transactions — reuses the "Find Existing Devotee" popup's own shell/colour
+         theme and result-card look (the devotee-lookup feature itself is disabled for now;
+         this slot now opens this instead). Rendered server-side from $pendingPayments
+         (always the live, not-yet-settled period — see CashSettlementService::
+         currentPeriodTransactions()) and filtered client-side as the clerk types, since the
+         whole list is already on the page — no fetch needed. Guest donations only; a
+         Pending devotee donation has no "complete in POS" action to offer here, same bar
+         the ?edit_id completion flow below already uses. --}}
+    @if($canEditCurrentTransactions)
+    <div class="find-devotee-overlay" id="pendingTransactionsOverlay">
+        <div class="find-devotee-modal" role="dialog" aria-modal="true" aria-labelledby="pendingTransactionsTitle">
             <div class="find-devotee-header">
-                <div class="find-devotee-header-title" id="findDevoteeTitle"><i class="bi bi-search"></i>Find Existing Devotee</div>
-                <button type="button" class="find-devotee-close-btn" id="findDevoteeCloseBtn" aria-label="Close">&times;</button>
+                <div class="find-devotee-header-title" id="pendingTransactionsTitle"><i class="bi bi-hourglass-split"></i>Pending Transactions</div>
+                <button type="button" class="find-devotee-close-btn" id="pendingTransactionsCloseBtn" aria-label="Close">&times;</button>
             </div>
             <div class="find-devotee-body">
-                <input type="text" class="find-devotee-search-input" id="findDevoteeInput" placeholder="Search by name, email or mobile" autocomplete="off">
-                <div class="find-devotee-hint" id="findDevoteeHint">Enter at least 2 characters to search.</div>
-                <div class="find-devotee-results" id="findDevoteeResults"></div>
+                @if($pendingPayments->isNotEmpty())
+                <input type="text" class="find-devotee-search-input" id="pendingTransactionsInput" placeholder="Search by name or mobile" autocomplete="off">
+                @endif
+                <div class="find-devotee-results" id="pendingTransactionsResults">
+                    @forelse($pendingPayments as $row)
+                    <div class="find-devotee-result" data-search="{{ strtolower($row->display_name . ' ' . ($row->mobile ?? '')) }}">
+                        <span class="find-devotee-result-icon"><i class="bi bi-hourglass-split"></i></span>
+                        <span class="find-devotee-result-info">
+                            <span class="find-devotee-result-name">{{ $row->display_name }}</span>
+                            {{-- donation_date is a date-only column (always midnight) — created_at carries the real time, so the short "date, time" label reads from that instead. --}}
+                            <span class="find-devotee-result-meta">{{ \Illuminate\Support\Carbon::parse($row->created_at)->format('d M, g:i A') }}@if($row->mobile) &middot; {{ $row->mobile }}@endif</span>
+                            <span class="pos-pending-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
+                        </span>
+                        <a class="find-devotee-select-btn" href="{{ route('admin.events.pos', $event->event_id) }}?edit_id={{ $row->id }}">Select</a>
+                    </div>
+                    @empty
+                    <div class="find-devotee-empty">No pending transactions right now.</div>
+                    @endforelse
+                </div>
             </div>
         </div>
     </div>
+    @endif
 
     <div class="pos-confirm-overlay" id="posConfirmOverlay">
         <div class="pos-confirm-popup" role="dialog" aria-modal="true" aria-labelledby="posConfirmTitle">
@@ -1841,30 +1784,32 @@
 
         updatePosSummary();
 
-        const posPendingPaymentsLinkBtn = document.getElementById('posPendingPaymentsLink');
-        if (posPendingPaymentsLinkBtn) {
-            posPendingPaymentsLinkBtn.addEventListener('click', function () {
-                document.getElementById('pendingPaymentsModalOverlay').classList.add('active');
+        // Pending Transactions — the whole list is already rendered server-side, so typing
+        // just hides/shows the existing .find-devotee-result cards rather than re-fetching.
+        (function () {
+            const openBtn = document.getElementById('posPendingPaymentsBtn');
+            const overlay = document.getElementById('pendingTransactionsOverlay');
+            const closeBtn = document.getElementById('pendingTransactionsCloseBtn');
+            const input = document.getElementById('pendingTransactionsInput');
+            const resultsEl = document.getElementById('pendingTransactionsResults');
+            if (!openBtn || !overlay) { return; }
+
+            openBtn.addEventListener('click', function () { overlay.classList.add('active'); });
+            closeBtn.addEventListener('click', function () { overlay.classList.remove('active'); });
+            overlay.addEventListener('click', function (e) { if (e.target === overlay) { overlay.classList.remove('active'); } });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && overlay.classList.contains('active')) { overlay.classList.remove('active'); }
             });
-        }
-        const pendingPaymentsModalCloseBtn = document.getElementById('pendingPaymentsModalCloseBtn');
-        if (pendingPaymentsModalCloseBtn) {
-            pendingPaymentsModalCloseBtn.addEventListener('click', function () {
-                document.getElementById('pendingPaymentsModalOverlay').classList.remove('active');
-            });
-        }
-        // Client-side search by name/mobile/purpose — same pattern as the Settle Till
-        // pane's own Current Period Transactions table (cash-settlement-pane.blade.php).
-        const posPendingSearchInput = document.getElementById('posPendingSearchInput');
-        const posPendingTable = document.getElementById('posPendingTable');
-        if (posPendingSearchInput && posPendingTable) {
-            posPendingSearchInput.addEventListener('input', function () {
-                const q = this.value.trim().toLowerCase();
-                posPendingTable.querySelectorAll('tbody tr.pos-pending-row').forEach(function (row) {
-                    row.style.display = (!q || (row.dataset.search || '').includes(q)) ? '' : 'none';
+
+            if (input && resultsEl) {
+                input.addEventListener('input', function () {
+                    const q = this.value.trim().toLowerCase();
+                    resultsEl.querySelectorAll('.find-devotee-result').forEach(function (row) {
+                        row.style.display = (!q || (row.dataset.search || '').includes(q)) ? '' : 'none';
+                    });
                 });
-            });
-        }
+            }
+        })();
 
         function resetPosForm() {
             if (noDetailsActive) { exitNoDetailsMode(false); }
@@ -1883,109 +1828,6 @@
             resetPosForm();
             document.getElementById('posGuestName').focus();
         });
-
-        // "Find Existing Devotee" — a pure prefill lookup, nothing it finds ever gets
-        // linked to the donation this form eventually saves (see PosDonationController::
-        // searchDevotee()'s own docblock).
-        (function () {
-            const openBtn = document.getElementById('posFindDevoteeBtn');
-            const overlay = document.getElementById('findDevoteeOverlay');
-            const closeBtn = document.getElementById('findDevoteeCloseBtn');
-            const input = document.getElementById('findDevoteeInput');
-            const hint = document.getElementById('findDevoteeHint');
-            const resultsEl = document.getElementById('findDevoteeResults');
-            if (!openBtn || !overlay) { return; }
-
-            const SEARCH_URL = @json(route('admin.events.pos.search-devotee', $event->event_id));
-            let debounceTimer = null;
-            let activeRequest = null;
-            let latestResults = [];
-
-            function escapeHtml(value) {
-                const div = document.createElement('div');
-                div.textContent = value == null ? '' : String(value);
-                return div.innerHTML;
-            }
-
-            function openModal() {
-                overlay.classList.add('active');
-                input.value = '';
-                resultsEl.innerHTML = '';
-                hint.textContent = 'Enter at least 2 characters to search.';
-                hint.style.display = '';
-                setTimeout(function () { input.focus(); }, 50);
-            }
-            function closeModal() {
-                overlay.classList.remove('active');
-            }
-
-            openBtn.addEventListener('click', openModal);
-            closeBtn.addEventListener('click', closeModal);
-            overlay.addEventListener('click', function (e) { if (e.target === overlay) { closeModal(); } });
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && overlay.classList.contains('active')) { closeModal(); }
-            });
-
-            function renderResults(results) {
-                latestResults = results;
-                if (!results.length) {
-                    resultsEl.innerHTML = '<div class="find-devotee-empty">No matching devotee found.</div>';
-                    return;
-                }
-                resultsEl.innerHTML = results.map(function (r, idx) {
-                    const mobileText = r.has_mobile ? ('Mobile: ' + escapeHtml(r.masked_mobile)) : 'No mobile recorded';
-                    return '<div class="find-devotee-result">'
-                        + '<span class="find-devotee-result-icon"><i class="bi bi-person-fill"></i></span>'
-                        + '<span class="find-devotee-result-info">'
-                        +     '<span class="find-devotee-result-name">' + escapeHtml(r.name) + '</span>'
-                        +     '<span class="find-devotee-result-meta">' + escapeHtml(r.masked_email) + '</span>'
-                        +     '<span class="find-devotee-result-meta">' + escapeHtml(mobileText) + '</span>'
-                        + '</span>'
-                        + '<button type="button" class="find-devotee-select-btn" data-idx="' + idx + '">Select</button>'
-                        + '</div>';
-                }).join('');
-
-                resultsEl.querySelectorAll('.find-devotee-select-btn').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        const r = latestResults[parseInt(btn.dataset.idx, 10)];
-                        if (!r) { return; }
-                        document.getElementById('posGuestName').value = r.name || '';
-                        document.getElementById('posGuestEmail').value = r.email || '';
-                        document.getElementById('posGuestMobile').value = r.mobile || '';
-                        updatePosSummary();
-                        closeModal();
-                    });
-                });
-            }
-
-            input.addEventListener('input', function () {
-                const q = input.value.trim();
-                clearTimeout(debounceTimer);
-                if (q.length < 2) {
-                    resultsEl.innerHTML = '';
-                    hint.textContent = 'Enter at least 2 characters to search.';
-                    hint.style.display = '';
-                    return;
-                }
-                hint.style.display = 'none';
-                debounceTimer = setTimeout(function () {
-                    if (activeRequest) { activeRequest.abort(); }
-                    const controller = new AbortController();
-                    activeRequest = controller;
-                    resultsEl.innerHTML = '<div class="find-devotee-loading">Searching…</div>';
-                    fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), {
-                        headers: { 'Accept': 'application/json' },
-                        signal: controller.signal,
-                    })
-                        .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
-                        .then(function (data) { renderResults(data.results || []); })
-                        .catch(function (err) {
-                            if (err && err.name === 'AbortError') { return; }
-                            resultsEl.innerHTML = '<div class="find-devotee-empty">Search failed — try again.</div>';
-                        });
-                }, 300);
-            });
-        })();
 
         // A plain wall clock in the footer — purely cosmetic, no server round-trip.
         function tickPosFooterClock() {
