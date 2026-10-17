@@ -102,6 +102,20 @@
              than a plain icon font would need, since a photo this detailed reads as a blurry
              smudge at the ~17px an icon glyph normally renders at. --}}
         .pos-topbar-btn-icon-img { width: 28px; height: auto; display: block; }
+        {{-- Pending Payments lives in the topbar (always visible, never scrolled past),
+             not the Donation Summary card — that card sits in .pos-side, which on a phone
+             (<900px, .pos-grid collapses to one column) renders AFTER the entire Donor
+             Details/Amount/Payment Method form, so a button there was invisible without
+             scrolling past the whole page first. A counter operator needs to spot a
+             pending payment the instant they look up, from any screen size. --}}
+        .pos-topbar-pending-btn.has-pending { background: #D97706; border-color: #F7B955; }
+        .pos-topbar-pending-btn.has-pending:hover { background: #B45C04; }
+        .pos-topbar-pending-badge {
+            position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
+            border-radius: 999px; background: #DC2626; color: #fff; font-size: 0.68rem; font-weight: 800;
+            display: flex; align-items: center; justify-content: center; border: 2px solid #6B0F1A;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums;
+        }
         @media (max-width: 700px) { .pos-topbar-temple-sub { display: none; } }
         /* iPad and iPhone widths — the temple name next to the logo competes with the event
            name for the same cramped row; the logo alone still identifies the temple, so only
@@ -132,6 +146,7 @@
             .pos-topbar-actions { gap: 4px; }
             .pos-topbar-btn { width: 34px; height: 34px; font-size: 0.85rem; border-radius: 7px; }
             .pos-topbar-btn-icon-img { width: 20px; }
+            .pos-topbar-pending-badge { min-width: 16px; height: 16px; font-size: 0.6rem; top: -4px; right: -4px; border-width: 1.5px; }
             .pos-topbar-event-eyebrow { font-size: 0.56rem; letter-spacing: 0.1em; }
             .pos-topbar-event-title-text h1 { font-size: 0.92rem; }
         }
@@ -212,14 +227,6 @@
         }
         .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
         .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; }
-        .pos-summary-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-        .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 10px; font-size: 0.74rem; font-weight: 700; color: #8A6A1E; flex-shrink: 0; }
-        .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
-        /* Distinct amber-on-white treatment (not the Recent Orders button's muted gold-on-
-           cream) only once there's actually something pending — an empty Pending Payments
-           button should read as calm as Recent Orders, not compete with it. */
-        .pos-summary-pending-link.has-pending { background: #FEF2E8; border-color: #E8914A; color: #B2560A; }
-        .pos-summary-pending-link.has-pending:active { background: #FCE4D2; }
         .pos-summary-total-center { text-align: center; margin: 12px 0 10px; }
         .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); }
         .pos-summary-total-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(1.9rem, 5vw, 2.4rem); font-weight: 800; color: var(--maroon); line-height: 1.1; }
@@ -402,26 +409,25 @@
              amount for attention. --}}
         .pos-save-btn-terminal { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
 
-        /* ---------- Session orders popup ---------- */
-        .pos-orders-modal-total-row { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; color: var(--text-primary); padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
-        .pos-orders-modal-total-row span:last-child { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: #A56B13; }
-        .pos-orders-list { max-height: 320px; overflow-y: auto; margin-bottom: 16px; }
-        .pos-order-item { display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--cream); font-size: 0.92rem; }
-        .pos-order-item:last-child { border-bottom: none; }
-        .pos-order-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
-        .pos-order-amount { font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
-        .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
-        .pos-orders-empty { color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 20px 0; }
-
-        /* ---------- Pending Payments popup ---------- */
-        .pos-pending-list { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto; margin-bottom: 16px; }
-        .pos-pending-item { border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; }
-        .pos-pending-item-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; }
-        .pos-pending-item-name { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pos-pending-item-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: var(--maroon); flex-shrink: 0; }
-        .pos-pending-item-meta { font-size: 0.78rem; color: var(--text-secondary); margin: 4px 0 10px; }
-        .pos-pending-complete-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 7px; background: var(--maroon); color: #fff; font-size: 0.82rem; font-weight: 700; text-decoration: none; }
-        .pos-pending-complete-btn:active { background: var(--maroon-dark); }
+        /* ---------- Pending Payments popup — mirrors the Settle Till pane's own Current
+           Period Transactions table (search box + data table) rather than a card list, so
+           staff searching for a specific donor get the same wide, scannable table they're
+           already used to there, not a different pattern for the same kind of data. ---------- */
+        .pos-pending-search-wrap { position: relative; padding: 14px 18px; border-bottom: 1px solid #f0ece6; }
+        .pos-pending-search-wrap i { position: absolute; left: 32px; top: 50%; transform: translateY(-50%); color: #b8a383; font-size: 0.85rem; }
+        .pos-pending-search-input { width: 100%; border: 1px solid #e8e0d4; border-radius: 40px; padding: 8px 14px 8px 34px; font-size: 0.88rem; background: #faf8f5; }
+        .pos-pending-search-input:focus { outline: none; border-color: #C89B3C; background: #fff; }
+        .pos-pending-table-scroll { max-height: 55vh; overflow-y: auto; }
+        .pos-pending-table { width: 100%; border-collapse: collapse; margin: 0; }
+        .pos-pending-table thead th { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; background: #faf8f5; padding: 10px 18px; text-align: left; border-bottom: 1px solid #f0ece6; position: sticky; top: 0; }
+        .pos-pending-table tbody td { padding: 10px 18px; border-bottom: 1px solid #f5f0ea; font-size: 0.86rem; vertical-align: middle; }
+        .pos-pending-table tbody tr:last-child td { border-bottom: none; }
+        .pos-pending-table tbody tr:hover { background: #faf8f5; }
+        .pos-pending-table .text-end { text-align: right; }
+        .pos-pending-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--maroon); white-space: nowrap; }
+        .pos-pending-complete-btn { font-size: 0.8rem; font-weight: 700; color: #b8863a; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+        .pos-pending-complete-btn:hover { color: #8A6A1E; text-decoration: underline; }
+        .pos-pending-empty { padding: 40px 20px; text-align: center; color: #a0907e; }
 
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
@@ -756,6 +762,14 @@
         </div>
 
         <div class="pos-topbar-actions">
+            @if($canEditCurrentTransactions)
+            <button type="button" class="pos-topbar-btn pos-topbar-pending-btn{{ $pendingPayments->isNotEmpty() ? ' has-pending' : '' }}" id="posPendingPaymentsLink" title="Pending Payments">
+                <i class="bi bi-hourglass-split"></i>
+                @if($pendingPayments->isNotEmpty())
+                <span class="pos-topbar-pending-badge" id="posPendingCount">{{ $pendingPayments->count() }}</span>
+                @endif
+            </button>
+            @endif
             @if($switchableEvents->count())
             <div class="dropdown">
                 <button class="pos-topbar-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Event">
@@ -904,19 +918,6 @@
                 <div class="pos-summary-card">
                     <div class="pos-summary-top-row">
                         <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
-                        <div class="pos-summary-actions">
-                            @if($canEditCurrentTransactions)
-                            <button type="button" class="pos-summary-orders-link pos-summary-pending-link{{ $pendingPayments->isNotEmpty() ? ' has-pending' : '' }}" id="posPendingPaymentsLink">
-                                <i class="bi bi-hourglass-split"></i>Pending (<span id="posPendingCount">{{ $pendingPayments->count() }}</span>)
-                            </button>
-                            @endif
-                            {{-- Settle Till now lives in the Account menu (topbar), so this is
-                                 always the session-only Recent Orders view, regardless of
-                                 settle-cash permission. --}}
-                            <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
-                                <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
-                            </button>
-                        </div>
                     </div>
                     <div class="pos-summary-total-center">
                         <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
@@ -974,51 +975,62 @@
         </div>
     </footer>
 
-    {{-- Session orders — opened from the Donation Summary card's link for staff who can't
-         settle cash, rather than a permanent bottom bar, so the bottom of the page stays the
-         plain temple-branded footer. --}}
-    <div class="eft-modal-overlay" id="ordersModalOverlay">
-        <div class="eft-modal" style="max-width: 440px; text-align: left;">
-            <div class="eft-modal-header" style="text-align:center;"><i class="bi bi-clock-history me-2"></i>Orders This Session</div>
-            <div class="eft-modal-body" style="text-align:left; padding: 20px 22px;">
-                <div class="pos-orders-modal-total-row">
-                    <span>Total this session</span>
-                    <span id="posOrdersTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
-                </div>
-                <div class="pos-orders-list" id="posOrdersList"></div>
-                <button type="button" class="eft-modal-cancel-btn" id="ordersModalCloseBtn">Close</button>
-            </div>
-        </div>
-    </div>
-
     {{-- Pending Payments — guest donations still awaiting completion (e.g. a Bank Transfer
          recorded as pending, or a walk-up started but not finished). Rendered server-side
          straight from $pendingPayments (always the live, not-yet-settled period, same
          source the Settle Till pane's own Current Period Transactions table uses — see
          CashSettlementService::currentPeriodTransactions()), so it never goes stale within
-         a page load the way the client-only Recent Orders list would. Only devotee-type
-         pending donations are excluded — those have no "complete in POS" action, same bar
-         the ?edit_id completion flow already uses. --}}
+         a page load. Deliberately built as the same wide, searchable data table as that
+         Settle Till pane (see cash-settlement-transactions.blade.php) rather than a card
+         list — same kind of data, same pattern, instead of a second UI staff have to learn.
+         Only devotee-type pending donations are excluded — those have no "complete in POS"
+         action, same bar the ?edit_id completion flow already uses. --}}
     @if($canEditCurrentTransactions)
     <div class="eft-modal-overlay" id="pendingPaymentsModalOverlay">
-        <div class="eft-modal" style="max-width: 480px; text-align: left;">
+        <div class="eft-modal" style="max-width: 900px; text-align: left;">
             <div class="eft-modal-header" style="text-align:center;"><i class="bi bi-hourglass-split me-2"></i>Pending Payments</div>
-            <div class="eft-modal-body" style="text-align:left; padding: 20px 22px;">
-                <div class="pos-pending-list">
-                    @forelse($pendingPayments as $row)
-                    <div class="pos-pending-item">
-                        <div class="pos-pending-item-main">
-                            <span class="pos-pending-item-name">{{ $row->display_name }}</span>
-                            <span class="pos-pending-item-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
-                        </div>
-                        <div class="pos-pending-item-meta">{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }} &middot; {{ $row->purpose ?: 'General' }} &middot; {{ $row->payment_method }}</div>
-                        <a class="pos-pending-complete-btn" href="{{ route('admin.events.pos', $event->event_id) }}?edit_id={{ $row->id }}"><i class="bi bi-arrow-right-circle-fill me-1"></i>Complete in POS</a>
-                    </div>
-                    @empty
-                    <div class="pos-orders-empty">No pending payments right now.</div>
-                    @endforelse
+            <div class="eft-modal-body" style="text-align:left; padding: 0;">
+                @if($pendingPayments->isNotEmpty())
+                <div class="pos-pending-search-wrap">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="pos-pending-search-input" id="posPendingSearchInput" placeholder="Search by name, mobile or purpose...">
                 </div>
-                <button type="button" class="eft-modal-cancel-btn" id="pendingPaymentsModalCloseBtn">Close</button>
+                @endif
+                <div class="pos-pending-table-scroll">
+                    @if($pendingPayments->isEmpty())
+                    <div class="pos-pending-empty">No pending payments right now.</div>
+                    @else
+                    <table class="pos-pending-table" id="posPendingTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Donor</th>
+                                <th>Mobile</th>
+                                <th>Purpose</th>
+                                <th>Method</th>
+                                <th class="text-end">Amount</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($pendingPayments as $row)
+                            <tr class="pos-pending-row" data-search="{{ strtolower($row->display_name . ' ' . ($row->mobile ?? '') . ' ' . ($row->email ?? '') . ' ' . $row->purpose) }}">
+                                <td>{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }}</td>
+                                <td>{{ $row->display_name }}</td>
+                                <td>{{ $row->mobile ?: '—' }}</td>
+                                <td>{{ $row->purpose ?: 'General' }}</td>
+                                <td>{{ $row->payment_method }}</td>
+                                <td class="text-end pos-pending-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</td>
+                                <td class="text-end"><a class="pos-pending-complete-btn" href="{{ route('admin.events.pos', $event->event_id) }}?edit_id={{ $row->id }}"><i class="bi bi-arrow-right-circle-fill me-1"></i>Complete in POS</a></td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    @endif
+                </div>
+                <div style="padding: 16px 22px;">
+                    <button type="button" class="eft-modal-cancel-btn" id="pendingPaymentsModalCloseBtn">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1721,7 +1733,6 @@
                 activeEftProvider = null;
                 const a = attempt || sciLastAttempt;
                 showToast('Saved — ' + CURRENCY_CODE + ' ' + (a ? Number(a.amount).toFixed(2) : ''));
-                if (a) { addSessionOrder({ name: a.name, amount: Number(a.amount), time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }); }
                 resetPosForm();
                 document.getElementById('posGuestName').focus();
             },
@@ -1828,43 +1839,7 @@
             updateEftModalKeys(null, null);
         }
 
-        // "Orders this session" — sessionStorage only, so it survives a reload of this same
-        // browser tab (a POS page left open all day) but never persists beyond it and never
-        // touches the server — the console's own donations table is the real record.
-        const SESSION_KEY = 'posOrders_' + EVENT_ID;
-        function loadSessionOrders() {
-            try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || '[]'); } catch (e) { return []; }
-        }
-        function addSessionOrder(order) {
-            const orders = loadSessionOrders();
-            orders.unshift(order);
-            try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(orders)); } catch (e) {}
-            renderSessionOrders();
-        }
-        function renderSessionOrders() {
-            const orders = loadSessionOrders();
-            const list = document.getElementById('posOrdersList');
-            const countEl = document.getElementById('posOrdersCount');
-            if (countEl) { countEl.textContent = orders.length; }
-            document.getElementById('posOrdersTotal').textContent = CURRENCY_CODE + ' ' + orders.reduce(function (s, o) { return s + o.amount; }, 0).toFixed(2);
-            list.innerHTML = orders.length
-                ? orders.map(function (o) {
-                    return '<div class="pos-order-item"><span class="pos-order-name">' + escapeHtmlPos(o.name) + '</span><span class="pos-order-amount">' + CURRENCY_CODE + ' ' + o.amount.toFixed(2) + '</span><span class="pos-order-time">' + o.time + '</span></div>';
-                }).join('')
-                : '<div class="pos-orders-empty">No donations recorded yet this session.</div>';
-        }
-        renderSessionOrders();
         updatePosSummary();
-
-        const posOrdersLinkBtn = document.getElementById('posOrdersLink');
-        if (posOrdersLinkBtn) {
-            posOrdersLinkBtn.addEventListener('click', function () {
-                document.getElementById('ordersModalOverlay').classList.add('active');
-            });
-        }
-        document.getElementById('ordersModalCloseBtn').addEventListener('click', function () {
-            document.getElementById('ordersModalOverlay').classList.remove('active');
-        });
 
         const posPendingPaymentsLinkBtn = document.getElementById('posPendingPaymentsLink');
         if (posPendingPaymentsLinkBtn) {
@@ -1876,6 +1851,18 @@
         if (pendingPaymentsModalCloseBtn) {
             pendingPaymentsModalCloseBtn.addEventListener('click', function () {
                 document.getElementById('pendingPaymentsModalOverlay').classList.remove('active');
+            });
+        }
+        // Client-side search by name/mobile/purpose — same pattern as the Settle Till
+        // pane's own Current Period Transactions table (cash-settlement-pane.blade.php).
+        const posPendingSearchInput = document.getElementById('posPendingSearchInput');
+        const posPendingTable = document.getElementById('posPendingTable');
+        if (posPendingSearchInput && posPendingTable) {
+            posPendingSearchInput.addEventListener('input', function () {
+                const q = this.value.trim().toLowerCase();
+                posPendingTable.querySelectorAll('tbody tr.pos-pending-row').forEach(function (row) {
+                    row.style.display = (!q || (row.dataset.search || '').includes(q)) ? '' : 'none';
+                });
             });
         }
 
@@ -2081,7 +2068,6 @@
                             const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
                             showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
                         }
-                        addSessionOrder({ name: name, amount: amount, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
                         resetPosForm();
                         document.getElementById('posGuestName').focus();
                     } else {
