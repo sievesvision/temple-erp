@@ -670,6 +670,9 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     // everyone else who can add donations can use it too as a faster alternative to the
     // full console's Quick Entry. Saves through the same storeDevotee/storeGuest routes above.
     Route::get('/admin/events/{event}/pos', [\App\Http\Controllers\PosDonationController::class, 'show'])->name('admin.events.pos');
+    // "Find Existing Devotee" — prefills the Donor Details form, see PosDonationController::
+    // searchDevotee()'s own docblock for what it does and doesn't do.
+    Route::get('/admin/events/{event}/pos/search-devotee', [\App\Http\Controllers\PosDonationController::class, 'searchDevotee'])->name('admin.events.pos.search-devotee');
     // Also reachable here so the console's inline Settings pane works for an Event
     // Coordinator scoped to their own event — EventController::update() does the finer
     // per-event_id check itself, same pattern as the console route above.
