@@ -238,11 +238,25 @@
             background: var(--white); border: 1.5px solid var(--border); border-radius: 7px;
         }
         .pos-card-title-clear-btn:active { background: var(--cream); }
+        /* Solid, filled treatment — distinct from Clear's quiet outline button — so it reads
+           as the thing worth noticing on this row, not a peer utility action. No count
+           badge: keeping a live number correct would mean refreshing it after every save,
+           EFT approval, tier change etc, and a stale number is worse than none — opening
+           the popup (which always fetches fresh) is the one place the count needs to be
+           right. */
+        .pos-pending-trigger-btn {
+            flex-shrink: 0; display: flex; align-items: center; gap: 7px;
+            padding: 8px 15px; font-size: 0.82rem; font-weight: 700; color: #fff;
+            background: linear-gradient(135deg, #8a0f1c 0%, #c23c4d 100%);
+            border: none; border-radius: 9px; box-shadow: 0 2px 7px rgba(138,15,28,0.35);
+        }
+        .pos-pending-trigger-btn:active { filter: brightness(0.92); }
         /* A phone's own card width is already tight with two buttons here — the icon alone
            (search glass / undo arrow) reads clearly enough on its own, so the label is the
            first thing to go rather than letting the row wrap or crowd the title text. */
         @media (max-width: 420px) {
             .pos-card-title-clear-btn { padding: 6px 9px; }
+            .pos-pending-trigger-btn { padding: 7px 10px; }
             .pos-card-title-btn-label { display: none; }
         }
 
@@ -823,7 +837,7 @@
         @if($editDonation)
         <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600;">
             <i class="bi bi-arrow-repeat" style="font-size:1.2rem;"></i>
-            <span style="flex:1;">Completing a pending transaction — review the details below and Save Donation to confirm it.</span>
+            <span style="flex:1;">Completing a pending transaction</span>
             {{-- IS_EDITING is set from the server-rendered $editDonation, not from form state —
                  the Donor Details card's own Clear button only resets fields, it can't drop out
                  of edit mode. This is the only way back to a plain new entry. --}}
@@ -839,8 +853,8 @@
                         <span class="pos-step-badge">1</span>Donor Details
                         <span class="pos-card-title-actions">
                             @if($canEditCurrentTransactions)
-                            <button type="button" class="pos-card-title-clear-btn" id="posPendingPaymentsBtn" title="Pending transactions awaiting completion">
-                                <i class="bi bi-hourglass-split"></i><span class="pos-card-title-btn-label">Pending Transactions</span>
+                            <button type="button" class="pos-pending-trigger-btn" id="posPendingPaymentsBtn" title="Pending transactions awaiting completion">
+                                <i class="bi bi-clock-fill"></i><span class="pos-card-title-btn-label">Pending Transactions</span>
                             </button>
                             @endif
                             <button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i><span class="pos-card-title-btn-label">Clear</span></button>
@@ -1010,7 +1024,7 @@
     <div class="find-devotee-overlay" id="pendingTransactionsOverlay">
         <div class="find-devotee-modal pending-transactions-modal" role="dialog" aria-modal="true" aria-labelledby="pendingTransactionsTitle">
             <div class="find-devotee-header">
-                <div class="find-devotee-header-title" id="pendingTransactionsTitle"><i class="bi bi-hourglass-split"></i>Pending Transactions</div>
+                <div class="find-devotee-header-title" id="pendingTransactionsTitle"><i class="bi bi-clock-fill"></i>Pending Transactions</div>
                 <button type="button" class="find-devotee-close-btn" id="pendingTransactionsCloseBtn" aria-label="Close">&times;</button>
             </div>
             <div class="find-devotee-body">
