@@ -177,6 +177,17 @@ class PosDonationController extends Controller
             || RolePermission::can($activeRole, 'donations', 'edit')
             || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
 
+        // Donation Summary card's "Pending Payments" button — fetched independently of
+        // $canSettleCash (which $currentTransactions above is gated by) so it's still
+        // correct for the rare role that can edit donations without also being able to
+        // settle cash. Guest donations only, same as the edit_id completion flow below —
+        // a Pending devotee donation has no "complete in POS" action to offer here.
+        $pendingPayments = $canEditCurrentTransactions
+            ? \App\Services\CashSettlementService::currentPeriodTransactions('event', $event->event_id)
+                ->filter(fn ($r) => $r->payment_status === 'Pending' && $r->donation_type === 'guest')
+                ->values()
+            : collect();
+
         // "Complete this pending transaction" — reached from the Current Period
         // Transactions table's edit link (?edit_id=), never typed by hand, but
         // re-verified server-side rather than trusted from the query string: must still
@@ -209,6 +220,7 @@ class PosDonationController extends Controller
             'currentTransactions',
             'lastSettlementDate',
             'canEditCurrentTransactions',
+            'pendingPayments',
             'editDonation',
             'canManagePosPin',
             'eftMinimumAmount'

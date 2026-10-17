@@ -29,9 +29,13 @@
                     <span class="cs-summary-row-label"><i class="bi bi-box-arrow-in-right" style="color:#C89B3C;"></i>Opening Balance</span>
                     <span class="cs-summary-row-value">{{ $fmt($cashPreview['opening_balance']) }}</span>
                 </div>
-                <div class="cs-summary-row" style="border-bottom:none;">
+                <div class="cs-summary-row">
                     <span class="cs-summary-row-label"><i class="bi bi-cash-coin" style="color:#10B981;"></i>Cash Received</span>
                     <span class="cs-summary-row-value">{{ $fmt($cashPreview['cash_received']) }}</span>
+                </div>
+                <div class="cs-summary-row" style="border-bottom:none;">
+                    <span class="cs-summary-row-label"><i class="bi bi-calculator-fill" style="color:#B7791F;"></i>Expected in Till</span>
+                    <span class="cs-summary-row-value">{{ $fmt($expected) }}</span>
                 </div>
             </div>
             <div class="cs-settle-col">

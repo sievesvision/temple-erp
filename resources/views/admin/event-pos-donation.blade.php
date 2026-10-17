@@ -212,8 +212,14 @@
         }
         .pos-summary-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
         .pos-summary-label { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #8A6A1E; font-weight: 800; }
+        .pos-summary-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
         .pos-summary-orders-link { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.55); border: 1px solid #E7C36A; border-radius: 8px; padding: 6px 10px; font-size: 0.74rem; font-weight: 700; color: #8A6A1E; flex-shrink: 0; }
         .pos-summary-orders-link:active { background: rgba(255,255,255,0.85); }
+        /* Distinct amber-on-white treatment (not the Recent Orders button's muted gold-on-
+           cream) only once there's actually something pending — an empty Pending Payments
+           button should read as calm as Recent Orders, not compete with it. */
+        .pos-summary-pending-link.has-pending { background: #FEF2E8; border-color: #E8914A; color: #B2560A; }
+        .pos-summary-pending-link.has-pending:active { background: #FCE4D2; }
         .pos-summary-total-center { text-align: center; margin: 12px 0 10px; }
         .pos-summary-divider { height: 1px; background: rgba(165,107,19,0.25); }
         .pos-summary-total-value { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-size: clamp(1.9rem, 5vw, 2.4rem); font-weight: 800; color: var(--maroon); line-height: 1.1; }
@@ -406,6 +412,16 @@
         .pos-order-amount { font-weight: 700; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: var(--text-primary); flex-shrink: 0; }
         .pos-order-time { color: var(--text-secondary); flex-shrink: 0; width: 70px; text-align: right; }
         .pos-orders-empty { color: var(--text-secondary); font-size: 0.9rem; text-align: center; padding: 20px 0; }
+
+        /* ---------- Pending Payments popup ---------- */
+        .pos-pending-list { display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto; margin-bottom: 16px; }
+        .pos-pending-item { border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+        .pos-pending-item-main { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; }
+        .pos-pending-item-name { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pos-pending-item-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; color: var(--maroon); flex-shrink: 0; }
+        .pos-pending-item-meta { font-size: 0.78rem; color: var(--text-secondary); margin: 4px 0 10px; }
+        .pos-pending-complete-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 7px; background: var(--maroon); color: #fff; font-size: 0.82rem; font-weight: 700; text-decoration: none; }
+        .pos-pending-complete-btn:active { background: var(--maroon-dark); }
 
         .pos-toast { position: fixed; bottom: 24px; right: 24px; background: var(--success); color: white; padding: 18px 26px; border-radius: var(--radius-md); font-weight: 700; font-size: 1.1rem; box-shadow: 0 14px 34px rgba(0,0,0,0.2); z-index: 999; display: none; }
         .pos-toast.error { background: var(--error); }
@@ -888,12 +904,19 @@
                 <div class="pos-summary-card">
                     <div class="pos-summary-top-row">
                         <div class="pos-summary-label"><i class="bi bi-receipt"></i>Donation Summary</div>
-                        {{-- Settle Till now lives in the Account menu (topbar), so this is
-                             always the session-only Recent Orders view, regardless of
-                             settle-cash permission. --}}
-                        <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
-                            <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
-                        </button>
+                        <div class="pos-summary-actions">
+                            @if($canEditCurrentTransactions)
+                            <button type="button" class="pos-summary-orders-link pos-summary-pending-link{{ $pendingPayments->isNotEmpty() ? ' has-pending' : '' }}" id="posPendingPaymentsLink">
+                                <i class="bi bi-hourglass-split"></i>Pending (<span id="posPendingCount">{{ $pendingPayments->count() }}</span>)
+                            </button>
+                            @endif
+                            {{-- Settle Till now lives in the Account menu (topbar), so this is
+                                 always the session-only Recent Orders view, regardless of
+                                 settle-cash permission. --}}
+                            <button type="button" class="pos-summary-orders-link" id="posOrdersLink">
+                                <i class="bi bi-clock-history"></i>Recent Orders (<span id="posOrdersCount">0</span>)
+                            </button>
+                        </div>
                     </div>
                     <div class="pos-summary-total-center">
                         <span class="pos-summary-total-value" id="posSummaryTotal">{{ $temple['currency'] ?? '' }} 0.00</span>
@@ -967,6 +990,39 @@
             </div>
         </div>
     </div>
+
+    {{-- Pending Payments — guest donations still awaiting completion (e.g. a Bank Transfer
+         recorded as pending, or a walk-up started but not finished). Rendered server-side
+         straight from $pendingPayments (always the live, not-yet-settled period, same
+         source the Settle Till pane's own Current Period Transactions table uses — see
+         CashSettlementService::currentPeriodTransactions()), so it never goes stale within
+         a page load the way the client-only Recent Orders list would. Only devotee-type
+         pending donations are excluded — those have no "complete in POS" action, same bar
+         the ?edit_id completion flow already uses. --}}
+    @if($canEditCurrentTransactions)
+    <div class="eft-modal-overlay" id="pendingPaymentsModalOverlay">
+        <div class="eft-modal" style="max-width: 480px; text-align: left;">
+            <div class="eft-modal-header" style="text-align:center;"><i class="bi bi-hourglass-split me-2"></i>Pending Payments</div>
+            <div class="eft-modal-body" style="text-align:left; padding: 20px 22px;">
+                <div class="pos-pending-list">
+                    @forelse($pendingPayments as $row)
+                    <div class="pos-pending-item">
+                        <div class="pos-pending-item-main">
+                            <span class="pos-pending-item-name">{{ $row->display_name }}</span>
+                            <span class="pos-pending-item-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
+                        </div>
+                        <div class="pos-pending-item-meta">{{ \Illuminate\Support\Carbon::parse($row->donation_date)->format('d M Y') }} &middot; {{ $row->purpose ?: 'General' }} &middot; {{ $row->payment_method }}</div>
+                        <a class="pos-pending-complete-btn" href="{{ route('admin.events.pos', $event->event_id) }}?edit_id={{ $row->id }}"><i class="bi bi-arrow-right-circle-fill me-1"></i>Complete in POS</a>
+                    </div>
+                    @empty
+                    <div class="pos-orders-empty">No pending payments right now.</div>
+                    @endforelse
+                </div>
+                <button type="button" class="eft-modal-cancel-btn" id="pendingPaymentsModalCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <div class="pos-toast" id="posToast"></div>
 
@@ -1809,6 +1865,19 @@
         document.getElementById('ordersModalCloseBtn').addEventListener('click', function () {
             document.getElementById('ordersModalOverlay').classList.remove('active');
         });
+
+        const posPendingPaymentsLinkBtn = document.getElementById('posPendingPaymentsLink');
+        if (posPendingPaymentsLinkBtn) {
+            posPendingPaymentsLinkBtn.addEventListener('click', function () {
+                document.getElementById('pendingPaymentsModalOverlay').classList.add('active');
+            });
+        }
+        const pendingPaymentsModalCloseBtn = document.getElementById('pendingPaymentsModalCloseBtn');
+        if (pendingPaymentsModalCloseBtn) {
+            pendingPaymentsModalCloseBtn.addEventListener('click', function () {
+                document.getElementById('pendingPaymentsModalOverlay').classList.remove('active');
+            });
+        }
 
         function resetPosForm() {
             if (noDetailsActive) { exitNoDetailsMode(false); }
