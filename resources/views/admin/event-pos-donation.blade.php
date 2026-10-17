@@ -439,6 +439,15 @@
             max-height: calc(100vh - 40px); box-shadow: 0 24px 60px rgba(0,0,0,0.35);
             overflow: hidden; display: flex; flex-direction: column;
         }
+        /* iPadOS/iOS Safari's address/toolbar chrome makes plain `vh` taller than what's
+           actually visible — a fixed, vh-sized, vertically-centred modal then renders with
+           its top clipped above the real viewport, reading as "stuck to the bottom" with
+           most of a long list hidden above the fold. `dvh` tracks the real visible area;
+           browsers that don't support it just keep the `vh` rule above. */
+        @supports (max-height: 100dvh) {
+            .find-devotee-modal { max-height: calc(100dvh - 40px); }
+        }
+        .find-devotee-modal.pending-transactions-modal { max-width: 960px; }
         .find-devotee-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .find-devotee-header-title { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 1.05rem; color: var(--text-primary); }
         .find-devotee-header-title i { color: var(--gold-hover); font-size: 1.05rem; }
@@ -466,6 +475,25 @@
         }
         .find-devotee-select-btn:active { background: var(--cream); }
         .find-devotee-empty, .find-devotee-loading { text-align: center; color: var(--text-secondary); font-size: 0.88rem; padding: 22px 0; }
+
+        /* ---------- Pending Transactions table — one row per line, wide enough for Mobile
+           and Email together (both masked, same privacy bar searchDevotee() already uses),
+           distinct header colour (gold-on-cream) from the Select action (white/bordered
+           pill) so the two never read as the same control. ---------- */
+        .pt-table-wrap { overflow-x: auto; margin-top: 14px; border: 1px solid #f0ece6; border-radius: 12px; }
+        .pt-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+        .pt-table thead th { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #8A6A1E; background: #faf8f5; padding: 10px 14px; text-align: left; border-bottom: 1px solid #f0ece6; position: sticky; top: 0; }
+        .pt-table tbody td { padding: 9px 14px; border-bottom: 1px solid #f5f0ea; font-size: 0.85rem; vertical-align: middle; color: var(--text-primary); }
+        .pt-table tbody tr:last-child td { border-bottom: none; }
+        .pt-table tbody tr:hover { background: #faf8f5; }
+        .pt-table .text-end { text-align: right; }
+        .pt-masked { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+        .pt-amount { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--maroon); }
+        .pt-select-btn {
+            display: inline-flex; align-items: center; gap: 4px; border: 1.5px solid var(--border); background: var(--white);
+            border-radius: 20px; padding: 5px 14px; font-weight: 700; font-size: 0.78rem; color: var(--text-primary); text-decoration: none;
+        }
+        .pt-select-btn:active { background: var(--cream); }
 
         /* Cash/Bank Transfer confirmation — these two methods aren't verified on the spot by
            a terminal, so the clerk and donor both need a clear "it's recorded, a receipt is
@@ -971,39 +999,25 @@
     </div>
 
     {{-- Pending Transactions — reuses the "Find Existing Devotee" popup's own shell/colour
-         theme and result-card look (the devotee-lookup feature itself is disabled for now;
-         this slot now opens this instead). Rendered server-side from $pendingPayments
-         (always the live, not-yet-settled period — see CashSettlementService::
-         currentPeriodTransactions()) and filtered client-side as the clerk types, since the
-         whole list is already on the page — no fetch needed. Guest donations only; a
-         Pending devotee donation has no "complete in POS" action to offer here, same bar
-         the ?edit_id completion flow below already uses. --}}
+         theme (the devotee-lookup feature itself is disabled for now; this slot now opens
+         this instead), but as a wide single-line table rather than that popup's result
+         cards. Fetched fresh from PosDonationController::pendingPayments() every time it
+         opens AND after every donation save (see the JS below) — Save Donation is a plain
+         fetch() with no page reload, so a list rendered once at page load would keep
+         showing a transaction the operator just finished. Guest donations only; a Pending
+         devotee donation has no "complete in POS" action to offer here, same bar the
+         ?edit_id completion flow below already uses. --}}
     @if($canEditCurrentTransactions)
     <div class="find-devotee-overlay" id="pendingTransactionsOverlay">
-        <div class="find-devotee-modal" role="dialog" aria-modal="true" aria-labelledby="pendingTransactionsTitle">
+        <div class="find-devotee-modal pending-transactions-modal" role="dialog" aria-modal="true" aria-labelledby="pendingTransactionsTitle">
             <div class="find-devotee-header">
                 <div class="find-devotee-header-title" id="pendingTransactionsTitle"><i class="bi bi-hourglass-split"></i>Pending Transactions</div>
                 <button type="button" class="find-devotee-close-btn" id="pendingTransactionsCloseBtn" aria-label="Close">&times;</button>
             </div>
             <div class="find-devotee-body">
-                @if($pendingPayments->isNotEmpty())
-                <input type="text" class="find-devotee-search-input" id="pendingTransactionsInput" placeholder="Search by name or mobile" autocomplete="off">
-                @endif
-                <div class="find-devotee-results" id="pendingTransactionsResults">
-                    @forelse($pendingPayments as $row)
-                    <div class="find-devotee-result" data-search="{{ strtolower($row->display_name . ' ' . ($row->mobile ?? '')) }}">
-                        <span class="find-devotee-result-icon"><i class="bi bi-hourglass-split"></i></span>
-                        <span class="find-devotee-result-info">
-                            <span class="find-devotee-result-name">{{ $row->display_name }}</span>
-                            {{-- donation_date is a date-only column (always midnight) — created_at carries the real time, so the short "date, time" label reads from that instead. --}}
-                            <span class="find-devotee-result-meta">{{ \Illuminate\Support\Carbon::parse($row->created_at)->format('d M, g:i A') }}@if($row->mobile) &middot; {{ $row->mobile }}@endif</span>
-                            <span class="pos-pending-amount">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span>
-                        </span>
-                        <a class="find-devotee-select-btn" href="{{ route('admin.events.pos', $event->event_id) }}?edit_id={{ $row->id }}">Select</a>
-                    </div>
-                    @empty
-                    <div class="find-devotee-empty">No pending transactions right now.</div>
-                    @endforelse
+                <input type="text" class="find-devotee-search-input" id="pendingTransactionsInput" placeholder="Search by name, mobile or email" autocomplete="off">
+                <div id="pendingTransactionsResults">
+                    <div class="find-devotee-loading">Loading…</div>
                 </div>
             </div>
         </div>
@@ -1676,6 +1690,7 @@
                 activeEftProvider = null;
                 const a = attempt || sciLastAttempt;
                 showToast('Saved — ' + CURRENCY_CODE + ' ' + (a ? Number(a.amount).toFixed(2) : ''));
+                refreshPendingBadge();
                 resetPosForm();
                 document.getElementById('posGuestName').focus();
             },
@@ -1784,8 +1799,62 @@
 
         updatePosSummary();
 
-        // Pending Transactions — the whole list is already rendered server-side, so typing
-        // just hides/shows the existing .find-devotee-result cards rather than re-fetching.
+        // Pending Transactions — fetched fresh from the server every time the popup opens,
+        // and again after every donation save (refreshPendingBadge(), called from the save
+        // handlers below) rather than rendered once and left stale — Save Donation is a
+        // plain fetch() with no page reload, so a list built once at page load would keep
+        // showing a transaction the operator just finished.
+        const PENDING_PAYMENTS_URL = @json(route('admin.events.pos.pending-payments', $event->event_id));
+        let pendingFetchController = null;
+        let pendingDebounceTimer = null;
+
+        function fetchPendingPayments(q) {
+            if (pendingFetchController) { pendingFetchController.abort(); }
+            const controller = new AbortController();
+            pendingFetchController = controller;
+            return fetch(PENDING_PAYMENTS_URL + (q ? '?q=' + encodeURIComponent(q) : ''), {
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal,
+            })
+                .then(function (res) { return res.ok ? res.json() : Promise.reject(); })
+                .then(function (data) { return data.results || []; })
+                .catch(function (err) { return (err && err.name === 'AbortError') ? null : []; });
+        }
+
+        function renderPendingResults(results) {
+            const resultsEl = document.getElementById('pendingTransactionsResults');
+            if (!resultsEl) { return; }
+            if (!results.length) {
+                resultsEl.innerHTML = '<div class="find-devotee-empty">No pending transactions right now.</div>';
+                return;
+            }
+            resultsEl.innerHTML = '<div class="pt-table-wrap"><table class="pt-table"><thead><tr>'
+                + '<th>Date</th><th>Donor</th><th>Mobile</th><th>Email</th><th class="text-end">Amount</th><th></th>'
+                + '</tr></thead><tbody>'
+                + results.map(function (r) {
+                    return '<tr>'
+                        + '<td>' + escapeHtmlPos(r.date_time) + '</td>'
+                        + '<td>' + escapeHtmlPos(r.name) + '</td>'
+                        + '<td class="pt-masked">' + escapeHtmlPos(r.masked_mobile || '—') + '</td>'
+                        + '<td class="pt-masked">' + escapeHtmlPos(r.masked_email || '—') + '</td>'
+                        + '<td class="text-end pt-amount">' + CURRENCY_CODE + ' ' + escapeHtmlPos(r.amount) + '</td>'
+                        + '<td class="text-end"><a class="pt-select-btn" href="' + r.edit_url + '">Select</a></td>'
+                        + '</tr>';
+                }).join('')
+                + '</tbody></table></div>';
+        }
+
+        // Keeps the "Pending (N)" badge correct right after a save completes, without
+        // requiring the popup to be reopened.
+        function refreshPendingBadge() {
+            const badge = document.getElementById('posPendingCount');
+            if (!badge) { return; }
+            fetchPendingPayments('').then(function (results) {
+                if (results === null) { return; }
+                badge.textContent = results.length;
+            });
+        }
+
         (function () {
             const openBtn = document.getElementById('posPendingPaymentsBtn');
             const overlay = document.getElementById('pendingTransactionsOverlay');
@@ -1794,19 +1863,37 @@
             const resultsEl = document.getElementById('pendingTransactionsResults');
             if (!openBtn || !overlay) { return; }
 
-            openBtn.addEventListener('click', function () { overlay.classList.add('active'); });
-            closeBtn.addEventListener('click', function () { overlay.classList.remove('active'); });
-            overlay.addEventListener('click', function (e) { if (e.target === overlay) { overlay.classList.remove('active'); } });
+            function openModal() {
+                overlay.classList.add('active');
+                input.value = '';
+                resultsEl.innerHTML = '<div class="find-devotee-loading">Loading…</div>';
+                fetchPendingPayments('').then(function (results) {
+                    if (results === null) { return; }
+                    renderPendingResults(results);
+                    const badge = document.getElementById('posPendingCount');
+                    if (badge) { badge.textContent = results.length; }
+                });
+            }
+            function closeModal() { overlay.classList.remove('active'); }
+
+            openBtn.addEventListener('click', openModal);
+            closeBtn.addEventListener('click', closeModal);
+            overlay.addEventListener('click', function (e) { if (e.target === overlay) { closeModal(); } });
             document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && overlay.classList.contains('active')) { overlay.classList.remove('active'); }
+                if (e.key === 'Escape' && overlay.classList.contains('active')) { closeModal(); }
             });
 
             if (input && resultsEl) {
                 input.addEventListener('input', function () {
-                    const q = this.value.trim().toLowerCase();
-                    resultsEl.querySelectorAll('.find-devotee-result').forEach(function (row) {
-                        row.style.display = (!q || (row.dataset.search || '').includes(q)) ? '' : 'none';
-                    });
+                    const q = this.value.trim();
+                    clearTimeout(pendingDebounceTimer);
+                    pendingDebounceTimer = setTimeout(function () {
+                        resultsEl.innerHTML = '<div class="find-devotee-loading">Searching…</div>';
+                        fetchPendingPayments(q).then(function (results) {
+                            if (results === null) { return; }
+                            renderPendingResults(results);
+                        });
+                    }, 300);
                 });
             }
         })();
@@ -1910,6 +1997,7 @@
                             const pendingNote = selectedMethod === 'Bank Transfer' ? ' (Pending)' : '';
                             showToast('Saved — ' + CURRENCY_CODE + ' ' + amount.toFixed(2) + pendingNote);
                         }
+                        refreshPendingBadge();
                         resetPosForm();
                         document.getElementById('posGuestName').focus();
                     } else {

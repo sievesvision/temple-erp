@@ -316,6 +316,63 @@ class PosDonationController extends Controller
     }
 
     /**
+     * Pending Transactions popup — fetched fresh every time it's opened (and after every
+     * donation save) rather than rendered once into the page, specifically because Save
+     * Donation is a plain fetch() with no page reload: a server-rendered-once list would
+     * keep showing a transaction the operator just finished until their next full reload.
+     * $q (optional) matches the real, unmasked name/mobile/email server-side — the response
+     * itself only ever carries masked contact details, same bar searchDevotee() already
+     * uses, so a full mobile/email never needs to leave the server for this popup either.
+     */
+    public function pendingPayments(\Illuminate\Http\Request $request, $eventId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+        $coordinatorLevel = $activeRole === 'Event Coordinator'
+            ? EventCoordinatorLevel::of((int) $eventId, $user->id)
+            : null;
+
+        if (!$this->canUsePos($user, $activeRole, $eventId)) {
+            abort(403, 'Unauthorized access.');
+        }
+        // Same bar show() computes $canEditCurrentTransactions with — this is the widget
+        // that bar gates, so it has to match exactly or the button and its data would drift.
+        $canEditCurrentTransactions = $activeRole === 'Admin'
+            || RolePermission::can($activeRole, 'donations', 'edit')
+            || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
+        if (!$canEditCurrentTransactions) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $event = Event::findOrFail($eventId);
+
+        $pending = \App\Services\CashSettlementService::currentPeriodTransactions('event', $event->event_id)
+            ->filter(fn ($r) => $r->payment_status === 'Pending' && $r->donation_type === 'guest');
+
+        $q = trim((string) $request->query('q', ''));
+        if ($q !== '') {
+            $needle = mb_strtolower($q);
+            $pending = $pending->filter(function ($r) use ($needle) {
+                return str_contains(mb_strtolower($r->display_name ?? ''), $needle)
+                    || str_contains(mb_strtolower((string) $r->mobile), $needle)
+                    || str_contains(mb_strtolower((string) $r->email), $needle);
+            });
+        }
+
+        $results = $pending->map(fn ($row) => [
+            'id' => $row->id,
+            'name' => $row->display_name,
+            'date_time' => \Illuminate\Support\Carbon::parse($row->created_at)->format('d M, g:i A'),
+            'masked_mobile' => $row->mobile ? $this->maskMobile($row->mobile) : null,
+            'masked_email' => $row->email ? $this->maskEmail($row->email) : null,
+            'amount' => number_format((float) $row->amount, 2),
+            'edit_url' => route('admin.events.pos', $event->event_id) . '?edit_id=' . $row->id,
+        ])->values();
+
+        return response()->json(['results' => $results]);
+    }
+
+    /**
      * "sa****@example.com" — enough to recognise your own search match, not enough to read
      * over someone's shoulder at a counter.
      */
