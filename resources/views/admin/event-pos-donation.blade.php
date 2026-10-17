@@ -116,7 +116,18 @@
            the temple), action buttons shrink next, then the title's own type size — the grid's
            three tracks and each piece's min-width:0/ellipsis do the rest. */
         @media (max-width: 640px) {
-            .pos-topbar { padding: 8px 10px; column-gap: 6px; min-height: 58px; }
+            /* The wider layout's true centering (1fr auto 1fr, equal side tracks) only
+               works because there's room for both sides to claim an equal share — on an
+               iPhone-width screen the actions cluster (up to 3 icon buttons even after
+               losing "Back to portal" to the Account menu) genuinely needs more room than
+               the logo-only brand side, and forcing them to equal tracks starved the title's
+               own track down to almost nothing, overlapping it with the icons either side.
+               Below this width, brand and actions are both already shrunk to a small,
+               predictable size by the rules below, so letting them size to their own
+               content (auto) and giving the title whatever's left (1fr) avoids the overlap
+               entirely — it just no longer sits at the mathematically exact center on a
+               phone, which matters far less here than not colliding with the icons. */
+            .pos-topbar { grid-template-columns: auto 1fr auto; padding: 8px 10px; column-gap: 6px; min-height: 58px; }
             .pos-topbar-logo { width: 30px; height: 30px; }
             .pos-topbar-actions { gap: 4px; }
             .pos-topbar-btn { width: 34px; height: 34px; font-size: 0.85rem; border-radius: 7px; }
@@ -728,9 +739,6 @@
                 </ul>
             </div>
             @endif
-            @if($canReturnToConsole)
-            <a href="{{ route('admin.events.portal', $event->slug ?? $event->event_id) }}" class="pos-topbar-btn" title="Back to portal"><i class="bi bi-gear-fill"></i></a>
-            @endif
             <!-- Always visible, regardless of whether a terminal is currently paired — the
                  Switch button near Pay only ever shows up while "EFT Terminal" is the selected
                  payment method (and that method stays disabled with nothing paired to pick), so
@@ -747,6 +755,9 @@
                 <ul class="dropdown-menu dropdown-menu-end">
                     @if($canSettleCash)
                     <li><a class="dropdown-item" href="#" id="posSettleTillMenuBtn"><i class="bi bi-cash-stack me-2"></i>Settle Till</a></li>
+                    @endif
+                    @if($canReturnToConsole)
+                    <li><a class="dropdown-item" href="{{ route('admin.events.portal', $event->slug ?? $event->event_id) }}"><i class="bi bi-gear-fill me-2"></i>Portal</a></li>
                     @endif
                     @if($canManagePosPin)
                     <li><a class="dropdown-item" href="{{ route('pos.pin.edit') }}"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Manage POS PIN</a></li>
