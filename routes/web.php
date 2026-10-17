@@ -673,6 +673,7 @@ Route::middleware(['auth', 'role:Admin,Committee,Event Coordinator'])->group(fun
     // "Find Existing Devotee" — prefills the Donor Details form, see PosDonationController::
     // searchDevotee()'s own docblock for what it does and doesn't do.
     Route::get('/admin/events/{event}/pos/search-devotee', [\App\Http\Controllers\PosDonationController::class, 'searchDevotee'])->name('admin.events.pos.search-devotee');
+    Route::get('/admin/events/{event}/pos/pending-payments', [\App\Http\Controllers\PosDonationController::class, 'pendingPayments'])->name('admin.events.pos.pending-payments');
     // Also reachable here so the console's inline Settings pane works for an Event
     // Coordinator scoped to their own event — EventController::update() does the finer
     // per-event_id check itself, same pattern as the console route above.

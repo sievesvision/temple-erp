@@ -56,9 +56,7 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
 
     /**
      * Settle Till is a full replacement view opened from the Account menu (next to Manage
-     * POS PIN / Logout), not a popup triggered from the Donation Summary card — that card's
-     * own trigger slot is always "Recent Orders" (the client-only session list) regardless
-     * of settle-cash permission, since Settle Till no longer shares that slot.
+     * POS PIN / Logout), not a popup triggered from the Donation Summary card.
      */
     public function test_a_settler_sees_settle_till_in_the_account_menu_not_the_summary_card(): void
     {
@@ -68,13 +66,12 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response = $this->actingAs($pos)->get(route('admin.events.pos', $eventId));
 
         $response->assertOk();
-        $response->assertSee('Recent Orders');
         $response->assertDontSee('id="settleTillModal"', false);
         // The Settle Till trigger lives in the Account dropdown now, not the summary card.
         $response->assertSee('id="posSettleTillMenuBtn"', false);
     }
 
-    public function test_a_non_settler_still_sees_recent_orders_since_they_have_no_settle_till_access(): void
+    public function test_a_non_settler_reaching_pos_sees_no_settle_till_access(): void
     {
         // The POS route itself only admits Admin/Committee/Event Coordinator (routes/web.php),
         // and for Event Coordinator canUsePos() and canSettle() share the exact same
@@ -95,7 +92,6 @@ class CashSettlementPermissionsAndTillCountTest extends TestCase
         $response = $this->actingAs($committee)->get(route('admin.events.pos', $eventId));
 
         $response->assertOk();
-        $response->assertSee('Recent Orders');
         $response->assertDontSee('id="settleTillModal"', false);
         $response->assertDontSee('id="posSettleTillMenuBtn"', false);
     }
