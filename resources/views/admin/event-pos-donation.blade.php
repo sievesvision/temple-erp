@@ -823,7 +823,7 @@
         @if($editDonation)
         <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600;">
             <i class="bi bi-arrow-repeat" style="font-size:1.2rem;"></i>
-            <span style="flex:1;">Completing a pending transaction for {{ $editDonation->donor_name }} ({{ $temple['currency'] ?? '' }} {{ number_format($editDonation->amount, 2) }}) — review the details below and Save Donation to confirm it.</span>
+            <span style="flex:1;">Completing a pending transaction — review the details below and Save Donation to confirm it.</span>
             {{-- IS_EDITING is set from the server-rendered $editDonation, not from form state —
                  the Donor Details card's own Clear button only resets fields, it can't drop out
                  of edit mode. This is the only way back to a plain new entry. --}}
@@ -840,7 +840,7 @@
                         <span class="pos-card-title-actions">
                             @if($canEditCurrentTransactions)
                             <button type="button" class="pos-card-title-clear-btn" id="posPendingPaymentsBtn" title="Pending transactions awaiting completion">
-                                <i class="bi bi-hourglass-split"></i><span class="pos-card-title-btn-label">Pending</span>
+                                <i class="bi bi-hourglass-split"></i><span class="pos-card-title-btn-label">Pending Transactions</span>
                             </button>
                             @endif
                             <button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i><span class="pos-card-title-btn-label">Clear</span></button>
@@ -1545,9 +1545,30 @@
             document.getElementById('posGuestName').value = EDIT_DONATION.donor_name || '';
             document.getElementById('posGuestEmail').value = EDIT_DONATION.email || '';
             document.getElementById('posGuestMobile').value = EDIT_DONATION.mobile || '';
-            amountInput.value = parseFloat(EDIT_DONATION.amount).toFixed(2);
             document.getElementById('posDetails').value = EDIT_DONATION.purpose_details || '';
-            purposeValue = EDIT_DONATION.purpose || purposeValue;
+
+            // When this event has donation tiers configured, #posAmount is a hidden total
+            // that recalcTiers() computes FROM the visible per-tier inputs — writing to it
+            // directly (as the plain branch below does) leaves the Donation Summary correct
+            // but the "Enter amount" box the operator actually sees still blank, since
+            // nothing told recalcTiers() about this amount. Landing it on the first
+            // free-amount tier and dispatching 'input' (recalcTiers is bound to that event
+            // on the whole container) drives it through the exact same path a manually
+            // typed amount would — including purposeValue, which recalcTiers() derives from
+            // the selected tier's own label, taking over from EDIT_DONATION.purpose below
+            // (the original flat purpose string doesn't map onto any one tier anyway).
+            const freeIdx = EVENT_OPTIONS.length ? EVENT_OPTIONS.findIndex(function (o) { return o.amount === null; }) : -1;
+            const freeCb = freeIdx !== -1 ? tierPillsContainer.querySelector('.pos-tier-cb[data-idx="' + freeIdx + '"]') : null;
+            const freeDetail = freeIdx !== -1 ? tiersContainer.querySelector('.pos-tier-detail[data-idx="' + freeIdx + '"]') : null;
+            const freeInput = freeDetail ? freeDetail.querySelector('.pos-tier-free') : null;
+            if (freeCb && freeInput) {
+                freeCb.checked = true;
+                freeInput.value = parseFloat(EDIT_DONATION.amount).toFixed(2);
+                freeInput.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                amountInput.value = parseFloat(EDIT_DONATION.amount).toFixed(2);
+                purposeValue = EDIT_DONATION.purpose || purposeValue;
+            }
 
             // Stored as the raw enum value ('Bank') — mapped back to this page's own UI
             // method key ('Bank Transfer') the same way submitGuestDonation() maps it the
@@ -1860,16 +1881,18 @@
             // its own max-height is capped to whatever space is actually left below it.
             function positionDropdown() {
                 const margin = 12;
-                const rect = openBtn.getBoundingClientRect();
-                const maxWidth = Math.min(960, window.innerWidth - margin * 2);
+                const btnRect = openBtn.getBoundingClientRect();
+                // Matched to the Donor Details card's own rendered width, not a fixed
+                // number — a dropdown wider than the form it hangs off reads as a mistake,
+                // spilling into the Donation Summary column beside it.
+                const card = openBtn.closest('.pos-card');
+                const anchorRect = card ? card.getBoundingClientRect() : btnRect;
+                const maxWidth = Math.min(anchorRect.width, window.innerWidth - margin * 2);
                 modalEl.style.maxWidth = maxWidth + 'px';
-                let left = rect.left;
-                if (left + maxWidth > window.innerWidth - margin) {
-                    left = Math.max(margin, window.innerWidth - maxWidth - margin);
-                }
+                let left = Math.max(margin, Math.min(anchorRect.left, window.innerWidth - maxWidth - margin));
                 modalEl.style.left = left + 'px';
-                modalEl.style.top = (rect.bottom + 8) + 'px';
-                modalEl.style.maxHeight = Math.max(200, window.innerHeight - rect.bottom - 8 - margin) + 'px';
+                modalEl.style.top = (btnRect.bottom + 8) + 'px';
+                modalEl.style.maxHeight = Math.max(200, window.innerHeight - btnRect.bottom - 8 - margin) + 'px';
             }
 
             function openModal() {

@@ -74,7 +74,7 @@ class PosPendingTransactionEditTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.events.pos', ['event' => $eventId, 'edit_id' => $donationId]));
 
         $response->assertOk();
-        $response->assertSee('Completing a pending transaction for Pending Donor');
+        $response->assertSee('Completing a pending transaction');
         // UPDATE_GUEST_URL is JSON-encoded into the page's own <script> (Laravel's @json
         // escapes forward slashes, so the raw route() URL never appears verbatim) — the
         // donation id is the one unambiguous, unescaped marker that it was actually built
