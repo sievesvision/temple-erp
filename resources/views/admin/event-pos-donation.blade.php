@@ -224,15 +224,29 @@
         .pos-actions-row { display: flex; flex-direction: column; gap: 10px; }
 
         {{-- Small, inline with the Donor Details heading rather than its own full-width row —
-             a clerk reaches for Clear far less often than Save, so it doesn't need equal visual
-             weight, and sitting inside the title's own flex row (margin-left:auto) means it adds
-             no extra height to the card at all. --}}
+             a clerk reaches for Search/Clear far less often than Save, so neither needs equal
+             visual weight, and sitting inside the title's own flex row means they add no extra
+             height to the card at all.
+             margin-left:auto lives on the WRAPPER, not the individual buttons — two flex items
+             each with their own margin-left:auto split the row's free space BETWEEN them (one
+             auto margin per item, each independently pulling leftward), landing Search roughly
+             mid-row with a big gap before Clear instead of sitting next to it. One auto margin
+             on their shared wrapper pushes the pair over together, with only the wrapper's own
+             gap separating the two buttons. --}}
+        .pos-card-title-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .pos-card-title-clear-btn {
-            margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 5px;
+            flex-shrink: 0; display: flex; align-items: center; gap: 5px;
             padding: 5px 11px; font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);
             background: var(--white); border: 1.5px solid var(--border); border-radius: 7px;
         }
         .pos-card-title-clear-btn:active { background: var(--cream); }
+        /* A phone's own card width is already tight with two buttons here — the icon alone
+           (search glass / undo arrow) reads clearly enough on its own, so the label is the
+           first thing to go rather than letting the row wrap or crowd the title text. */
+        @media (max-width: 420px) {
+            .pos-card-title-clear-btn { padding: 6px 9px; }
+            .pos-card-title-btn-label { display: none; }
+        }
 
         /* A proper full-width bar (like the header) rather than plain text sitting on the
            page background — bottom of the page reads as a distinct navigation-style strip.
@@ -785,7 +799,13 @@
         <div class="pos-grid">
             <div class="pos-col-left">
                 <div class="pos-card">
-                    <div class="pos-card-title"><span class="pos-step-badge">1</span>Donor Details<button type="button" class="pos-card-title-clear-btn" id="posFindDevoteeBtn" title="Find an existing devotee to prefill these details"><i class="bi bi-search"></i>Search</button><button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i>Clear</button></div>
+                    <div class="pos-card-title">
+                        <span class="pos-step-badge">1</span>Donor Details
+                        <span class="pos-card-title-actions">
+                            <button type="button" class="pos-card-title-clear-btn" id="posFindDevoteeBtn" title="Find an existing devotee to prefill these details"><i class="bi bi-search"></i><span class="pos-card-title-btn-label">Search</span></button>
+                            <button type="button" class="pos-card-title-clear-btn" id="posClearBtn" title="Clear form"><i class="bi bi-arrow-counterclockwise"></i><span class="pos-card-title-btn-label">Clear</span></button>
+                        </span>
+                    </div>
                     <div class="pos-card-subtitle">Who this donation is being recorded for</div>
                     <div class="pos-row">
                         <div class="pos-field-box">
