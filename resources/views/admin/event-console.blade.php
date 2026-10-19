@@ -316,6 +316,7 @@
         .pill-dot.dot-success { background: var(--success); }
         .pill-dot.dot-warning { background: var(--warning); }
         .pill-dot.dot-danger { background: #c94b4b; }
+        .pill-dot.dot-info { background: #2a6fdb; }
 
         /* All Donations table: simplified columns + a clickable row opening the full
            detail modal (everything the row itself doesn't show inline). */
@@ -925,7 +926,30 @@
                         // For the table's own Settlement column/badge — same settlement list
                         // the filter dropdown's own options are built from.
                         $settlementById = $cashSettlements->keyBy('id');
+                        $distinctPledgeStatuses = $rows->pluck('donation_status')->filter()->unique()->sort()->values();
+
+                        // Partial Pledge Payments, Phase D — flatten every row's own already-
+                        // loaded $row->payments (see EventDonationBreakdown::forEvent(), Phase B)
+                        // into one list for the Payments view below, carrying the donor/pledge
+                        // context each payment needs to display without a second query.
+                        $allPayments = $rows->flatMap(function ($row) {
+                            return $row->payments->map(function ($p) use ($row) {
+                                $p->donor_name = $row->display_name;
+                                $p->display_id = $row->display_id;
+                                $p->donation_type = $row->donation_type;
+                                $p->mobile = $row->mobile;
+                                $p->email = $row->email;
+                                return $p;
+                            });
+                        })->sortByDesc(fn ($p) => $p->received_at ?? $p->created_at)->values();
+                        $paymentDistinctMethods = $allPayments->pluck('payment_method')->filter()->unique()->sort()->values();
+                        $paymentDistinctStatuses = $allPayments->pluck('payment_status')->filter()->unique()->sort()->values();
                     @endphp
+                    <div class="donations-view-toggle trend-toggle" style="margin-bottom:14px;">
+                        <button type="button" class="active" id="viewTogglePledges">Pledges</button>
+                        <button type="button" id="viewTogglePayments">Payments</button>
+                    </div>
+                    <div id="pledgesView">
                     <div class="card-panel donations-filter-card">
                         <button type="button" class="donations-filter-clear-x" id="donationsFilterClear" title="Clear all filters"><i class="bi bi-x-lg"></i></button>
                         <div class="donations-pill-groups">
@@ -953,6 +977,16 @@
                                     <button type="button" class="donations-multi-pill donations-pill-all active" data-all="1">All</button>
                                     @foreach($distinctPaymentMethods as $method)
                                     <button type="button" class="donations-multi-pill" data-value="{{ strtolower($method) }}">{{ $method }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Pledge Status</span>
+                                <div class="donations-filter-pills" id="donationsPledgeStatusPills">
+                                    <button type="button" class="donations-multi-pill donations-pill-all active" data-all="1">All</button>
+                                    @foreach($distinctPledgeStatuses as $pstatus)
+                                    @php $plsv = strtolower(str_replace(' ', '-', $pstatus)); @endphp
+                                    <button type="button" class="donations-multi-pill" data-value="{{ $plsv }}"><span class="pill-dot {{ match($plsv) { 'completed' => 'dot-success', 'partially-paid' => 'dot-info', 'pending' => 'dot-warning', default => 'dot-danger' } }}"></span>{{ $pstatus }}</button>
                                     @endforeach
                                 </div>
                             </div>
@@ -999,7 +1033,9 @@
                                     <th class="sortable" data-sort="timestamp">Date &amp; Time<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="name">Donor Name<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th>Contact</th>
-                                    <th class="col-amount sortable" data-sort="amount">Amount<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="col-amount sortable" data-sort="amount">Pledged<i class="bi bi-arrow-down-up sort-icon"></i></th>
+                                    <th class="col-amount">Paid</th>
+                                    <th class="col-amount">Outstanding</th>
                                     <th class="sortable" data-sort="payment">Payment Method<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th>Transaction ID</th>
                                     <th class="sortable" data-sort="status">Status<i class="bi bi-arrow-down-up sort-icon"></i></th>
@@ -1037,6 +1073,7 @@
                                     data-payment="{{ strtolower($row->payment_method ?? '') }}"
                                     data-status="{{ strtolower($row->payment_status) }}"
                                     data-settlement="{{ $row->settlement_id ?? 'current' }}"
+                                    data-pledge-status="{{ strtolower(str_replace(' ', '-', $row->donation_status)) }}"
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $rowModalId }}">
                                     <td class="text-muted">{{ $row->display_id }}</td>
                                     {{-- donation_date is a business/accounting date an entry can be deliberately
@@ -1052,6 +1089,8 @@
                                         @if(!$row->mobile && !$row->email)—@endif
                                     </td>
                                     <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
+                                    <td class="col-amount text-success">{{ number_format($row->total_paid, 2) }}</td>
+                                    <td class="col-amount{{ $row->outstanding_balance > 0 ? ' text-warning' : '' }}">{{ number_format($row->outstanding_balance, 2) }}</td>
                                     <td>{{ $row->payment_method ?? '—' }}</td>
                                     <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
@@ -1062,7 +1101,7 @@
                                 </tr>
                                 @empty
                                 @if(($eftOrphanRows ?? collect())->isEmpty())
-                                <tr><td colspan="10" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="12" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
                                 @endif
                                 @endforelse
                                 @if($canEditEvent)
@@ -1102,6 +1141,7 @@
                                     data-status="{{ $oPillClass }}"
                                     data-settlement="current"
                                     data-donation-id=""
+                                    data-pledge-status=""
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}">
                                     <td class="text-muted">—</td>
                                     <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
@@ -1112,6 +1152,8 @@
                                         @if(!$oMobile && !$oEmail)—@endif
                                     </td>
                                     <td class="col-amount total">{{ $ot->amount !== null ? number_format($ot->amount, 2) : '—' }}</td>
+                                    <td class="col-amount text-muted">—</td>
+                                    <td class="col-amount text-muted">—</td>
                                     <td>EFT Terminal<div class="text-muted small">{{ $oProvider }}@if($oTerminalLabel) · {{ $oTerminalLabel }}@endif</div></td>
                                     <td class="col-txn" title="{{ $oRef }}">{{ $oRef ?: '—' }}</td>
                                     <td><span class="status-pill status-{{ $oPillClass }}">{{ $oIsRefund ? 'Refunded' : ucfirst(strtolower($oStatusWord)) }}</span></td>
@@ -1122,11 +1164,110 @@
                                 </tr>
                                 @endforeach
                                 @endif
-                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="10" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
+                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="12" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
                             </tbody>
                         </table>
                         </div>
                     </div>
+                    </div><!-- /pledgesView -->
+
+                    {{-- Payments view — Partial Pledge Payments, Phase D: one row per actual
+                         payment (see $allPayments above), not per donation — the Pledges view's
+                         own Amount/Paid/Outstanding columns can never show a single pledge's
+                         real per-method breakdown once it's been paid off in more than one
+                         installment, so this is the only place that breakdown is visible. --}}
+                    <div id="paymentsView" style="display:none;">
+                    <div class="card-panel donations-filter-card">
+                        <button type="button" class="donations-filter-clear-x" id="paymentsFilterClear" title="Clear all filters"><i class="bi bi-x-lg"></i></button>
+                        <div class="donations-pill-groups">
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Status</span>
+                                <div class="donations-filter-pills" id="paymentsStatusPills">
+                                    <button type="button" class="donations-multi-pill donations-pill-all active" data-all="1">All</button>
+                                    @foreach($paymentDistinctStatuses as $status)
+                                    @php $psv = strtolower($status); @endphp
+                                    <button type="button" class="donations-multi-pill" data-value="{{ $psv }}"><span class="pill-dot {{ match($psv) { 'completed' => 'dot-success', 'pending' => 'dot-warning', default => 'dot-danger' } }}"></span>{{ $status }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="donations-pill-group">
+                                <span class="donations-pill-group-label">Payment Method</span>
+                                <div class="donations-filter-pills" id="paymentsMethodPills">
+                                    <button type="button" class="donations-multi-pill donations-pill-all active" data-all="1">All</button>
+                                    @foreach($paymentDistinctMethods as $method)
+                                    <button type="button" class="donations-multi-pill" data-value="{{ strtolower($method) }}">{{ $method }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        <div class="donations-filter-row donations-filter-row-combined">
+                            <div class="donations-filter-pills" id="paymentsQuickFilters">
+                                <button type="button" class="active" data-range="all">All Time</button>
+                                <button type="button" data-range="today">Today</button>
+                                <button type="button" data-range="week">This Week</button>
+                                <button type="button" data-range="month">This Month</button>
+                                <button type="button" data-range="last_month">Last Month</button>
+                            </div>
+                            <input type="date" class="donations-date-input" id="paymentsDateFrom">
+                            <span class="text-muted small">to</span>
+                            <input type="date" class="donations-date-input" id="paymentsDateTo">
+                            <div class="donations-search-wrap donations-search-wrap-compact">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="paymentsSearchInput" placeholder="Search by name or reference...">
+                            </div>
+                        </div>
+                        <div class="donations-filter-summary">
+                            <span id="paymentsFilterCount"></span>
+                            <span class="donations-filter-total" id="paymentsFilterTotal"></span>
+                        </div>
+                    </div>
+                    <div class="card-panel" style="padding:0;">
+                        <div class="table-scroll-wrap" style="max-height: calc(100vh - 220px);">
+                        <table class="console-table" id="paymentsTable">
+                            <thead>
+                                <tr>
+                                    <th>Date &amp; Time</th>
+                                    <th>Pledge</th>
+                                    <th>Reference</th>
+                                    <th class="col-amount">Amount</th>
+                                    <th>Method</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($allPayments as $p)
+                                <tr data-payment-date="{{ $p->received_at ? date('Y-m-d', strtotime($p->received_at)) : date('Y-m-d', strtotime($p->created_at)) }}"
+                                    data-search="{{ strtolower(($p->donor_name ?? '') . ' ' . ($p->transaction_id ?? '')) }}"
+                                    data-method="{{ strtolower($p->payment_method ?? '') }}"
+                                    data-pstatus="{{ strtolower($p->payment_status) }}"
+                                    data-amount="{{ $p->amount }}">
+                                    <td>{{ $p->received_at ? date('d M Y, g:i A', strtotime($p->received_at)) : date('d M Y, g:i A', strtotime($p->created_at)) }}</td>
+                                    <td class="text-muted">{{ $p->display_id }} <span class="col-name">{{ $p->donor_name }}</span></td>
+                                    <td class="col-txn" title="{{ $p->transaction_id }}">{{ $p->transaction_id ?: '—' }}</td>
+                                    <td class="col-amount total">{{ number_format($p->amount, 2) }}</td>
+                                    <td>{{ $p->payment_method ?? '—' }}</td>
+                                    <td><span class="status-pill status-{{ strtolower($p->payment_status) }}">{{ $p->payment_status }}</span></td>
+                                    <td class="text-end">
+                                        @if($canEditDonation && $p->payment_status === 'Pending')
+                                        <form action="{{ route('admin.donations.confirmPayment', $p->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm this payment was received?')">
+                                            @csrf
+                                            <button type="submit" class="btn-action-approve" style="padding:4px 10px; font-size:0.72rem;" title="Confirm this payment was received">
+                                                <i class="bi bi-check-circle-fill"></i> Confirm
+                                            </button>
+                                        </form>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="7" class="text-center text-muted py-5">No payments recorded for this event yet.</td></tr>
+                                @endforelse
+                                <tr id="paymentsNoMatchRow" style="display:none;"><td colspan="7" class="text-center text-muted py-5">No payments match your search/filter.</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                    </div><!-- /paymentsView -->
                 </div>
 
                 {{-- Per-row detail modals — everything the simplified table above doesn't
@@ -2587,6 +2728,173 @@
             });
         })();
 
+        // All Transactions: Pledges/Payments view toggle — Partial Pledge Payments, Phase D.
+        // Both tables are rendered server-side; this just swaps which one is visible, same
+        // pattern as the Donation Trend weekly/monthly toggle just above.
+        (function () {
+            const pledgesBtn = document.getElementById('viewTogglePledges');
+            const paymentsBtn = document.getElementById('viewTogglePayments');
+            const pledgesView = document.getElementById('pledgesView');
+            const paymentsView = document.getElementById('paymentsView');
+            if (!pledgesBtn || !paymentsBtn) { return; }
+            pledgesBtn.addEventListener('click', function () {
+                pledgesBtn.classList.add('active');
+                paymentsBtn.classList.remove('active');
+                pledgesView.style.display = '';
+                paymentsView.style.display = 'none';
+            });
+            paymentsBtn.addEventListener('click', function () {
+                paymentsBtn.classList.add('active');
+                pledgesBtn.classList.remove('active');
+                paymentsView.style.display = '';
+                pledgesView.style.display = 'none';
+            });
+        })();
+
+        // Payments view: client-side search + multi-select method/status + date filter,
+        // same mechanism as the Pledges view's own filter IIFE above (one row per payment
+        // instead of per donation — see $allPayments in the Blade above).
+        (function () {
+            const searchInput = document.getElementById('paymentsSearchInput');
+            const dateFrom = document.getElementById('paymentsDateFrom');
+            const dateTo = document.getElementById('paymentsDateTo');
+            const clearBtn = document.getElementById('paymentsFilterClear');
+            const countEl = document.getElementById('paymentsFilterCount');
+            const totalEl = document.getElementById('paymentsFilterTotal');
+            const noMatchRow = document.getElementById('paymentsNoMatchRow');
+            const pillsWrap = document.getElementById('paymentsQuickFilters');
+            if (!searchInput) { return; }
+            const rows = Array.from(document.querySelectorAll('#paymentsTable tbody tr[data-payment-date]'));
+            const pills = pillsWrap ? Array.from(pillsWrap.querySelectorAll('button')) : [];
+            const paymentsCurrency = @json($temple['currency'] ?? '');
+
+            const multiGroups = [
+                { wrapId: 'paymentsStatusPills', field: 'pstatus' },
+                { wrapId: 'paymentsMethodPills', field: 'method' },
+            ].map(function (g) {
+                const wrap = document.getElementById(g.wrapId);
+                const allButtons = wrap ? Array.from(wrap.querySelectorAll('.donations-multi-pill')) : [];
+                const allPill = allButtons.find(function (b) { return b.dataset.all; }) || null;
+                const buttons = allButtons.filter(function (b) { return !b.dataset.all; });
+                const active = new Set(buttons.filter(function (b) { return b.classList.contains('active'); }).map(function (b) { return b.dataset.value; }));
+                return { field: g.field, buttons: buttons, allPill: allPill, active: active, defaultActive: new Set(active) };
+            }).filter(function (g) { return g.buttons.length; });
+
+            function syncAllPill(g) {
+                if (g.allPill) { g.allPill.classList.toggle('active', g.active.size === 0 || g.active.size === g.buttons.length); }
+            }
+            multiGroups.forEach(syncAllPill);
+
+            function applyFilters() {
+                const term = (searchInput.value || '').trim().toLowerCase();
+                const from = dateFrom.value || null;
+                const to = dateTo.value || null;
+                let visible = 0;
+                let totalAmount = 0;
+                rows.forEach(function (row) {
+                    const matchesSearch = !term || row.dataset.search.indexOf(term) !== -1;
+                    const matchesGroups = multiGroups.every(function (g) {
+                        return g.active.size === 0 || g.active.has(row.dataset[g.field]);
+                    });
+                    const rowDate = row.dataset.paymentDate;
+                    const matchesFrom = !from || rowDate >= from;
+                    const matchesTo = !to || rowDate <= to;
+                    const show = matchesSearch && matchesGroups && matchesFrom && matchesTo;
+                    row.style.display = show ? '' : 'none';
+                    if (show) { visible++; totalAmount += parseFloat(row.dataset.amount) || 0; }
+                });
+                if (noMatchRow) { noMatchRow.style.display = (rows.length && visible === 0) ? '' : 'none'; }
+                if (countEl) { countEl.textContent = rows.length ? (visible + ' of ' + rows.length + ' payments shown') : ''; }
+                if (totalEl) {
+                    totalEl.innerHTML = rows.length
+                        ? 'Filtered Total: <span class="amt">' + paymentsCurrency + ' ' + totalAmount.toFixed(2) + '</span>'
+                        : '';
+                }
+            }
+
+            multiGroups.forEach(function (g) {
+                g.buttons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const value = btn.dataset.value;
+                        if (g.active.has(value)) {
+                            g.active.delete(value);
+                            btn.classList.remove('active');
+                        } else {
+                            g.active.add(value);
+                            btn.classList.add('active');
+                        }
+                        syncAllPill(g);
+                        applyFilters();
+                    });
+                });
+                if (g.allPill) {
+                    g.allPill.addEventListener('click', function () {
+                        g.active.clear();
+                        g.buttons.forEach(function (b) { b.classList.remove('active'); });
+                        syncAllPill(g);
+                        applyFilters();
+                    });
+                }
+            });
+
+            function isoDate(d) {
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            }
+
+            function setQuickRange(range) {
+                const today = new Date();
+                if (range === 'today') {
+                    dateFrom.value = isoDate(today);
+                    dateTo.value = isoDate(today);
+                } else if (range === 'week') {
+                    const start = new Date(today);
+                    start.setDate(today.getDate() - today.getDay());
+                    dateFrom.value = isoDate(start);
+                    dateTo.value = isoDate(today);
+                } else if (range === 'month') {
+                    dateFrom.value = isoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                    dateTo.value = isoDate(today);
+                } else if (range === 'last_month') {
+                    dateFrom.value = isoDate(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+                    dateTo.value = isoDate(new Date(today.getFullYear(), today.getMonth(), 0));
+                } else {
+                    dateFrom.value = '';
+                    dateTo.value = '';
+                }
+                applyFilters();
+            }
+
+            pills.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    setQuickRange(btn.dataset.range);
+                });
+            });
+
+            searchInput.addEventListener('input', applyFilters);
+            dateFrom.addEventListener('change', applyFilters);
+            dateTo.addEventListener('change', applyFilters);
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    searchInput.value = '';
+                    dateFrom.value = '';
+                    dateTo.value = '';
+                    pills.forEach(function (b) { b.classList.remove('active'); });
+                    const allTimePill = pills.find(function (b) { return b.dataset.range === 'all'; });
+                    if (allTimePill) { allTimePill.classList.add('active'); }
+                    multiGroups.forEach(function (g) {
+                        g.active = new Set(g.defaultActive);
+                        g.buttons.forEach(function (b) { b.classList.toggle('active', g.active.has(b.dataset.value)); });
+                        syncAllPill(g);
+                    });
+                    applyFilters();
+                });
+            }
+
+            applyFilters();
+        })();
+
         // All Donations: client-side search + multi-select status/payment/settlement +
         // date filter over the already-rendered table (the event's own donation list is a
         // bounded, single-page dataset — no need for a server round-trip). Status and
@@ -2619,6 +2927,7 @@
             const multiGroups = [
                 { wrapId: 'donationsStatusPills', field: 'status' },
                 { wrapId: 'donationsPaymentPills', field: 'payment' },
+                { wrapId: 'donationsPledgeStatusPills', field: 'pledgeStatus' },
             ].map(function (g) {
                 const wrap = document.getElementById(g.wrapId);
                 const allButtons = wrap ? Array.from(wrap.querySelectorAll('.donations-multi-pill')) : [];
