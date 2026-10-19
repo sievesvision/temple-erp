@@ -237,13 +237,11 @@ class AllTransactionsFilterTest extends TestCase
 
     /**
      * donation_date is a business/accounting date the Add Transaction modal lets staff
-     * deliberately backdate — pairing IT with created_at's time (as the Date & Time column
-     * used to) mixed an editable field with a real one. Both halves now come from
-     * created_at, so this column reads as the actual moment the transaction happened.
-     * (The Settlements pane's own Current Period Transactions table is a separate feature
-     * that legitimately shows donation_date — not touched here, so not asserted against.)
+     * deliberately backdate — shown as the main line since it's what the donation is dated
+     * as. created_at is the real, uneditable moment the record was actually saved — shown
+     * underneath so both stay visible rather than one silently standing in for the other.
      */
-    public function test_date_and_time_column_shows_the_real_created_at_not_the_editable_donation_date(): void
+    public function test_date_and_time_column_shows_both_donation_date_and_the_real_recorded_timestamp(): void
     {
         $admin = $this->admin();
         $eventId = $this->makeEvent();
@@ -259,9 +257,8 @@ class AllTransactionsFilterTest extends TestCase
         $html = $response->getContent();
         preg_match('/<table class="console-table" id="donationsTable">.*?<\/table>/s', $html, $m);
         $this->assertNotEmpty($m, 'donationsTable not found in response');
-        $this->assertStringContainsString('05 Sep 2026', $m[0]);
-        $this->assertStringContainsString('2:35 PM', $m[0]);
-        $this->assertStringNotContainsString('01 Jan 2026', $m[0]);
+        $this->assertStringContainsString('01 Jan 2026', $m[0]);
+        $this->assertStringContainsString('Recorded 05 Sep 2026, 2:35 PM', $m[0]);
     }
 
     public function test_the_filter_row_combines_quick_ranges_date_range_and_a_compact_search_box(): void
@@ -274,5 +271,51 @@ class AllTransactionsFilterTest extends TestCase
         $response->assertOk();
         $response->assertSee('donations-filter-row-combined', false);
         $response->assertSee('donations-search-wrap-compact', false);
+    }
+
+    /**
+     * Clear moved out of the filter row (where the quick-range pills/date range/search box
+     * live) to a small red "x" pinned to the top of the filter box itself — a distinct,
+     * slightly destructive action rather than a peer of the other controls. Only one
+     * #donationsFilterClear element should exist (the old in-row button text is gone).
+     */
+    public function test_clear_is_a_small_icon_button_at_the_top_of_the_filter_box(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('donations-filter-clear-x', false);
+        $html = $response->getContent();
+        $this->assertSame(1, substr_count($html, 'id="donationsFilterClear"'));
+    }
+
+    /**
+     * Clear used to uniformly re-select every pill in every group — correct for Status
+     * (whose default IS every pill it starts with active), wrong for Payment Method (whose
+     * default is nothing selected, All alone). Both groups' own defaultActive snapshot
+     * (captured from how they're rendered here) is what the JS restores on Clear — this
+     * locks in that the server-rendered starting state for each group is what a reader of
+     * the JS would expect Clear to restore it to.
+     */
+    public function test_payment_method_and_status_pills_keep_their_own_distinct_defaults(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $this->insertGuestDonation($eventId, 'Bank Donor', 50, 'Bank', 'Paid');
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+        $response->assertOk();
+        $html = $response->getContent();
+
+        preg_match('/<div class="donations-filter-pills" id="donationsPaymentPills">.*?<\/div>/s', $html, $paymentBlock);
+        $this->assertStringNotContainsString('data-value="bank"><span class="pill-dot', $paymentBlock[0] ?? '');
+        $this->assertMatchesRegularExpression('/data-value="bank"[^>]*>Bank/', $paymentBlock[0] ?? '');
+        $this->assertDoesNotMatchRegularExpression('/class="donations-multi-pill active" data-value="bank"/', $paymentBlock[0] ?? '');
+
+        preg_match('/<div class="donations-filter-pills" id="donationsStatusPills">.*?<\/div>/s', $html, $statusBlock);
+        $this->assertMatchesRegularExpression('/class="donations-multi-pill active" data-value="paid"/', $statusBlock[0] ?? '');
     }
 }

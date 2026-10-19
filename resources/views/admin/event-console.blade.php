@@ -271,7 +271,16 @@
         .donations-filter-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
         .donations-filter-pills button { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 7px 14px; min-height: 36px; border-radius: 8px; font-size: 0.8rem; }
         .donations-filter-pills button.active { background: #dee2e6; border-color: #ced4da; color: var(--text-primary); }
-        .donations-filter-clear { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 10px 16px; min-height: 42px; border-radius: 8px; font-size: 0.85rem; }
+        /* A small red "x" pinned to the filter box's own top-right corner, not a button
+           competing for space in the filter row below — "clear everything" reads as a
+           distinct, slightly destructive action, not a peer of the quick-range pills. */
+        .donations-filter-card { position: relative; }
+        .donations-filter-clear-x {
+            position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; border-radius: 50%;
+            border: 1.5px solid #f5c2c7; background: var(--white); color: #dc3545;
+            display: flex; align-items: center; justify-content: center; font-size: 0.8rem; z-index: 2;
+        }
+        .donations-filter-clear-x:hover { background: #fdf0f0; border-color: #dc3545; }
         /* Quick-range pills, the date range, and Clear now share one row (see
            .donations-filter-row-combined below) — the pills' own standalone margin-bottom
            only made sense as a separate row, so it's dropped here to keep everything on
@@ -902,7 +911,8 @@
                         // the filter dropdown's own options are built from.
                         $settlementById = $cashSettlements->keyBy('id');
                     @endphp
-                    <div class="card-panel">
+                    <div class="card-panel donations-filter-card">
+                        <button type="button" class="donations-filter-clear-x" id="donationsFilterClear" title="Clear all filters"><i class="bi bi-x-lg"></i></button>
                         <div class="donations-pill-groups">
                             <div class="donations-pill-group">
                                 <span class="donations-pill-group-label">Status</span>
@@ -955,7 +965,6 @@
                             <input type="date" class="donations-date-input" id="donationsDateFrom">
                             <span class="text-muted small">to</span>
                             <input type="date" class="donations-date-input" id="donationsDateTo">
-                            <button type="button" class="donations-filter-clear" id="donationsFilterClear"><i class="bi bi-x-circle me-1"></i>Clear</button>
                             <div class="donations-search-wrap donations-search-wrap-compact">
                                 <i class="bi bi-search"></i>
                                 <input type="text" id="donationsSearchInput" placeholder="Search by name...">
@@ -1015,12 +1024,12 @@
                                     data-settlement="{{ $row->settlement_id ?? 'current' }}"
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $rowModalId }}">
                                     <td class="text-muted">{{ $row->display_id }}</td>
-                                    {{-- Both the date and time here come from created_at, not donation_date — donation_date
-                                         is a business/accounting date an entry can be deliberately backdated to (the Add
-                                         Transaction modal's own date picker), so pairing IT with created_at's time mixed
-                                         an editable field with a real one; this column reads as the actual moment the
-                                         transaction was recorded, consistently from one source. --}}
-                                    <td>{{ date('d M Y', strtotime($row->created_at)) }}<div class="text-muted small">{{ date('g:i A', strtotime($row->created_at)) }}</div></td>
+                                    {{-- donation_date is a business/accounting date an entry can be deliberately
+                                         backdated to (the Add Transaction modal's own date picker) — shown as the
+                                         main line since it's what the donation is dated as. created_at is the real,
+                                         uneditable moment the record was actually saved — shown underneath so both
+                                         stay visible rather than one silently standing in for the other. --}}
+                                    <td>{{ date('d M Y', strtotime($row->donation_date)) }}<div class="text-muted small">Recorded {{ date('d M Y, g:i A', strtotime($row->created_at)) }}</div></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
                                     <td class="col-contact">
                                         @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
@@ -2409,7 +2418,11 @@
                 const allPill = allButtons.find(function (b) { return b.dataset.all; }) || null;
                 const buttons = allButtons.filter(function (b) { return !b.dataset.all; });
                 const active = new Set(buttons.filter(function (b) { return b.classList.contains('active'); }).map(function (b) { return b.dataset.value; }));
-                return { field: g.field, buttons: buttons, allPill: allPill, active: active };
+                // Snapshot of each group's OWN starting state — Status defaults to Paid +
+                // Pending active, Payment Method defaults to nothing (All alone) — so Clear
+                // can restore each group correctly without hardcoding which default belongs
+                // to which group.
+                return { field: g.field, buttons: buttons, allPill: allPill, active: active, defaultActive: new Set(active) };
             }).filter(function (g) { return g.buttons.length; });
 
             function syncAllPill(g) {
@@ -2523,9 +2536,15 @@
             if (clearBtn) {
                 clearBtn.addEventListener('click', function () {
                     searchInput.value = '';
+                    // Restores each group's OWN starting state (its defaultActive snapshot
+                    // from page load) rather than selecting every pill uniformly — that used
+                    // to put Payment Method back into "every method individually lit" even
+                    // though the group's actual default (and what clicking its own All pill
+                    // does) is "nothing selected, All alone active". Status keeps its
+                    // different default (Paid + Pending) the same way.
                     multiGroups.forEach(function (g) {
-                        g.active.clear();
-                        g.buttons.forEach(function (b) { g.active.add(b.dataset.value); b.classList.add('active'); });
+                        g.active = new Set(g.defaultActive);
+                        g.buttons.forEach(function (b) { b.classList.toggle('active', g.active.has(b.dataset.value)); });
                         syncAllPill(g);
                     });
                     if (settlementSelect) { settlementSelect.value = ''; }
