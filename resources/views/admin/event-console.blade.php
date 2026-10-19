@@ -274,7 +274,10 @@
         /* A small red "x" pinned to the filter box's own top-right corner, not a button
            competing for space in the filter row below — "clear everything" reads as a
            distinct, slightly destructive action, not a peer of the quick-range pills. */
-        .donations-filter-card { position: relative; }
+        /* Extra top padding reserves a header strip for the absolutely-positioned
+           Clear (x) button below, so it never overlaps whichever pill group's
+           content ends up rendered in that top-right corner. */
+        .donations-filter-card { position: relative; padding-top: 52px; }
         .donations-filter-clear-x {
             position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; border-radius: 50%;
             border: 1.5px solid #f5c2c7; background: var(--white); color: #dc3545;
