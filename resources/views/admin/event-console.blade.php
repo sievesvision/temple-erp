@@ -1323,8 +1323,8 @@
                                     <label class="field-label">Status</label>
                                     <i class="bi bi-check2-circle field-icon"></i>
                                     <select id="qePaymentStatus">
+                                        <option value="Pending" selected>Pending</option>
                                         <option value="Paid">Completed</option>
-                                        <option value="Pending">Pending</option>
                                     </select>
                                 </div>
                             </div>
@@ -2669,6 +2669,15 @@
             opt.textContent = m;
             paymentSelect.appendChild(opt);
         });
+        // Always offered here regardless of the event's own configured payment methods —
+        // this isn't a donor-facing payment choice, it's a portal-only way to record a card
+        // payment that was physically taken on the terminal but never driven through this
+        // app's own EFT Terminal charge flow (so there's no gateway ledger row for it), e.g.
+        // recovering a transaction the operator completed manually.
+        const eftManualOpt = document.createElement('option');
+        eftManualOpt.value = 'EFT Manual';
+        eftManualOpt.textContent = 'EFT Manual';
+        paymentSelect.appendChild(eftManualOpt);
 
         // Devotee search combobox — client-side filter over a pre-loaded array.
         const devoteeSearch = document.getElementById('qeDevoteeSearch');
@@ -2885,7 +2894,7 @@
             const today = new Date().toISOString().slice(0, 10);
             donationDateInput.value = today;
             donationDateDevoteeInput.value = today;
-            paymentStatusSelect.value = 'Paid';
+            paymentStatusSelect.value = 'Pending';
             selections = [];
             purposeValue = 'Event Donation';
         }

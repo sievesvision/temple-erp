@@ -791,7 +791,8 @@ class DonationController extends Controller
             'devotee_id' => 'required|exists:devotees,devotee_id',
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
-            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal',
+            // 'EFT Manual' — portal-only, see storeGuestDonation()'s own identical note.
+            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:2000',
@@ -1763,7 +1764,10 @@ class DonationController extends Controller
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',
-            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Terminal',
+            // 'EFT Manual' — portal-only, for recording a terminal-card payment that was
+            // taken on the physical device but never driven through this app's own real-time
+            // EFT Terminal charge flow, so there's no gateway ledger row to link it to.
+            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual',
             'transaction_id' => 'nullable|string|max:100',
             // Bank/cheque details are a convenience field, not a requirement — an admin
             // recording a donation from a bank statement or receipt may not have every
@@ -1868,7 +1872,7 @@ class DonationController extends Controller
         $validated = $request->validate([
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
-            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,Stripe',
+            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual,Stripe',
             'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
@@ -1959,7 +1963,7 @@ class DonationController extends Controller
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',
-            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Terminal,Stripe',
+            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual,Stripe',
             'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
