@@ -911,9 +911,14 @@
                             <div class="donations-pill-group">
                                 <span class="donations-pill-group-label">Payment Method</span>
                                 <div class="donations-filter-pills" id="donationsPaymentPills">
+                                    {{-- "All" alone starts active — an empty active set already means
+                                         "no restriction" to applyFilters() below, so this needs no
+                                         special-casing there; every individual pill starts unselected
+                                         rather than all pre-lit, so clicking one reads as "narrow to
+                                         just this" instead of "deselect everything else". --}}
                                     <button type="button" class="donations-multi-pill donations-pill-all active" data-all="1">All</button>
                                     @foreach($distinctPaymentMethods as $method)
-                                    <button type="button" class="donations-multi-pill active" data-value="{{ strtolower($method) }}">{{ $method }}</button>
+                                    <button type="button" class="donations-multi-pill" data-value="{{ strtolower($method) }}">{{ $method }}</button>
                                     @endforeach
                                 </div>
                             </div>
@@ -2390,7 +2395,10 @@
             }).filter(function (g) { return g.buttons.length; });
 
             function syncAllPill(g) {
-                if (g.allPill) { g.allPill.classList.toggle('active', g.active.size === g.buttons.length); }
+                // Either "nothing excluded" (empty — the default, and what clicking All now
+                // resets to) or "everything individually picked" reads as All being active —
+                // both show every row, via applyFilters()'s own size === 0 shortcut below.
+                if (g.allPill) { g.allPill.classList.toggle('active', g.active.size === 0 || g.active.size === g.buttons.length); }
             }
             multiGroups.forEach(syncAllPill);
 
@@ -2440,7 +2448,12 @@
                 });
                 if (g.allPill) {
                     g.allPill.addEventListener('click', function () {
-                        g.buttons.forEach(function (b) { g.active.add(b.dataset.value); b.classList.add('active'); });
+                        // Clears to "nothing excluded" rather than individually re-selecting
+                        // every current pill — matches the default state, and (unlike a full
+                        // set) stays correct even if a pill the Blade side doesn't yet know
+                        // about ever shows up in the data.
+                        g.active.clear();
+                        g.buttons.forEach(function (b) { b.classList.remove('active'); });
                         syncAllPill(g);
                         applyFilters();
                     });
