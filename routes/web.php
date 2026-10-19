@@ -721,9 +721,10 @@ Route::middleware(['auth'])->group(function () {
 // ============================================
 // Event Coordinator is included here too — the route stays broader than the actual
 // capability, same pattern as the comment above describes for Admin/Committee/Accountant.
-// DonationController's per-event, per-level checks (see canManageDonationForEvent()) do the
-// real narrowing: a coordinator only reaches past those checks for their own event, and only
-// at entry/admin level — 'view' level and delete stay blocked there regardless of this gate.
+// DonationController's per-event, per-level checks (see canManageDonationForEvent(), and the
+// equivalent inline check in deleteGuestDonation()/deleteDevoteeDonation()) do the real
+// narrowing: a coordinator only reaches past those checks for their own event, and only at
+// entry/admin level — 'view' level stays blocked there regardless of this gate.
 Route::middleware(['auth', 'role:Admin,Committee,Accountant,Event Coordinator'])->group(function () {
     Route::get('/admin/manage-donations', [\App\Http\Controllers\DonationController::class, 'manageDonations'])->name('admin.donations.index');
     Route::post('/admin/donation/store-devotee', [\App\Http\Controllers\DonationController::class, 'storeDevoteeDonation'])->name('admin.donations.storeDevotee');

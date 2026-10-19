@@ -1897,13 +1897,22 @@ class DonationController extends Controller
     public function deleteDevoteeDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'delete')) {
+        if (!$user) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $donation = DB::table('donations')->where('id', $id)->first();
         if (!$donation) {
             return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        // Same bar EventConsoleController's own $canDeleteDonation uses — an event-admin or
+        // event-entry coordinator for THIS donation's event can delete it too, not just a
+        // system Admin or a role separately granted the global donations.delete permission.
+        $activeRole = session('active_role', $user->role);
+        $coordinatorLevel = $activeRole === 'Event Coordinator' ? EventCoordinatorLevel::of((int) $donation->event_id, $user->id) : null;
+        if (!($activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry'))) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         if ($donation->payment_method === 'EFT Terminal') {
@@ -2015,13 +2024,22 @@ class DonationController extends Controller
     public function deleteGuestDonation($id)
     {
         $user = Auth::user();
-        if (!$user || !RolePermission::can(session('active_role', $user->role), 'donations', 'delete')) {
+        if (!$user) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         $donation = DB::table('donations_without_logins')->where('id', $id)->first();
         if (!$donation) {
             return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        // Same bar EventConsoleController's own $canDeleteDonation uses — an event-admin or
+        // event-entry coordinator for THIS donation's event can delete it too, not just a
+        // system Admin or a role separately granted the global donations.delete permission.
+        $activeRole = session('active_role', $user->role);
+        $coordinatorLevel = $activeRole === 'Event Coordinator' ? EventCoordinatorLevel::of((int) $donation->event_id, $user->id) : null;
+        if (!($activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry'))) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
         if ($donation->payment_method === 'EFT Terminal') {

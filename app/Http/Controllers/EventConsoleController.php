@@ -169,7 +169,7 @@ class EventConsoleController extends Controller
         // donation entry/edit/approve; event-admin adds Settings and coordinator management.
         $canAddDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'add') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
         $canEditDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'edit') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
-        $canDeleteDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete');
+        $canDeleteDonation = $activeRole === 'Admin' || RolePermission::can($activeRole, 'donations', 'delete') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
         // Event settings (donation options, contacts, gallery, status, etc.) — only an
         // event-admin coordinator gets this, not event-entry/event-view.
         $canEditEvent = $activeRole === 'Admin' || RolePermission::can($activeRole, 'events', 'edit') || EventCoordinatorLevel::atLeast($coordinatorLevel, 'admin');
