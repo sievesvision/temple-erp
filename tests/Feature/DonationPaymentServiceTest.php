@@ -43,8 +43,12 @@ class DonationPaymentServiceTest extends TestCase
 
         $this->assertEquals('Cash', $payment->payment_method);
         $this->assertEquals(800.00, DonationPaymentService::outstandingBalance('guest', $id));
+        // The mirrored payment_status must NOT say 'Paid' here — only $200 of $1000 is in,
+        // and the ~45 existing call sites that read payment_status directly treat 'Paid' as
+        // "fully settled". A single Completed payment that doesn't cover the whole pledge
+        // mirrors to 'Partially Paid' instead.
         $this->assertDatabaseHas('donations_without_logins', [
-            'id' => $id, 'donation_status' => 'Partially Paid', 'payment_method' => 'Cash', 'payment_status' => 'Paid',
+            'id' => $id, 'donation_status' => 'Partially Paid', 'payment_method' => 'Cash', 'payment_status' => 'Partially Paid',
         ]);
     }
 

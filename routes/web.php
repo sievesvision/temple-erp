@@ -737,6 +737,8 @@ Route::middleware(['auth', 'role:Admin,Committee,Accountant,Event Coordinator'])
     Route::post('/admin/donation/approve-guest/{id}', [\App\Http\Controllers\DonationController::class, 'approveGuestDonation'])->name('admin.donations.approveGuest');
     Route::post('/admin/donation/approve-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'approveDevoteeDonation'])->name('admin.donations.approveDevotee');
     Route::post('/admin/donation/check-stripe-status/{type}/{id}', [\App\Http\Controllers\DonationController::class, 'checkStripeStatus'])->name('admin.donations.checkStripeStatus');
+    Route::post('/admin/donation/add-payment-guest/{id}', [\App\Http\Controllers\DonationController::class, 'addGuestPayment'])->name('admin.donations.addPaymentGuest');
+    Route::post('/admin/donation/add-payment-devotee/{id}', [\App\Http\Controllers\DonationController::class, 'addDevoteePayment'])->name('admin.donations.addPaymentDevotee');
 });
 
 // EFT Terminal start/poll/cancel/sendkey are shared by BOTH the donation POS/console flow and

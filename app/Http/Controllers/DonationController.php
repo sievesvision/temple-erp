@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\RolePermission;
 use App\Models\Event;
 use App\Services\AuditLogService;
+use App\Services\DonationPaymentService;
 use App\Services\DonationReceiptService;
 use App\Services\EventCoordinatorLevel;
 use App\Services\TicketControllerLevel;
@@ -1883,12 +1884,19 @@ class DonationController extends Controller
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
             'payment_mode' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual,Stripe',
-            'payment_status' => 'required|string|in:Paid,Pending,Pledge,Cancelled,Failed',
+            'payment_status' => 'required|string|in:Paid,Pending,Partially Paid,Pledge,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:2000',
             'donation_date' => 'required|date',
         ]);
+
+        // Partial Pledge Payments: the amount field is read-only in the UI once this pledge
+        // has a confirmed payment — reject a tampered/bypassed request too, same reasoning
+        // as the Blade comment on the amount field above.
+        if ($donation->donation_status !== 'Pending' && round((float) $validated['amount'], 2) !== round((float) $donation->amount, 2)) {
+            return redirect()->back()->with('error', 'This pledge already has a confirmed payment — its total amount can no longer be changed. Record further payments instead.');
+        }
 
         DB::table('donations')->where('id', $id)->update([
             'event_id' => $validated['event_id'] ?? null,
@@ -1974,7 +1982,7 @@ class DonationController extends Controller
             'purpose' => 'required|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',
             'payment_method' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual,Stripe',
-            'payment_status' => 'required|string|in:Paid,Pending,Pledge,Cancelled,Failed',
+            'payment_status' => 'required|string|in:Paid,Pending,Partially Paid,Pledge,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
             // Set only when this update is completing a Pending donation via the EFT
@@ -1983,6 +1991,17 @@ class DonationController extends Controller
             // EFT donation would via storeGuestDonation()'s own linkLedgerToDonation() call.
             'linkly_session_id' => 'nullable|string|max:64',
         ]);
+
+        // Partial Pledge Payments: the amount field is read-only in the UI once this pledge
+        // has a confirmed payment — reject a tampered/bypassed request too. Harmless for the
+        // POS's own EFT-completion call to this same route, since that always resubmits the
+        // donation's existing (still-Pending) amount unchanged.
+        if ($donation->donation_status !== 'Pending' && round((float) $validated['amount'], 2) !== round((float) $donation->amount, 2)) {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'This pledge already has a confirmed payment — its total amount can no longer be changed.'], 422);
+            }
+            return redirect()->back()->with('error', 'This pledge already has a confirmed payment — its total amount can no longer be changed. Record further payments instead.');
+        }
 
         // Idempotency against createDonationIfApprovedPurchaseUnrecorded(): that fallback
         // can already have updated this row server-side (the poll loop discovered the
@@ -2260,6 +2279,106 @@ class DonationController extends Controller
         );
 
         return redirect()->back()->with('success', 'Donation approved and marked as received.');
+    }
+
+    /**
+     * Record one installment against a guest pledge/donation — Partial Pledge Payments,
+     * Phase B. 'EFT Terminal' is deliberately not offered here: a real terminal charge only
+     * ever comes from the POS's own live pairing/polling flow, never a manually-typed
+     * method on this form (same reasoning as EFT Manual's own docblock elsewhere in this
+     * file) — an operator who physically took a card payment outside that flow should pick
+     * EFT Manual instead.
+     */
+    public function addGuestPayment(Request $request, $id)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $donation = DB::table('donations_without_logins')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Manual,Stripe',
+            'payment_status' => 'required|string|in:Pending,Completed',
+            'transaction_id' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        try {
+            DonationPaymentService::recordPayment('guest', (int) $id, [
+                'amount' => $validated['amount'],
+                'payment_method' => $validated['payment_method'],
+                'payment_status' => $validated['payment_status'],
+                'transaction_id' => $validated['transaction_id'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => $user->id,
+            ]);
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        AuditLogService::log(
+            "Recorded a payment of {$validated['amount']} ({$validated['payment_method']}) against guest donation #{$id} ({$donation->donor_name})",
+            null,
+            $donation->event_id
+        );
+
+        return redirect()->back()->with('success', 'Payment recorded.');
+    }
+
+    /**
+     * Record one installment against a devotee pledge/donation — see addGuestPayment()'s
+     * own docblock for why EFT Terminal is excluded here.
+     */
+    public function addDevoteePayment(Request $request, $id)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $donation = DB::table('donations')->where('id', $id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Manual,Stripe',
+            'payment_status' => 'required|string|in:Pending,Completed',
+            'transaction_id' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        try {
+            DonationPaymentService::recordPayment('devotee', (int) $id, [
+                'amount' => $validated['amount'],
+                'payment_method' => $validated['payment_method'],
+                'payment_status' => $validated['payment_status'],
+                'transaction_id' => $validated['transaction_id'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => $user->id,
+            ]);
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        AuditLogService::log(
+            "Recorded a payment of {$validated['amount']} ({$validated['payment_method']}) against devotee donation #{$id}",
+            null,
+            $donation->event_id
+        );
+
+        return redirect()->back()->with('success', 'Payment recorded.');
     }
 
     /**

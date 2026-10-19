@@ -61,10 +61,27 @@ class EventDonationBreakdown
 
         $options = $event->donationOptions;
 
+        // Partial Pledge Payments — one bulk lookup of every payment row for this event's
+        // donations (same "one bulk lookup avoids an N+1 query" reasoning as $linklyRefs
+        // above), so the Pledge Summary/Payment History on each row costs nothing extra per
+        // row rendered.
+        $devoteeIds = $devoteeDonations->pluck('id');
+        $guestIds = $guestDonations->pluck('id');
+        $paymentsByDonation = DB::table('donation_payments')
+            ->where(function ($q) use ($devoteeIds) {
+                $q->where('donation_type', 'devotee')->whereIn('donation_id', $devoteeIds);
+            })
+            ->orWhere(function ($q) use ($guestIds) {
+                $q->where('donation_type', 'guest')->whereIn('donation_id', $guestIds);
+            })
+            ->orderBy('received_at')
+            ->get()
+            ->groupBy(fn ($p) => $p->donation_type . ':' . $p->donation_id);
+
         $rows = $devoteeDonations->concat($guestDonations)
             ->sortByDesc(fn ($row) => $row->donation_date . ' ' . $row->created_at)
             ->values()
-            ->map(function ($row) use ($options, $donationSelections, $linklyRefs) {
+            ->map(function ($row) use ($options, $donationSelections, $linklyRefs, $paymentsByDonation) {
                 $selections = $donationSelections[$row->donation_type . ':' . $row->id] ?? collect();
                 $optionAmounts = [];
                 $matchedTotal = 0;
@@ -79,6 +96,10 @@ class EventDonationBreakdown
                     $row->other_amount = 0;
                 }
                 $row->linkly_txn_ref = $linklyRefs[$row->donation_type . ':' . $row->id]->pos_txn_ref ?? null;
+
+                $row->payments = ($paymentsByDonation[$row->donation_type . ':' . $row->id] ?? collect())->values();
+                $row->total_paid = round((float) $row->payments->where('payment_status', 'Completed')->sum('amount'), 2);
+                $row->outstanding_balance = max(0, round($row->amount - $row->total_paid, 2));
                 return $row;
             });
 

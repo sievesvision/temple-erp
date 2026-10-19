@@ -184,7 +184,18 @@ class DonationPaymentService
         if ($payments->count() === 1) {
             $only = $payments->first();
             $method = $only->payment_method;
-            $status = $only->payment_status === 'Completed' ? 'Paid' : $only->payment_status;
+            if ($only->payment_status !== 'Completed') {
+                // Pending/Failed/Cancelled/Refunded — mirror the literal status as-is, same
+                // wording the ~45 existing call sites (e.g. Stripe's own Check Status button)
+                // already expect.
+                $status = $only->payment_status;
+            } elseif ($donationStatus === 'Completed') {
+                $status = 'Paid';
+            } else {
+                // Completed but didn't fully cover the pledge (a partial single payment) —
+                // 'Paid' would misrepresent it as fully settled.
+                $status = 'Partially Paid';
+            }
         } else {
             $method = $distinctMethods->count() > 1 ? 'Split' : $distinctMethods->first();
             $status = match ($donationStatus) {

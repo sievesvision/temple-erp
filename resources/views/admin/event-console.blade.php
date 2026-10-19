@@ -332,6 +332,14 @@
         .donation-detail-grid .ddv { display: block; font-size: 0.92rem; color: var(--text-primary); }
         .donation-detail-breakdown { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
         .donation-detail-breakdown .ddl { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary); }
+        .donation-detail-pledge { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+        .donation-detail-pledge .ddl { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary); }
+        .pledge-progress-bar { height: 8px; border-radius: 6px; background: var(--cream); overflow: hidden; margin-top: 10px; }
+        .pledge-progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-hover)); border-radius: 6px; }
+        .pledge-payment-history { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
+        .pledge-payment-history th { text-align: left; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+        .pledge-payment-history td { padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+        .pledge-payment-history tbody tr:last-child td { border-bottom: none; }
         .donations-filter-total .amt { font-weight: 800; color: var(--gold-hover); font-size: 1rem; }
 
         /* ---------- All Donations: clickable/sortable column headers ---------- */
@@ -363,9 +371,13 @@
         table.console-table td.col-txn { max-width: 100px; overflow: hidden; text-overflow: ellipsis; font-family: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace; font-size: 0.74rem; color: var(--text-secondary); }
         table.console-table tbody tr:hover { background: var(--cream); }
         .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
-        .status-pill.status-paid { background: var(--success-bg); color: var(--success); }
+        .status-pill.status-paid, .status-pill.status-completed { background: var(--success-bg); color: var(--success); }
         .status-pill.status-pending, .status-pill.status-pledge { background: var(--pending-bg); color: var(--warning); }
-        .status-pill.status-cancelled, .status-pill.status-failed { background: var(--error-bg); color: var(--error); }
+        .status-pill.status-cancelled, .status-pill.status-failed, .status-pill.status-refunded { background: var(--error-bg); color: var(--error); }
+        {{-- Pledge-level status (donation_status) — "Partially Paid" gets its own blue tone
+             (per the original spec's badge colours: Pending amber, Partially Paid blue,
+             Completed green, Cancelled red) distinct from a payment-level status pill. --}}
+        .status-pill.status-partially-paid { background: #e3eefc; color: #2a6fdb; }
 
         .btn-refresh { background: var(--white); border: 1.5px solid var(--border); padding: 9px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; color: var(--text-primary); }
         .btn-refresh:hover { background: var(--cream); }
@@ -1158,6 +1170,49 @@
                                     @endif
                                     @if($row->purpose && $row->purpose !== 'Event Donation')
                                     <div><span class="ddl">Purpose</span><span class="ddv">{{ $row->purpose }}</span></div>
+                                    @endif
+                                </div>
+                                {{-- Partial Pledge Payments — compact summary + history, shown for every
+                                     donation (not just an in-progress pledge) so Pledged/Paid/Outstanding
+                                     is always visible at a glance; a donation paid in one shot still has
+                                     exactly one payment row (every pre-existing donation was backfilled
+                                     with one), so this never shows an empty/broken state for old data. --}}
+                                <div class="donation-detail-pledge">
+                                    <div class="ddl mb-2">Pledge Summary</div>
+                                    <div class="donation-detail-grid">
+                                        <div><span class="ddl">Pledged</span><span class="ddv fw-bold">{{ number_format($row->amount, 2) }}</span></div>
+                                        <div><span class="ddl">Paid</span><span class="ddv fw-bold text-success">{{ number_format($row->total_paid, 2) }}</span></div>
+                                        <div><span class="ddl">Outstanding</span><span class="ddv fw-bold{{ $row->outstanding_balance > 0 ? ' text-warning' : '' }}">{{ number_format($row->outstanding_balance, 2) }}</span></div>
+                                        <div><span class="ddl">Pledge Status</span><span class="ddv"><span class="status-pill status-{{ strtolower(str_replace(' ', '-', $row->donation_status)) }}">{{ $row->donation_status }}</span></span></div>
+                                    </div>
+                                    <div class="pledge-progress-bar"><div class="pledge-progress-fill" style="width: {{ $row->amount > 0 ? min(100, round($row->total_paid / $row->amount * 100)) : 0 }}%"></div></div>
+
+                                    <div class="ddl mt-3 mb-1">Payment History</div>
+                                    @if($row->payments->isEmpty())
+                                    <p class="text-muted small mb-0">No payments recorded yet.</p>
+                                    @else
+                                    <div class="table-responsive">
+                                        <table class="pledge-payment-history">
+                                            <thead><tr><th>Date &amp; Time</th><th>Reference</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
+                                            <tbody>
+                                                @foreach($row->payments as $p)
+                                                <tr>
+                                                    <td>{{ $p->received_at ? date('d M Y, g:i A', strtotime($p->received_at)) : '—' }}</td>
+                                                    <td>{{ $p->transaction_id ?: '—' }}</td>
+                                                    <td>{{ number_format($p->amount, 2) }}</td>
+                                                    <td>{{ $p->payment_method ?? '—' }}</td>
+                                                    <td><span class="status-pill status-{{ strtolower($p->payment_status) }}">{{ $p->payment_status }}</span></td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    @endif
+
+                                    @if($canEditDonation && $row->outstanding_balance > 0 && $row->donation_status !== 'Cancelled')
+                                    <button type="button" class="btn-action-edit mt-2" data-bs-toggle="modal" data-bs-target="#addPaymentModal{{ $row->donation_type }}{{ $row->id }}">
+                                        <i class="bi bi-plus-circle"></i> Add Payment
+                                    </button>
                                     @endif
                                 </div>
                                 @if($options->isNotEmpty())
@@ -2060,7 +2115,14 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Donation Amount</label>
-                                <input type="number" step="0.01" name="amount" class="form-control rounded-3" value="{{ $row->amount }}" required>
+                                {{-- Partial Pledge Payments: once this pledge has a confirmed payment
+                                     (donation_status left Pending), its total is fixed — adjusting it
+                                     in place would corrupt the outstanding-balance math downstream.
+                                     Still editable for a pure Pledge with no confirmed payment yet. --}}
+                                <input type="number" step="0.01" name="amount" class="form-control rounded-3" value="{{ $row->amount }}" required {{ $row->donation_status !== 'Pending' ? 'readonly' : '' }}>
+                                @if($row->donation_status !== 'Pending')
+                                <p class="text-muted small mt-1 mb-0">Locked — this pledge already has a confirmed payment. Record further payments instead of changing the total.</p>
+                                @endif
                             </div>
                             <div class="row g-3 mb-3">
                                 <div class="col-md-6">
@@ -2077,7 +2139,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Status</label>
                                     <select name="payment_status" class="form-select rounded-3" required>
-                                        @foreach(['Paid', 'Pending', 'Pledge', 'Cancelled', 'Failed'] as $status)
+                                        @foreach(['Paid', 'Pending', 'Partially Paid', 'Pledge', 'Cancelled', 'Failed'] as $status)
                                             <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
                                         @endforeach
                                     </select>
@@ -2148,7 +2210,11 @@
                             <div class="row g-3 mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Donation Amount</label>
-                                    <input type="number" step="0.01" name="amount" class="form-control rounded-3" value="{{ $row->amount }}" required>
+                                    {{-- See the devotee edit modal's identical note above. --}}
+                                    <input type="number" step="0.01" name="amount" class="form-control rounded-3" value="{{ $row->amount }}" required {{ $row->donation_status !== 'Pending' ? 'readonly' : '' }}>
+                                    @if($row->donation_status !== 'Pending')
+                                    <p class="text-muted small mt-1 mb-0">Locked — already has a confirmed payment.</p>
+                                    @endif
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Donation Date</label>
@@ -2186,7 +2252,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Status</label>
                                     <select name="payment_status" class="form-select rounded-3" required>
-                                        @foreach(['Paid', 'Pending', 'Pledge', 'Cancelled', 'Failed'] as $status)
+                                        @foreach(['Paid', 'Pending', 'Partially Paid', 'Pledge', 'Cancelled', 'Failed'] as $status)
                                             <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
                                         @endforeach
                                     </select>
@@ -2200,6 +2266,118 @@
                         <div class="modal-footer border-0 pt-0">
                             <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
                             <button type="submit" class="btn btn-primary text-white fw-bold rounded-pill px-4" style="background: linear-gradient(135deg, #2a6fdb, #548ee8); border:none;">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        @endforeach
+    @endif
+
+    <!-- ADD PAYMENT MODALS (devotee + guest) — Partial Pledge Payments, Phase B. Only
+         rendered where the "Add Payment" button in the detail modal actually links to one:
+         outstanding balance remaining and the pledge isn't Cancelled. -->
+    @if($canEditDonation)
+        @foreach($rows->where('donation_type', 'devotee') as $row)
+        @continue($row->outstanding_balance <= 0 || $row->donation_status === 'Cancelled')
+        <div class="modal fade" id="addPaymentModaldevotee{{ $row->id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <form action="{{ route('admin.donations.addPaymentDevotee', $row->id) }}" method="POST">
+                        @csrf
+                        <div class="modal-header border-0 pb-0">
+                            <h5 class="modal-title fw-bold text-dark"><i class="bi bi-plus-circle text-success me-2"></i>Add Payment</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body py-3">
+                            <p class="text-muted small">{{ $row->display_name }} — Outstanding: {{ number_format($row->outstanding_balance, 2) }} of {{ number_format($row->amount, 2) }} pledged.</p>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Amount</label>
+                                <input type="number" step="0.01" min="0.01" max="{{ $row->outstanding_balance }}" name="amount" class="form-control rounded-3" value="{{ $row->outstanding_balance }}" required>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Payment Method</label>
+                                    {{-- EFT Terminal excluded — see addGuestPayment()'s own docblock. --}}
+                                    <select name="payment_method" class="form-select rounded-3" required>
+                                        @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Manual', 'Stripe'] as $mode)
+                                            <option value="{{ $mode }}">{{ $mode }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Status</label>
+                                    <select name="payment_status" class="form-select rounded-3" required>
+                                        <option value="Completed" selected>Completed</option>
+                                        <option value="Pending">Pending</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Reference (Optional)</label>
+                                <input type="text" name="transaction_id" class="form-control rounded-3" placeholder="Transaction / cheque no.">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Notes (Optional)</label>
+                                <textarea name="notes" rows="2" class="form-control rounded-3"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 pt-0">
+                            <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
+                            <button type="submit" class="btn btn-success text-white fw-bold rounded-pill px-4">Record Payment</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        @endforeach
+
+        @foreach($rows->where('donation_type', 'guest') as $row)
+        @continue($row->outstanding_balance <= 0 || $row->donation_status === 'Cancelled')
+        <div class="modal fade" id="addPaymentModalguest{{ $row->id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <form action="{{ route('admin.donations.addPaymentGuest', $row->id) }}" method="POST">
+                        @csrf
+                        <div class="modal-header border-0 pb-0">
+                            <h5 class="modal-title fw-bold text-dark"><i class="bi bi-plus-circle text-success me-2"></i>Add Payment</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body py-3">
+                            <p class="text-muted small">{{ $row->display_name }} — Outstanding: {{ number_format($row->outstanding_balance, 2) }} of {{ number_format($row->amount, 2) }} pledged.</p>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Amount</label>
+                                <input type="number" step="0.01" min="0.01" max="{{ $row->outstanding_balance }}" name="amount" class="form-control rounded-3" value="{{ $row->outstanding_balance }}" required>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Payment Method</label>
+                                    <select name="payment_method" class="form-select rounded-3" required>
+                                        @foreach(['Cash', 'UPI', 'Bank', 'EFT Manual', 'Stripe'] as $method)
+                                            <option value="{{ $method }}">{{ $method }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Status</label>
+                                    <select name="payment_status" class="form-select rounded-3" required>
+                                        <option value="Completed" selected>Completed</option>
+                                        <option value="Pending">Pending</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Reference (Optional)</label>
+                                <input type="text" name="transaction_id" class="form-control rounded-3" placeholder="Transaction / cheque no.">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Notes (Optional)</label>
+                                <textarea name="notes" rows="2" class="form-control rounded-3"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 pt-0">
+                            <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal" style="background:#f0ece6; border:none; color:#1e1e2a;">Cancel</button>
+                            <button type="submit" class="btn btn-success text-white fw-bold rounded-pill px-4">Record Payment</button>
                         </div>
                     </form>
                 </div>
