@@ -12,8 +12,9 @@ use Tests\TestCase;
  * prefilled" — the Current Period Transactions pane links a Pending guest donation straight
  * to PosDonationController::show()'s own ?edit_id= handling (devotee rows have no POS
  * equivalent at all — see PosDonationController's class docblock — so they keep the pane's
- * own inline edit instead). Completing it POSTs through the pre-existing
- * admin.donations.updateGuest route, updating the SAME row rather than creating a new one.
+ * own inline edit instead). Completing it POSTs through
+ * admin.donations.completeGuestPendingPayment (Partial Pledge Payments), recording a new
+ * payment event against the SAME donation rather than creating a new one or overwriting it.
  */
 class PosPendingTransactionEditTest extends TestCase
 {
@@ -35,7 +36,8 @@ class PosPendingTransactionEditTest extends TestCase
     {
         return DB::table('donations_without_logins')->insertGetId([
             'event_id' => $eventId, 'donor_name' => 'Pending Donor', 'amount' => 60,
-            'payment_method' => $method, 'payment_status' => $status, 'purpose' => 'General',
+            'payment_method' => $method, 'payment_status' => $status,
+            'donation_status' => $status === 'Paid' ? 'Completed' : 'Pending', 'purpose' => 'General',
             'donation_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
         ]);
     }
@@ -75,11 +77,11 @@ class PosPendingTransactionEditTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Completing a pending transaction');
-        // UPDATE_GUEST_URL is JSON-encoded into the page's own <script> (Laravel's @json
+        // COMPLETE_PAYMENT_URL is JSON-encoded into the page's own <script> (Laravel's @json
         // escapes forward slashes, so the raw route() URL never appears verbatim) — the
         // donation id is the one unambiguous, unescaped marker that it was actually built
         // from THIS donation rather than left null.
-        $response->assertSee('update-guest\/' . $donationId, false);
+        $response->assertSee('complete-guest-payment\/' . $donationId, false);
     }
 
     public function test_the_prefilled_banner_offers_a_way_back_to_a_plain_new_entry(): void

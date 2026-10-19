@@ -744,16 +744,22 @@ class CbaSciController extends Controller
             return $bookingId;
         }
 
-        // Completing an existing Pending donation updates that same row instead of
-        // inserting a new one — mirrors DonationController::createDonationIfApprovedPurchaseUnrecorded()'s
-        // identical Linkly-side branch.
+        // Completing an existing Pending/Pledge/Partially Paid donation records this
+        // charge as one installment against it (Partial Pledge Payments) instead of
+        // overwriting the donation row outright — mirrors DonationController::
+        // createDonationIfApprovedPurchaseUnrecorded()'s identical Linkly-side branch.
+        // allowOverage: this money has already moved on the physical terminal by the time
+        // this runs — refusing to record it over a stale outstanding balance would lose a
+        // real payment, which is worse than allowing the overage.
         if (!empty($meta['edit_donation_id'])) {
             $editDonationId = (int) $meta['edit_donation_id'];
-            app(DonationController::class)->updateGuestDonationRecord($editDonationId, [
+            \App\Services\DonationPaymentService::recordPayment('guest', $editDonationId, [
+                'amount' => $txn->amount,
                 'payment_method' => 'EFT Terminal',
-                'payment_status' => 'Paid',
+                'payment_status' => 'Completed',
                 'transaction_id' => $transactionRef,
-            ]);
+                'sci_transaction_id' => $txn->id,
+            ], true);
             $txn->update(['donation_type' => 'guest', 'donation_id' => $editDonationId]);
 
             return $editDonationId;

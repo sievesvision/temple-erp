@@ -65,10 +65,17 @@ class DonationPaymentService
      * received_at, created_by, idempotency_key (optional — if a payment with this exact
      * transaction_id already exists for this donation, that row is returned unchanged
      * rather than inserting a duplicate).
+     *
+     * $allowOverage bypasses the outstanding-balance cap — only for recording a real EFT
+     * Terminal charge that has ALREADY happened on the physical device (POS completion
+     * flow): that money is a real, irreversible fact by the time this runs, so refusing to
+     * record it over a stale/rounded outstanding balance would be worse than allowing the
+     * overage. Every typed-amount path (admin Add Payment, Cash/Bank/UPI from the POS)
+     * keeps the strict cap.
      */
-    public static function recordPayment(string $donationType, int $donationId, array $fields): DonationPayment
+    public static function recordPayment(string $donationType, int $donationId, array $fields, bool $allowOverage = false): DonationPayment
     {
-        return DB::transaction(function () use ($donationType, $donationId, $fields) {
+        return DB::transaction(function () use ($donationType, $donationId, $fields, $allowOverage) {
             $table = self::table($donationType);
             $donation = DB::table($table)->where('id', $donationId)->lockForUpdate()->first();
             if (!$donation) {
@@ -95,7 +102,7 @@ class DonationPaymentService
             }
 
             $outstanding = round((float) $donation->amount - self::totalPaid($donationType, $donationId), 2);
-            if ($amount > $outstanding + 0.004) {
+            if ($amount > $outstanding + 0.004 && !$allowOverage) {
                 throw new RuntimeException("Payment of {$amount} exceeds the outstanding balance of {$outstanding}.");
             }
 

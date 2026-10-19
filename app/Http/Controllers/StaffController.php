@@ -13,6 +13,7 @@ use App\Services\BookingService;
 use App\Models\Setting;
 use App\Models\RolePermission;
 use App\Models\User;
+use App\Services\DonationPaymentService;
 
 class StaffController extends Controller
 {
@@ -749,6 +750,7 @@ class StaffController extends Controller
         ]);
 
         try {
+            $transactionId = 'OFFLINE-DON-' . strtoupper(uniqid());
             $donationId = DB::table('donations_without_logins')->insertGetId([
                 'donor_name' => $request->donor_name,
                 'email' => null,
@@ -757,11 +759,19 @@ class StaffController extends Controller
                 'purpose' => $request->purpose,
                 'purpose_details' => 'Recorded at Staff Counter',
                 'payment_method' => 'Cash',
+                'payment_status' => 'Paid',
                 'source_channel' => \App\Services\TransactionChannel::STAFF_COUNTER,
-                'transaction_id' => 'OFFLINE-DON-' . strtoupper(uniqid()),
+                'transaction_id' => $transactionId,
                 'donation_date' => date('Y-m-d'),
                 'created_at' => now(),
                 'updated_at' => now()
+            ]);
+            // Partial Pledge Payments — see DonationController::insertGuestDonationRecord()'s
+            // identical note: a cash donation taken in full at the counter is immediately
+            // Completed, so the ledger gets its one matching payment right away.
+            DonationPaymentService::recordPayment('guest', $donationId, [
+                'amount' => $request->amount, 'payment_method' => 'Cash',
+                'payment_status' => 'Completed', 'transaction_id' => $transactionId, 'received_at' => now(),
             ]);
 
             return response()->json([

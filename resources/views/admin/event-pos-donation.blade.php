@@ -835,9 +835,19 @@
     <div class="pos-main">
         <div id="posEntryView">
         @if($editDonation)
-        <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600;">
+        <div style="max-width:1100px; margin:0 auto 16px; background:#fdf0db; border:1px solid rgba(184,134,58,0.35); border-radius:14px; padding:12px 18px; display:flex; align-items:center; gap:10px; color:#8A6A1E; font-weight:600; flex-wrap:wrap;">
             <i class="bi bi-arrow-repeat" style="font-size:1.2rem;"></i>
-            <span style="flex:1;">Completing a pending transaction</span>
+            <span style="flex:1; min-width:200px;">
+                Completing a pending transaction
+                {{-- Partial Pledge Payments: Pledged/Paid/Outstanding so staff see at a
+                     glance how much of this pledge is still owed before deciding the amount
+                     to take — same figures as the Admin Portal's own Pledge Summary. --}}
+                <span style="font-weight:400; font-size:0.85rem;">
+                    — Pledged {{ $temple['currency'] ?? '' }} {{ number_format($editDonation->amount, 2) }}
+                    · Paid {{ $temple['currency'] ?? '' }} {{ number_format($editDonation->total_paid, 2) }}
+                    · Outstanding {{ $temple['currency'] ?? '' }} {{ number_format($editDonation->outstanding_balance, 2) }}
+                </span>
+            </span>
             {{-- IS_EDITING is set from the server-rendered $editDonation, not from form state —
                  the Donor Details card's own Clear button only resets fields, it can't drop out
                  of edit mode. This is the only way back to a plain new entry. --}}
@@ -1190,7 +1200,11 @@
         // tagging every subsequent payment with the FIRST donation's id, silently
         // overwriting that same row donation after donation instead of creating new ones.
         let currentEditDonationId = EDIT_DONATION ? EDIT_DONATION.id : null;
-        const UPDATE_GUEST_URL = @json($editDonation ? route('admin.donations.updateGuest', $editDonation->id) : null);
+        // Partial Pledge Payments: completing a Pending/Pledge/Partially Paid donation from
+        // the POS always records a NEW payment event (via DonationPaymentService) rather
+        // than overwriting the donation row — distinct from admin.donations.updateGuest,
+        // which is the admin's own manual field-correction form.
+        const COMPLETE_PAYMENT_URL = @json($editDonation ? route('admin.donations.completeGuestPayment', $editDonation->id) : null);
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
         const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
         const EFT_CHARGE_CANCEL_URL_BASE = @json(url('/admin/eft/charge/cancel'));
@@ -1580,16 +1594,22 @@
             // typed amount would — including purposeValue, which recalcTiers() derives from
             // the selected tier's own label, taking over from EDIT_DONATION.purpose below
             // (the original flat purpose string doesn't map onto any one tier anyway).
+            // Partial Pledge Payments: default to what's actually still owed, not the
+            // original full pledge — a donation already partly paid off should prefill the
+            // remaining balance, staying editable for a smaller installment or (rarely) a
+            // deliberate overage on a real terminal charge already taken (see
+            // DonationPaymentService::recordPayment()'s own allowOverage note).
+            const editOutstanding = parseFloat(EDIT_DONATION.outstanding_balance);
             const freeIdx = EVENT_OPTIONS.length ? EVENT_OPTIONS.findIndex(function (o) { return o.amount === null; }) : -1;
             const freeCb = freeIdx !== -1 ? tierPillsContainer.querySelector('.pos-tier-cb[data-idx="' + freeIdx + '"]') : null;
             const freeDetail = freeIdx !== -1 ? tiersContainer.querySelector('.pos-tier-detail[data-idx="' + freeIdx + '"]') : null;
             const freeInput = freeDetail ? freeDetail.querySelector('.pos-tier-free') : null;
             if (freeCb && freeInput) {
                 freeCb.checked = true;
-                freeInput.value = parseFloat(EDIT_DONATION.amount).toFixed(2);
+                freeInput.value = editOutstanding.toFixed(2);
                 freeInput.dispatchEvent(new Event('input', { bubbles: true }));
             } else {
-                amountInput.value = parseFloat(EDIT_DONATION.amount).toFixed(2);
+                amountInput.value = editOutstanding.toFixed(2);
                 purposeValue = EDIT_DONATION.purpose || purposeValue;
             }
 
@@ -1996,40 +2016,46 @@
         function submitGuestDonation(btn, amount, name, emailValue, mobileValue, transactionId, linklySessionId) {
             const today = new Date().toISOString().slice(0, 10);
             const body = new URLSearchParams();
-            body.set('event_id', EVENT_ID);
-            body.set('amount', amount.toFixed(2));
-            // Completing an existing Pending donation has no tiered-option breakdown to save
-            // (that's an edit to the donation row itself, via admin.donations.updateGuest —
-            // see UPDATE_GUEST_URL below), so selections_json only ever applies when creating
-            // a brand new one.
-            if (!currentEditDonationId) { body.set('selections_json', JSON.stringify(selections)); }
             // Cash, UPI and an EFT terminal all confirm the money on the spot, so those record
-            // as Paid immediately. A Bank Transfer claim can't be verified at the counter — it
-            // sits Pending until an admin checks the account and approves it, same as the
-            // public donation form.
-            body.set('payment_status', selectedMethod === 'Bank Transfer' ? 'Pending' : 'Paid');
+            // as Completed/Paid immediately. A Bank Transfer claim can't be verified at the
+            // counter — it sits Pending until an admin checks the account and approves it,
+            // same as the public donation form. Partial Pledge Payments: completing an
+            // existing donation uses the ledger's own Completed/Pending vocabulary (not the
+            // legacy Paid/Pending one STORE_GUEST_URL still expects for a brand-new donation).
+            const isBank = selectedMethod === 'Bank Transfer';
+            body.set('amount', amount.toFixed(2));
+            body.set('payment_method', isBank ? 'Bank' : selectedMethod);
             body.set('transaction_id', transactionId || '');
             // Links this donation back to its Linkly accreditation ledger row — set only for
             // an EFT Terminal payment (see DonationController::linkLedgerToDonation()).
             if (linklySessionId) { body.set('linkly_session_id', linklySessionId); }
-            body.set('donor_name', name);
-            // Preserves the original donation's own date when completing it — only a brand
-            // new entry gets today's date.
-            body.set('donation_date', currentEditDonationId ? EDIT_DONATION.donation_date : today);
-            body.set('email', emailValue);
-            body.set('mobile', mobileValue);
-            body.set('payment_method', selectedMethod === 'Bank Transfer' ? 'Bank' : selectedMethod);
-            body.set('is_anonymous', isAnonymousDonation() ? '1' : '0');
-            body.set('purpose', purposeValue);
-            body.set('purpose_details', document.getElementById('posDetails').value);
 
-            // Completing an existing Pending transaction (reached via the Current Period
-            // Transactions pane's own pending-donation link) updates that same row through
-            // the pre-existing admin.donations.updateGuest route instead of creating a new
-            // one — DonationController::updateGuestDonation() now has the same JSON-response
-            // branch as storeGuestDonation() specifically so this fetch()-based flow can
-            // target either one interchangeably.
-            const targetUrl = currentEditDonationId ? UPDATE_GUEST_URL : STORE_GUEST_URL;
+            if (currentEditDonationId) {
+                body.set('payment_status', isBank ? 'Pending' : 'Completed');
+            } else {
+                body.set('event_id', EVENT_ID);
+                // Completing an existing Pending/Pledge/Partially Paid donation has no
+                // tiered-option breakdown to save (that's only ever set at creation) —
+                // selections_json only ever applies when creating a brand new donation.
+                body.set('selections_json', JSON.stringify(selections));
+                body.set('payment_status', isBank ? 'Pending' : 'Paid');
+                body.set('donor_name', name);
+                body.set('donation_date', today);
+                body.set('email', emailValue);
+                body.set('mobile', mobileValue);
+                body.set('is_anonymous', isAnonymousDonation() ? '1' : '0');
+                body.set('purpose', purposeValue);
+                body.set('purpose_details', document.getElementById('posDetails').value);
+            }
+
+            // Completing an existing Pending/Pledge/Partially Paid transaction (reached via
+            // the Current Period Transactions pane or the Pending Transactions popup) records
+            // a new payment event against that same donation through
+            // admin.donations.completeGuestPendingPayment instead of creating a new donation
+            // or overwriting the existing one — DonationController::completeGuestPendingPayment()
+            // has the same JSON-response shape as storeGuestDonation() so this fetch()-based
+            // flow can target either one interchangeably.
+            const targetUrl = currentEditDonationId ? COMPLETE_PAYMENT_URL : STORE_GUEST_URL;
 
             fetch(targetUrl, {
                 method: 'POST',

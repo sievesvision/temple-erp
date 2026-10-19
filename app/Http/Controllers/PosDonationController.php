@@ -178,18 +178,26 @@ class PosDonationController extends Controller
             || EventCoordinatorLevel::atLeast($coordinatorLevel, 'entry');
 
         // "Complete this pending transaction" — reached from the Current Period
-        // Transactions table's edit link (?edit_id=), never typed by hand, but
-        // re-verified server-side rather than trusted from the query string: must still
-        // be $canEditCurrentTransactions, must belong to THIS event, and must still be
-        // Pending (a guest donation only — the POS page has no devotee lookup at all, see
-        // this controller's own docblock, so a devotee donation's edit_id is just ignored).
+        // Transactions table's edit link or the Pending Transactions popup (?edit_id=),
+        // never typed by hand, but re-verified server-side rather than trusted from the
+        // query string: must still be $canEditCurrentTransactions, must belong to THIS
+        // event, and must still have a real outstanding balance — Pending (no payment
+        // confirmed yet), Pledge (no payment at all), or Partially Paid all qualify under
+        // Partial Pledge Payments (a guest donation only — the POS page has no devotee
+        // lookup at all, see this controller's own docblock, so a devotee donation's
+        // edit_id is just ignored).
         $editDonation = null;
         if ($canEditCurrentTransactions && $request->filled('edit_id')) {
             $editDonation = DB::table('donations_without_logins')
                 ->where('id', (int) $request->input('edit_id'))
                 ->where('event_id', $event->event_id)
-                ->where('payment_status', 'Pending')
+                ->whereIn('donation_status', ['Pending', 'Partially Paid'])
                 ->first();
+            if ($editDonation) {
+                $editDonation->total_paid = \App\Services\DonationPaymentService::totalPaid('guest', $editDonation->id);
+                $editDonation->outstanding_balance = \App\Services\DonationPaymentService::outstandingBalance('guest', $editDonation->id);
+                $editDonation->payment_history = \App\Services\DonationPaymentService::paymentHistory('guest', $editDonation->id);
+            }
         }
 
         return view('admin.event-pos-donation', compact(
@@ -334,8 +342,14 @@ class PosDonationController extends Controller
 
         $event = Event::findOrFail($eventId);
 
-        $pending = \App\Services\CashSettlementService::currentPeriodTransactions('event', $event->event_id)
-            ->filter(fn ($r) => $r->payment_status === 'Pending' && $r->donation_type === 'guest');
+        // Partial Pledge Payments: Pending, Pledge and Partially Paid donations all still
+        // have real money outstanding — sourced directly from EventDonationBreakdown
+        // (which already computes outstanding_balance per row) rather than
+        // CashSettlementService::currentPeriodTransactions(), which only ever returns
+        // Paid/Pending rows and is scoped to cash-reconciliation, not "what can the POS
+        // still complete".
+        $pending = \App\Services\EventDonationBreakdown::forEvent((int) $event->event_id)['rows']
+            ->filter(fn ($r) => $r->donation_type === 'guest' && in_array($r->donation_status, ['Pending', 'Partially Paid'], true));
 
         $q = trim((string) $request->query('q', ''));
         if ($q !== '') {
@@ -353,7 +367,9 @@ class PosDonationController extends Controller
             'date_time' => \Illuminate\Support\Carbon::parse($row->created_at)->format('d M, g:i A'),
             'masked_mobile' => $row->mobile ? $this->maskMobile($row->mobile) : null,
             'masked_email' => $row->email ? $this->maskEmail($row->email) : null,
-            'amount' => number_format((float) $row->amount, 2),
+            // The amount actually still owed, not the original full pledge — that's what
+            // the operator needs to see before deciding to select this one to complete.
+            'amount' => number_format((float) $row->outstanding_balance, 2),
             'edit_url' => route('admin.events.pos', $event->event_id) . '?edit_id=' . $row->id,
         ])->values();
 

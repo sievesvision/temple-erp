@@ -16,6 +16,7 @@ use App\Services\EventCoordinatorLevel;
 use App\Services\TicketControllerLevel;
 use App\Services\LinklyEftService;
 use App\Models\LinklyTransaction;
+use App\Models\DonationPayment;
 use App\Models\EftTerminal;
 use App\Services\StripeConfigService;
 use Stripe\StripeClient;
@@ -827,6 +828,17 @@ class DonationController extends Controller
             $this->saveDonationSelections('devotee', $donationId, $validated['selections_json'] ?? null);
             $this->linkLedgerToDonation($validated['linkly_session_id'] ?? null, 'devotee', $donationId);
 
+            // Partial Pledge Payments — see insertGuestDonationRecord()'s identical note.
+            if (($validated['payment_status'] ?? 'Paid') !== 'Pledge') {
+                DonationPaymentService::recordPayment('devotee', $donationId, [
+                    'amount' => $validated['amount'],
+                    'payment_method' => $validated['payment_mode'] ?? null,
+                    'payment_status' => ($validated['payment_status'] ?? 'Paid') === 'Paid' ? 'Completed' : ($validated['payment_status'] ?? 'Paid'),
+                    'transaction_id' => $validated['transaction_id'] ?? null,
+                    'received_at' => now(),
+                ]);
+            }
+
             $devoteeUser = DB::table('devotees')
                 ->join('users', 'devotees.user_id', '=', 'users.id')
                 ->where('devotees.devotee_id', $validated['devotee_id'])
@@ -1315,6 +1327,22 @@ class DonationController extends Controller
             'updated_at' => now(),
         ]);
 
+        // Partial Pledge Payments: the ledger is the source of truth for every payment,
+        // old and new — a Pledge correctly gets zero ledger rows (nothing paid yet); any
+        // other status gets its one payment recorded immediately, which also recomputes
+        // donation_status/the mirrored payment_method/payment_status correctly (this
+        // amount always equals the full pledge for a brand-new donation, so it never hits
+        // the outstanding-balance cap).
+        if (($fields['payment_status'] ?? 'Paid') !== 'Pledge') {
+            DonationPaymentService::recordPayment('guest', $donationId, [
+                'amount' => $fields['amount'],
+                'payment_method' => $fields['payment_method'] ?? null,
+                'payment_status' => ($fields['payment_status'] ?? 'Paid') === 'Paid' ? 'Completed' : ($fields['payment_status'] ?? 'Paid'),
+                'transaction_id' => $fields['transaction_id'] ?? null,
+                'received_at' => now(),
+            ]);
+        }
+
         $receiptPayload = [
             'donor_name' => $fields['donor_name'],
             'donor_email' => $fields['email'] ?? null,
@@ -1393,17 +1421,22 @@ class DonationController extends Controller
             return $bookingId;
         }
 
-        // Completing an existing Pending donation (reached via the Current Period
-        // Transactions pane's own pending-donation link) updates that same row instead of
-        // inserting a new one — mirrors the browser's own normal-path call, which branches
-        // the exact same way (see event-pos-donation.blade.php's submitGuestDonation()).
+        // Completing an existing Pending/Pledge/Partially Paid donation (reached via the
+        // Current Period Transactions pane's own pending-donation link, or the POS's own
+        // Pending Transactions popup) records this charge as one installment against it
+        // (Partial Pledge Payments) instead of overwriting the donation row outright —
+        // mirrors the browser's own normal-path call (see completeGuestPendingPayment()),
+        // which branches the exact same way. allowOverage: see
+        // CbaSciController::createRecordIfApprovedAndUnrecorded()'s identical note.
         if (!empty($meta['edit_donation_id'])) {
             $editDonationId = (int) $meta['edit_donation_id'];
-            $this->updateGuestDonationRecord($editDonationId, [
+            DonationPaymentService::recordPayment('guest', $editDonationId, [
+                'amount' => $txn->amount,
                 'payment_method' => 'EFT Terminal',
-                'payment_status' => 'Paid',
+                'payment_status' => 'Completed',
                 'transaction_id' => $transactionRef,
-            ]);
+                'linkly_transaction_id' => $txn->id,
+            ], true);
             $this->linkLedgerToDonation($sessionId, 'guest', $editDonationId);
 
             return $editDonationId;
@@ -1903,14 +1936,65 @@ class DonationController extends Controller
             'amount' => $validated['amount'],
             'payment_method' => $validated['payment_mode'] ?? null,
             'payment_status' => $validated['payment_status'],
+            // Best-effort direct mapping — syncLedgerOnManualEdit() below overwrites this
+            // with the ledger-derived value whenever there's exactly one payment to resolve
+            // it onto (the common case); this is the fallback for zero or several.
+            'donation_status' => $this->mapPaymentStatusToDonationStatus($validated['payment_status']),
             'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
             'purpose' => $validated['purpose'] ?? null,
             'remarks' => $validated['remarks'] ?? null,
             'donation_date' => $validated['donation_date'],
             'updated_at' => now(),
         ]);
+        $this->syncLedgerOnManualEdit('devotee', (int) $id, $validated['payment_mode'] ?? null, $validated['payment_status'], $validated['transaction_id'] ?? null);
 
         return redirect()->back()->with('success', 'Devotee donation updated successfully.');
+    }
+
+    /**
+     * Partial Pledge Payments: the admin's own manual Edit Donation form can still change
+     * payment_mode/payment_status directly (unlike amount, which is locked once a payment
+     * exists) — when the donation has exactly one ledger payment (the overwhelmingly common
+     * case), that single row is updated to match and donation_status/the mirror columns are
+     * recomputed from it, so the Payment History table never silently disagrees with what
+     * the admin just set. Zero payments (a pure Pledge) or more than one (an already-split
+     * pledge) fall back to the direct parent-only update above — ambiguous to resolve onto
+     * one specific payment row, and rare enough not to block the edit over.
+     */
+    private function mapPaymentStatusToDonationStatus(string $paymentStatus): string
+    {
+        return match ($paymentStatus) {
+            'Paid' => 'Completed',
+            'Cancelled' => 'Cancelled',
+            'Partially Paid' => 'Partially Paid',
+            default => 'Pending', // Pending, Pledge, Failed
+        };
+    }
+
+    private function syncLedgerOnManualEdit(string $donationType, int $donationId, ?string $method, string $rawStatus, ?string $transactionId): void
+    {
+        $mappedStatus = match ($rawStatus) {
+            'Paid' => 'Completed',
+            'Cancelled', 'Failed', 'Pending' => $rawStatus,
+            default => null, // Pledge / Partially Paid — ambiguous for a single ledger row, skip
+        };
+        if ($mappedStatus === null) {
+            return;
+        }
+
+        $payments = DonationPayment::where('donation_type', $donationType)->where('donation_id', $donationId)->get();
+        if ($payments->count() !== 1) {
+            return;
+        }
+
+        $payment = $payments->first();
+        $payment->payment_method = $method;
+        $payment->payment_status = $mappedStatus;
+        if ($transactionId) {
+            $payment->transaction_id = $transactionId;
+        }
+        $payment->save();
+        DonationPaymentService::recomputeParent($donationType, $donationId);
     }
 
     /**
@@ -2031,6 +2115,7 @@ class DonationController extends Controller
             'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
             'donation_date' => $validated['donation_date'],
         ]);
+        $this->syncLedgerOnManualEdit('guest', (int) $id, $validated['payment_method'] ?? null, $validated['payment_status'], $validated['transaction_id'] ?? null);
         $this->linkLedgerToDonation($linklySessionId, 'guest', (int) $id);
 
         if ($request->wantsJson()) {
@@ -2040,14 +2125,20 @@ class DonationController extends Controller
     }
 
     /**
-     * Raw field update for one guest donation row — shared by updateGuestDonation() (the
-     * web action, fully validated), createDonationIfApprovedPurchaseUnrecorded()'s own
-     * "completing an existing Pending donation" branch, and CbaSciController's equivalent
-     * (already-trusted server-side data in both cases), so all three ever only update a row
-     * the exact same way. Public to match insertGuestDonationRecord()'s own visibility.
+     * Raw field update for one guest donation row — now only called from
+     * updateGuestDonation() (the admin's manual edit form); the POS/EFT completion paths
+     * moved to DonationPaymentService::recordPayment() under Partial Pledge Payments, since
+     * completing a pledge records a new payment event rather than overwriting the row.
+     * Public to match insertGuestDonationRecord()'s own visibility.
      */
     public function updateGuestDonationRecord(int $id, array $fields): void
     {
+        if (isset($fields['payment_status']) && !array_key_exists('donation_status', $fields)) {
+            // See syncLedgerOnManualEdit()'s own docblock — this is the direct best-effort
+            // mapping, overwritten with the more accurate ledger-derived value right after
+            // whenever there's exactly one payment to resolve it onto.
+            $fields['donation_status'] = $this->mapPaymentStatusToDonationStatus($fields['payment_status']);
+        }
         DB::table('donations_without_logins')->where('id', $id)->update(array_merge($fields, ['updated_at' => now()]));
     }
 
@@ -2198,26 +2289,36 @@ class DonationController extends Controller
             return redirect()->back()->with('error', 'Only pending donations can be approved.');
         }
 
-        DB::table('donations_without_logins')->where('id', $id)->update([
-            'payment_status' => 'Paid',
-            'updated_at' => now(),
-        ]);
+        // Partial Pledge Payments: this button only ever shows when the mirrored
+        // payment_status is 'Pending' — which, per DonationPaymentService::recomputeParent(),
+        // means either one single Pending payment (the common case) or, rarely, more than
+        // one Pending payment with nothing yet confirmed. This action confirms ONE payment,
+        // so it needs exactly one to act on unambiguously — use the Payment History table's
+        // own per-payment Confirm action for the rarer multi-pending case.
+        $pendingPayments = DonationPayment::where('donation_type', 'guest')->where('donation_id', $id)->where('payment_status', 'Pending')->get();
+        if ($pendingPayments->count() !== 1) {
+            return redirect()->back()->with('error', 'More than one payment is pending on this donation — confirm the specific payment from its Payment History instead.');
+        }
+        $payment = $pendingPayments->first();
+        $payment->payment_status = 'Completed';
+        $payment->save();
+        DonationPaymentService::recomputeParent('guest', (int) $id);
 
         DonationReceiptService::send([
             'donor_name' => $donation->donor_name,
             'donor_email' => $donation->email,
             'donor_mobile' => $donation->mobile,
-            'amount' => $donation->amount,
-            'payment_method' => $donation->payment_method,
+            'amount' => $payment->amount,
+            'payment_method' => $payment->payment_method,
             'purpose' => $donation->purpose_details ?? $donation->purpose,
             'event_id' => $donation->event_id,
             'donation_date' => $donation->donation_date,
-            'transaction_id' => $donation->transaction_id,
+            'transaction_id' => $payment->transaction_id,
             'receipt_number' => DonationReceiptService::receiptNumber('G', $donation->id),
         ]);
 
         AuditLogService::log(
-            "Approved guest donation of {$donation->amount} from {$donation->donor_name}",
+            "Approved guest donation payment of {$payment->amount} from {$donation->donor_name}",
             null,
             $donation->event_id
         );
@@ -2254,26 +2355,31 @@ class DonationController extends Controller
             return redirect()->back()->with('error', 'Only pending donations can be approved.');
         }
 
-        DB::table('donations')->where('id', $id)->update([
-            'payment_status' => 'Paid',
-            'updated_at' => now(),
-        ]);
+        // Partial Pledge Payments — see approveGuestDonation()'s identical note.
+        $pendingPayments = DonationPayment::where('donation_type', 'devotee')->where('donation_id', $id)->where('payment_status', 'Pending')->get();
+        if ($pendingPayments->count() !== 1) {
+            return redirect()->back()->with('error', 'More than one payment is pending on this donation — confirm the specific payment from its Payment History instead.');
+        }
+        $payment = $pendingPayments->first();
+        $payment->payment_status = 'Completed';
+        $payment->save();
+        DonationPaymentService::recomputeParent('devotee', (int) $id);
 
         DonationReceiptService::send([
             'donor_name' => $donation->donor_name,
             'donor_email' => $donation->email,
             'donor_mobile' => $donation->mobile,
-            'amount' => $donation->amount,
-            'payment_method' => $donation->payment_method,
+            'amount' => $payment->amount,
+            'payment_method' => $payment->payment_method,
             'purpose' => $donation->remarks ?: $donation->purpose,
             'event_id' => $donation->event_id,
             'donation_date' => $donation->donation_date,
-            'transaction_id' => $donation->transaction_id,
+            'transaction_id' => $payment->transaction_id,
             'receipt_number' => DonationReceiptService::receiptNumber('D', $donation->id),
         ]);
 
         AuditLogService::log(
-            "Approved devotee donation of {$donation->amount} from {$donation->donor_name}",
+            "Approved devotee donation payment of {$payment->amount} from {$donation->donor_name}",
             null,
             $donation->event_id
         );
@@ -2382,6 +2488,122 @@ class DonationController extends Controller
     }
 
     /**
+     * Completes an existing Pending/Pledge/Partially Paid guest donation from the POS —
+     * Partial Pledge Payments' own browser-driven completion path, reached via
+     * event-pos-donation.blade.php's submitGuestDonation() whenever currentEditDonationId
+     * is set (Cash/Bank Transfer/UPI directly, EFT Terminal via Linkly's own poll-success
+     * callback). Deliberately distinct from updateGuestDonation() — that one is the admin's
+     * manual field-correction form (donor name, dates, etc); this always records a NEW
+     * payment event via DonationPaymentService::recordPayment() rather than overwriting the
+     * donation row outright, so a partial payment never silently loses the rest of the
+     * pledge. allowOverage only for EFT Terminal — see CbaSciController::
+     * createRecordIfApprovedAndUnrecorded()'s identical note on why.
+     */
+    public function completeGuestPendingPayment(Request $request, $id)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $donation = DB::table('donations_without_logins')->where('id', $id)->first();
+        if (!$donation) {
+            return response()->json(['success' => false, 'message' => 'Donation not found.'], 404);
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual,Stripe',
+            'payment_status' => 'required|string|in:Pending,Completed',
+            'transaction_id' => 'nullable|string|max:100',
+            // Set only for an EFT Terminal payment via Linkly — links this payment back to
+            // its Linkly accreditation ledger row (see linkLedgerToDonation()).
+            'linkly_session_id' => 'nullable|string|max:64',
+        ]);
+
+        // Idempotency against createDonationIfApprovedPurchaseUnrecorded(): that fallback
+        // can already have recorded this exact payment server-side (the poll loop
+        // discovered the approval first) — detect that via the ledger row this session is
+        // linked to and just confirm success rather than recording it a second time.
+        $linklySessionId = $validated['linkly_session_id'] ?? null;
+        if ($linklySessionId) {
+            $existingTxn = LinklyTransaction::where('linkly_session_id', $linklySessionId)->first();
+            if ($existingTxn && $existingTxn->donation_id) {
+                return response()->json(['success' => true, 'message' => 'Payment recorded.']);
+            }
+        }
+
+        try {
+            DonationPaymentService::recordPayment('guest', (int) $id, [
+                'amount' => $validated['amount'],
+                'payment_method' => $validated['payment_method'],
+                'payment_status' => $validated['payment_status'],
+                'transaction_id' => $validated['transaction_id'] ?? null,
+                'created_by' => $user->id,
+            ], $validated['payment_method'] === 'EFT Terminal');
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $this->linkLedgerToDonation($linklySessionId, 'guest', (int) $id);
+
+        AuditLogService::log(
+            "Recorded a payment of {$validated['amount']} ({$validated['payment_method']}) against guest donation #{$id} from the POS ({$donation->donor_name})",
+            null,
+            $donation->event_id
+        );
+
+        return response()->json(['success' => true, 'message' => 'Payment recorded.']);
+    }
+
+    /**
+     * Confirms one specific pending payment (e.g. a Bank Transfer awaiting verification) —
+     * the Payment History table's own per-row action, for the case approveGuestDonation()/
+     * approveDevoteeDonation() can't handle unambiguously (more than one payment pending on
+     * the same donation). Works for either donation_type, since the payment row itself
+     * carries which table/id it belongs to. No receipt is sent here yet — see
+     * DonationReceiptService's own Phase F note in the Partial Pledge Payments plan.
+     */
+    public function confirmPayment($paymentId)
+    {
+        $user = Auth::user();
+        $activeRole = session('active_role', $user->role ?? null);
+
+        $payment = DonationPayment::find($paymentId);
+        if (!$payment) {
+            return redirect()->back()->with('error', 'Payment not found.');
+        }
+
+        $table = $payment->donation_type === 'devotee' ? 'donations' : 'donations_without_logins';
+        $donation = DB::table($table)->where('id', $payment->donation_id)->first();
+        if (!$donation) {
+            return redirect()->back()->with('error', 'Donation not found.');
+        }
+
+        if (!$user || !$this->canManageDonationForEvent($user, $activeRole, $donation->event_id)) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        if ($payment->payment_status !== 'Pending') {
+            return redirect()->back()->with('error', 'Only a pending payment can be confirmed.');
+        }
+
+        $payment->payment_status = 'Completed';
+        $payment->save();
+        DonationPaymentService::recomputeParent($payment->donation_type, $payment->donation_id);
+
+        AuditLogService::log(
+            "Confirmed a payment of {$payment->amount} ({$payment->payment_method}) against {$payment->donation_type} donation #{$payment->donation_id}",
+            null,
+            $donation->event_id
+        );
+
+        return redirect()->back()->with('success', 'Payment confirmed.');
+    }
+
+    /**
      * The logged-in devotee's own donation page — same Bank/Cash/Online tabs used on the
      * homepage and event pages, so the experience matches everywhere donations are made.
      */
@@ -2446,6 +2668,13 @@ class DonationController extends Controller
             'updated_at' => now(),
         ]);
         $this->saveDonationSelections('devotee', $donationId, $validated['selections_json'] ?? null);
+        // Partial Pledge Payments — see insertGuestDonationRecord()'s identical note; this
+        // donor-self-reported Bank/Cash claim isn't confirmed yet, so the ledger row starts
+        // Pending too, same as the donation itself.
+        DonationPaymentService::recordPayment('devotee', $donationId, [
+            'amount' => $validated['amount'], 'payment_method' => $validated['payment_method'],
+            'payment_status' => 'Pending', 'transaction_id' => $transactionId, 'received_at' => now(),
+        ]);
 
         DonationReceiptService::sendPendingNotice([
             'donor_name' => $user->name,
@@ -2540,6 +2769,11 @@ class DonationController extends Controller
             'updated_at' => now(),
         ]);
         $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
+        // Partial Pledge Payments — see insertGuestDonationRecord()'s identical note.
+        DonationPaymentService::recordPayment('guest', $donationId, [
+            'amount' => $validated['amount'], 'payment_method' => $validated['payment_method'],
+            'payment_status' => 'Pending', 'transaction_id' => $transactionId, 'received_at' => now(),
+        ]);
 
         DonationReceiptService::sendPendingNotice([
             'donor_name' => $validated['donor_name'],
@@ -2601,6 +2835,9 @@ class DonationController extends Controller
                 'updated_at' => now(),
             ]);
             $this->saveDonationSelections('devotee', $donationId, $validated['selections_json'] ?? null);
+            $pendingPayment = DonationPaymentService::recordPayment('devotee', $donationId, [
+                'amount' => $validated['amount'], 'payment_method' => 'Stripe', 'payment_status' => 'Pending', 'received_at' => now(),
+            ]);
         } else {
             $donationId = DB::table('donations_without_logins')->insertGetId([
                 'donor_name' => $validated['donor_name'],
@@ -2623,6 +2860,9 @@ class DonationController extends Controller
                 'updated_at' => now(),
             ]);
             $this->saveDonationSelections('guest', $donationId, $validated['selections_json'] ?? null);
+            $pendingPayment = DonationPaymentService::recordPayment('guest', $donationId, [
+                'amount' => $validated['amount'], 'payment_method' => 'Stripe', 'payment_status' => 'Pending', 'received_at' => now(),
+            ]);
         }
 
         $currency = strtolower(Setting::get('currency_code', 'AUD'));
@@ -2668,7 +2908,9 @@ class DonationController extends Controller
                 'metadata' => ['donation_id' => (string) $donationId, 'table' => $table],
             ]);
         } catch (\Exception $e) {
-            DB::table($table)->where('id', $donationId)->update(['payment_status' => 'Failed', 'updated_at' => now()]);
+            $pendingPayment->payment_status = 'Failed';
+            $pendingPayment->save();
+            DonationPaymentService::recomputeParent($pendingPayment->donation_type, $donationId);
             Log::error('Stripe checkout session creation failed: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Unable to start the online payment right now. Please try Bank Transfer or Cash at Temple instead.')->withInput();
         }
@@ -2677,6 +2919,8 @@ class DonationController extends Controller
             'transaction_id' => $session->id,
             'updated_at' => now(),
         ]);
+        $pendingPayment->transaction_id = $session->id;
+        $pendingPayment->save();
 
         return redirect($session->url);
     }
@@ -2698,6 +2942,26 @@ class DonationController extends Controller
         }
 
         return [null, null];
+    }
+
+    /**
+     * Partial Pledge Payments: Stripe's own success/webhook/cancel handlers flip the
+     * donation row's payment_status directly (kept as-is below, for the receipt-dedup
+     * guard they already rely on) — this keeps the matching ledger payment row and the
+     * donation_status/mirror columns in sync with it, the same way approveGuestDonation()/
+     * confirmPayment() do for Bank/Cash. A fresh Stripe Checkout always creates exactly one
+     * Pending ledger row (see startStripeCheckout()), so there's exactly one to resolve.
+     */
+    private function resolveSinglePendingPayment(string $table, int $donationId, string $status): void
+    {
+        $donationType = $table === 'donations' ? 'devotee' : 'guest';
+        $payment = DonationPayment::where('donation_type', $donationType)->where('donation_id', $donationId)->where('payment_status', 'Pending')->first();
+        if (!$payment) {
+            return;
+        }
+        $payment->payment_status = $status;
+        $payment->save();
+        DonationPaymentService::recomputeParent($donationType, $donationId);
     }
 
     /**
@@ -2740,6 +3004,7 @@ class DonationController extends Controller
                     ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
 
                 if ($justConfirmed) {
+                    $this->resolveSinglePendingPayment($table, $donation->id, 'Completed');
                     DonationReceiptService::send(DonationReceiptService::payloadForRow($table, $donation));
                 }
             } else {
@@ -2760,10 +3025,13 @@ class DonationController extends Controller
         $table = $request->query('table') === 'donations' ? 'donations' : 'donations_without_logins';
 
         if ($donationId) {
-            DB::table($table)
+            $updated = DB::table($table)
                 ->where('id', $donationId)
                 ->where('payment_status', 'Pending')
                 ->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
+            if ($updated) {
+                $this->resolveSinglePendingPayment($table, (int) $donationId, 'Cancelled');
+            }
         }
 
         $redirectRoute = $table === 'donations' ? 'devotee.dashboard' : 'home';
@@ -2808,6 +3076,7 @@ class DonationController extends Controller
                     ->update(['payment_status' => 'Paid', 'updated_at' => now()]);
 
                 if ($justConfirmed) {
+                    $this->resolveSinglePendingPayment($table, $donation->id, 'Completed');
                     DonationReceiptService::send(DonationReceiptService::payloadForRow($table, $donation));
                 }
             }

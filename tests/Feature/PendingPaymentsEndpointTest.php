@@ -33,7 +33,7 @@ class PendingPaymentsEndpointTest extends TestCase
         return DB::table('donations_without_logins')->insertGetId(array_merge([
             'event_id' => $eventId, 'donor_name' => 'Pending Donor', 'amount' => 60,
             'is_anonymous' => false, 'email' => 'pending.donor@example.com', 'mobile' => '0412345678',
-            'payment_method' => 'Bank', 'payment_status' => 'Pending', 'purpose' => 'General',
+            'payment_method' => 'Bank', 'payment_status' => 'Pending', 'donation_status' => 'Pending', 'purpose' => 'General',
             'donation_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
         ], $overrides));
     }
@@ -84,7 +84,7 @@ class PendingPaymentsEndpointTest extends TestCase
     {
         $admin = $this->admin();
         $eventId = $this->makeEvent();
-        $this->insertGuestDonation($eventId, ['payment_status' => 'Paid']);
+        $this->insertGuestDonation($eventId, ['payment_status' => 'Paid', 'donation_status' => 'Completed']);
 
         $response = $this->actingAs($admin)->getJson(route('admin.events.pos.pending-payments', $eventId));
 

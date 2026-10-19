@@ -1193,7 +1193,7 @@
                                     @else
                                     <div class="table-responsive">
                                         <table class="pledge-payment-history">
-                                            <thead><tr><th>Date &amp; Time</th><th>Reference</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
+                                            <thead><tr><th>Date &amp; Time</th><th>Reference</th><th>Amount</th><th>Method</th><th>Status</th><th></th></tr></thead>
                                             <tbody>
                                                 @foreach($row->payments as $p)
                                                 <tr>
@@ -1202,6 +1202,19 @@
                                                     <td>{{ number_format($p->amount, 2) }}</td>
                                                     <td>{{ $p->payment_method ?? '—' }}</td>
                                                     <td><span class="status-pill status-{{ strtolower($p->payment_status) }}">{{ $p->payment_status }}</span></td>
+                                                    <td class="text-end">
+                                                        {{-- Per-payment confirm — needed whenever more than one payment can be
+                                                             Pending at once (approveGuestDonation()/approveDevoteeDonation()'s
+                                                             own "Confirm & Send Receipt" button only handles exactly one). --}}
+                                                        @if($canEditDonation && $p->payment_status === 'Pending')
+                                                        <form action="{{ route('admin.donations.confirmPayment', $p->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confirm this payment was received?')">
+                                                            @csrf
+                                                            <button type="submit" class="btn-action-approve" style="padding:4px 10px; font-size:0.72rem;" title="Confirm this payment was received">
+                                                                <i class="bi bi-check-circle-fill"></i> Confirm
+                                                            </button>
+                                                        </form>
+                                                        @endif
+                                                    </td>
                                                 </tr>
                                                 @endforeach
                                             </tbody>
