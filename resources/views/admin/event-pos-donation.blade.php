@@ -1181,6 +1181,15 @@
         // server-side re-verification of this before it's ever trusted here.
         const EDIT_DONATION = @json($editDonation);
         const IS_EDITING = !!EDIT_DONATION;
+        // Mutable tracking of "the donation this NEXT save should complete", separate from
+        // the IS_EDITING/EDIT_DONATION consts above (which only ever reflect what the page
+        // loaded with). Every save site below reads THIS, not the consts, and resetPosForm()
+        // clears it — without that, completing one pending transaction via EFT Terminal and
+        // then taking a fresh walk-up donor's payment on the SAME page (no reload in
+        // between, since an EFT approval only calls resetPosForm(), never reloads) kept
+        // tagging every subsequent payment with the FIRST donation's id, silently
+        // overwriting that same row donation after donation instead of creating new ones.
+        let currentEditDonationId = EDIT_DONATION ? EDIT_DONATION.id : null;
         const UPDATE_GUEST_URL = @json($editDonation ? route('admin.donations.updateGuest', $editDonation->id) : null);
         const EFT_CHARGE_START_URL = @json(route('admin.eft.charge.start'));
         const EFT_CHARGE_STATUS_URL_BASE = @json(url('/admin/eft/charge/status'));
@@ -1960,6 +1969,11 @@
             document.getElementById('posDetails').value = '';
             amountInput.value = '';
             if (window.posResetTiers) { window.posResetTiers(); }
+            // Whatever pending transaction this page loaded to complete is done (or the
+            // operator just hit Clear to abandon it) — the next donation entered is always a
+            // fresh one, never a continuation of that donation's id. See currentEditDonationId's
+            // own declaration above for why this matters.
+            currentEditDonationId = null;
             updatePosSummary();
         }
         document.getElementById('posClearBtn').addEventListener('click', function () {
@@ -1988,7 +2002,7 @@
             // (that's an edit to the donation row itself, via admin.donations.updateGuest —
             // see UPDATE_GUEST_URL below), so selections_json only ever applies when creating
             // a brand new one.
-            if (!IS_EDITING) { body.set('selections_json', JSON.stringify(selections)); }
+            if (!currentEditDonationId) { body.set('selections_json', JSON.stringify(selections)); }
             // Cash, UPI and an EFT terminal all confirm the money on the spot, so those record
             // as Paid immediately. A Bank Transfer claim can't be verified at the counter — it
             // sits Pending until an admin checks the account and approves it, same as the
@@ -2001,7 +2015,7 @@
             body.set('donor_name', name);
             // Preserves the original donation's own date when completing it — only a brand
             // new entry gets today's date.
-            body.set('donation_date', IS_EDITING ? EDIT_DONATION.donation_date : today);
+            body.set('donation_date', currentEditDonationId ? EDIT_DONATION.donation_date : today);
             body.set('email', emailValue);
             body.set('mobile', mobileValue);
             body.set('payment_method', selectedMethod === 'Bank Transfer' ? 'Bank' : selectedMethod);
@@ -2015,7 +2029,7 @@
             // one — DonationController::updateGuestDonation() now has the same JSON-response
             // branch as storeGuestDonation() specifically so this fetch()-based flow can
             // target either one interchangeably.
-            const targetUrl = IS_EDITING ? UPDATE_GUEST_URL : STORE_GUEST_URL;
+            const targetUrl = currentEditDonationId ? UPDATE_GUEST_URL : STORE_GUEST_URL;
 
             fetch(targetUrl, {
                 method: 'POST',
@@ -2026,7 +2040,7 @@
                 .then(function (result) {
                     btn.disabled = false;
                     if (result.status >= 200 && result.status < 300 && result.data.success) {
-                        if (IS_EDITING) {
+                        if (currentEditDonationId) {
                             // The completed row no longer matches PosDonationController::show()'s
                             // own Pending-only ?edit_id lookup — a plain reload back to the bare
                             // POS URL drops the now-stale banner/prefill and refreshes the
@@ -2108,8 +2122,11 @@
                         purposeDetails: document.getElementById('posDetails').value,
                         terminalId: selectedTerminal.id,
                         // Completing an existing Pending donation — see CbaSciController::
-                        // createRecordIfApprovedAndUnrecorded()'s own branch on this.
-                        editDonationId: IS_EDITING ? EDIT_DONATION.id : null,
+                        // createRecordIfApprovedAndUnrecorded()'s own branch on this. Reads the
+                        // MUTABLE currentEditDonationId, not the page-load IS_EDITING/EDIT_DONATION
+                        // consts — otherwise every later payment this same page session ever
+                        // takes keeps re-targeting the first pending donation it completed.
+                        editDonationId: currentEditDonationId,
                     });
                     return;
                 }
@@ -2126,8 +2143,9 @@
                     purpose: purposeValue,
                     purposeDetails: document.getElementById('posDetails').value,
                     // Completing an existing Pending donation — threaded through to
-                    // startEftCharge()'s own identical field.
-                    editDonationId: IS_EDITING ? EDIT_DONATION.id : null,
+                    // startEftCharge()'s own identical field. See the cba_sci branch above for
+                    // why this reads currentEditDonationId, not IS_EDITING/EDIT_DONATION.
+                    editDonationId: currentEditDonationId,
                 });
                 return;
             }
