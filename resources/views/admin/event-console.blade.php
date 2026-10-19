@@ -865,7 +865,26 @@
                     @endif
 
                     @php
-                        $distinctStatuses = $rows->pluck('payment_status')->filter()->unique()->sort()->values();
+                        // Pills are built from whatever statuses actually appear on screen —
+                        // real donation rows AND the EFT "orphan" rows below (declined/
+                        // cancelled terminal attempts that never became a donation). Without
+                        // the orphan half, an event whose only Cancelled-looking rows are
+                        // failed EFT attempts (no donation ever had Cancelled status) never
+                        // gets a "Cancelled" pill at all — so those rows had no way to ever
+                        // become visible, "All" included, since "All" only re-activates pills
+                        // that exist. $oPillClass below mirrors the one computed per-row
+                        // further down (paid/pending/cancelled) — kept in sync by hand since
+                        // there's no shared place to compute it once for both.
+                        $orphanStatusLabels = ($eftOrphanRows ?? collect())->map(function ($orow) {
+                            $ot = $orow->txn;
+                            $pillClass = $orow->provider === 'linkly'
+                                ? match($ot->status) { 'approved' => 'paid', 'initiated', 'in_progress' => 'pending', default => 'cancelled' }
+                                : match(true) { $ot->result_financial_status === 'APPROVED' => 'paid', in_array($ot->status, ['PENDING', 'AWAITING_POS']) => 'pending', default => 'cancelled' };
+                            return ucfirst($pillClass);
+                        });
+                        $distinctStatuses = $rows->pluck('payment_status')->filter()
+                            ->concat($orphanStatusLabels)
+                            ->unique()->sort()->values();
                         $distinctPaymentMethods = $rows->pluck('payment_method')->filter()->unique()->sort()->values();
                         // Completed + Pending are on by default — Cancelled/Failed are
                         // available to opt into but don't clutter the view by default.
@@ -1030,7 +1049,12 @@
                                          should add into the "Filtered Total" the search/filter JS sums up. --}}
                                     data-amount="0"
                                     data-payment="eft terminal"
-                                    data-status="{{ strtolower($oStatusWord) }}"
+                                    {{-- Normalized to the same paid/pending/cancelled vocabulary the
+                                         Status pills use (see $oPillClass just above) — the raw provider
+                                         status word (e.g. "declined", "AWAITING_POS") never matched any
+                                         pill's own value, so those rows silently never showed under any
+                                         status filter, "All" included. --}}
+                                    data-status="{{ $oPillClass }}"
                                     data-settlement="current"
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}">
                                     <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>

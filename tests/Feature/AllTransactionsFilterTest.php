@@ -191,4 +191,34 @@ class AllTransactionsFilterTest extends TestCase
         $response->assertSee('Receipt ID');
         $response->assertSee('G-' . str_pad((string) $donationId, 6, '0', STR_PAD_LEFT));
     }
+
+    /**
+     * $distinctStatuses used to be built only from real donation/order rows — an event whose
+     * only "Cancelled"-looking activity was a declined/cancelled EFT attempt (no donation ever
+     * actually had Cancelled status) never got a Cancelled pill rendered at all, so that row
+     * had no way to ever become visible: "All" only re-activates pills that exist. The orphan
+     * row's own data-status also used to carry the raw provider status word ("declined",
+     * "AWAITING_POS", ...) instead of the same paid/pending/cancelled vocabulary the pills use,
+     * which would have broken this even with the pill present.
+     */
+    public function test_an_eft_only_cancelled_attempt_gets_its_own_status_pill_and_matching_data_status(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        // The only donation on this event is Paid — nothing here ever has Cancelled status.
+        $this->insertGuestDonation($eventId, 'Paid Donor', 50, 'Cash', 'Paid');
+        \App\Models\SciTransaction::create([
+            'client_ref' => 'client-ref-cancel-1', 'sci_transaction_id' => 'sci-cancel-1', 'sci_version' => 1,
+            'event_id' => $eventId, 'eft_terminal_id' => null, 'donation_type' => null, 'donation_id' => null,
+            'txn_type' => 'purchase', 'amount' => 20.00, 'currency_code' => 'AUD',
+            'status' => 'FINALISED', 'result_financial_status' => 'CANCELLED',
+            'message' => 'Transaction cancelled',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('data-value="cancelled"', false);
+        $response->assertSee('data-status="cancelled"', false);
+    }
 }
