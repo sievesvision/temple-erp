@@ -221,4 +221,58 @@ class AllTransactionsFilterTest extends TestCase
         $response->assertSee('data-value="cancelled"', false);
         $response->assertSee('data-status="cancelled"', false);
     }
+
+    public function test_the_table_shows_a_donation_id_column(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        $donationId = $this->insertGuestDonation($eventId, 'ID Column Donor', 40, 'Cash', 'Paid');
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('Donation ID');
+        $response->assertSee('GD' . str_pad((string) $donationId, 5, '0', STR_PAD_LEFT));
+    }
+
+    /**
+     * donation_date is a business/accounting date the Add Transaction modal lets staff
+     * deliberately backdate — pairing IT with created_at's time (as the Date & Time column
+     * used to) mixed an editable field with a real one. Both halves now come from
+     * created_at, so this column reads as the actual moment the transaction happened.
+     * (The Settlements pane's own Current Period Transactions table is a separate feature
+     * that legitimately shows donation_date — not touched here, so not asserted against.)
+     */
+    public function test_date_and_time_column_shows_the_real_created_at_not_the_editable_donation_date(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+        DB::table('donations_without_logins')->insert([
+            'event_id' => $eventId, 'donor_name' => 'Backdated Donor', 'amount' => 60,
+            'payment_method' => 'Cash', 'payment_status' => 'Paid', 'purpose' => 'General',
+            'donation_date' => '2026-01-01', 'created_at' => '2026-09-05 14:35:00', 'updated_at' => '2026-09-05 14:35:00',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $html = $response->getContent();
+        preg_match('/<table class="console-table" id="donationsTable">.*?<\/table>/s', $html, $m);
+        $this->assertNotEmpty($m, 'donationsTable not found in response');
+        $this->assertStringContainsString('05 Sep 2026', $m[0]);
+        $this->assertStringContainsString('2:35 PM', $m[0]);
+        $this->assertStringNotContainsString('01 Jan 2026', $m[0]);
+    }
+
+    public function test_the_filter_row_combines_quick_ranges_date_range_and_a_compact_search_box(): void
+    {
+        $admin = $this->admin();
+        $eventId = $this->makeEvent();
+
+        $response = $this->actingAs($admin)->get(route('admin.events.portal', $eventId));
+
+        $response->assertOk();
+        $response->assertSee('donations-filter-row-combined', false);
+        $response->assertSee('donations-search-wrap-compact', false);
+    }
 }

@@ -272,6 +272,15 @@
         .donations-filter-pills button { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 7px 14px; min-height: 36px; border-radius: 8px; font-size: 0.8rem; }
         .donations-filter-pills button.active { background: #dee2e6; border-color: #ced4da; color: var(--text-primary); }
         .donations-filter-clear { background: var(--white); border: 1px solid var(--border); color: var(--text-secondary); font-weight: 600; padding: 10px 16px; min-height: 42px; border-radius: 8px; font-size: 0.85rem; }
+        /* Quick-range pills, the date range, and Clear now share one row (see
+           .donations-filter-row-combined below) — the pills' own standalone margin-bottom
+           only made sense as a separate row, so it's dropped here to keep everything on
+           one baseline. The search box moves into this same row too, but stays small and
+           pinned to the right via margin-left:auto, rather than the wide flex-growing box
+           it was before — it's a quick lookup, not the row's main control. */
+        .donations-filter-row-combined .donations-filter-pills { margin-bottom: 0; }
+        .donations-search-wrap-compact { flex: 0 0 200px; min-width: 160px; margin-left: auto; }
+        @media (max-width: 640px) { .donations-search-wrap-compact { flex: 1 1 100%; margin-left: 0; } }
         .donations-filter-summary { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 2px 2px; font-size: 0.85rem; color: var(--text-secondary); }
         .donations-filter-total { font-weight: 700; color: var(--text-secondary); }
 
@@ -935,22 +944,22 @@
                             </div>
                             @endif
                         </div>
-                        <div class="donations-filter-row">
-                            <div class="donations-search-wrap">
-                                <i class="bi bi-search"></i>
-                                <input type="text" id="donationsSearchInput" placeholder="Search by name or email...">
+                        <div class="donations-filter-row donations-filter-row-combined">
+                            <div class="donations-filter-pills" id="donationsQuickFilters">
+                                <button type="button" class="active" data-range="all">All Time</button>
+                                <button type="button" data-range="today">Today</button>
+                                <button type="button" data-range="week">This Week</button>
+                                <button type="button" data-range="month">This Month</button>
+                                <button type="button" data-range="last_month">Last Month</button>
                             </div>
                             <input type="date" class="donations-date-input" id="donationsDateFrom">
                             <span class="text-muted small">to</span>
                             <input type="date" class="donations-date-input" id="donationsDateTo">
                             <button type="button" class="donations-filter-clear" id="donationsFilterClear"><i class="bi bi-x-circle me-1"></i>Clear</button>
-                        </div>
-                        <div class="donations-filter-pills" id="donationsQuickFilters">
-                            <button type="button" class="active" data-range="all">All Time</button>
-                            <button type="button" data-range="today">Today</button>
-                            <button type="button" data-range="week">This Week</button>
-                            <button type="button" data-range="month">This Month</button>
-                            <button type="button" data-range="last_month">Last Month</button>
+                            <div class="donations-search-wrap donations-search-wrap-compact">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="donationsSearchInput" placeholder="Search by name...">
+                            </div>
                         </div>
                         <div class="donations-filter-summary">
                             <span id="donationsFilterCount"></span>
@@ -962,6 +971,7 @@
                         <table class="console-table" id="donationsTable">
                             <thead>
                                 <tr>
+                                    <th class="sortable" data-sort="donationId">Donation ID<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="timestamp">Date &amp; Time<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th class="sortable" data-sort="name">Donor Name<i class="bi bi-arrow-down-up sort-icon"></i></th>
                                     <th>Contact</th>
@@ -1004,7 +1014,13 @@
                                     data-status="{{ strtolower($row->payment_status) }}"
                                     data-settlement="{{ $row->settlement_id ?? 'current' }}"
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $rowModalId }}">
-                                    <td>{{ date('d M Y', strtotime($row->donation_date)) }}<div class="text-muted small">{{ date('g:i A', strtotime($row->created_at)) }}</div></td>
+                                    <td class="text-muted">{{ $row->display_id }}</td>
+                                    {{-- Both the date and time here come from created_at, not donation_date — donation_date
+                                         is a business/accounting date an entry can be deliberately backdated to (the Add
+                                         Transaction modal's own date picker), so pairing IT with created_at's time mixed
+                                         an editable field with a real one; this column reads as the actual moment the
+                                         transaction was recorded, consistently from one source. --}}
+                                    <td>{{ date('d M Y', strtotime($row->created_at)) }}<div class="text-muted small">{{ date('g:i A', strtotime($row->created_at)) }}</div></td>
                                     <td class="col-name">{{ $row->display_name }}</td>
                                     <td class="col-contact">
                                         @if($row->mobile)<div>{{ $row->mobile }}</div>@endif
@@ -1022,7 +1038,7 @@
                                 </tr>
                                 @empty
                                 @if(($eftOrphanRows ?? collect())->isEmpty())
-                                <tr><td colspan="9" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
+                                <tr><td colspan="10" class="text-center text-muted py-5">No transactions recorded for this event yet.</td></tr>
                                 @endif
                                 @endforelse
                                 @if($canEditEvent)
@@ -1061,7 +1077,9 @@
                                          status filter, "All" included. --}}
                                     data-status="{{ $oPillClass }}"
                                     data-settlement="current"
+                                    data-donation-id=""
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $orphanModalId }}">
+                                    <td class="text-muted">—</td>
                                     <td>{{ $ot->created_at->format('d M Y') }}<div class="text-muted small">{{ $ot->created_at->format('g:i A') }}</div></td>
                                     <td class="col-name">{{ $oDonorName ?: '—' }} <span class="text-muted small text-capitalize">({{ $oIsRefund ? 'Refund' : 'Attempt' }})</span></td>
                                     <td class="col-contact">
@@ -1080,7 +1098,7 @@
                                 </tr>
                                 @endforeach
                                 @endif
-                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="9" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
+                                <tr id="donationsNoMatchRow" style="display:none;"><td colspan="10" class="text-center text-muted py-5">No transactions match your search/filter.</td></tr>
                             </tbody>
                         </table>
                         </div>
