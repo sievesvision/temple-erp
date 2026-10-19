@@ -792,13 +792,15 @@ class DonationController extends Controller
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
             // 'EFT Manual' — portal-only, see storeGuestDonation()'s own identical note.
-            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual',
+            // Not required when payment_status is Pledge — see storeGuestDonation()'s
+            // identical note on payment_method.
+            'payment_mode' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:2000',
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
-            'payment_status' => 'nullable|string|in:Paid,Pending',
+            'payment_status' => 'nullable|string|in:Paid,Pending,Pledge',
             // Set only when payment_mode is EFT Terminal — links this donation back to its
             // Linkly accreditation ledger row (see linkLedgerToDonation()).
             'linkly_session_id' => 'nullable|string|max:64',
@@ -809,7 +811,7 @@ class DonationController extends Controller
                 'devotee_id' => $validated['devotee_id'],
                 'event_id' => $validated['event_id'] ?? null,
                 'amount' => $validated['amount'],
-                'payment_method' => $validated['payment_mode'],
+                'payment_method' => $validated['payment_mode'] ?? null,
                 'payment_status' => $validated['payment_status'] ?? 'Paid',
                 'source_channel' => \App\Services\TransactionChannel::resolve(),
                 'transaction_id' => ($validated['transaction_id'] ?? '') !== '' ? $validated['transaction_id'] : 'OFFLINE-' . strtoupper(uniqid()),
@@ -835,21 +837,24 @@ class DonationController extends Controller
                 'donor_email' => $devoteeUser->email ?? null,
                 'donor_mobile' => $devoteeUser->mobile ?? null,
                 'amount' => $validated['amount'],
-                'payment_method' => $validated['payment_mode'],
+                'payment_method' => $validated['payment_mode'] ?? null,
                 'purpose' => $validated['remarks'] ?? 'General Temple Fund',
                 'event_id' => $validated['event_id'] ?? null,
                 'donation_date' => $validated['donation_date'],
                 'transaction_id' => $validated['transaction_id'] ?? null,
                 'receipt_number' => DonationReceiptService::receiptNumber('D', $donationId),
             ];
-            if (($validated['payment_status'] ?? 'Paid') === 'Pending') {
+            // A Pledge has no payment yet — same "not finalised" notice as Pending rather
+            // than a completed-donation receipt.
+            if (in_array($validated['payment_status'] ?? 'Paid', ['Pending', 'Pledge'], true)) {
                 DonationReceiptService::sendPendingNotice($receiptPayload);
             } else {
                 DonationReceiptService::send($receiptPayload);
             }
 
+            $paymentModeLabel = $validated['payment_mode'] ?? 'Pledge, no payment method';
             AuditLogService::log(
-                "Recorded devotee donation of {$validated['amount']} ({$validated['payment_mode']})",
+                "Recorded devotee donation of {$validated['amount']} ({$paymentModeLabel})",
                 null,
                 $validated['event_id'] ?? null
             );
@@ -1295,7 +1300,7 @@ class DonationController extends Controller
             'amount' => $fields['amount'],
             'purpose' => $fields['purpose'],
             'purpose_details' => $fields['purpose_details'] ?? null,
-            'payment_method' => $fields['payment_method'],
+            'payment_method' => $fields['payment_method'] ?? null,
             'payment_status' => $fields['payment_status'] ?? 'Paid',
             'source_channel' => $fields['source_channel'] ?? \App\Services\TransactionChannel::resolve(),
             'transaction_id' => $fields['transaction_id'] ?? null,
@@ -1314,21 +1319,24 @@ class DonationController extends Controller
             'donor_email' => $fields['email'] ?? null,
             'donor_mobile' => $fields['mobile'] ?? null,
             'amount' => $fields['amount'],
-            'payment_method' => $fields['payment_method'],
+            'payment_method' => $fields['payment_method'] ?? null,
             'purpose' => $fields['purpose_details'] ?? $fields['purpose'],
             'event_id' => $fields['event_id'] ?? null,
             'donation_date' => $fields['donation_date'],
             'transaction_id' => $fields['transaction_id'] ?? null,
             'receipt_number' => DonationReceiptService::receiptNumber('G', $donationId),
         ];
-        if (($fields['payment_status'] ?? 'Paid') === 'Pending') {
+        // A Pledge has no payment yet — same "not finalised" notice as Pending rather
+        // than a completed-donation receipt.
+        if (in_array($fields['payment_status'] ?? 'Paid', ['Pending', 'Pledge'], true)) {
             DonationReceiptService::sendPendingNotice($receiptPayload);
         } else {
             DonationReceiptService::send($receiptPayload);
         }
 
+        $paymentMethodLabel = $fields['payment_method'] ?? 'Pledge, no payment method';
         AuditLogService::log(
-            "Recorded guest donation of {$fields['amount']} from {$fields['donor_name']} ({$fields['payment_method']})",
+            "Recorded guest donation of {$fields['amount']} from {$fields['donor_name']} ({$paymentMethodLabel})",
             null,
             $fields['event_id'] ?? null
         );
@@ -1767,7 +1775,9 @@ class DonationController extends Controller
             // 'EFT Manual' — portal-only, for recording a terminal-card payment that was
             // taken on the physical device but never driven through this app's own real-time
             // EFT Terminal charge flow, so there's no gateway ledger row to link it to.
-            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual',
+            // Not required when payment_status is Pledge — a pledge is just a donor's
+            // commitment to pay later, with no method chosen yet.
+            'payment_method' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual',
             'transaction_id' => 'nullable|string|max:100',
             // Bank/cheque details are a convenience field, not a requirement — an admin
             // recording a donation from a bank statement or receipt may not have every
@@ -1778,7 +1788,7 @@ class DonationController extends Controller
             'bank_branch' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
             'selections_json' => 'nullable|string',
-            'payment_status' => 'nullable|string|in:Paid,Pending',
+            'payment_status' => 'nullable|string|in:Paid,Pending,Pledge',
             // Set only when payment_method is EFT Terminal — links this donation back to its
             // Linkly accreditation ledger row (see linkLedgerToDonation()).
             'linkly_session_id' => 'nullable|string|max:64',
@@ -1815,7 +1825,7 @@ class DonationController extends Controller
                 'amount' => $validated['amount'],
                 'purpose' => $validated['purpose'],
                 'purpose_details' => $validated['purpose_details'] ?? null,
-                'payment_method' => $validated['payment_method'],
+                'payment_method' => $validated['payment_method'] ?? null,
                 'payment_status' => $validated['payment_status'] ?? 'Paid',
                 'transaction_id' => ($validated['transaction_id'] ?? '') !== '' ? $validated['transaction_id'] : 'GUEST-' . strtoupper(uniqid()),
                 'bank_name' => $validated['bank_name'] ?? null,
@@ -1872,8 +1882,8 @@ class DonationController extends Controller
         $validated = $request->validate([
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
-            'payment_mode' => 'required|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual,Stripe',
-            'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
+            'payment_mode' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual,Stripe',
+            'payment_status' => 'required|string|in:Paid,Pending,Pledge,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:2000',
@@ -1883,7 +1893,7 @@ class DonationController extends Controller
         DB::table('donations')->where('id', $id)->update([
             'event_id' => $validated['event_id'] ?? null,
             'amount' => $validated['amount'],
-            'payment_method' => $validated['payment_mode'],
+            'payment_method' => $validated['payment_mode'] ?? null,
             'payment_status' => $validated['payment_status'],
             'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
             'purpose' => $validated['purpose'] ?? null,
@@ -1963,8 +1973,8 @@ class DonationController extends Controller
             'amount' => 'required|numeric|min:1',
             'purpose' => 'required|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',
-            'payment_method' => 'required|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual,Stripe',
-            'payment_status' => 'required|string|in:Paid,Pending,Cancelled,Failed',
+            'payment_method' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual,Stripe',
+            'payment_status' => 'required|string|in:Paid,Pending,Pledge,Cancelled,Failed',
             'transaction_id' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
             // Set only when this update is completing a Pending donation via the EFT
@@ -1997,7 +2007,7 @@ class DonationController extends Controller
             'amount' => $validated['amount'],
             'purpose' => $validated['purpose'],
             'purpose_details' => $validated['purpose_details'] ?? null,
-            'payment_method' => $validated['payment_method'],
+            'payment_method' => $validated['payment_method'] ?? null,
             'payment_status' => $validated['payment_status'],
             'transaction_id' => $validated['transaction_id'] ?? $donation->transaction_id,
             'donation_date' => $validated['donation_date'],

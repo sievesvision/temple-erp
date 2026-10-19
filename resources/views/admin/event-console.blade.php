@@ -364,7 +364,7 @@
         table.console-table tbody tr:hover { background: var(--cream); }
         .status-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
         .status-pill.status-paid { background: var(--success-bg); color: var(--success); }
-        .status-pill.status-pending { background: var(--pending-bg); color: var(--warning); }
+        .status-pill.status-pending, .status-pill.status-pledge { background: var(--pending-bg); color: var(--warning); }
         .status-pill.status-cancelled, .status-pill.status-failed { background: var(--error-bg); color: var(--error); }
 
         .btn-refresh { background: var(--white); border: 1.5px solid var(--border); padding: 9px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; color: var(--text-primary); }
@@ -907,9 +907,9 @@
                             ->concat($orphanStatusLabels)
                             ->unique()->sort()->values();
                         $distinctPaymentMethods = $rows->pluck('payment_method')->filter()->unique()->sort()->values();
-                        // Completed + Pending are on by default — Cancelled/Failed are
-                        // available to opt into but don't clutter the view by default.
-                        $defaultActiveStatuses = ['paid', 'pending'];
+                        // Completed + Pending + Pledge are on by default — Cancelled/Failed
+                        // are available to opt into but don't clutter the view by default.
+                        $defaultActiveStatuses = ['paid', 'pending', 'pledge'];
                         // For the table's own Settlement column/badge — same settlement list
                         // the filter dropdown's own options are built from.
                         $settlementById = $cashSettlements->keyBy('id');
@@ -924,7 +924,7 @@
                                     @foreach($distinctStatuses as $status)
                                     @php
                                         $sv = strtolower($status);
-                                        $dotClass = match($sv) { 'paid' => 'dot-success', 'pending' => 'dot-warning', default => 'dot-danger' };
+                                        $dotClass = match($sv) { 'paid' => 'dot-success', 'pending', 'pledge' => 'dot-warning', default => 'dot-danger' };
                                     @endphp
                                     <button type="button" class="donations-multi-pill{{ in_array($sv, $defaultActiveStatuses, true) ? ' active' : '' }}" data-value="{{ $sv }}"><span class="pill-dot {{ $dotClass }}"></span>{{ $status === 'Paid' ? 'Completed' : $status }}</button>
                                     @endforeach
@@ -1022,7 +1022,7 @@
                                     data-donation-id="{{ $row->display_id }}"
                                     data-name="{{ strtolower($row->display_name) }}"
                                     data-amount="{{ $row->amount }}"
-                                    data-payment="{{ strtolower($row->payment_method) }}"
+                                    data-payment="{{ strtolower($row->payment_method ?? '') }}"
                                     data-status="{{ strtolower($row->payment_status) }}"
                                     data-settlement="{{ $row->settlement_id ?? 'current' }}"
                                     class="donations-row-clickable" data-bs-toggle="modal" data-bs-target="#{{ $rowModalId }}">
@@ -1040,7 +1040,7 @@
                                         @if(!$row->mobile && !$row->email)—@endif
                                     </td>
                                     <td class="col-amount total">{{ number_format($row->amount, 2) }}</td>
-                                    <td>{{ $row->payment_method }}</td>
+                                    <td>{{ $row->payment_method ?? '—' }}</td>
                                     <td class="col-txn" title="{{ $row->transaction_id }}">{{ $row->transaction_id ?: '—' }}</td>
                                     <td><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></td>
                                     <td><span class="settlement-badge{{ $row->settlement_id ? '' : ' current' }}">{{ $row->_settlementLabel ?? 'Current (Unsettled)' }}</span></td>
@@ -1142,7 +1142,7 @@
                                 <div class="donation-detail-grid">
                                     <div><span class="ddl">Amount</span><span class="ddv fw-bold">{{ $temple['currency'] ?? '' }} {{ number_format($row->amount, 2) }}</span></div>
                                     <div><span class="ddl">Status</span><span class="ddv"><span class="status-pill status-{{ strtolower($row->payment_status) }}">{{ $row->payment_status === 'Paid' ? 'Completed' : $row->payment_status }}</span></span></div>
-                                    <div><span class="ddl">Payment Method</span><span class="ddv">{{ $row->payment_method }}@if($row->_eftProvider) · {{ $row->_eftProvider }}@if($row->_eftTerminalLabel) ({{ $row->_eftTerminalLabel }})@endif @endif</span></div>
+                                    <div><span class="ddl">Payment Method</span><span class="ddv">{{ $row->payment_method ?? 'Not selected (Pledge)' }}@if($row->_eftProvider) · {{ $row->_eftProvider }}@if($row->_eftTerminalLabel) ({{ $row->_eftTerminalLabel }})@endif @endif</span></div>
                                     <div><span class="ddl">Date &amp; Time</span><span class="ddv">{{ date('d M Y, g:i A', strtotime($row->created_at)) }}</span></div>
                                     <div><span class="ddl">Settlement</span><span class="ddv">{{ $row->_settlementLabel ?? 'Current (Unsettled)' }}</span></div>
                                     @if($row->mobile || $row->email)
@@ -1336,7 +1336,18 @@
                             </div>
 
                             <div class="section-title"><span class="icon-badge-sm"><i class="bi bi-credit-card-fill"></i></span>Payment Details</div>
-                            <div class="field-row two-col">
+                            <div class="field-row">
+                                <div class="field-group">
+                                    <label class="field-label">Status</label>
+                                    <i class="bi bi-check2-circle field-icon"></i>
+                                    <select id="qePaymentStatus">
+                                        <option value="Pending" selected>Pending</option>
+                                        <option value="Paid">Completed</option>
+                                        <option value="Pledge">Pledge (no payment yet)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="field-row two-col" id="qePaymentMethodRow">
                                 <div class="field-group">
                                     <label class="field-label">Payment Method</label>
                                     <i class="bi bi-wallet2 field-icon"></i>
@@ -1348,16 +1359,12 @@
                                     <input type="text" id="qeTransactionId" placeholder="Transaction / cheque no.">
                                 </div>
                             </div>
-                            <div class="field-row">
-                                <div class="field-group">
-                                    <label class="field-label">Status</label>
-                                    <i class="bi bi-check2-circle field-icon"></i>
-                                    <select id="qePaymentStatus">
-                                        <option value="Pending" selected>Pending</option>
-                                        <option value="Paid">Completed</option>
-                                    </select>
-                                </div>
-                            </div>
+                            {{-- A pledge is just the donor's promise to pay later — no method
+                                 chosen yet, so the field above is hidden rather than asking the
+                                 operator to pick one that doesn't apply. --}}
+                            <p class="text-muted small" id="qePledgeHint" style="display:none; margin-top:-6px;">
+                                <i class="bi bi-info-circle me-1"></i>No payment method needed for a pledge — it can be added later once the donor pays.
+                            </p>
 
                             <div class="form-actions">
                                 <button type="button" class="btn-reset" id="qeResetBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
@@ -2058,8 +2065,11 @@
                             <div class="row g-3 mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Mode</label>
-                                    <select name="payment_mode" class="form-select rounded-3" required>
-                                        @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Terminal', 'Stripe'] as $mode)
+                                    <select name="payment_mode" class="form-select rounded-3">
+                                        {{-- Blank only ever pre-selected for a Pledge still awaiting a method —
+                                             picking any real option here is required unless Payment Status stays Pledge. --}}
+                                        <option value="" {{ $row->payment_method === null ? 'selected' : '' }}>Not selected (Pledge)</option>
+                                        @foreach(['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'EFT Terminal', 'EFT Manual', 'Stripe'] as $mode)
                                             <option value="{{ $mode }}" {{ $row->payment_method === $mode ? 'selected' : '' }}>{{ $mode }}</option>
                                         @endforeach
                                     </select>
@@ -2067,7 +2077,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Status</label>
                                     <select name="payment_status" class="form-select rounded-3" required>
-                                        @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
+                                        @foreach(['Paid', 'Pending', 'Pledge', 'Cancelled', 'Failed'] as $status)
                                             <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
                                         @endforeach
                                     </select>
@@ -2164,8 +2174,11 @@
                             <div class="row g-3 mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Method</label>
-                                    <select name="payment_method" class="form-select rounded-3" required>
-                                        @foreach(['Cash', 'UPI', 'Bank', 'EFT Terminal', 'Stripe'] as $method)
+                                    <select name="payment_method" class="form-select rounded-3">
+                                        {{-- Blank only ever pre-selected for a Pledge still awaiting a method —
+                                             picking any real option here is required unless Payment Status stays Pledge. --}}
+                                        <option value="" {{ $row->payment_method === null ? 'selected' : '' }}>Not selected (Pledge)</option>
+                                        @foreach(['Cash', 'UPI', 'Bank', 'EFT Terminal', 'EFT Manual', 'Stripe'] as $method)
                                             <option value="{{ $method }}" {{ $row->payment_method === $method ? 'selected' : '' }}>{{ $method }}</option>
                                         @endforeach
                                     </select>
@@ -2173,7 +2186,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Status</label>
                                     <select name="payment_status" class="form-select rounded-3" required>
-                                        @foreach(['Paid', 'Pending', 'Cancelled', 'Failed'] as $status)
+                                        @foreach(['Paid', 'Pending', 'Pledge', 'Cancelled', 'Failed'] as $status)
                                             <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
                                         @endforeach
                                     </select>
@@ -2908,6 +2921,16 @@
         const donationDateInput = document.getElementById('qeDonationDate');
         const donationDateDevoteeInput = document.getElementById('qeDonationDateDevotee');
         const paymentStatusSelect = document.getElementById('qePaymentStatus');
+        const paymentMethodRow = document.getElementById('qePaymentMethodRow');
+        const pledgeHint = document.getElementById('qePledgeHint');
+
+        function syncPledgeVisibility() {
+            const isPledge = paymentStatusSelect.value === 'Pledge';
+            paymentMethodRow.style.display = isPledge ? 'none' : '';
+            pledgeHint.style.display = isPledge ? '' : 'none';
+        }
+        paymentStatusSelect.addEventListener('change', syncPledgeVisibility);
+        syncPledgeVisibility();
 
         function resetQuickEntry() {
             devoteeSearch.value = '';
@@ -2935,6 +2958,7 @@
             donationDateInput.value = today;
             donationDateDevoteeInput.value = today;
             paymentStatusSelect.value = 'Pending';
+            syncPledgeVisibility();
             selections = [];
             purposeValue = 'Event Donation';
         }
@@ -2954,6 +2978,7 @@
             body.set('transaction_id', document.getElementById('qeTransactionId').value);
             body.set('selections_json', JSON.stringify(selections));
             body.set('payment_status', paymentStatusSelect.value);
+            const isPledge = paymentStatusSelect.value === 'Pledge';
 
             let url;
             if (qeMode === 'devotee') {
@@ -2961,8 +2986,9 @@
                 url = STORE_DEVOTEE_URL;
                 body.set('devotee_id', devoteeIdInput.value);
                 body.set('donation_date', donationDateDevoteeInput.value || new Date().toISOString().slice(0, 10));
-                // Devotee donations only accept Cash/UPI/Bank Transfer/Cheque.
-                body.set('payment_mode', paymentSelect.value);
+                // Devotee donations only accept Cash/UPI/Bank Transfer/Cheque — not sent at
+                // all for a pledge, since no method has been chosen yet.
+                if (!isPledge) { body.set('payment_mode', paymentSelect.value); }
                 body.set('purpose', purposeValue);
                 body.set('remarks', document.getElementById('qeDetails').value);
             } else {
@@ -2978,8 +3004,11 @@
                 body.set('email', guestEmail);
                 body.set('mobile', guestMobile);
                 // Guest donations only accept Cash/UPI/Bank — translate the shared payment
-                // method list's "Bank Transfer" label to the value this route actually accepts.
-                body.set('payment_method', paymentSelect.value === 'Bank Transfer' ? 'Bank' : paymentSelect.value);
+                // method list's "Bank Transfer" label to the value this route actually
+                // accepts. Not sent at all for a pledge, since no method has been chosen yet.
+                if (!isPledge) {
+                    body.set('payment_method', paymentSelect.value === 'Bank Transfer' ? 'Bank' : paymentSelect.value);
+                }
                 body.set('purpose', purposeValue);
                 body.set('purpose_details', document.getElementById('qeDetails').value);
             }
