@@ -148,10 +148,12 @@
 </style>
 
 @if($settlementFirst)
+    @include('admin.partials.cash-settlement-summary')
     @include('admin.partials.cash-settlement-settlement-form')
     @include('admin.partials.cash-settlement-transactions')
 @else
     @include('admin.partials.cash-settlement-transactions')
+    @include('admin.partials.cash-settlement-summary')
     @include('admin.partials.cash-settlement-settlement-form')
 @endif
 
