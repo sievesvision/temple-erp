@@ -786,6 +786,14 @@ class CbaSciController extends Controller
             // sci_transaction_id; this is the OTHER direction) — see Phase E's refund fix,
             // which needs this to cancel exactly this payment, not the whole donation.
             $txn->update(['donation_type' => 'guest', 'donation_id' => $editDonationId, 'donation_payment_id' => $payment->id]);
+            // wasRecentlyCreated: this method already guards against re-processing the same
+            // $txn via the "if ($txn->donation_id) return;" check above, but
+            // recordPayment()'s own idempotency (matching transaction_id) is a second,
+            // independent layer — only send the receipt if this call actually created the
+            // payment, not if it returned an already-existing one.
+            if ($payment->wasRecentlyCreated) {
+                \App\Services\DonationReceiptService::sendForInstallment('guest', $payment);
+            }
 
             return $editDonationId;
         }

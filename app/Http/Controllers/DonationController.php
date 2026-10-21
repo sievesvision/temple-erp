@@ -1441,7 +1441,7 @@ class DonationController extends Controller
         // CbaSciController::createRecordIfApprovedAndUnrecorded()'s identical note.
         if (!empty($meta['edit_donation_id'])) {
             $editDonationId = (int) $meta['edit_donation_id'];
-            DonationPaymentService::recordPayment('guest', $editDonationId, [
+            $payment = DonationPaymentService::recordPayment('guest', $editDonationId, [
                 'amount' => $txn->amount,
                 'payment_method' => 'EFT Terminal',
                 'payment_status' => 'Completed',
@@ -1449,6 +1449,13 @@ class DonationController extends Controller
                 'linkly_transaction_id' => $txn->id,
             ], true);
             $this->linkLedgerToDonation($sessionId, 'guest', $editDonationId);
+            // wasRecentlyCreated: recordPayment()'s own idempotency guard (matching
+            // transaction_id) can return an already-existing payment rather than a fresh
+            // one if this fallback and the browser's own completeGuestPendingPayment() call
+            // both ever reach here for the same approval — only send the receipt once.
+            if ($payment->wasRecentlyCreated) {
+                DonationReceiptService::sendForInstallment('guest', $payment);
+            }
 
             return $editDonationId;
         }
@@ -2446,7 +2453,7 @@ class DonationController extends Controller
         ]);
 
         try {
-            DonationPaymentService::recordPayment('guest', (int) $id, [
+            $payment = DonationPaymentService::recordPayment('guest', (int) $id, [
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => $validated['payment_status'],
@@ -2457,6 +2464,8 @@ class DonationController extends Controller
         } catch (\RuntimeException $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
+
+        DonationReceiptService::sendForInstallment('guest', $payment);
 
         AuditLogService::log(
             "Recorded a payment of {$validated['amount']} ({$validated['payment_method']}) against guest donation #{$id} ({$donation->donor_name})",
@@ -2494,7 +2503,7 @@ class DonationController extends Controller
         ]);
 
         try {
-            DonationPaymentService::recordPayment('devotee', (int) $id, [
+            $payment = DonationPaymentService::recordPayment('devotee', (int) $id, [
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => $validated['payment_status'],
@@ -2505,6 +2514,8 @@ class DonationController extends Controller
         } catch (\RuntimeException $e) {
             return redirect()->back()->with('error', $e->getMessage());
         }
+
+        DonationReceiptService::sendForInstallment('devotee', $payment);
 
         AuditLogService::log(
             "Recorded a payment of {$validated['amount']} ({$validated['payment_method']}) against devotee donation #{$id}",
@@ -2564,7 +2575,7 @@ class DonationController extends Controller
         }
 
         try {
-            DonationPaymentService::recordPayment('guest', (int) $id, [
+            $payment = DonationPaymentService::recordPayment('guest', (int) $id, [
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => $validated['payment_status'],
@@ -2576,6 +2587,12 @@ class DonationController extends Controller
         }
 
         $this->linkLedgerToDonation($linklySessionId, 'guest', (int) $id);
+        // wasRecentlyCreated — see createDonationIfApprovedPurchaseUnrecorded()'s identical
+        // note; Cash/Bank/UPI completions reach here too, but those never retry with the
+        // same transaction_id, so this only ever matters for the EFT/Linkly case.
+        if ($payment->wasRecentlyCreated) {
+            DonationReceiptService::sendForInstallment('guest', $payment);
+        }
 
         AuditLogService::log(
             "Recorded a payment of {$validated['amount']} ({$validated['payment_method']}) against guest donation #{$id} from the POS ({$donation->donor_name})",
@@ -2591,8 +2608,7 @@ class DonationController extends Controller
      * the Payment History table's own per-row action, for the case approveGuestDonation()/
      * approveDevoteeDonation() can't handle unambiguously (more than one payment pending on
      * the same donation). Works for either donation_type, since the payment row itself
-     * carries which table/id it belongs to. No receipt is sent here yet — see
-     * DonationReceiptService's own Phase F note in the Partial Pledge Payments plan.
+     * carries which table/id it belongs to.
      */
     public function confirmPayment($paymentId)
     {
@@ -2621,6 +2637,7 @@ class DonationController extends Controller
         $payment->payment_status = 'Completed';
         $payment->save();
         DonationPaymentService::recomputeParent($payment->donation_type, $payment->donation_id);
+        DonationReceiptService::sendForInstallment($payment->donation_type, $payment);
 
         AuditLogService::log(
             "Confirmed a payment of {$payment->amount} ({$payment->payment_method}) against {$payment->donation_type} donation #{$payment->donation_id}",

@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Mail\DonationPaymentReceiptMail;
 use App\Mail\DonationPendingMail;
 use App\Mail\DonationReceiptMail;
+use App\Models\DonationPayment;
 use App\Models\Event;
 use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
@@ -110,6 +112,111 @@ class DonationReceiptService
                 isDonorCopy: $isDonorCopy,
             );
         }, true);
+    }
+
+    /**
+     * Partial Pledge Payments: sent for one installment that does NOT, by itself, finish
+     * paying off the pledge — amount received this time, running total paid, and what's
+     * still outstanding. The payment that DOES bring the outstanding balance to zero keeps
+     * using send() (today's existing full receipt) instead — see sendForInstallment()
+     * below, the one place that decides which of the two a given payment gets.
+     */
+    public static function sendPaymentReceipt(array $payment): void
+    {
+        self::dispatch($payment, function (bool $isDonorCopy, ?string $eventName) use ($payment) {
+            return new DonationPaymentReceiptMail(
+                donorName: $payment['donor_name'] ?? 'Devotee',
+                amount: (float) ($payment['amount'] ?? 0),
+                currency: $payment['currency'] ?? Setting::get('currency_code', 'AUD'),
+                paymentMethod: $payment['payment_method'] ?? 'N/A',
+                purpose: $payment['purpose'] ?? null,
+                eventName: $eventName,
+                paymentDate: $payment['payment_date'] ?? now()->toDateString(),
+                transactionId: $payment['transaction_id'] ?? null,
+                pledgedAmount: (float) ($payment['pledged_amount'] ?? 0),
+                totalPaid: (float) ($payment['total_paid'] ?? 0),
+                outstandingBalance: (float) ($payment['outstanding_balance'] ?? 0),
+                receiptNumber: $payment['receipt_number'] ?? null,
+                isDonorCopy: $isDonorCopy,
+            );
+        }, true);
+    }
+
+    /**
+     * The one place that decides which email a just-confirmed installment gets — the full
+     * "fully paid" receipt (send(), unchanged) once it brings the outstanding balance to
+     * zero, or the new running-total sendPaymentReceipt() otherwise. Shared by every entry
+     * point that can confirm a payment against an existing pledge (admin portal Add
+     * Payment, POS completion, the per-payment Confirm action, and the EFT Terminal
+     * completion handlers in CbaSciController/DonationController) so none of them can drift
+     * on which email a donor gets. A non-Completed payment (still Pending) gets neither —
+     * sendPendingNotice() already covers that, called separately by whichever path records
+     * a Pending payment in the first place.
+     */
+    public static function sendForInstallment(string $donationType, DonationPayment $payment): void
+    {
+        if ($payment->payment_status !== 'Completed') {
+            return;
+        }
+
+        $table = $donationType === 'devotee' ? 'donations' : 'donations_without_logins';
+        if ($donationType === 'devotee') {
+            $donation = DB::table('donations')
+                ->join('devotees', 'donations.devotee_id', '=', 'devotees.devotee_id')
+                ->join('users', 'devotees.user_id', '=', 'users.id')
+                ->where('donations.id', $payment->donation_id)
+                ->select('donations.*', 'users.name as donor_name', 'users.email', 'users.mobile')
+                ->first();
+            $receiptPrefix = 'D';
+        } else {
+            $donation = DB::table($table)->where('id', $payment->donation_id)->first();
+            $receiptPrefix = 'G';
+        }
+        // Checked before touching any field on $donation — a devotee donation whose
+        // devotee/user record can't be joined (deleted account, bad data, or simply no
+        // devotee_id, as a synthetic/test row might have) must not crash the whole request
+        // over an email that was always best-effort anyway.
+        if (!$donation) {
+            return;
+        }
+        $purpose = $donationType === 'devotee'
+            ? ($donation->remarks ?: ($donation->purpose ?? null))
+            : ($donation->purpose_details ?? ($donation->purpose ?? null));
+
+        $totalPaid = DonationPaymentService::totalPaid($donationType, $payment->donation_id);
+        $outstanding = DonationPaymentService::outstandingBalance($donationType, $payment->donation_id);
+
+        if ($outstanding <= 0.004) {
+            self::send([
+                'donor_name' => $donation->donor_name,
+                'donor_email' => $donation->email,
+                'donor_mobile' => $donation->mobile,
+                'amount' => $donation->amount,
+                'payment_method' => $donation->payment_method,
+                'purpose' => $purpose,
+                'event_id' => $donation->event_id,
+                'donation_date' => $donation->donation_date,
+                'transaction_id' => $payment->transaction_id,
+                'receipt_number' => self::receiptNumber($receiptPrefix, $payment->donation_id),
+            ]);
+            return;
+        }
+
+        self::sendPaymentReceipt([
+            'donor_name' => $donation->donor_name,
+            'donor_email' => $donation->email,
+            'donor_mobile' => $donation->mobile,
+            'amount' => $payment->amount,
+            'payment_method' => $payment->payment_method,
+            'purpose' => $purpose,
+            'event_id' => $donation->event_id,
+            'payment_date' => $payment->received_at ? $payment->received_at->toDateString() : now()->toDateString(),
+            'transaction_id' => $payment->transaction_id,
+            'pledged_amount' => $donation->amount,
+            'total_paid' => $totalPaid,
+            'outstanding_balance' => $outstanding,
+            'receipt_number' => self::receiptNumber($receiptPrefix, $payment->donation_id) . '-' . $payment->id,
+        ]);
     }
 
     /**
