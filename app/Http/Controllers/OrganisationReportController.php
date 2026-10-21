@@ -462,11 +462,35 @@ class OrganisationReportController extends Controller
                 $byChannel[$row->k] = ($byChannel[$row->k] ?? 0) + (float) $row->total;
             }
 
-            foreach ($this->filteredQuery($table, $meta, $filters)->where('payment_status', 'Paid')
-                ->selectRaw("payment_method as k, SUM({$amountCol}) as total")
-                ->groupBy('k')->get() as $row) {
-                $label = in_array($row->k, ['Bank', 'Bank Transfer'], true) ? 'Bank Transfer' : $row->k;
-                $byMethod[$label] = ($byMethod[$label] ?? 0) + (float) $row->total;
+            // Partial Pledge Payments: for donations/guest donations, this ONE breakdown
+            // explodes from the real donation_payments ledger instead of the parent row's
+            // own payment_method — a pledge paid across several methods/installments is
+            // divided correctly here instead of bucketed under 'Split'. filteredQuery()'s
+            // own event/date-range/channel/status filtering is reused unchanged to decide
+            // WHICH donations are in scope; only the grouped total pivots to their real
+            // payments. Every other aggregation in this method (by channel, by status
+            // count, by event) keeps reading the parent row directly — their totals are
+            // already correct even for a split donation (status/channel are genuinely
+            // donation-level facts, and a fully-paid split donation already mirrors
+            // payment_status='Paid' and its full pledged amount once).
+            if ($table === 'ticket_orders') {
+                foreach ($this->filteredQuery($table, $meta, $filters)->where('payment_status', 'Paid')
+                    ->selectRaw("payment_method as k, SUM({$amountCol}) as total")
+                    ->groupBy('k')->get() as $row) {
+                    $label = in_array($row->k, ['Bank', 'Bank Transfer'], true) ? 'Bank Transfer' : $row->k;
+                    $byMethod[$label] = ($byMethod[$label] ?? 0) + (float) $row->total;
+                }
+            } else {
+                $donationType = $table === 'donations' ? 'devotee' : 'guest';
+                $paidIds = $this->filteredQuery($table, $meta, $filters)->where('payment_status', 'Paid')->pluck('id');
+                foreach (DB::table('donation_payments')
+                    ->where('donation_type', $donationType)->whereIn('donation_id', $paidIds)
+                    ->where('payment_status', 'Completed')
+                    ->selectRaw('payment_method as k, SUM(amount) as total')
+                    ->groupBy('k')->get() as $row) {
+                    $label = in_array($row->k, ['Bank', 'Bank Transfer'], true) ? 'Bank Transfer' : $row->k;
+                    $byMethod[$label] = ($byMethod[$label] ?? 0) + (float) $row->total;
+                }
             }
 
             foreach ($this->filteredQuery($table, $meta, $filters)

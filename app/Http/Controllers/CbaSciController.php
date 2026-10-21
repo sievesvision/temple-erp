@@ -14,6 +14,7 @@ use App\Services\TicketControllerLevel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Pairing actions for CBA Smart Terminal (mx51 Simple Cloud Integration) terminals —
@@ -571,6 +572,9 @@ class CbaSciController extends Controller
                 'eft_terminal_id' => $terminal->id,
                 'donation_type' => $original->donation_type,
                 'donation_id' => $original->donation_id,
+                // Carried over so markDonationCancelledIfRefundJustApproved() can cancel
+                // exactly the payment this refund is for, not the whole donation.
+                'donation_payment_id' => $original->donation_payment_id,
                 'original_transaction_id' => $original->id,
                 'txn_type' => 'refund',
                 'amount' => $validated['amount'],
@@ -684,10 +688,17 @@ class CbaSciController extends Controller
     /**
      * Marks the underlying donation/order row 'Cancelled' once a refund transaction is
      * confirmed approved — exact mirror of DonationController::
-     * markDonationCancelledIfRefundJustApproved(), including reusing the existing
-     * 'Cancelled' status rather than inventing a new 'Refunded' one (see that method's own
-     * docblock for why). Called from poll() right after the row is updated with mx51's
-     * latest result, so the temple's own totals stop counting it without a separate step.
+     * markDonationCancelledIfRefundJustApproved(). Called from poll() right after the row
+     * is updated with mx51's latest result, so the temple's own totals stop counting it
+     * without a separate step.
+     *
+     * Partial Pledge Payments: for a devotee/guest donation, this now cancels only the ONE
+     * donation_payments row this refund is actually for (via donation_payment_id, carried
+     * over from the original purchase in refund() above) rather than blanket-cancelling the
+     * whole donation — a pledge paid in several installments must not lose its OTHER
+     * installments just because one of them was refunded. Falls back to the old
+     * whole-row update for ticket_order/pooja_booking (no ledger concept there) or the rare
+     * case donation_payment_id is still null (a transaction from before this anchor existed).
      */
     private function markDonationCancelledIfRefundJustApproved(SciTransaction $txn): void
     {
@@ -698,11 +709,22 @@ class CbaSciController extends Controller
             return;
         }
 
+        if (in_array($txn->donation_type, ['devotee', 'guest'], true) && $txn->donation_payment_id) {
+            $payment = \App\Models\DonationPayment::find($txn->donation_payment_id);
+            if ($payment) {
+                \App\Services\DonationPaymentService::cancelPayment($payment, 'Refunded');
+                return;
+            }
+        }
+
         $table = match ($txn->donation_type) {
             'devotee' => 'donations',
             'ticket_order' => 'ticket_orders',
             default => 'donations_without_logins',
         };
+        if (in_array($txn->donation_type, ['devotee', 'guest'], true)) {
+            Log::warning("CbaSci refund approved for {$txn->donation_type}:{$txn->donation_id} with no donation_payment_id anchor — falling back to cancelling the whole donation row.");
+        }
         DB::table($table)->where('id', $txn->donation_id)->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
     }
 
@@ -753,14 +775,17 @@ class CbaSciController extends Controller
         // real payment, which is worse than allowing the overage.
         if (!empty($meta['edit_donation_id'])) {
             $editDonationId = (int) $meta['edit_donation_id'];
-            \App\Services\DonationPaymentService::recordPayment('guest', $editDonationId, [
+            $payment = \App\Services\DonationPaymentService::recordPayment('guest', $editDonationId, [
                 'amount' => $txn->amount,
                 'payment_method' => 'EFT Terminal',
                 'payment_status' => 'Completed',
                 'transaction_id' => $transactionRef,
                 'sci_transaction_id' => $txn->id,
             ], true);
-            $txn->update(['donation_type' => 'guest', 'donation_id' => $editDonationId]);
+            // Reverse link (donation_payments -> sci_transactions already set above via
+            // sci_transaction_id; this is the OTHER direction) — see Phase E's refund fix,
+            // which needs this to cancel exactly this payment, not the whole donation.
+            $txn->update(['donation_type' => 'guest', 'donation_id' => $editDonationId, 'donation_payment_id' => $payment->id]);
 
             return $editDonationId;
         }
@@ -787,7 +812,10 @@ class CbaSciController extends Controller
             'transaction_id' => $transactionRef,
             'donation_date' => now()->toDateString(),
         ]);
-        $txn->update(['donation_type' => 'guest', 'donation_id' => $donationId]);
+        // Reverse link — see the edit_donation_id branch's identical note above. A brand
+        // new donation has exactly one payment, created moments ago in this same request.
+        $freshPayment = \App\Models\DonationPayment::where('donation_type', 'guest')->where('donation_id', $donationId)->latest('id')->first();
+        $txn->update(['donation_type' => 'guest', 'donation_id' => $donationId, 'donation_payment_id' => $freshPayment?->id]);
 
         return $donationId;
     }

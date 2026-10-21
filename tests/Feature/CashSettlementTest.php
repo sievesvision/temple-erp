@@ -31,6 +31,12 @@ class CashSettlementTest extends TestCase
         ]);
     }
 
+    /**
+     * Partial Pledge Payments: CashSettlementService's cash-reconciliation methods now
+     * explode from donation_payments, not this row's own flattened payment_method — this
+     * helper must create the matching ledger row too (same as the app's own
+     * insertGuestDonationRecord() does for a real Paid donation).
+     */
     private function insertGuestDonation(int $eventId, float $amount, string $method, string $date, ?int $optionId = null): int
     {
         $donationId = DB::table('donations_without_logins')->insertGetId([
@@ -40,10 +46,16 @@ class CashSettlementTest extends TestCase
             'amount' => $amount,
             'payment_method' => $method,
             'payment_status' => 'Paid',
+            'donation_status' => 'Completed',
             'donation_date' => $date,
             'purpose' => 'General',
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+        DB::table('donation_payments')->insert([
+            'donation_type' => 'guest', 'donation_id' => $donationId, 'amount' => $amount,
+            'payment_method' => $method, 'payment_status' => 'Completed',
+            'received_at' => $date, 'created_at' => now(), 'updated_at' => now(),
         ]);
 
         if ($optionId) {

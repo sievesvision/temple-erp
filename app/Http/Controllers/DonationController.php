@@ -1288,9 +1288,20 @@ class DonationController extends Controller
             return;
         }
 
+        // Partial Pledge Payments: the reverse link (donation_payments -> linkly_transactions
+        // already exists via DonationPaymentService::recordPayment()'s own
+        // linkly_transaction_id field; this is the OTHER direction) — needed so a later
+        // refund on this terminal transaction can cancel exactly the payment it paid for,
+        // not the whole donation. A no-op for 'ticket_order'/'pooja_booking' (no ledger
+        // concept there) since the lookup simply finds nothing. Safe to resolve "the latest
+        // payment for this donation" here — this always runs moments after that payment was
+        // just created in this same request.
+        $payment = \App\Models\DonationPayment::where('donation_type', $donationType)->where('donation_id', $donationId)->latest('id')->first();
+
         LinklyTransaction::where('linkly_session_id', $sessionId)->update([
             'donation_type' => $donationType,
             'donation_id' => $donationId,
+            'donation_payment_id' => $payment?->id,
         ]);
     }
 
@@ -1573,6 +1584,9 @@ class DonationController extends Controller
                 'eft_terminal_id' => $terminal->id,
                 'donation_type' => $original->donation_type,
                 'donation_id' => $original->donation_id,
+                // Carried over so markDonationCancelledIfRefundJustApproved() can cancel
+                // exactly the payment this refund is for, not the whole donation.
+                'donation_payment_id' => $original->donation_payment_id,
                 'amount' => $validated['amount'],
                 'currency_code' => $original->currency_code,
                 'status' => 'initiated',
@@ -1609,11 +1623,25 @@ class DonationController extends Controller
             return;
         }
 
+        // Partial Pledge Payments: see CbaSciController::markDonationCancelledIfRefundJustApproved()'s
+        // identical note — cancel only the ONE payment this refund is for, not the whole
+        // donation, so a pledge paid in several installments keeps its OTHER ones intact.
+        if (in_array($txn->donation_type, ['devotee', 'guest'], true) && $txn->donation_payment_id) {
+            $payment = \App\Models\DonationPayment::find($txn->donation_payment_id);
+            if ($payment) {
+                \App\Services\DonationPaymentService::cancelPayment($payment, 'Refunded');
+                return;
+            }
+        }
+
         $table = match ($txn->donation_type) {
             'devotee' => 'donations',
             'ticket_order' => 'ticket_orders',
             default => 'donations_without_logins',
         };
+        if (in_array($txn->donation_type, ['devotee', 'guest'], true)) {
+            Log::warning("Linkly refund approved for {$txn->donation_type}:{$txn->donation_id} with no donation_payment_id anchor — falling back to cancelling the whole donation row.");
+        }
         DB::table($table)->where('id', $txn->donation_id)->update(['payment_status' => 'Cancelled', 'updated_at' => now()]);
     }
 
@@ -1917,7 +1945,7 @@ class DonationController extends Controller
             'event_id' => 'nullable|exists:events,event_id',
             'amount' => 'required|numeric|min:1',
             'payment_mode' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank Transfer,Cheque,EFT Terminal,EFT Manual,Stripe',
-            'payment_status' => 'required|string|in:Paid,Pending,Partially Paid,Pledge,Cancelled,Failed',
+            'payment_status' => 'required|string|in:Paid,Pending,Partially Paid,Pledge,Cancelled,Failed,Refunded',
             'transaction_id' => 'nullable|string|max:100',
             'purpose' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:2000',
@@ -2066,7 +2094,7 @@ class DonationController extends Controller
             'purpose' => 'required|string|max:100',
             'purpose_details' => 'nullable|string|max:2000',
             'payment_method' => 'required_unless:payment_status,Pledge|nullable|string|in:Cash,UPI,Bank,EFT Terminal,EFT Manual,Stripe',
-            'payment_status' => 'required|string|in:Paid,Pending,Partially Paid,Pledge,Cancelled,Failed',
+            'payment_status' => 'required|string|in:Paid,Pending,Partially Paid,Pledge,Cancelled,Failed,Refunded',
             'transaction_id' => 'nullable|string|max:100',
             'donation_date' => 'required|date',
             // Set only when this update is completing a Pending donation via the EFT

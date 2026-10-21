@@ -28,13 +28,28 @@ class CashSettlementSummaryTest extends TestCase
         ]);
     }
 
+    /**
+     * Partial Pledge Payments: CashSettlementService::paymentMethodBreakdown() now explodes
+     * from donation_payments, not the donation row's own flattened column — this helper
+     * must create a matching ledger row too (same as DonationController::
+     * insertGuestDonationRecord() does for the app's own real insert paths), or the
+     * Settlement Summary would see zero payments for a raw-inserted test fixture.
+     */
     private function insertGuestDonation(int $eventId, string $donorName, float $amount, string $method, string $status): int
     {
-        return DB::table('donations_without_logins')->insertGetId([
+        $donationId = DB::table('donations_without_logins')->insertGetId([
             'event_id' => $eventId, 'donor_name' => $donorName, 'amount' => $amount,
-            'payment_method' => $method, 'payment_status' => $status, 'purpose' => 'General',
-            'donation_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
+            'payment_method' => $method, 'payment_status' => $status,
+            'donation_status' => $status === 'Paid' ? 'Completed' : ($status === 'Cancelled' ? 'Cancelled' : 'Pending'),
+            'purpose' => 'General', 'donation_date' => now()->toDateString(), 'created_at' => now(), 'updated_at' => now(),
         ]);
+        DB::table('donation_payments')->insert([
+            'donation_type' => 'guest', 'donation_id' => $donationId, 'amount' => $amount,
+            'payment_method' => $method, 'payment_status' => $status === 'Paid' ? 'Completed' : $status,
+            'received_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $donationId;
     }
 
     public function test_total_received_sums_paid_rows_across_every_payment_method(): void

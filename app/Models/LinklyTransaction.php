@@ -21,6 +21,7 @@ class LinklyTransaction extends Model
         'eft_terminal_id',
         'donation_type',
         'donation_id',
+        'donation_payment_id',
         'amount',
         'currency_code',
         'status',

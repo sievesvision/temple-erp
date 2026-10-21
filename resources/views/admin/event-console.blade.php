@@ -2293,7 +2293,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Status</label>
                                     <select name="payment_status" class="form-select rounded-3" required>
-                                        @foreach(['Paid', 'Pending', 'Partially Paid', 'Pledge', 'Cancelled', 'Failed'] as $status)
+                                        @foreach(['Paid', 'Pending', 'Partially Paid', 'Pledge', 'Cancelled', 'Failed', 'Refunded'] as $status)
                                             <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
                                         @endforeach
                                     </select>
@@ -2406,7 +2406,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Payment Status</label>
                                     <select name="payment_status" class="form-select rounded-3" required>
-                                        @foreach(['Paid', 'Pending', 'Partially Paid', 'Pledge', 'Cancelled', 'Failed'] as $status)
+                                        @foreach(['Paid', 'Pending', 'Partially Paid', 'Pledge', 'Cancelled', 'Failed', 'Refunded'] as $status)
                                             <option value="{{ $status }}" {{ $row->payment_status === $status ? 'selected' : '' }}>{{ $status }}</option>
                                         @endforeach
                                     </select>

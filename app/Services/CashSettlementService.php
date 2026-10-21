@@ -162,30 +162,107 @@ class CashSettlementService
         return self::ticketsCashBreakdown($claimedKeys);
     }
 
-    private static function eventCashBreakdown(int $eventId, array $claimedKeys): array
+    /**
+     * Partial Pledge Payments: every Completed `donation_payments` row belonging to this
+     * event's own donations, not yet claimed at the PAYMENT level (separate from — and in
+     * addition to — the existing donation-level claiming; see run()'s own note on why both
+     * granularities are needed). This is what eventCashBreakdown()/paymentMethodBreakdown()
+     * explode from instead of the donation row's own single flattened payment_method, so a
+     * pledge paid across several methods/installments counts correctly no matter what its
+     * own `donation_status` currently is.
+     */
+    private static function eventCompletedPayments(int $eventId, array $claimedKeys): \Illuminate\Support\Collection
     {
         $data = EventDonationBreakdown::forEvent($eventId);
-        $options = $data['options'];
-        $cashRows = $data['rows']
-            ->filter(fn ($r) => $r->payment_method === 'Cash' && $r->payment_status === 'Paid')
-            ->filter(fn ($r) => !isset($claimedKeys[$r->donation_type . ':' . $r->id]));
+        $donationsById = $data['rows']->keyBy(fn ($r) => $r->donation_type . ':' . $r->id);
+        $devoteeIds = $data['rows']->where('donation_type', 'devotee')->pluck('id');
+        $guestIds = $data['rows']->where('donation_type', 'guest')->pluck('id');
+
+        return DB::table('donation_payments')
+            ->where('payment_status', 'Completed')
+            ->where(function ($q) use ($devoteeIds, $guestIds) {
+                $q->where(fn ($q2) => $q2->where('donation_type', 'devotee')->whereIn('donation_id', $devoteeIds))
+                    ->orWhere(fn ($q2) => $q2->where('donation_type', 'guest')->whereIn('donation_id', $guestIds));
+            })
+            ->get()
+            ->filter(fn ($p) => !isset($claimedKeys['payment:' . $p->id]))
+            ->map(function ($p) use ($donationsById) {
+                $p->donation = $donationsById[$p->donation_type . ':' . $p->donation_id] ?? null;
+                return $p;
+            })
+            ->filter(fn ($p) => $p->donation !== null)
+            ->values();
+    }
+
+    /**
+     * Splits a set of payments' amounts across this event's own donation options, scaled
+     * per payment by (this payment's amount / its donation's full pledged amount) — reduces
+     * to exactly today's figure when a donation's one payment covers its whole amount, and
+     * gives a defensible best-effort split when a donation was paid in several
+     * installments (matches this breakdown's own long-standing "informational only, not
+     * the actionable number" framing — see the class docblock).
+     */
+    private static function explodeByOption(\Illuminate\Support\Collection $payments, \Illuminate\Support\Collection $options): array
+    {
+        $byOptionLabel = [];
+        $otherTotal = 0.0;
+        $total = 0.0;
+        foreach ($payments as $p) {
+            $donation = $p->donation;
+            $amount = (float) $p->amount;
+            $total += $amount;
+            $scale = $donation->amount > 0 ? $amount / $donation->amount : 0;
+            foreach ($options as $opt) {
+                $optAmt = ($donation->option_amounts[$opt->id] ?? 0) * $scale;
+                if ($optAmt > 0) {
+                    $byOptionLabel[$opt->label] = ($byOptionLabel[$opt->label] ?? 0) + $optAmt;
+                }
+            }
+            $otherTotal += ($donation->other_amount ?? 0) * $scale;
+        }
 
         $breakdown = [];
-        $total = 0.0;
         foreach ($options as $opt) {
-            $amt = (float) $cashRows->sum(fn ($r) => $r->option_amounts[$opt->id] ?? 0);
-            if ($amt > 0) {
-                $breakdown[] = ['label' => $opt->label, 'cash_received' => round($amt, 2)];
+            if (!empty($byOptionLabel[$opt->label])) {
+                $breakdown[] = ['label' => $opt->label, 'cash_received' => round($byOptionLabel[$opt->label], 2)];
             }
-            $total += $amt;
         }
-        $otherAmt = (float) $cashRows->sum('other_amount');
-        if ($otherAmt > 0) {
-            $breakdown[] = ['label' => 'Other', 'cash_received' => round($otherAmt, 2)];
+        if ($otherTotal > 0.0) {
+            $breakdown[] = ['label' => 'Other', 'cash_received' => round($otherTotal, 2)];
         }
-        $total += $otherAmt;
 
         return ['total' => round($total, 2), 'breakdown' => $breakdown];
+    }
+
+    private static function eventCashBreakdown(int $eventId, array $claimedKeys): array
+    {
+        $options = EventDonationBreakdown::forEvent($eventId)['options'];
+        $cashPayments = self::eventCompletedPayments($eventId, $claimedKeys)
+            ->filter(fn ($p) => $p->payment_method === 'Cash');
+
+        return self::explodeByOption($cashPayments, $options);
+    }
+
+    /**
+     * All payment methods (not just Cash) received this period — what the Settlement
+     * Summary's "Received by Payment Type" tiles use, so a split-method pledge shows its
+     * real per-method amounts instead of being lumped under its parent's 'Split' mirror.
+     * Event scope only — tickets scope has no pledge/ledger concept, so callers keep using
+     * `$currentTransactions` directly for that scope exactly as before.
+     */
+    public static function paymentMethodBreakdown(string $scope, ?int $eventId): array
+    {
+        if ($scope !== 'event' || !$eventId) {
+            return ['total' => 0.0, 'by_method' => []];
+        }
+
+        $claimedKeys = self::claimedTransactionKeys($scope, $eventId);
+        $payments = self::eventCompletedPayments($eventId, $claimedKeys);
+        $byMethod = $payments->groupBy(fn ($p) => $p->payment_method ?: 'Unknown')
+            ->map(fn ($rows) => round((float) $rows->sum('amount'), 2))
+            ->sortDesc();
+
+        return ['total' => round((float) $byMethod->sum(), 2), 'by_method' => $byMethod->all()];
     }
 
     private static function ticketsCashBreakdown(array $claimedKeys): array
@@ -207,14 +284,20 @@ class CashSettlementService
     }
 
     /**
-     * The individual Paid/Pending transactions NOT YET claimed by any settlement — any
-     * payment method (Cancelled/Failed never show). Event scope returns devotee + guest
-     * donation rows (normalized by EventDonationBreakdown, same shape the console's own All
-     * Transactions pane uses, so the exact same edit routes — admin.donations.
-     * updateDevotee/updateGuest — work unchanged here); tickets scope returns ticket_orders
-     * rows (no edit route exists for those yet, so the pane only ever shows them read-only).
-     * The till-count figures themselves (cashReceivedBreakdown()/preview()) stay Cash-only
-     * and are computed separately — this is for review.
+     * The individual Paid/Pending/Partially Paid transactions NOT YET claimed by any
+     * settlement — any payment method (Cancelled/Failed never show). Event scope returns
+     * devotee + guest donation rows (normalized by EventDonationBreakdown, same shape the
+     * console's own All Transactions pane uses, so the exact same edit routes — admin.
+     * donations.updateDevotee/updateGuest — work unchanged here); tickets scope returns
+     * ticket_orders rows (no edit route exists for those yet, so the pane only ever shows
+     * them read-only). The till-count figures themselves (cashReceivedBreakdown()/
+     * preview()) stay Cash-only and are computed separately — this is for review.
+     *
+     * Partial Pledge Payments: 'Partially Paid' included so a pledge still being paid off
+     * in installments is finally visible here at all (it was silently excluded before —
+     * not just miscounted) — but a Partially Paid row is never actually claimed when a
+     * settlement runs (see run()'s own note), so it correctly keeps reappearing every
+     * period for as long as it still has an outstanding balance.
      */
     public static function currentPeriodTransactions(string $scope, ?int $eventId): \Illuminate\Support\Collection
     {
@@ -223,7 +306,7 @@ class CashSettlementService
         if ($scope === 'event') {
             $data = EventDonationBreakdown::forEvent((int) $eventId);
             return $data['rows']
-                ->filter(fn ($r) => in_array($r->payment_status, ['Paid', 'Pending'], true))
+                ->filter(fn ($r) => in_array($r->payment_status, ['Paid', 'Pending', 'Partially Paid'], true))
                 ->filter(fn ($r) => !isset($claimedKeys[$r->donation_type . ':' . $r->id]))
                 ->values();
         }
@@ -363,8 +446,16 @@ class CashSettlementService
         // need to re-derive "was this in this settlement's period" from a date or a
         // `timestamp` column's one-second resolution — see claimedTransactionKeys()'s own
         // docblock for why that's unreliable.
+        //
+        // Partial Pledge Payments: a Partially Paid donation is deliberately NEVER given a
+        // donation-level ref — it must keep reappearing in every future
+        // currentPeriodTransactions() review until it's actually resolved, not vanish
+        // after its first installment. Its Completed payment(s) still get their own
+        // PAYMENT-level ref below, so the money itself is never double-counted even though
+        // the donation as a whole stays "open."
         $claimedKeys = self::claimedTransactionKeys($scope, $eventId);
         $refs = self::currentPeriodTransactions($scope, $eventId)
+            ->filter(fn ($r) => $scope !== 'event' || ($r->donation_status ?? null) !== 'Partially Paid')
             ->map(fn ($r) => ['type' => $scope === 'event' ? $r->donation_type : 'ticket_order', 'id' => $r->id])
             ->values()->all();
         $unclaimedBankingIds = CashBanking::where('scope', $scope)->where('event_id', $eventId)->get(['id'])
@@ -372,6 +463,16 @@ class CashSettlementService
             ->pluck('id');
         foreach ($unclaimedBankingIds as $bankingId) {
             $refs[] = ['type' => 'banking', 'id' => $bankingId];
+        }
+        // Payment-level refs — every Completed payment (any method) for this event not yet
+        // claimed at the payment level. This is what eventCashBreakdown()/
+        // paymentMethodBreakdown() check against next time, so a Cash (or any-method)
+        // installment is counted exactly once, ever, independent of whether its donation
+        // is fully resolved. No equivalent for tickets scope (no ledger concept there).
+        if ($scope === 'event' && $eventId) {
+            foreach (self::eventCompletedPayments((int) $eventId, $claimedKeys) as $payment) {
+                $refs[] = ['type' => 'payment', 'id' => $payment->id];
+            }
         }
 
         return DB::transaction(function () use ($data, $performedBy, $tillCount, $amountBanked, $variance, $closing, $varianceNote, $scope, $eventId, $refs) {

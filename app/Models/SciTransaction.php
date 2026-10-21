@@ -21,6 +21,7 @@ class SciTransaction extends Model
         'eft_terminal_id',
         'donation_type',
         'donation_id',
+        'donation_payment_id',
         'original_transaction_id',
         'txn_type',
         'amount',
